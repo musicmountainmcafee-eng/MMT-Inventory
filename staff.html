@@ -18,13 +18,40 @@
     --text: #1a1a1a; --text-muted: #6b6b6b; --text-faint: #aaaaaa;
     --radius: 12px; --radius-sm: 8px;
   }
-  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem 1rem; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* PIN SCREEN */
+  .pin-screen { position: fixed; inset: 0; background: linear-gradient(135deg, #1a1a2e 0%, #3C3489 60%, #185FA5 100%); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+  .pin-card { background: white; border-radius: var(--radius); padding: 2rem; width: 300px; text-align: center; }
+  .pin-logo { width: 80px; margin: 0 auto 1rem; }
+  .pin-title { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+  .pin-subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 1.5rem; }
+  .pin-dots { display: flex; justify-content: center; gap: 12px; margin-bottom: 1.5rem; }
+  .pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--purple); background: transparent; transition: background 0.15s; }
+  .pin-dot.filled { background: var(--purple); }
+  .pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .pin-btn { padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg); font-size: 18px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.1s; }
+  .pin-btn:hover { background: var(--purple-light); border-color: var(--purple); }
+  .pin-btn:active { transform: scale(0.95); }
+  .pin-error { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 20px; }
+
+  /* MAIN */
+  .main { padding: 2rem 1rem; display: none; }
+  .main.visible { display: block; }
   .container { max-width: 1000px; margin: 0 auto; }
   .header { background: linear-gradient(135deg, #1a1a2e 0%, #3C3489 60%, #185FA5 100%); border-radius: var(--radius); padding: 1.75rem 2rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
   .header-left h1 { color: white; font-size: 1.5rem; font-weight: 600; }
   .header-left p { color: rgba(255,255,255,0.6); font-size: 13px; margin-top: 3px; }
+  .header-right { display: flex; gap: 8px; align-items: center; }
   .catalogue-link { font-size: 13px; color: rgba(255,255,255,0.7); text-decoration: none; padding: 6px 12px; border: 1px solid rgba(255,255,255,0.2); border-radius: var(--radius-sm); transition: all 0.15s; }
   .catalogue-link:hover { background: rgba(255,255,255,0.1); color: white; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 4px; margin-bottom: 1.5rem; }
+  .tab-btn { padding: 9px 18px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); transition: all 0.15s; }
+  .tab-btn.active { background: var(--purple); color: white; border-color: var(--purple); }
+  .tab-btn:hover:not(.active) { border-color: var(--purple); color: var(--purple); }
+
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
   .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.875rem 1rem; }
   .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
@@ -74,7 +101,7 @@
 
   /* ACTION MODAL */
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; backdrop-filter: blur(2px); }
-  .modal { background: var(--surface); border-radius: var(--radius); width: 100%; max-width: 460px; box-shadow: 0 24px 64px rgba(0,0,0,0.2); animation: slideUp 0.2s ease; overflow: hidden; }
+  .modal { background: var(--surface); border-radius: var(--radius); width: 100%; max-width: 460px; box-shadow: 0 24px 64px rgba(0,0,0,0.2); animation: slideUp 0.2s ease; overflow: hidden; max-height: 90vh; overflow-y: auto; }
   @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
   .modal-header { padding: 1.25rem 1.5rem 0; display: flex; justify-content: space-between; align-items: center; }
   .modal-title { font-size: 16px; font-weight: 600; }
@@ -86,7 +113,7 @@
   .field label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
   .field input, .field select, .field textarea { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); outline: none; transition: border-color 0.15s; width: 100%; }
   .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--purple); background: white; }
-  .field textarea { resize: vertical; min-height: 80px; }
+  .field textarea { resize: vertical; min-height: 70px; }
   .field .required { color: var(--red); margin-left: 2px; }
   .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .modal-footer { padding: 0 1.5rem 1.5rem; display: flex; gap: 10px; }
@@ -111,15 +138,7 @@
   .panel-actions { display: flex; gap: 8px; margin-top: 1rem; }
   .panel-actions .btn { flex: 1; text-align: center; }
 
-  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: white; padding: 10px 20px; border-radius: 99px; font-size: 13px; font-weight: 500; z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none; white-space: nowrap; }
-  .toast.show { opacity: 1; }
-  .toast.error { background: var(--red); }
-  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: -2px; margin-right: 6px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .tab-btn { padding: 9px 18px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); transition: all 0.15s; }
-  .tab-btn.active { background: var(--purple); color: white; border-color: var(--purple); }
-  .tab-btn:hover:not(.active) { border-color: var(--purple); color: var(--purple); }
+  /* ADD ASSET */
   .add-form-wrap { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start; }
   @media (max-width: 768px) { .add-form-wrap { grid-template-columns: 1fr; } }
   .add-form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; }
@@ -129,74 +148,157 @@
   .photo-drop { border: 1.5px dashed var(--border); border-radius: var(--radius-sm); padding: 1.5rem; text-align: center; cursor: pointer; color: var(--text-faint); font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: all 0.15s; background: var(--bg); }
   .photo-drop:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-light); }
   .photo-drop.has-photo { border-color: var(--green); color: var(--green); background: var(--green-light); }
+
+  /* LABELS TAB */
+  .label-page { display: grid; grid-template-columns: 320px 1fr; gap: 1.5rem; align-items: start; }
+  @media (max-width: 768px) { .label-page { grid-template-columns: 1fr; } }
+  .label-sidebar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; position: sticky; top: 1rem; }
+  .label-sidebar h2 { font-size: 14px; font-weight: 600; margin-bottom: 1rem; }
+  .label-item-list { display: flex; flex-direction: column; gap: 6px; max-height: 400px; overflow-y: auto; margin-bottom: 1rem; }
+  .label-item-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; transition: all 0.1s; }
+  .label-item-row:hover { border-color: var(--purple); background: var(--purple-light); }
+  .label-item-row.selected { border-color: var(--purple); background: var(--purple-light); }
+  .label-item-row .cb { flex-shrink: 0; }
+  .label-item-name { flex: 1; font-weight: 500; }
+  .label-item-tag { font-size: 11px; color: var(--text-faint); font-family: 'DM Mono', monospace; }
+  .label-preview-area { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
+  .label-preview-area h2 { font-size: 14px; font-weight: 600; margin-bottom: 1rem; }
+  .label-grid-print { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+  .label-cell { height: 136px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .label-cell:nth-child(2n) { border-right: none; }
+  .label-cell:nth-last-child(-n+2) { border-bottom: none; }
+  .label-cell.empty { background: var(--bg); }
+  .lc-top { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px; }
+  .lc-logo { width: 32px; height: 32px; object-fit: contain; flex-shrink: 0; }
+  .lc-ids { flex: 1; }
+  .lc-tagid { font-size: 10px; font-family: 'DM Mono', monospace; color: var(--text); font-weight: 500; }
+  .lc-name { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.2; }
+  .lc-cat { font-size: 10px; color: var(--text-muted); }
+  .lc-divider { border: none; border-top: 0.5px solid var(--text); margin: 3px 0; }
+  .lc-loc-row { display: flex; gap: 3px; align-items: baseline; }
+  .lc-loc-label { font-size: 9px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+  .lc-loc { font-size: 10px; color: var(--text); }
+  .lc-notes { font-size: 9px; color: var(--text-muted); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .label-actions { display: flex; gap: 10px; margin-top: 1rem; }
+  .btn-print { background: var(--purple); color: white; flex: 1; text-align: center; }
+  .btn-print:hover { background: var(--purple-dark); }
+
+  /* PRINT STYLES */
+  @media print {
+    body * { visibility: hidden; }
+    .print-area, .print-area * { visibility: visible; }
+    .print-area { position: fixed; left: 0; top: 0; width: 100%; }
+    .label-grid-print { border: none; display: grid; grid-template-columns: 4in 4in; }
+    .label-cell { height: 2in; border: none; padding: 0.1in 0.15in; page-break-inside: avoid; }
+    .label-cell.empty { display: none; }
+  }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: white; padding: 10px 20px; border-radius: 99px; font-size: 13px; font-weight: 500; z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+  .toast.error { background: var(--red); }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
+
+<!-- PIN SCREEN -->
+<div class="pin-screen" id="pin-screen">
+  <div class="pin-card">
+    <img class="pin-logo" src="https://musicmountainmcafee-eng.github.io/MMT-Inventory/MMT_Logo.png" alt="MMT" />
+    <div class="pin-title">MMT Staff Portal</div>
+    <div class="pin-subtitle">Enter your PIN to continue</div>
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+    </div>
+    <div class="pin-pad">
+      <button class="pin-btn" onclick="pinPress('1')">1</button>
+      <button class="pin-btn" onclick="pinPress('2')">2</button>
+      <button class="pin-btn" onclick="pinPress('3')">3</button>
+      <button class="pin-btn" onclick="pinPress('4')">4</button>
+      <button class="pin-btn" onclick="pinPress('5')">5</button>
+      <button class="pin-btn" onclick="pinPress('6')">6</button>
+      <button class="pin-btn" onclick="pinPress('7')">7</button>
+      <button class="pin-btn" onclick="pinPress('8')">8</button>
+      <button class="pin-btn" onclick="pinPress('9')">9</button>
+      <button class="pin-btn" onclick="pinPress('clear')" style="font-size:13px;color:var(--red);">Clear</button>
+      <button class="pin-btn" onclick="pinPress('0')">0</button>
+      <button class="pin-btn" onclick="pinPress('back')" style="font-size:18px;">⌫</button>
+    </div>
+    <div class="pin-error" id="pin-error"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="main" id="main">
 <div class="container">
   <div class="header">
     <div class="header-left">
       <h1>MMT Staff Portal</h1>
       <p>Inventory management & check-in/out</p>
     </div>
-    <a href="https://mmtscenic.netlify.app" class="catalogue-link" target="_blank">Public catalogue ↗</a>
+    <div class="header-right">
+      <a href="https://musicmountainmcafee-eng.github.io/MMT-Inventory/" class="catalogue-link" target="_blank">Public catalogue ↗</a>
+    </div>
   </div>
 
-  <div style="display:flex;gap:4px;margin-bottom:1.5rem;">
+  <div class="tabs">
     <button class="tab-btn active" id="tab-inventory" onclick="switchTab('inventory')">
-      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
       Inventory
     </button>
     <button class="tab-btn" id="tab-add" onclick="switchTab('add')">
-      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px;"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
       Add new asset
+    </button>
+    <button class="tab-btn" id="tab-labels" onclick="switchTab('labels')">
+      Print labels
     </button>
   </div>
 
+  <!-- INVENTORY TAB -->
   <div id="page-inventory">
-  <div class="stats">
-    <div class="stat"><div class="stat-label">Total items</div><div class="stat-val purple" id="total-count">—</div></div>
-    <div class="stat"><div class="stat-label">Available</div><div class="stat-val green" id="avail-count">—</div></div>
-    <div class="stat"><div class="stat-label">Currently out</div><div class="stat-val blue" id="out-count">—</div></div>
-    <div class="stat"><div class="stat-label">Overdue</div><div class="stat-val red" id="overdue-count">—</div></div>
-  </div>
-
-  <div class="search-section">
-    <h2>Find items</h2>
-    <div class="search-row">
-      <div class="search-wrap">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input type="text" id="search" placeholder="Search by name, Asset ID, location..." oninput="render()" autofocus />
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Total items</div><div class="stat-val purple" id="total-count">—</div></div>
+      <div class="stat"><div class="stat-label">Available</div><div class="stat-val green" id="avail-count">—</div></div>
+      <div class="stat"><div class="stat-label">Currently out</div><div class="stat-val blue" id="out-count">—</div></div>
+      <div class="stat"><div class="stat-label">Overdue</div><div class="stat-val red" id="overdue-count">—</div></div>
+    </div>
+    <div class="search-section">
+      <h2>Find items</h2>
+      <div class="search-row">
+        <div class="search-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="search" placeholder="Search by name, Asset ID, location..." oninput="render()" autofocus />
+        </div>
+        <select class="filter-select" id="cat-filter" onchange="render()"><option value="">All categories</option></select>
+        <select class="filter-select" id="status-filter" onchange="render()">
+          <option value="">All statuses</option>
+          <option value="IN">In</option>
+          <option value="OUT">Out</option>
+        </select>
       </div>
-      <select class="filter-select" id="cat-filter" onchange="render()"><option value="">All categories</option></select>
-      <select class="filter-select" id="status-filter" onchange="render()">
-        <option value="">All statuses</option>
-        <option value="IN">In</option>
-        <option value="OUT">Out</option>
-      </select>
+    </div>
+    <div class="batch-bar hidden" id="batch-bar">
+      <span class="batch-count" id="batch-count">0 selected</span>
+      <span id="batch-actions"></span>
+      <button class="btn btn-clear" onclick="clearSelection()">Clear</button>
+    </div>
+    <div class="results-wrap">
+      <div class="select-all-row">
+        <input type="checkbox" class="cb" id="select-all" onchange="toggleSelectAll()" />
+        <label for="select-all" style="cursor:pointer;">Select all visible</label>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-faint);" id="result-count"></span>
+      </div>
+      <div class="results-header">
+        <div></div><div>Item</div><div>Location</div><div>Category</div><div>Status</div><div></div>
+      </div>
+      <div id="results"><div class="empty">Loading inventory...</div></div>
     </div>
   </div>
 
-  <div class="batch-bar hidden" id="batch-bar">
-    <span class="batch-count" id="batch-count">0 selected</span>
-    <span id="batch-actions"></span>
-    <button class="btn btn-clear" onclick="clearSelection()">Clear</button>
-  </div>
-
-  <div class="results-wrap">
-    <div class="select-all-row">
-      <input type="checkbox" class="cb" id="select-all" onchange="toggleSelectAll()" />
-      <label for="select-all" style="cursor:pointer;">Select all visible</label>
-      <span style="margin-left:auto;font-size:12px;color:var(--text-faint);" id="result-count"></span>
-    </div>
-    <div class="results-header">
-      <div></div><div>Item</div><div>Location</div><div>Category</div><div>Status</div><div></div>
-    </div>
-    <div id="results"><div class="empty">Loading inventory...</div></div>
-  </div>
-</div>
-  </div><!-- end page-inventory -->
-
-  <!-- ADD NEW ASSET PAGE -->
+  <!-- ADD ASSET TAB -->
   <div id="page-add" style="display:none;">
     <div class="add-form-wrap">
       <div class="add-form-card">
@@ -204,33 +306,25 @@
         <div class="add-grid">
           <div class="field" style="grid-column:1/-1;">
             <label>Item name <span class="required">*</span></label>
-            <input type="text" id="a-name" placeholder="e.g. Victorian Settee" oninput="updatePreview()" />
+            <input type="text" id="a-name" oninput="updatePreview()" />
           </div>
           <div class="field">
             <label>Category <span class="required">*</span></label>
             <select id="a-category" onchange="updatePreview()">
               <option value="">Select category...</option>
-              <option value="Furniture">Furniture</option>
-              <option value="Specialty">Specialty</option>
-              <option value="Chairs">Chairs</option>
-              <option value="Tables">Tables</option>
-              <option value="Desks">Desks</option>
-              <option value="Set Dressing">Set Dressing</option>
-              <option value="Show Specific">Show Specific</option>
-              <option value="Couches">Couches</option>
-              <option value="Flats">Flats</option>
-              <option value="Wall Decor">Wall Decor</option>
-              <option value="Drops">Drops</option>
-              <option value="Other">Other</option>
+              <option>Furniture</option><option>Specialty</option><option>Chairs</option>
+              <option>Tables</option><option>Desks</option><option>Set Dressing</option>
+              <option>Show Specific</option><option>Couches</option><option>Flats</option>
+              <option>Wall Decor</option><option>Drops</option><option>Other</option>
             </select>
           </div>
           <div class="field">
             <label>Subcategory</label>
-            <input type="text" id="a-subcategory" placeholder="e.g. Sweeney Todd" oninput="updatePreview()" />
+            <input type="text" id="a-subcategory" oninput="updatePreview()" />
           </div>
           <div class="field" style="grid-column:1/-1;">
             <label>Storage location <span class="required">*</span></label>
-            <input type="text" id="a-location" placeholder="e.g. Under Loft Left" oninput="updatePreview()" />
+            <input type="text" id="a-location" oninput="updatePreview()" />
           </div>
           <div class="field">
             <label>Quantity</label>
@@ -238,15 +332,15 @@
           </div>
           <div class="field">
             <label>Rental value ($)</label>
-            <input type="text" inputmode="numeric" id="a-rental" placeholder="0" />
+            <input type="text" inputmode="numeric" id="a-rental" />
           </div>
           <div class="field" style="grid-column:1/-1;">
             <label>Replacement value ($)</label>
-            <input type="text" inputmode="numeric" id="a-replacement" placeholder="0" />
+            <input type="text" inputmode="numeric" id="a-replacement" />
           </div>
           <div class="field" style="grid-column:1/-1;">
             <label>Notes</label>
-            <textarea id="a-notes" placeholder="Any additional notes about this item..."></textarea>
+            <textarea id="a-notes"></textarea>
           </div>
           <div class="field" style="grid-column:1/-1;">
             <label>Photo <span class="required">*</span></label>
@@ -258,32 +352,52 @@
           </div>
         </div>
       </div>
-
       <div class="add-form-card preview-card" id="preview-card">
         <h2 class="add-section-title">ID preview</h2>
-
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;">These IDs will be automatically assigned when you save.</p>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;">Auto-assigned when you save.</p>
         <div style="display:flex;flex-direction:column;gap:12px;">
           <div class="pf"><div class="pf-label">Asset ID</div><div class="pf-val mono" id="prev-assetid" style="font-size:1.1rem;color:var(--purple);">—</div></div>
           <div class="pf"><div class="pf-label">Tag ID</div><div class="pf-val mono" id="prev-tagid" style="font-size:1.1rem;color:var(--purple);">—</div></div>
           <div class="pf"><div class="pf-label">Category prefix</div><div class="pf-val mono" id="prev-prefix">—</div></div>
           <div class="pf"><div class="pf-label">Subcat code</div><div class="pf-val mono" id="prev-subcat">—</div></div>
-          <div class="pf"><div class="pf-label">Label text preview</div>
+          <div class="pf"><div class="pf-label">Label preview</div>
             <div id="prev-label" style="font-size:12px;font-family:monospace;background:var(--bg);padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);white-space:pre-line;line-height:1.6;margin-top:4px;color:var(--text-muted);">—</div>
           </div>
         </div>
         <div style="margin-top:1.5rem;display:flex;gap:10px;">
-          <button class="btn btn-ghost" style="flex:1;" onclick="resetAddForm()">Clear form</button>
-          <button class="btn btn-in" style="flex:1;" id="save-asset-btn" onclick="saveAsset()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="vertical-align:-1px;margin-right:5px;"><path d="M20 6 9 17l-5-5"/></svg>
-            Save to inventory
-          </button>
+          <button class="btn btn-ghost" style="flex:1;" onclick="resetAddForm()">Clear</button>
+          <button class="btn btn-in" style="flex:1;" id="save-asset-btn" onclick="saveAsset()">Save to inventory</button>
         </div>
       </div>
     </div>
-  </div><!-- end page-add -->
+  </div>
 
-</div>
+  <!-- LABELS TAB -->
+  <div id="page-labels" style="display:none;">
+    <div class="label-page">
+      <div class="label-sidebar">
+        <h2>Select items to print</h2>
+        <div style="display:flex;gap:6px;margin-bottom:10px;">
+          <button class="btn btn-ghost" style="flex:1;font-size:12px;" onclick="selectAllLabels()">Select all</button>
+          <button class="btn btn-ghost" style="flex:1;font-size:12px;" onclick="clearAllLabels()">Clear all</button>
+        </div>
+        <div class="label-item-list" id="label-item-list"><div class="empty" style="padding:1rem;">Loading...</div></div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;" id="label-selected-count">0 items selected</div>
+        <button class="btn btn-print" onclick="printLabels()">🖨 Print labels</button>
+      </div>
+      <div class="label-preview-area">
+        <h2>Label preview</h2>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;">Formatted for Avery 8163 (2" × 4", 2 per row)</p>
+        <div class="label-grid-print print-area" id="label-preview-grid">
+          <div class="label-cell empty" style="display:flex;align-items:center;justify-content:center;color:var(--text-faint);font-size:13px;">Select items to preview</div>
+          <div class="label-cell empty"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end container -->
+</div><!-- end main -->
 
 <!-- CHECK IN/OUT MODAL -->
 <div id="action-overlay" class="overlay" style="display:none;" onclick="closeActionModal(event)">
@@ -304,7 +418,7 @@
         <div style="display:flex;flex-direction:column;gap:14px;">
           <div class="field">
             <label>Show / renter name <span class="required">*</span></label>
-            <input type="text" id="f-who" placeholder="e.g. Jenkintown Drama Club" />
+            <input type="text" id="f-who" />
           </div>
           <div class="field-row">
             <div class="field">
@@ -316,25 +430,29 @@
               </select>
             </div>
             <div class="field">
-              <label>Due back date</label>
-              <input type="date" id="f-due" />
+              <label>Quantity</label>
+              <input type="text" inputmode="numeric" id="f-qty" value="1" />
             </div>
           </div>
           <div class="field">
-            <label>Staff member processing this <span class="required">*</span></label>
-            <input type="text" id="f-staff" placeholder="Your name" />
+            <label>Due back date</label>
+            <input type="date" id="f-due" />
+          </div>
+          <div class="field">
+            <label>Staff member <span class="required">*</span></label>
+            <input type="text" id="f-staff" />
           </div>
           <div class="field">
             <label>Notes</label>
-            <textarea id="f-notes-out" placeholder="Any additional notes..."></textarea>
+            <textarea id="f-notes-out"></textarea>
           </div>
         </div>
       </div>
       <div id="checkin-fields" style="display:none;">
         <div style="display:flex;flex-direction:column;gap:14px;">
           <div class="field">
-            <label>Staff member processing this <span class="required">*</span></label>
-            <input type="text" id="f-staff-in" placeholder="Your name" />
+            <label>Staff member <span class="required">*</span></label>
+            <input type="text" id="f-staff-in" />
           </div>
           <div class="field">
             <label>Condition on return <span class="required">*</span></label>
@@ -348,7 +466,7 @@
           </div>
           <div class="field">
             <label>Additional notes</label>
-            <textarea id="f-notes-in" placeholder="Describe the condition of the returned item(s)..."></textarea>
+            <textarea id="f-notes-in"></textarea>
           </div>
         </div>
       </div>
@@ -396,12 +514,47 @@
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRupSW2TcKEhcXbsDg5FRWaQgRzjkgDKvRFduvVwpdwCsMers-HJRwK4lK1AmAH4qO74ZBrmvJzOO25/pub?gid=0&single=true&output=csv';
+const LOGO_URL = 'https://musicmountainmcafee-eng.github.io/MMT-Inventory/MMT_Logo.png';
+const CORRECT_PIN = '1483';
 
+// PIN
+let pinEntry = '';
+function pinPress(val) {
+  if (val === 'clear') { pinEntry = ''; }
+  else if (val === 'back') { pinEntry = pinEntry.slice(0, -1); }
+  else if (pinEntry.length < 4) { pinEntry += val; }
+  updatePinDots();
+  if (pinEntry.length === 4) checkPin();
+}
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('d' + i).classList.toggle('filled', i < pinEntry.length);
+  }
+}
+function checkPin() {
+  if (pinEntry === CORRECT_PIN) {
+    document.getElementById('pin-screen').style.display = 'none';
+    document.getElementById('main').classList.add('visible');
+    loadData();
+  } else {
+    document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
+    pinEntry = '';
+    updatePinDots();
+    setTimeout(() => document.getElementById('pin-error').textContent = '', 2000);
+  }
+}
+document.addEventListener('keydown', e => {
+  if (document.getElementById('pin-screen').style.display !== 'none') {
+    if (e.key >= '0' && e.key <= '9') pinPress(e.key);
+    else if (e.key === 'Backspace') pinPress('back');
+    else if (e.key === 'Escape') pinPress('clear');
+  }
+});
+
+// DATA
 function driveThumb(raw) {
   if (!raw) return '';
-  // Cloudinary URL — use directly
   if (raw.includes('cloudinary.com')) return raw.replace('/upload/', '/upload/w_400,c_fill/');
-  // Drive URL
   const m = raw.match(/id=([\w-]+)/) || raw.match(/\/d\/([\w-]+)\//);
   return m ? 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w400' : raw;
 }
@@ -425,7 +578,7 @@ function parseCSV(text) {
   }).filter(r => r['Asset ID'] && r['Name']);
 }
 
-let allItems = [], selected = new Set(), filteredItems = [], currentAction = null, currentPanelIdx = null;
+let allItems = [], selected = new Set(), filteredItems = [], currentPanelIdx = null;
 
 async function loadData() {
   try {
@@ -453,7 +606,7 @@ async function loadData() {
     }));
     const cats = [...new Set(allItems.map(i => i.category).filter(Boolean))].sort();
     document.getElementById('cat-filter').innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option>${c}</option>`).join('');
-    updateStats(); render();
+    updateStats(); render(); populateLabelList();
   } catch(e) {
     document.getElementById('results').innerHTML = '<div class="empty">Could not load inventory.</div>';
   }
@@ -520,107 +673,84 @@ function updateBatchBar() {
   const selItems = [...selected].map(id => allItems.find(i => i.assetId === id)).filter(Boolean);
   const allOut = selItems.every(i => i.status === 'OUT');
   const allIn = selItems.every(i => i.status === 'IN');
-  const mixed = !allOut && !allIn;
   let btns = '';
-  if (allIn || mixed) btns += `<button class="btn btn-out" onclick="openActionModal('OUT')">↗ Check out</button>`;
-  if (allOut || mixed) btns += `<button class="btn btn-in" onclick="openActionModal('IN')">✓ Check in</button>`;
-  if (mixed) btns += `<span style="font-size:12px;color:var(--purple-dark);margin-left:4px;">Mixed selection</span>`;
+  if (allIn || (!allOut && !allIn)) btns += `<button class="btn btn-out" onclick="openActionModal('OUT')">↗ Check out</button>`;
+  if (allOut || (!allOut && !allIn)) btns += `<button class="btn btn-in" onclick="openActionModal('IN')">✓ Check in</button>`;
   document.getElementById('batch-actions').innerHTML = btns;
 }
 
 function openActionModal(action, singleIdx) {
-  currentAction = action;
   const ids = singleIdx !== undefined ? [allItems[singleIdx].assetId] : [...selected];
   const names = ids.map(id => allItems.find(i => i.assetId === id)?.name).filter(Boolean);
-
   document.getElementById('action-title').textContent = action === 'OUT' ? 'Check out items' : 'Check in items';
   document.getElementById('action-subtitle').textContent = ids.length + ' item' + (ids.length !== 1 ? 's' : '') + ' selected';
   document.getElementById('action-chips').innerHTML = names.map(n => `<span class="chip">${n}</span>`).join('');
   document.getElementById('checkout-fields').style.display = action === 'OUT' ? 'block' : 'none';
   document.getElementById('checkin-fields').style.display = action === 'IN' ? 'block' : 'none';
-
   const btn = document.getElementById('action-submit-btn');
   btn.textContent = action === 'OUT' ? '↗ Confirm check out' : '✓ Confirm check in';
   btn.className = 'btn ' + (action === 'OUT' ? 'btn-out' : 'btn-in');
-
-  // clear fields
+  btn.dataset.action = action;
+  btn.dataset.ids = JSON.stringify(ids);
   ['f-who','f-staff','f-notes-out','f-staff-in','f-notes-in'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   document.getElementById('f-type').value = '';
   document.getElementById('f-condition').value = '';
   document.getElementById('f-due').value = '';
-
+  document.getElementById('f-qty').value = '1';
   document.getElementById('action-overlay').style.display = 'flex';
   setTimeout(() => {
     const first = action === 'OUT' ? document.getElementById('f-who') : document.getElementById('f-staff-in');
     if (first) first.focus();
   }, 100);
 }
-
 function closeActionModal(e) {
   if (!e || e.target === document.getElementById('action-overlay'))
     document.getElementById('action-overlay').style.display = 'none';
 }
 
 async function submitAction() {
-  const action = currentAction;
-  const ids = [...selected];
-  if (!ids.length) return;
-
-  // Validate
+  const btn = document.getElementById('action-submit-btn');
+  const action = btn.dataset.action;
+  const ids = JSON.parse(btn.dataset.ids);
   if (action === 'OUT') {
     const who = document.getElementById('f-who').value.trim();
     const type = document.getElementById('f-type').value;
     const staff = document.getElementById('f-staff').value.trim();
     if (!who) { showToast('Show / renter name is required', true); document.getElementById('f-who').focus(); return; }
-    if (!type) { showToast('Please select a type', true); document.getElementById('f-type').focus(); return; }
+    if (!type) { showToast('Please select a type', true); return; }
     if (!staff) { showToast('Staff name is required', true); document.getElementById('f-staff').focus(); return; }
   } else {
     const staff = document.getElementById('f-staff-in').value.trim();
     const condition = document.getElementById('f-condition').value;
-    const notes = document.getElementById('f-notes-in').value.trim();
     if (!staff) { showToast('Staff name is required', true); document.getElementById('f-staff-in').focus(); return; }
-    if (!condition) { showToast('Please select a condition', true); document.getElementById('f-condition').focus(); return; }
-
+    if (!condition) { showToast('Please select a condition', true); return; }
   }
-
-  const btn = document.getElementById('action-submit-btn');
   btn.innerHTML = '<span class="spinner"></span>Saving...';
   btn.disabled = true;
-
   const payload = {
-    action: 'checkInOut',
-    assetIds: ids,
-    status: action,
+    action: 'checkInOut', assetIds: ids, status: action,
     who: action === 'OUT' ? document.getElementById('f-who').value.trim() : '',
     type: action === 'OUT' ? document.getElementById('f-type').value : '',
     dueBack: action === 'OUT' ? document.getElementById('f-due').value : '',
+    quantity: document.getElementById('f-qty').value || '1',
     staffName: action === 'OUT' ? document.getElementById('f-staff').value.trim() : document.getElementById('f-staff-in').value.trim(),
     condition: action === 'IN' ? document.getElementById('f-condition').value : '',
     notes: action === 'OUT' ? document.getElementById('f-notes-out').value.trim() : document.getElementById('f-notes-in').value.trim(),
   };
-
   try {
     const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
     const result = await res.json();
     if (result.success) {
       ids.forEach(id => {
         const item = allItems.find(i => i.assetId === id);
-        if (item) { item.status = action; item.currentShow = action === 'OUT' ? payload.who : ''; item.dueBack = action === 'OUT' ? payload.dueBack : ''; }
+        if (item) { item.status = action; item.currentShow = action === 'OUT' ? payload.who : ''; }
       });
       showToast(`${action === 'IN' ? '✓ Checked in' : '↗ Checked out'} ${ids.length} item${ids.length !== 1 ? 's' : ''}`);
-      selected.clear();
-      closeActionModal();
-      updateStats(); render();
-    } else {
-      showToast('Error: ' + (result.error || 'Unknown'), true);
-      btn.innerHTML = action === 'OUT' ? '↗ Confirm check out' : '✓ Confirm check in';
-      btn.disabled = false;
-    }
-  } catch(e) {
-    showToast('Could not reach server. Try again.', true);
-    btn.innerHTML = action === 'OUT' ? '↗ Confirm check out' : '✓ Confirm check in';
-    btn.disabled = false;
-  }
+      selected.clear(); closeActionModal(); updateStats(); render();
+    } else { showToast('Error: ' + (result.error || 'Unknown'), true); }
+  } catch(e) { showToast('Could not reach server.', true); }
+  btn.innerHTML = action === 'OUT' ? '↗ Confirm check out' : '✓ Confirm check in';
+  btn.disabled = false;
 }
 
 function openPanel(idx) {
@@ -641,75 +771,41 @@ function openPanel(idx) {
   document.getElementById('panel-badge').innerHTML = `<span class="badge ${i.status === 'IN' ? 'badge-in' : 'badge-out'}">${i.status === 'IN' ? 'Available' : 'Currently out'}</span>`;
   const photoSVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>`;
   document.getElementById('panel-img').innerHTML = i.photo
-    ? `<img src="${i.photo}" alt="${i.name}" style="width:100%;height:200px;object-fit:cover;" onerror="this.parentElement.innerHTML='${photoSVG}'" />`
+    ? `<img src="${i.photo}" alt="${i.name}" style="width:100%;height:200px;object-fit:cover;" />`
     : photoSVG;
   document.getElementById('panel-actions').innerHTML = i.status === 'IN'
     ? `<button class="btn btn-out" style="flex:1;" onclick="closePanel();selected.add('${i.assetId}');openActionModal('OUT')">↗ Check out</button>`
     : `<button class="btn btn-in" style="flex:1;" onclick="closePanel();selected.add('${i.assetId}');openActionModal('IN')">✓ Check in</button>`;
   document.getElementById('panel-overlay').style.display = 'flex';
 }
-
 function closePanel(e) {
   if (!e || e.target === document.getElementById('panel-overlay'))
     document.getElementById('panel-overlay').style.display = 'none';
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closePanel(); closeActionModal(); } });
-
-function showToast(msg, isError) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast show' + (isError ? ' error' : '');
-  setTimeout(() => t.className = 'toast', 3500);
-}
-
-async function testCloudinary() {
-  const file = document.getElementById('test-photo').files[0];
-  const result = document.getElementById('test-result');
-  if (!file) { result.textContent = 'Pick a file first'; return; }
-  result.textContent = 'Uploading...';
-  try {
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('upload_preset', 'mmt_inventory');
-    const res = await fetch('https://api.cloudinary.com/v1_1/dyzkxnrnd/image/upload', { method: 'POST', body: fd });
-    const data = await res.json();
-    result.textContent = JSON.stringify(data).substring(0, 300);
-    if (data.secure_url) result.style.color = 'var(--green)';
-    else result.style.color = 'var(--red)';
-  } catch(e) {
-    result.textContent = 'Error: ' + e.message;
-    result.style.color = 'var(--red)';
-  }
-}
-
-loadData();
-
-// ── TAB SWITCHING ─────────────────────────────────────────────
+// TAB SWITCHING
 function switchTab(tab) {
-  document.getElementById('page-inventory').style.display = tab === 'inventory' ? 'block' : 'none';
-  document.getElementById('page-add').style.display = tab === 'add' ? 'block' : 'none';
-  document.getElementById('tab-inventory').classList.toggle('active', tab === 'inventory');
-  document.getElementById('tab-add').classList.toggle('active', tab === 'add');
+  ['inventory','add','labels'].forEach(t => {
+    document.getElementById('page-' + t).style.display = t === tab ? 'block' : 'none';
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+  });
   if (tab === 'add') fetchNextId();
+  if (tab === 'labels') populateLabelList();
 }
 
-// ── PREFIX / SUBCAT LOGIC ─────────────────────────────────────
+// ADD ASSET
 const PREFIXES = {
   'Furniture':'F','Specialty':'SP','Chairs':'CH','Tables':'TB','Desks':'DK',
   'Set Dressing':'SD','Show Specific':'SS','Couches':'CO','Flats':'FL',
   'Wall Decor':'WD','Drops':'DR','Other':'OT'
 };
-
 function getSubcatCode(subcat) {
   if (!subcat) return '';
   const words = subcat.trim().split(/\s+/);
   if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
   return (words[0].substring(0, 2) + words.slice(1).map(w => w[0]).join('')).toUpperCase();
 }
-
 let nextAssetId = null;
-
 async function fetchNextId() {
   try {
     const res = await fetch(SCRIPT_URL + '?action=getNextId');
@@ -717,7 +813,6 @@ async function fetchNextId() {
     if (data.success) { nextAssetId = data.nextId; updatePreview(); }
   } catch(e) { nextAssetId = 'S????'; }
 }
-
 function updatePreview() {
   const name = document.getElementById('a-name').value.trim();
   const category = document.getElementById('a-category').value;
@@ -738,7 +833,6 @@ function updatePreview() {
     ? `${tagId}\n${name}\n────────\n${location || '(location)'}`
     : '—';
 }
-
 function handlePhoto(input) {
   const drop = document.getElementById('photo-drop');
   const label = document.getElementById('photo-label');
@@ -747,115 +841,136 @@ function handlePhoto(input) {
     drop.classList.add('has-photo');
   }
 }
-
 async function saveAsset() {
   const name = document.getElementById('a-name').value.trim();
   const category = document.getElementById('a-category').value;
   const location = document.getElementById('a-location').value.trim();
   const photoFile = document.getElementById('a-photo').files[0];
-
-  if (!name) { showToast('Item name is required', true); document.getElementById('a-name').focus(); return; }
-  if (!category) { showToast('Category is required', true); document.getElementById('a-category').focus(); return; }
-  if (!location) { showToast('Storage location is required', true); document.getElementById('a-location').focus(); return; }
+  if (!name) { showToast('Item name is required', true); return; }
+  if (!category) { showToast('Category is required', true); return; }
+  if (!location) { showToast('Storage location is required', true); return; }
   if (!photoFile) { showToast('Photo is required', true); return; }
-  if (!nextAssetId) { showToast('Still loading next ID — try again in a moment', true); return; }
-
+  if (!nextAssetId) { showToast('Still loading next ID — try again', true); return; }
   const btn = document.getElementById('save-asset-btn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Uploading photo...';
-
   const subcat = document.getElementById('a-subcategory').value.trim();
   const prefix = PREFIXES[category] || '';
   const subcatCode = getSubcatCode(subcat);
   const assetId = nextAssetId;
   const tagId = subcatCode ? `${prefix}-${subcatCode}-${assetId}` : `${prefix}-${assetId}`;
-
-  let photoUrl = '';
-  let thumbUrl = '';
-
+  let photoUrl = '', thumbUrl = '';
   try {
     const fd = new FormData();
     fd.append('file', photoFile);
     fd.append('upload_preset', 'mmt_inventory');
-
-    const uploadRes = await fetch('https://api.cloudinary.com/v1_1/dyzkxnrnd/image/upload', {
-      method: 'POST',
-      body: fd
-    });
+    const uploadRes = await fetch('https://api.cloudinary.com/v1_1/dyzkxnrnd/image/upload', { method: 'POST', body: fd });
     const uploadResult = await uploadRes.json();
     if (uploadResult.secure_url) {
       photoUrl = uploadResult.secure_url;
       thumbUrl = uploadResult.secure_url.replace('/upload/', '/upload/w_400,c_fill/');
     } else {
-      const errMsg = uploadResult.error ? uploadResult.error.message : 'Upload failed';
-      showToast('Photo upload failed: ' + errMsg, true);
-      btn.innerHTML = 'Save to inventory';
-      btn.disabled = false;
-      return;
+      showToast('Photo upload failed', true); btn.innerHTML = 'Save to inventory'; btn.disabled = false; return;
     }
-  } catch(e) {
-    showToast('Photo upload failed — try again', true);
-    btn.innerHTML = 'Save to inventory';
-    btn.disabled = false;
-    return;
-  }
-
-  btn.innerHTML = '<span class="spinner"></span>Saving to inventory...';
+  } catch(e) { showToast('Photo upload failed', true); btn.innerHTML = 'Save to inventory'; btn.disabled = false; return; }
+  btn.innerHTML = '<span class="spinner"></span>Saving...';
   const payload = {
-    action: 'addAsset',
-    assetId, tagId, name, category,
-    subcategory: subcat,
-    subcatCode,
-    location,
+    action: 'addAsset', assetId, tagId, name, category,
+    subcategory: subcat, subcatCode, location,
     quantity: document.getElementById('a-quantity').value || 1,
     rentalValue: document.getElementById('a-rental').value || '',
     replacementValue: document.getElementById('a-replacement').value || '',
     notes: document.getElementById('a-notes').value.trim(),
     photoUrl,
   };
-
   try {
     const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
     const result = await res.json();
     if (result.success) {
       showToast('✓ ' + name + ' added as ' + assetId);
       allItems.push({ _idx: allItems.length, assetId, tagId, name, category, subcategory: subcat, location, status: 'IN', currentShow: '', dueBack: '', lastDate: '', lastShow: '', rental: payload.rentalValue, replacement: payload.replacementValue, notes: payload.notes, type: '', photo: thumbUrl });
-      updateStats();
-      resetAddForm();
-      fetchNextId();
-      switchTab('inventory');
-    } else {
-      showToast('Error: ' + (result.error || 'Unknown'), true);
-      btn.innerHTML = 'Save to inventory';
-      btn.disabled = false;
-    }
-  } catch(e) {
-    showToast('Could not reach server. Try again.', true);
-    btn.innerHTML = 'Save to inventory';
-    btn.disabled = false;
-  }
+      updateStats(); resetAddForm(); fetchNextId(); switchTab('inventory');
+    } else { showToast('Error: ' + (result.error || 'Unknown'), true); }
+  } catch(e) { showToast('Could not reach server.', true); }
+  btn.innerHTML = 'Save to inventory'; btn.disabled = false;
 }
-
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 function resetAddForm() {
-  ['a-name','a-subcategory','a-location','a-notes','a-rental','a-replacement'].forEach(id => {
-    const el = document.getElementById(id); if(el) el.value = '';
-  });
+  ['a-name','a-subcategory','a-location','a-notes','a-rental','a-replacement'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   document.getElementById('a-category').value = '';
   document.getElementById('a-quantity').value = 1;
   document.getElementById('a-photo').value = '';
   document.getElementById('photo-label').textContent = 'Click to upload photo';
   document.getElementById('photo-drop').classList.remove('has-photo');
   updatePreview();
-  fetchNextId();
+}
+
+// LABELS
+let labelSelected = new Set();
+function populateLabelList() {
+  const list = document.getElementById('label-item-list');
+  if (!allItems.length) { list.innerHTML = '<div class="empty" style="padding:1rem;">No items loaded</div>'; return; }
+  list.innerHTML = allItems.map(i => `
+    <div class="label-item-row ${labelSelected.has(i.assetId) ? 'selected' : ''}" onclick="toggleLabelItem('${i.assetId}')">
+      <input type="checkbox" class="cb" ${labelSelected.has(i.assetId) ? 'checked' : ''} onclick="event.stopPropagation();toggleLabelItem('${i.assetId}')" />
+      <div style="flex:1;">
+        <div class="label-item-name">${i.name}</div>
+        <div class="label-item-tag">${i.tagId}</div>
+      </div>
+      <span class="badge ${i.status === 'IN' ? 'badge-in' : 'badge-out'}">${i.status === 'IN' ? 'In' : 'Out'}</span>
+    </div>
+  `).join('');
+  updateLabelCount();
+}
+function toggleLabelItem(assetId) {
+  if (labelSelected.has(assetId)) labelSelected.delete(assetId); else labelSelected.add(assetId);
+  populateLabelList(); renderLabelPreview();
+}
+function selectAllLabels() { allItems.forEach(i => labelSelected.add(i.assetId)); populateLabelList(); renderLabelPreview(); }
+function clearAllLabels() { labelSelected.clear(); populateLabelList(); renderLabelPreview(); }
+function updateLabelCount() {
+  document.getElementById('label-selected-count').textContent = labelSelected.size + ' item' + (labelSelected.size !== 1 ? 's' : '') + ' selected';
+}
+function renderLabelPreview() {
+  updateLabelCount();
+  const items = allItems.filter(i => labelSelected.has(i.assetId));
+  const grid = document.getElementById('label-preview-grid');
+  if (!items.length) {
+    grid.innerHTML = '<div class="label-cell empty" style="display:flex;align-items:center;justify-content:center;color:var(--text-faint);font-size:13px;">Select items to preview</div><div class="label-cell empty"></div>';
+    return;
+  }
+  // Pad to even number
+  const padded = [...items];
+  if (padded.length % 2 !== 0) padded.push(null);
+  grid.innerHTML = padded.map(i => i ? `
+    <div class="label-cell">
+      <div class="lc-top">
+        <img class="lc-logo" src="${LOGO_URL}" alt="MMT" />
+        <div class="lc-ids">
+          <div class="lc-tagid">${i.tagId}</div>
+          <div class="lc-name">${i.name}</div>
+          <div class="lc-cat">${i.category}${i.subcategory ? ' · ' + i.subcategory : ''}</div>
+        </div>
+      </div>
+      <hr class="lc-divider" />
+      <div class="lc-loc-row"><span class="lc-loc-label">Storage Location:</span><span class="lc-loc">${i.location || '—'}</span></div>
+      <div class="lc-notes">${i.notes || ''}</div>
+    </div>
+  ` : '<div class="label-cell empty"></div>').join('');
+}
+function printLabels() {
+  if (labelSelected.size === 0) { showToast('Select at least one item to print', true); return; }
+  window.print();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closePanel(); closeActionModal(); }
+});
+
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => t.className = 'toast', 3500);
 }
 </script>
 </body>
