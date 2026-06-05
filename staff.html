@@ -230,6 +230,10 @@
   .staff-list-loc { flex: 1; font-size: 13px; color: var(--text-muted); }
   .staff-list-cat { min-width: 90px; }
 
+  .history-row { display:grid; grid-template-columns:160px 80px 1fr 1fr 1fr 1fr; gap:12px; padding:10px 1rem; border-bottom:1px solid var(--border); align-items:center; font-size:13px; }
+  .history-row:last-child { border-bottom:none; }
+  .history-row:hover { background:var(--bg); }
+  .history-header { background:var(--bg); font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: -2px; margin-right: 6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -288,6 +292,9 @@
     </button>
     <button class="tab-btn" id="tab-labels" onclick="switchTab('labels')">
       Print labels
+    </button>
+    <button class="tab-btn" id="tab-history" onclick="switchTab('history')">
+      History
     </button>
   </div>
 
@@ -428,6 +435,28 @@
           <div class="label-cell empty"></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div id="page-history" style="display:none;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+      <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:15px;font-weight:600;">Check-in/out history</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">All inventory transactions</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <input type="text" id="history-search" placeholder="Search..." oninput="renderHistory()" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);outline:none;width:200px;" />
+          <select id="history-filter" onchange="renderHistory()" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);outline:none;">
+            <option value="">All actions</option>
+            <option value="OUT">Check out</option>
+            <option value="IN">Check in</option>
+          </select>
+          <button class="btn btn-ghost" style="font-size:12px;" onclick="loadHistory()">↻ Refresh</button>
+        </div>
+      </div>
+      <div id="history-results" style="padding:1rem;"><div class="empty">Loading history...</div></div>
     </div>
   </div>
 
@@ -633,6 +662,7 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRupSW2TcKEhcXbsDg5FRWaQgRzjkgDKvRFduvVwpdwCsMers-HJRwK4lK1AmAH4qO74ZBrmvJzOO25/pub?gid=0&single=true&output=csv';
 const LOGO_URL = 'https://musicmountainmcafee-eng.github.io/MMT-Inventory/MMT_Logo.png';
 const CORRECT_PIN = '1483';
+const HISTORY_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRupSW2TcKEhcXbsDg5FRWaQgRzjkgDKvRFduvVwpdwCsMers-HJRwK4lK1AmAH4qO74ZBrmvJzOO25/pub?gid=149245829&single=true&output=csv';
 
 // PIN
 let pinEntry = '';
@@ -652,7 +682,62 @@ function checkPin() {
   if (pinEntry === CORRECT_PIN) {
     document.getElementById('pin-screen').style.display = 'none';
     document.getElementById('main').classList.add('visible');
-    loadData();
+    let historyData = [];
+
+async function loadHistory() {
+  document.getElementById('history-results').innerHTML = '<div class="empty">Loading...</div>';
+  try {
+    const res = await fetch(HISTORY_CSV_URL);
+    const text = await res.text();
+    const lines = text.trim().split(/\r?\n/);
+    historyData = lines.slice(1).map(line => {
+      const vals = splitLine(line);
+      return {
+        timestamp: vals[0] || '',
+        assetId: vals[1] || '',
+        action: (vals[2] || '').toUpperCase(),
+        who: vals[3] || '',
+        dueDate: vals[4] || '',
+        condition: vals[5] || '',
+        staff: vals[6] || '',
+        type: vals[7] || '',
+      };
+    }).filter(r => r.assetId || r.who).reverse();
+    renderHistory();
+  } catch(e) {
+    document.getElementById('history-results').innerHTML = '<div class="empty">Could not load history.</div>';
+  }
+}
+
+function renderHistory() {
+  const q = document.getElementById('history-search').value.toLowerCase();
+  const filter = document.getElementById('history-filter').value;
+  const filtered = historyData.filter(r =>
+    (!q || [r.assetId, r.who, r.staff, r.type].some(f => f.toLowerCase().includes(q))) &&
+    (!filter || r.action === filter)
+  );
+  const container = document.getElementById('history-results');
+  if (!filtered.length) { container.innerHTML = '<div class="empty">No history found.</div>'; return; }
+  container.innerHTML =
+    '<div class="history-row history-header"><div>Date & Time</div><div>Action</div><div>Asset ID</div><div>Show / Renter</div><div>Staff</div><div>Notes</div></div>' +
+    filtered.map(r => {
+      const isOut = r.action === 'OUT';
+      const itemName = allItems.find(i => i.assetId === r.assetId)?.name || r.assetId;
+      return `<div class="history-row">
+        <div style="color:var(--text-muted);font-size:12px;">${r.timestamp}</div>
+        <div><span class="badge ${isOut?'badge-out':'badge-in'}">${isOut?'Out':'In'}</span></div>
+        <div>
+          <div style="font-weight:600;">${itemName}</div>
+          <div style="font-size:11px;color:var(--text-faint);font-family:'DM Mono',monospace;">${r.assetId}</div>
+        </div>
+        <div>${r.who || '—'}${r.dueDate?`<div style="font-size:11px;color:var(--text-faint);">Due: ${r.dueDate}</div>`:''}</div>
+        <div>${r.staff || '—'}${r.type?`<div style="font-size:11px;color:var(--text-faint);">${r.type}</div>`:''}</div>
+        <div style="font-size:12px;color:var(--text-muted);">${r.condition || '—'}</div>
+      </div>`;
+    }).join('');
+}
+
+loadData();
   } else {
     document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
     pinEntry = '';
@@ -1050,12 +1135,13 @@ async function saveEdit() {
 
 // TAB SWITCHING
 function switchTab(tab) {
-  ['inventory','add','labels'].forEach(t => {
+  ['inventory','add','labels','history'].forEach(t => {
     document.getElementById('page-' + t).style.display = t === tab ? 'block' : 'none';
     document.getElementById('tab-' + t).classList.toggle('active', t === tab);
   });
   if (tab === 'add') fetchNextId();
   if (tab === 'labels') populateLabelList();
+  if (tab === 'history') loadHistory();
 }
 
 // ADD ASSET
