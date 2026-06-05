@@ -540,6 +540,88 @@
       <div class="pf" style="margin-bottom:1rem;"><div class="pf-label">Notes</div><div class="pf-val" id="panel-notes" style="font-size:13px;color:var(--text-muted);font-weight:400;"></div></div>
       <hr class="divider" />
       <div class="panel-actions" id="panel-actions"></div>
+      <div style="margin-top:8px;">
+        <button class="btn btn-ghost" style="width:100%;font-size:13px;" onclick="openEditModal()">✏️ Edit this item</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div id="edit-overlay" class="overlay" style="display:none;" onclick="closeEditModal(event)">
+  <div class="modal" style="max-width:520px;" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Edit item</div>
+        <div class="modal-subtitle" id="edit-subtitle"></div>
+      </div>
+      <button class="close-btn" onclick="closeEditModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="gap:12px;">
+      <div class="field-row">
+        <div class="field">
+          <label>Asset ID</label>
+          <input type="text" id="e-assetid" disabled style="opacity:0.5;cursor:not-allowed;" />
+        </div>
+        <div class="field">
+          <label>Tag ID</label>
+          <input type="text" id="e-tagid" disabled style="opacity:0.5;cursor:not-allowed;" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Item name <span class="required">*</span></label>
+        <input type="text" id="e-name" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Category <span class="required">*</span></label>
+          <select id="e-category">
+            <option value="">Select...</option>
+            <option>Furniture</option><option>Specialty</option><option>Chairs</option>
+            <option>Tables</option><option>Desks</option><option>Set Dressing</option>
+            <option>Show Specific</option><option>Couches</option><option>Flats</option>
+            <option>Wall Decor</option><option>Drops</option><option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Subcategory</label>
+          <input type="text" id="e-subcategory" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Storage location <span class="required">*</span></label>
+        <input type="text" id="e-location" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Rental value ($)</label>
+          <input type="text" inputmode="numeric" id="e-rental" />
+        </div>
+        <div class="field">
+          <label>Replacement value ($)</label>
+          <input type="text" inputmode="numeric" id="e-replacement" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Notes</label>
+        <textarea id="e-notes" style="min-height:60px;"></textarea>
+      </div>
+      <div class="field">
+        <label>Update photo (optional — keeps existing photo too)</label>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div id="e-current-photo" style="width:60px;height:60px;border-radius:var(--radius-sm);overflow:hidden;background:var(--bg);flex-shrink:0;display:flex;align-items:center;justify-content:center;"></div>
+          <div style="flex:1;">
+            <div class="photo-drop" id="e-photo-drop" onclick="document.getElementById('e-photo').click()" style="padding:10px;">
+              <span id="e-photo-label" style="font-size:12px;">Click to upload new photo</span>
+            </div>
+            <input type="file" id="e-photo" accept="image/*" style="display:none;" onchange="handleEditPhoto(this)" />
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-in" id="edit-save-btn" onclick="saveEdit()">Save changes</button>
     </div>
   </div>
 </div>
@@ -852,6 +934,118 @@ function openPanel(idx) {
 function closePanel(e) {
   if (!e || e.target === document.getElementById('panel-overlay'))
     document.getElementById('panel-overlay').style.display = 'none';
+}
+
+function openEditModal() {
+  const i = allItems[currentPanelIdx];
+  document.getElementById('edit-subtitle').textContent = i.name + ' · ' + i.assetId;
+  document.getElementById('e-assetid').value = i.assetId;
+  document.getElementById('e-tagid').value = i.tagId;
+  document.getElementById('e-name').value = i.name;
+  document.getElementById('e-category').value = i.category;
+  document.getElementById('e-subcategory').value = i.subcategory;
+  document.getElementById('e-location').value = i.location;
+  document.getElementById('e-rental').value = i.rental;
+  document.getElementById('e-replacement').value = i.replacement;
+  document.getElementById('e-notes').value = i.notes;
+  document.getElementById('e-photo-label').textContent = 'Click to upload new photo';
+  document.getElementById('e-photo').value = '';
+  document.getElementById('e-photo-drop').classList.remove('has-photo');
+  const photoEl = document.getElementById('e-current-photo');
+  photoEl.innerHTML = i.photo
+    ? `<img src="${i.photo}" style="width:60px;height:60px;object-fit:cover;" />`
+    : `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;opacity:0.2;"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
+  document.getElementById('edit-overlay').style.display = 'flex';
+}
+
+function closeEditModal(e) {
+  if (!e || e.target === document.getElementById('edit-overlay'))
+    document.getElementById('edit-overlay').style.display = 'none';
+}
+
+function handleEditPhoto(input) {
+  if (input.files && input.files[0]) {
+    document.getElementById('e-photo-label').textContent = '✓ ' + input.files[0].name;
+    document.getElementById('e-photo-drop').classList.add('has-photo');
+  }
+}
+
+async function saveEdit() {
+  const i = allItems[currentPanelIdx];
+  const name = document.getElementById('e-name').value.trim();
+  const category = document.getElementById('e-category').value;
+  const location = document.getElementById('e-location').value.trim();
+  if (!name) { showToast('Name is required', true); return; }
+  if (!category) { showToast('Category is required', true); return; }
+  if (!location) { showToast('Location is required', true); return; }
+
+  const btn = document.getElementById('edit-save-btn');
+  btn.disabled = true;
+
+  let photoUrl = i.photo;
+  const photoFile = document.getElementById('e-photo').files[0];
+
+  if (photoFile) {
+    btn.innerHTML = '<span class="spinner"></span>Uploading photo...';
+    try {
+      const fd = new FormData();
+      fd.append('file', photoFile);
+      fd.append('upload_preset', 'mmt_inventory');
+      const uploadRes = await fetch('https://api.cloudinary.com/v1_1/dyzkxnrnd/image/upload', { method: 'POST', body: fd });
+      const uploadResult = await uploadRes.json();
+      if (uploadResult.secure_url) {
+        // Keep old photo URL in notes, use new as primary
+        const oldNote = i.notes ? i.notes + '\n' : '';
+        photoUrl = uploadResult.secure_url;
+      } else {
+        showToast('Photo upload failed — saving other changes', false);
+      }
+    } catch(e) {
+      showToast('Photo upload failed — saving other changes', false);
+    }
+  }
+
+  btn.innerHTML = '<span class="spinner"></span>Saving...';
+
+  const payload = {
+    action: 'editAsset',
+    assetId: i.assetId,
+    name,
+    category,
+    subcategory: document.getElementById('e-subcategory').value.trim(),
+    location,
+    rentalValue: document.getElementById('e-rental').value || '',
+    replacementValue: document.getElementById('e-replacement').value || '',
+    notes: document.getElementById('e-notes').value.trim(),
+    photoUrl,
+    previousPhotoUrl: i.photo || '',
+  };
+
+  try {
+    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+    const result = await res.json();
+    if (result.success) {
+      // Update local item
+      i.name = name;
+      i.category = category;
+      i.subcategory = payload.subcategory;
+      i.location = location;
+      i.rental = payload.rentalValue;
+      i.replacement = payload.replacementValue;
+      i.notes = payload.notes;
+      i.photo = photoUrl ? photoUrl.replace('/upload/', '/upload/w_400,c_fill/') : i.photo;
+      showToast('✓ ' + name + ' updated!');
+      closeEditModal();
+      closePanel();
+      render();
+    } else {
+      showToast('Error: ' + (result.error || 'Unknown'), true);
+    }
+  } catch(e) {
+    showToast('Could not reach server.', true);
+  }
+  btn.innerHTML = 'Save changes';
+  btn.disabled = false;
 }
 
 // TAB SWITCHING
