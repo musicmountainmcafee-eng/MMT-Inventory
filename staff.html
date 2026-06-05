@@ -202,6 +202,7 @@
   /* STAFF GRID VIEW */
   .staff-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
   .staff-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
+  .staff-card.out { border-color: #ffaaaa; border-width: 2px; background: #fffafa; }
   .staff-card:hover { border-color: var(--purple); transform: translateY(-2px); }
   .staff-card.selected { border-color: var(--purple); background: var(--purple-light); }
   .staff-card-img { width: 100%; height: 170px; background: var(--bg); overflow: hidden; display: flex; align-items: center; justify-content: center; }
@@ -221,6 +222,7 @@
   .staff-list-row:last-child { border-bottom: none; border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); }
   .staff-list-row:hover { background: var(--bg); }
   .staff-list-row.selected { background: var(--purple-light); }
+  .staff-list-row.out { border-left: 4px solid #ff8888; background: #fffafa; }
   .staff-list-thumb { width: 115px; height: 115px; border-radius: var(--radius-sm); background: var(--bg); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-faint); }
   .staff-list-thumb img { width: 115px; height: 115px; object-fit: cover; }
   .staff-list-thumb svg { width: 36px; height: 36px; opacity: 0.25; }
@@ -852,7 +854,7 @@ function render() {
 
   if (staffView === 'grid') {
     container.innerHTML = '<div class="staff-grid" style="padding:1rem;">' + filteredItems.map(i => `
-      <div class="staff-card ${selected.has(i.assetId) ? 'selected' : ''}" onclick="openPanel(${i._idx})">
+      <div class="staff-card ${selected.has(i.assetId) ? 'selected' : ''} ${i.status==='OUT'?'out ':'' }" onclick="openPanel(${i._idx})">
         <div class="staff-card-img">
           ${i.photo ? `<img src="${i.photo}" alt="${i.name}" onerror="this.parentElement.innerHTML='${photoSVG}'" />` : photoSVG}
         </div>
@@ -865,10 +867,11 @@ function render() {
           <div class="staff-card-cat">${i.category}${i.subcategory?' · '+i.subcategory:''}</div>
           <div class="staff-card-loc">${i.location||'—'}</div>
           ${i.status==='OUT' ? `
-            <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">
-              <div style="font-size:11px;font-weight:600;color:var(--purple-dark);">${i.currentShow||'—'}</div>
-              ${i.dueBack?`<div style="font-size:11px;color:var(--red);">Due: ${i.dueBack}</div>`:''}
-              ${i.type?`<div style="font-size:10px;color:var(--text-faint);">${i.type}</div>`:''}
+            <div style="margin-top:8px;padding:8px 10px;border-radius:6px;background:#fff0f0;border:1px solid #ffd0d0;">
+              <div style="font-size:10px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Currently Out</div>
+              <div style="font-size:12px;margin-bottom:2px;"><span style="color:var(--text-faint);font-size:11px;">Renter: </span><span style="font-weight:600;color:var(--text);">${i.currentShow||'—'}</span></div>
+              ${i.dueBack?`<div style="font-size:12px;margin-bottom:2px;"><span style="color:var(--text-faint);font-size:11px;">Due back: </span><span style="font-weight:600;color:var(--red);">${i.dueBack}</span></div>`:''}
+              ${i.type?`<div style="font-size:11px;"><span style="color:var(--text-faint);">Type: </span><span style="color:var(--text);">${i.type}</span></div>`:''}
             </div>
           ` : ''}
           <div class="staff-card-footer">
@@ -880,7 +883,7 @@ function render() {
     `).join('') + '</div>';
   } else {
     container.innerHTML = '<div class="staff-list">' + filteredItems.map(i => `
-      <div class="staff-list-row ${selected.has(i.assetId) ? 'selected' : ''}">
+      <div class="staff-list-row ${selected.has(i.assetId) ? 'selected' : ''} ${i.status==='OUT'?'out ':'' }">
         <input type="checkbox" class="cb" ${selected.has(i.assetId)?'checked':''} onchange="toggleSelect('${i.assetId}')" onclick="event.stopPropagation()" />
         <div class="staff-list-thumb">
           ${i.photo ? `<img src="${i.photo}" alt="${i.name}" onerror="this.parentElement.innerHTML='${photoSVG}'" />` : photoSVG}
@@ -894,9 +897,10 @@ function render() {
         <div>
           <span class="badge ${i.status==='IN'?'badge-in':'badge-out'}">${i.status==='IN'?'In':'Out'}</span>
           ${i.status==='OUT' ? `
-            <div style="font-size:11px;color:var(--purple-dark);margin-top:3px;font-weight:500;">${i.currentShow||'—'}</div>
-            ${i.dueBack?`<div style="font-size:11px;color:var(--red);margin-top:1px;">Due: ${i.dueBack}</div>`:''}
-            ${i.type?`<div style="font-size:10px;color:var(--text-faint);margin-top:1px;">${i.type}</div>`:''}
+            <div style="margin-top:4px;padding:6px 8px;border-radius:6px;background:#fff0f0;border:1px solid #ffd0d0;">
+              <div style="font-size:12px;margin-bottom:2px;"><span style="color:var(--text-faint);font-size:11px;">Renter: </span><span style="font-weight:600;color:var(--text);">${i.currentShow||'—'}</span></div>
+              ${i.dueBack?`<div style="font-size:12px;"><span style="color:var(--text-faint);font-size:11px;">Due back: </span><span style="font-weight:600;color:var(--red);">${i.dueBack}</span></div>`:''}
+            </div>
           ` : ''}
         </div>
         <button class="detail-btn" onclick="openPanel(${i._idx})">Details</button>
