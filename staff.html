@@ -687,7 +687,10 @@ function checkPin() {
 async function loadHistory() {
   document.getElementById('history-results').innerHTML = '<div class="empty">Loading...</div>';
   try {
-    const res = await fetch(HISTORY_CSV_URL);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(HISTORY_CSV_URL, { signal: controller.signal });
+    clearTimeout(timeout);
     const text = await res.text();
     const lines = text.trim().split(/\r?\n/);
     historyData = lines.slice(1).map(line => {
@@ -705,7 +708,7 @@ async function loadHistory() {
     }).filter(r => r.assetId || r.who).reverse();
     renderHistory();
   } catch(e) {
-    document.getElementById('history-results').innerHTML = '<div class="empty">Could not load history.</div>';
+    document.getElementById('history-results').innerHTML = '<div class="empty">Could not load history. Make sure the Form_Responses tab is published to web and try refreshing.</div>';
   }
 }
 
