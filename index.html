@@ -248,10 +248,10 @@
       <div class="form-section">
         <div class="form-section-title">Contact info</div>
         <div class="field-row">
-          <div class="field"><label>Full name <span class="required">*</span></label><input type="text" id="f-name" placeholder="Your name" /></div>
-          <div class="field"><label>Email <span class="required">*</span></label><input type="email" id="f-email" placeholder="your@email.com" /></div>
+          <div class="field"><label>Full name <span class="required">*</span></label><input type="text" id="f-name"  /></div>
+          <div class="field"><label>Email <span class="required">*</span></label><input type="email" id="f-email"  /></div>
         </div>
-        <div class="field"><label>Organization / Theatre company <span class="required">*</span></label><input type="text" id="f-org" placeholder="Company or school name" /></div>
+        <div class="field"><label>Organization / Theatre company <span class="required">*</span></label><input type="text" id="f-org"  /></div>
         <div class="field">
           <label>How did you hear about us? <span class="required">*</span></label>
           <select id="f-heard">
@@ -268,17 +268,44 @@
 
       <div class="form-section">
         <div class="form-section-title">Production details</div>
-        <div class="field"><label>Show / Production name <span class="required">*</span></label><input type="text" id="f-show" placeholder="e.g. Into the Woods" /></div>
+        <div class="field"><label>Show / Production name <span class="required">*</span></label><input type="text" id="f-show"  /></div>
         <div class="field-row">
-          <div class="field"><label>Performance start date <span class="required">*</span></label><input type="date" id="f-perf-start" /></div>
-          <div class="field"><label>Performance end date <span class="required">*</span></label><input type="date" id="f-perf-end" /></div>
+          <div class="field"><label>Performance start date <span class="required">*</span></label><input type="text" id="f-perf-start" placeholder="e.g. June 15" /></div>
+          <div class="field"><label>Performance end date <span class="required">*</span></label><input type="text" id="f-perf-end" placeholder="e.g. June 30" /></div>
         </div>
         <div class="field-row">
-          <div class="field"><label>Load-in date</label><input type="date" id="f-load-in" /></div>
-          <div class="field"><label>Load-out date</label><input type="date" id="f-load-out" /></div>
+          <div class="field"><label>Load-in date</label><input type="text" id="f-load-in" placeholder="e.g. June 12" /></div>
+          <div class="field"><label>Load-out date</label><input type="text" id="f-load-out" placeholder="e.g. July 1" /></div>
         </div>
-        <div class="field"><label>Additional notes</label><textarea id="f-notes" placeholder="Any special requirements, questions, or context..."></textarea></div>
-        <div class="field"><label>Looking for anything else not listed?</label><textarea id="f-other" placeholder="Let us know if you're looking for something you didn't see in our catalogue — we may have it or be able to source it..."></textarea></div>
+        <div class="field"><label>Additional notes</label><textarea id="f-notes" ></textarea></div>
+        <div class="field"><label>Looking for anything else not listed?</label><textarea id="f-other" ></textarea></div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Pickup & Visit</div>
+        <div class="field">
+          <label>Preferred pickup day</label>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Our standard pickup days are <strong>Tuesday & Thursday, 10:30am–3:30pm</strong>. Other times may be available.</div>
+          <select id="f-pickup">
+            <option value="">Select a preference...</option>
+            <option>Tuesday 10:30am–3:30pm</option>
+            <option>Thursday 10:30am–3:30pm</option>
+            <option>Another time — I'll explain in notes</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Interested in visiting our space to view items?</label>
+          <select id="f-visit" onchange="toggleVisitDates()">
+            <option value="">Select...</option>
+            <option value="yes">Yes, I'd like to visit</option>
+            <option value="no">No, not necessary</option>
+            <option value="maybe">Maybe — I'll reach out separately</option>
+          </select>
+        </div>
+        <div class="field" id="visit-dates-field" style="display:none;">
+          <label>Dates & times you could visit</label>
+          <textarea id="f-visit-dates" style="min-height:60px;"></textarea>
+        </div>
       </div>
 
       <div class="modal-footer">
@@ -426,6 +453,11 @@ function updateInquiryCart() {
   render();
 }
 
+function toggleVisitDates() {
+  const val = document.getElementById('f-visit').value;
+  document.getElementById('visit-dates-field').style.display = val === 'yes' ? 'block' : 'none';
+}
+
 function closeInquiry(e) {
   if (!e || e.target === document.getElementById('inquiry-overlay'))
     document.getElementById('inquiry-overlay').style.display = 'none';
@@ -457,6 +489,9 @@ async function submitInquiry() {
   const loadOut = document.getElementById('f-load-out').value || 'Not specified';
   const notes = document.getElementById('f-notes').value.trim() || 'None';
   const otherItems = document.getElementById('f-other').value.trim() || 'None';
+  const pickup = document.getElementById('f-pickup').value || 'Not specified';
+  const visit = document.getElementById('f-visit').value || 'Not specified';
+  const visitDates = document.getElementById('f-visit-dates') ? document.getElementById('f-visit-dates').value.trim() || 'N/A' : 'N/A';
 
   const params = {
     from_name: name,
@@ -470,6 +505,9 @@ async function submitInquiry() {
     notes: notes,
     items: itemsList,
     other_items: otherItems,
+    pickup_pref: pickup,
+    visit_interest: visit,
+    visit_dates: visitDates,
   };
 
   try {
