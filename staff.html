@@ -483,7 +483,11 @@
       <div id="checkout-fields">
         <div style="display:flex;flex-direction:column;gap:14px;">
           <div class="field">
-            <label>Show / renter name <span class="required">*</span></label>
+            <label>Renter / organization name <span class="required">*</span></label>
+            <input type="text" id="f-renter" />
+          </div>
+          <div class="field">
+            <label>Show / production name <span class="required">*</span></label>
             <input type="text" id="f-who" />
           </div>
           <div class="field-row">
@@ -501,11 +505,11 @@
             </div>
           </div>
           <div class="field">
-            <label>Due back date</label>
+            <label>Due back date <span class="required">*</span></label>
             <input type="date" id="f-due" />
           </div>
           <div class="field">
-            <label>Staff member <span class="required">*</span></label>
+            <label>Staff member processing <span class="required">*</span></label>
             <input type="text" id="f-staff" />
           </div>
           <div class="field">
@@ -948,7 +952,7 @@ function openActionModal(action, singleIdx) {
   btn.className = 'btn ' + (action === 'OUT' ? 'btn-out' : 'btn-in');
   btn.dataset.action = action;
   btn.dataset.ids = JSON.stringify(ids);
-  ['f-who','f-staff','f-notes-out','f-staff-in','f-notes-in'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  ['f-renter','f-who','f-staff','f-notes-out','f-staff-in','f-notes-in'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   document.getElementById('f-type').value = '';
   document.getElementById('f-condition').value = '';
   document.getElementById('f-due').value = '';
@@ -969,11 +973,15 @@ async function submitAction() {
   const action = btn.dataset.action;
   const ids = JSON.parse(btn.dataset.ids);
   if (action === 'OUT') {
+    const renter = document.getElementById('f-renter').value.trim();
     const who = document.getElementById('f-who').value.trim();
     const type = document.getElementById('f-type').value;
     const staff = document.getElementById('f-staff').value.trim();
-    if (!who) { showToast('Show / renter name is required', true); document.getElementById('f-who').focus(); return; }
+    const due = document.getElementById('f-due').value;
+    if (!renter) { showToast('Renter name is required', true); document.getElementById('f-renter').focus(); return; }
+    if (!who) { showToast('Show name is required', true); document.getElementById('f-who').focus(); return; }
     if (!type) { showToast('Please select a type', true); return; }
+    if (!due) { showToast('Due back date is required', true); return; }
     if (!staff) { showToast('Staff name is required', true); document.getElementById('f-staff').focus(); return; }
   } else {
     const staff = document.getElementById('f-staff-in').value.trim();
@@ -985,7 +993,7 @@ async function submitAction() {
   btn.disabled = true;
   const payload = {
     action: 'checkInOut', assetIds: ids, status: action,
-    who: action === 'OUT' ? document.getElementById('f-who').value.trim() : '',
+    who: action === 'OUT' ? (document.getElementById('f-renter').value.trim() + ' — ' + document.getElementById('f-who').value.trim()) : '',
     type: action === 'OUT' ? document.getElementById('f-type').value : '',
     dueBack: action === 'OUT' ? document.getElementById('f-due').value : '',
     quantity: document.getElementById('f-qty').value || '1',
