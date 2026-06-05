@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MMT Staff Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --green: #3B6D11; --purple: #534AB7; --blue: #185FA5;
+    --green-light: #EAF3DE; --green-dark: #27500A;
+    --purple-light: #EEEDFE; --purple-dark: #3C3489;
+    --blue-light: #E6F1FB; --blue-dark: #0C447C;
+    --red: #c0392b;
+    --bg: #f8f7f4; --surface: #ffffff;
+    --border: rgba(0,0,0,0.1);
+    --text: #1a1a1a; --text-muted: #6b6b6b; --text-faint: #aaaaaa;
+    --radius: 12px; --radius-sm: 8px;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem 1rem; }
+  .container { max-width: 1000px; margin: 0 auto; }
+  .header { background: linear-gradient(135deg, #1a1a2e 0%, #3C3489 60%, #185FA5 100%); border-radius: var(--radius); padding: 1.75rem 2rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+  .header-left h1 { color: white; font-size: 1.5rem; font-weight: 600; }
+  .header-left p { color: rgba(255,255,255,0.6); font-size: 13px; margin-top: 3px; }
+  .catalogue-link { font-size: 13px; color: rgba(255,255,255,0.7); text-decoration: none; padding: 6px 12px; border: 1px solid rgba(255,255,255,0.2); border-radius: var(--radius-sm); transition: all 0.15s; }
+  .catalogue-link:hover { background: rgba(255,255,255,0.1); color: white; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.875rem 1rem; }
+  .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .stat-val { font-size: 1.6rem; font-weight: 600; }
+  .stat-val.green { color: var(--green); } .stat-val.purple { color: var(--purple); } .stat-val.blue { color: var(--blue); } .stat-val.red { color: var(--red); }
+  .search-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+  .search-section h2 { font-size: 11px; font-weight: 600; margin-bottom: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .search-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .search-wrap { flex: 1; min-width: 200px; position: relative; }
+  .search-wrap svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-faint); pointer-events: none; }
+  .search-wrap input { width: 100%; padding: 10px 12px 10px 38px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); outline: none; transition: border-color 0.15s; }
+  .search-wrap input:focus { border-color: var(--purple); background: white; }
+  .filter-select { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); outline: none; cursor: pointer; }
+  .batch-bar { display: flex; align-items: center; gap: 10px; padding: 12px 1rem; background: var(--purple-light); border: 1px solid rgba(83,74,183,0.2); border-radius: var(--radius-sm); margin-bottom: 1rem; flex-wrap: wrap; }
+  .batch-bar.hidden { display: none; }
+  .batch-count { font-size: 13px; font-weight: 600; color: var(--purple); flex: 1; min-width: 100px; }
+  .btn { padding: 8px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; border: none; transition: all 0.15s; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-out { background: var(--purple); color: white; }
+  .btn-out:hover:not(:disabled) { background: var(--purple-dark); }
+  .btn-in { background: var(--green); color: white; }
+  .btn-in:hover:not(:disabled) { background: var(--green-dark); }
+  .btn-clear { background: none; border: 1px solid rgba(83,74,183,0.3); color: var(--purple); }
+  .btn-clear:hover { background: white; }
+  .btn-ghost { background: none; border: 1px solid var(--border); color: var(--text-muted); }
+  .btn-ghost:hover { border-color: var(--purple); color: var(--purple); }
+  .results-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .results-header { display: grid; grid-template-columns: 36px 1fr 140px 100px 120px 80px; gap: 12px; padding: 10px 1rem; background: var(--bg); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .result-row { display: grid; grid-template-columns: 36px 1fr 140px 100px 120px 80px; gap: 12px; padding: 12px 1rem; border-bottom: 1px solid var(--border); align-items: center; transition: background 0.1s; }
+  .result-row:last-child { border-bottom: none; }
+  .result-row:hover { background: var(--bg); }
+  .result-row.selected { background: var(--purple-light); }
+  .cb { width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid var(--border); cursor: pointer; appearance: none; background: white; transition: all 0.15s; flex-shrink: 0; }
+  .cb:checked { background: var(--purple); border-color: var(--purple); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M2 6l3 3 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: center; }
+  .item-name { font-size: 14px; font-weight: 600; cursor: pointer; }
+  .item-name:hover { color: var(--purple); }
+  .item-sub { font-size: 11px; color: var(--text-faint); font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .item-loc { font-size: 13px; color: var(--text-muted); }
+  .item-cat { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 99px; background: var(--blue-light); color: var(--blue-dark); font-weight: 500; }
+  .badge { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+  .badge-in { background: var(--green-light); color: var(--green-dark); }
+  .badge-out { background: var(--purple-light); color: var(--purple-dark); }
+  .detail-btn { font-size: 12px; color: var(--purple); background: none; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; padding: 4px 8px; border-radius: var(--radius-sm); }
+  .detail-btn:hover { background: var(--purple-light); }
+  .empty { text-align: center; padding: 3rem; color: var(--text-muted); font-size: 14px; }
+  .select-all-row { display: flex; align-items: center; gap: 8px; padding: 8px 1rem; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text-muted); background: var(--bg); }
+
+  /* ACTION MODAL */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; backdrop-filter: blur(2px); }
+  .modal { background: var(--surface); border-radius: var(--radius); width: 100%; max-width: 460px; box-shadow: 0 24px 64px rgba(0,0,0,0.2); animation: slideUp 0.2s ease; overflow: hidden; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .modal-header { padding: 1.25rem 1.5rem 0; display: flex; justify-content: space-between; align-items: center; }
+  .modal-title { font-size: 16px; font-weight: 600; }
+  .modal-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .close-btn { background: var(--bg); border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; color: var(--text-muted); font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .close-btn:hover { background: var(--purple-light); color: var(--purple); }
+  .modal-body { padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+  .field input, .field select, .field textarea { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); outline: none; transition: border-color 0.15s; width: 100%; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--purple); background: white; }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .field .required { color: var(--red); margin-left: 2px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-footer { padding: 0 1.5rem 1.5rem; display: flex; gap: 10px; }
+  .modal-footer .btn { flex: 1; text-align: center; padding: 10px; font-size: 14px; }
+  .item-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); min-height: 42px; }
+  .chip { font-size: 12px; padding: 3px 8px; background: var(--purple-light); color: var(--purple-dark); border-radius: 99px; font-weight: 500; }
+
+  /* DETAIL PANEL */
+  .panel { background: var(--surface); border-radius: var(--radius); width: 100%; max-width: 480px; overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,0.2); animation: slideUp 0.2s ease; max-height: 90vh; overflow-y: auto; }
+  .panel-img { width: 100%; height: 200px; background: var(--bg); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .panel-img img { width: 100%; height: 200px; object-fit: cover; }
+  .panel-img svg { width: 40px; height: 40px; opacity: 0.2; }
+  .panel-body { padding: 1.25rem; }
+  .panel-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+  .panel-title { font-size: 1.1rem; font-weight: 600; }
+  .panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem; }
+  .pf { display: flex; flex-direction: column; gap: 3px; }
+  .pf-label { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 500; }
+  .pf-val { font-size: 14px; font-weight: 500; }
+  .pf-val.mono { font-family: 'DM Mono', monospace; font-size: 12px; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+  .panel-actions { display: flex; gap: 8px; margin-top: 1rem; }
+  .panel-actions .btn { flex: 1; text-align: center; }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: white; padding: 10px 20px; border-radius: 99px; font-size: 13px; font-weight: 500; z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+  .toast.error { background: var(--red); }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .tab-btn { padding: 9px 18px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); transition: all 0.15s; }
+  .tab-btn.active { background: var(--purple); color: white; border-color: var(--purple); }
+  .tab-btn:hover:not(.active) { border-color: var(--purple); color: var(--purple); }
+  .add-form-wrap { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start; }
+  @media (max-width: 768px) { .add-form-wrap { grid-template-columns: 1fr; } }
+  .add-form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; }
+  .add-section-title { font-size: 15px; font-weight: 600; margin-bottom: 1.25rem; }
+  .add-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .preview-card { position: sticky; top: 1rem; border: 2px solid var(--purple-light); }
+  .photo-drop { border: 1.5px dashed var(--border); border-radius: var(--radius-sm); padding: 1.5rem; text-align: center; cursor: pointer; color: var(--text-faint); font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: all 0.15s; background: var(--bg); }
+  .photo-drop:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-light); }
+  .photo-drop.has-photo { border-color: var(--green); color: var(--green); background: var(--green-light); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="header-left">
+      <h1>MMT Staff Portal</h1>
+      <p>Inventory management & check-in/out</p>
+    </div>
+    <a href="https://mmtscenic.netlify.app" class="catalogue-link" target="_blank">Public catalogue ↗</a>
+  </div>
+
+  <div style="display:flex;gap:4px;margin-bottom:1.5rem;">
+    <button class="tab-btn active" id="tab-inventory" onclick="switchTab('inventory')">
+      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      Inventory
+    </button>
+    <button class="tab-btn" id="tab-add" onclick="switchTab('add')">
+      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px;"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+      Add new asset
+    </button>
+  </div>
+
+  <div id="page-inventory">
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Total items</div><div class="stat-val purple" id="total-count">—</div></div>
+    <div class="stat"><div class="stat-label">Available</div><div class="stat-val green" id="avail-count">—</div></div>
+    <div class="stat"><div class="stat-label">Currently out</div><div class="stat-val blue" id="out-count">—</div></div>
+    <div class="stat"><div class="stat-label">Overdue</div><div class="stat-val red" id="overdue-count">—</div></div>
+  </div>
+
+  <div class="search-section">
+    <h2>Find items</h2>
+    <div class="search-row">
+      <div class="search-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="search" placeholder="Search by name, Asset ID, location..." oninput="render()" autofocus />
+      </div>
+      <select class="filter-select" id="cat-filter" onchange="render()"><option value="">All categories</option></select>
+      <select class="filter-select" id="status-filter" onchange="render()">
+        <option value="">All statuses</option>
+        <option value="IN">In</option>
+        <option value="OUT">Out</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="batch-bar hidden" id="batch-bar">
+    <span class="batch-count" id="batch-count">0 selected</span>
+    <span id="batch-actions"></span>
+    <button class="btn btn-clear" onclick="clearSelection()">Clear</button>
+  </div>
+
+  <div class="results-wrap">
+    <div class="select-all-row">
+      <input type="checkbox" class="cb" id="select-all" onchange="toggleSelectAll()" />
+      <label for="select-all" style="cursor:pointer;">Select all visible</label>
+      <span style="margin-left:auto;font-size:12px;color:var(--text-faint);" id="result-count"></span>
+    </div>
+    <div class="results-header">
+      <div></div><div>Item</div><div>Location</div><div>Category</div><div>Status</div><div></div>
+    </div>
+    <div id="results"><div class="empty">Loading inventory...</div></div>
+  </div>
+</div>
+  </div><!-- end page-inventory -->
+
+  <!-- ADD NEW ASSET PAGE -->
+  <div id="page-add" style="display:none;">
+    <div class="add-form-wrap">
+      <div class="add-form-card">
+        <h2 class="add-section-title">Item details</h2>
+        <div class="add-grid">
+          <div class="field" style="grid-column:1/-1;">
+            <label>Item name <span class="required">*</span></label>
+            <input type="text" id="a-name" placeholder="e.g. Victorian Settee" oninput="updatePreview()" />
+          </div>
+          <div class="field">
+            <label>Category <span class="required">*</span></label>
+            <select id="a-category" onchange="updatePreview()">
+              <option value="">Select category...</option>
+              <option value="Furniture">Furniture</option>
+              <option value="Specialty">Specialty</option>
+              <option value="Chairs">Chairs</option>
+              <option value="Tables">Tables</option>
+              <option value="Desks">Desks</option>
+              <option value="Set Dressing">Set Dressing</option>
+              <option value="Show Specific">Show Specific</option>
+              <option value="Couches">Couches</option>
+              <option value="Flats">Flats</option>
+              <option value="Wall Decor">Wall Decor</option>
+              <option value="Drops">Drops</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Subcategory</label>
+            <input type="text" id="a-subcategory" placeholder="e.g. Sweeney Todd" oninput="updatePreview()" />
+          </div>
+          <div class="field" style="grid-column:1/-1;">
+            <label>Storage location <span class="required">*</span></label>
+            <input type="text" id="a-location" placeholder="e.g. Under Loft Left" oninput="updatePreview()" />
+          </div>
+          <div class="field">
+            <label>Quantity</label>
+            <input type="text" inputmode="numeric" id="a-quantity" value="1" />
+          </div>
+          <div class="field">
+            <label>Rental value ($)</label>
+            <input type="text" inputmode="numeric" id="a-rental" placeholder="0" />
+          </div>
+          <div class="field" style="grid-column:1/-1;">
+            <label>Replacement value ($)</label>
+            <input type="text" inputmode="numeric" id="a-replacement" placeholder="0" />
+          </div>
+          <div class="field" style="grid-column:1/-1;">
+            <label>Notes</label>
+            <textarea id="a-notes" placeholder="Any additional notes about this item..."></textarea>
+          </div>
+          <div class="field" style="grid-column:1/-1;">
+            <label>Photo <span class="required">*</span></label>
+            <div class="photo-drop" id="photo-drop" onclick="document.getElementById('a-photo').click()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+              <span id="photo-label">Click to upload photo</span>
+            </div>
+            <input type="file" id="a-photo" accept="image/*" style="display:none;" onchange="handlePhoto(this)" />
+          </div>
+        </div>
+      </div>
+
+      <div class="add-form-card preview-card" id="preview-card">
+        <h2 class="add-section-title">ID preview</h2>
+
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;">These IDs will be automatically assigned when you save.</p>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div class="pf"><div class="pf-label">Asset ID</div><div class="pf-val mono" id="prev-assetid" style="font-size:1.1rem;color:var(--purple);">—</div></div>
+          <div class="pf"><div class="pf-label">Tag ID</div><div class="pf-val mono" id="prev-tagid" style="font-size:1.1rem;color:var(--purple);">—</div></div>
+          <div class="pf"><div class="pf-label">Category prefix</div><div class="pf-val mono" id="prev-prefix">—</div></div>
+          <div class="pf"><div class="pf-label">Subcat code</div><div class="pf-val mono" id="prev-subcat">—</div></div>
+          <div class="pf"><div class="pf-label">Label text preview</div>
+            <div id="prev-label" style="font-size:12px;font-family:monospace;background:var(--bg);padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);white-space:pre-line;line-height:1.6;margin-top:4px;color:var(--text-muted);">—</div>
+          </div>
+        </div>
+        <div style="margin-top:1.5rem;display:flex;gap:10px;">
+          <button class="btn btn-ghost" style="flex:1;" onclick="resetAddForm()">Clear form</button>
+          <button class="btn btn-in" style="flex:1;" id="save-asset-btn" onclick="saveAsset()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="vertical-align:-1px;margin-right:5px;"><path d="M20 6 9 17l-5-5"/></svg>
+            Save to inventory
+          </button>
+        </div>
+      </div>
+    </div>
+  </div><!-- end page-add -->
+
+</div>
+
+<!-- CHECK IN/OUT MODAL -->
+<div id="action-overlay" class="overlay" style="display:none;" onclick="closeActionModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="action-title"></div>
+        <div class="modal-subtitle" id="action-subtitle"></div>
+      </div>
+      <button class="close-btn" onclick="closeActionModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Items</label>
+        <div class="item-chips" id="action-chips"></div>
+      </div>
+      <div id="checkout-fields">
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div class="field">
+            <label>Show / renter name <span class="required">*</span></label>
+            <input type="text" id="f-who" placeholder="e.g. Jenkintown Drama Club" />
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Type <span class="required">*</span></label>
+              <select id="f-type">
+                <option value="">Select...</option>
+                <option value="Rental">Rental</option>
+                <option value="Internal">Internal / MMT use</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Due back date</label>
+              <input type="date" id="f-due" />
+            </div>
+          </div>
+          <div class="field">
+            <label>Staff member processing this <span class="required">*</span></label>
+            <input type="text" id="f-staff" placeholder="Your name" />
+          </div>
+          <div class="field">
+            <label>Notes</label>
+            <textarea id="f-notes-out" placeholder="Any additional notes..."></textarea>
+          </div>
+        </div>
+      </div>
+      <div id="checkin-fields" style="display:none;">
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div class="field">
+            <label>Staff member processing this <span class="required">*</span></label>
+            <input type="text" id="f-staff-in" placeholder="Your name" />
+          </div>
+          <div class="field">
+            <label>Condition on return <span class="required">*</span></label>
+            <select id="f-condition">
+              <option value="">Select condition...</option>
+              <option value="Good">Good — no issues</option>
+              <option value="Minor wear">Minor wear — cosmetic only</option>
+              <option value="Needs repair">Needs repair</option>
+              <option value="Damaged">Damaged</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Additional notes</label>
+            <textarea id="f-notes-in" placeholder="Describe the condition of the returned item(s)..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeActionModal()">Cancel</button>
+      <button class="btn" id="action-submit-btn" onclick="submitAction()"></button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div id="panel-overlay" class="overlay" style="display:none;" onclick="closePanel(event)">
+  <div class="panel" onclick="event.stopPropagation()">
+    <div class="panel-img" id="panel-img"></div>
+    <div class="panel-body">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title" id="panel-name"></div>
+          <div style="margin-top:5px;" id="panel-badge"></div>
+        </div>
+        <button class="close-btn" onclick="closePanel()">&times;</button>
+      </div>
+      <div class="panel-grid">
+        <div class="pf"><div class="pf-label">Asset ID</div><div class="pf-val mono" id="panel-assetid"></div></div>
+        <div class="pf"><div class="pf-label">Tag ID</div><div class="pf-val mono" id="panel-tagid"></div></div>
+        <div class="pf"><div class="pf-label">Category</div><div class="pf-val" id="panel-cat"></div></div>
+        <div class="pf"><div class="pf-label">Storage location</div><div class="pf-val" id="panel-loc"></div></div>
+        <div class="pf"><div class="pf-label">Current show</div><div class="pf-val" id="panel-show"></div></div>
+        <div class="pf"><div class="pf-label">Due back</div><div class="pf-val" id="panel-due"></div></div>
+        <div class="pf"><div class="pf-label">Last used date</div><div class="pf-val" id="panel-lastdate"></div></div>
+        <div class="pf"><div class="pf-label">Last used show</div><div class="pf-val" id="panel-lastshow"></div></div>
+        <div class="pf"><div class="pf-label">Rental value</div><div class="pf-val" id="panel-rental"></div></div>
+        <div class="pf"><div class="pf-label">Replacement value</div><div class="pf-val" id="panel-replace"></div></div>
+      </div>
+      <div class="pf" style="margin-bottom:1rem;"><div class="pf-label">Notes</div><div class="pf-val" id="panel-notes" style="font-size:13px;color:var(--text-muted);font-weight:400;"></div></div>
+      <hr class="divider" />
+      <div class="panel-actions" id="panel-actions"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRupSW2TcKEhcXbsDg5FRWaQgRzjkgDKvRFduvVwpdwCsMers-HJRwK4lK1AmAH4qO74ZBrmvJzOO25/pub?gid=0&single=true&output=csv';
+
+function driveThumb(raw) {
+  if (!raw) return '';
+  // Cloudinary URL — use directly
+  if (raw.includes('cloudinary.com')) return raw.replace('/upload/', '/upload/w_400,c_fill/');
+  // Drive URL
+  const m = raw.match(/id=([\w-]+)/) || raw.match(/\/d\/([\w-]+)\//);
+  return m ? 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w400' : raw;
+}
+function splitLine(line) {
+  const vals = []; let cur = '', inQ = false;
+  for (let c of line) {
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { vals.push(cur); cur = ''; }
+    else cur += c;
+  }
+  vals.push(cur); return vals;
+}
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  const headers = splitLine(lines[0]);
+  return lines.slice(1).map(line => {
+    const vals = splitLine(line);
+    const obj = {};
+    headers.forEach((h, i) => obj[h.trim()] = (vals[i] || '').trim());
+    return obj;
+  }).filter(r => r['Asset ID'] && r['Name']);
+}
+
+let allItems = [], selected = new Set(), filteredItems = [], currentAction = null, currentPanelIdx = null;
+
+async function loadData() {
+  try {
+    const res = await fetch(CSV_URL);
+    const text = await res.text();
+    const rows = parseCSV(text);
+    allItems = rows.map((r, idx) => ({
+      _idx: idx,
+      assetId: r['Asset ID'] || '',
+      tagId: r['Tag ID'] || '',
+      name: r['Name'] || '',
+      category: r['Category'] || '',
+      subcategory: r['Subcatagorey'] || '',
+      location: r['Storage Location'] || '',
+      status: (r['Status'] || '').toUpperCase(),
+      currentShow: r['Current show'] || '',
+      dueBack: r['due back'] || '',
+      lastDate: r['Laat Used Date'] || '',
+      lastShow: r['Last Used Show'] || '',
+      rental: r['Rental Value'] || '',
+      replacement: r['Replacement Value'] || '',
+      notes: r['Notes'] || '',
+      type: r['Type'] || '',
+      photo: driveThumb(r['Photo'] || ''),
+    }));
+    const cats = [...new Set(allItems.map(i => i.category).filter(Boolean))].sort();
+    document.getElementById('cat-filter').innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option>${c}</option>`).join('');
+    updateStats(); render();
+  } catch(e) {
+    document.getElementById('results').innerHTML = '<div class="empty">Could not load inventory.</div>';
+  }
+}
+
+function updateStats() {
+  document.getElementById('total-count').textContent = allItems.length;
+  document.getElementById('avail-count').textContent = allItems.filter(i => i.status === 'IN').length;
+  document.getElementById('out-count').textContent = allItems.filter(i => i.status === 'OUT').length;
+  const today = new Date();
+  document.getElementById('overdue-count').textContent = allItems.filter(i => {
+    if (i.status !== 'OUT' || !i.dueBack) return false;
+    const d = new Date(i.dueBack); return !isNaN(d) && d < today;
+  }).length;
+}
+
+function render() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const cat = document.getElementById('cat-filter').value;
+  const status = document.getElementById('status-filter').value;
+  filteredItems = allItems.filter(i =>
+    (!q || [i.name, i.assetId, i.tagId, i.location, i.currentShow].some(f => f.toLowerCase().includes(q))) &&
+    (!cat || i.category === cat) && (!status || i.status === status)
+  );
+  document.getElementById('result-count').textContent = filteredItems.length + ' items';
+  document.getElementById('select-all').checked = filteredItems.length > 0 && filteredItems.every(i => selected.has(i.assetId));
+  const container = document.getElementById('results');
+  if (!filteredItems.length) { container.innerHTML = '<div class="empty">No items match your search.</div>'; return; }
+  container.innerHTML = filteredItems.map(i => `
+    <div class="result-row ${selected.has(i.assetId) ? 'selected' : ''}">
+      <input type="checkbox" class="cb" ${selected.has(i.assetId) ? 'checked' : ''} onchange="toggleSelect('${i.assetId}')" onclick="event.stopPropagation()" />
+      <div>
+        <div class="item-name" onclick="openPanel(${i._idx})">${i.name}</div>
+        <div class="item-sub">${i.assetId} · ${i.tagId}</div>
+      </div>
+      <div class="item-loc">${i.location || '—'}</div>
+      <div><span class="item-cat">${i.category}</span></div>
+      <div>
+        <span class="badge ${i.status === 'IN' ? 'badge-in' : 'badge-out'}">${i.status === 'IN' ? 'In' : 'Out'}</span>
+        ${i.currentShow ? `<div style="font-size:11px;color:var(--text-faint);margin-top:2px;">${i.currentShow}</div>` : ''}
+      </div>
+      <div><button class="detail-btn" onclick="openPanel(${i._idx})">Details</button></div>
+    </div>
+  `).join('');
+  updateBatchBar();
+}
+
+function toggleSelect(assetId) {
+  if (selected.has(assetId)) selected.delete(assetId); else selected.add(assetId);
+  render();
+}
+function toggleSelectAll() {
+  const allSel = filteredItems.every(i => selected.has(i.assetId));
+  if (allSel) filteredItems.forEach(i => selected.delete(i.assetId));
+  else filteredItems.forEach(i => selected.add(i.assetId));
+  render();
+}
+function clearSelection() { selected.clear(); render(); }
+function updateBatchBar() {
+  const bar = document.getElementById('batch-bar');
+  if (selected.size === 0) { bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  document.getElementById('batch-count').textContent = selected.size + ' item' + (selected.size !== 1 ? 's' : '') + ' selected';
+  const selItems = [...selected].map(id => allItems.find(i => i.assetId === id)).filter(Boolean);
+  const allOut = selItems.every(i => i.status === 'OUT');
+  const allIn = selItems.every(i => i.status === 'IN');
+  const mixed = !allOut && !allIn;
+  let btns = '';
+  if (allIn || mixed) btns += `<button class="btn btn-out" onclick="openActionModal('OUT')">↗ Check out</button>`;
+  if (allOut || mixed) btns += `<button class="btn btn-in" onclick="openActionModal('IN')">✓ Check in</button>`;
+  if (mixed) btns += `<span style="font-size:12px;color:var(--purple-dark);margin-left:4px;">Mixed selection</span>`;
+  document.getElementById('batch-actions').innerHTML = btns;
+}
+
+function openActionModal(action, singleIdx) {
+  currentAction = action;
+  const ids = singleIdx !== undefined ? [allItems[singleIdx].assetId] : [...selected];
+  const names = ids.map(id => allItems.find(i => i.assetId === id)?.name).filter(Boolean);
+
+  document.getElementById('action-title').textContent = action === 'OUT' ? 'Check out items' : 'Check in items';
+  document.getElementById('action-subtitle').textContent = ids.length + ' item' + (ids.length !== 1 ? 's' : '') + ' selected';
+  document.getElementById('action-chips').innerHTML = names.map(n => `<span class="chip">${n}</span>`).join('');
+  document.getElementById('checkout-fields').style.display = action === 'OUT' ? 'block' : 'none';
+  document.getElementById('checkin-fields').style.display = action === 'IN' ? 'block' : 'none';
+
+  const btn = document.getElementById('action-submit-btn');
+  btn.textContent = action === 'OUT' ? '↗ Confirm check out' : '✓ Confirm check in';
+  btn.className = 'btn ' + (action === 'OUT' ? 'btn-out' : 'btn-in');
+
+  // clear fields
+  ['f-who','f-staff','f-notes-out','f-staff-in','f-notes-in'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  document.getElementById('f-type').value = '';
+  document.getElementById('f-condition').value = '';
+  document.getElementById('f-due').value = '';
+
+  document.getElementById('action-overlay').style.display = 'flex';
+  setTimeout(() => {
+    const first = action === 'OUT' ? document.getElementById('f-who') : document.getElementById('f-staff-in');
+    if (first) first.focus();
+  }, 100);
+}
+
+function closeActionModal(e) {
+  if (!e || e.target === document.getElementById('action-overlay'))
+    document.getElementById('action-overlay').style.display = 'none';
+}
+
+async function submitAction() {
+  const action = currentAction;
+  const ids = [...selected];
+  if (!ids.length) return;
+
+  // Validate
+  if (action === 'OUT') {
+    const who = document.getElementById('f-who').value.trim();
+    const type = document.getElementById('f-type').value;
+    const staff = document.getElementById('f-staff').value.trim();
+    if (!who) { showToast('Show / renter name is required', true); document.getElementById('f-who').focus(); return; }
+    if (!type) { showToast('Please select a type', true); document.getElementById('f-type').focus(); return; }
+    if (!staff) { showToast('Staff name is required', true); document.getElementById('f-staff').focus(); return; }
+  } else {
+    const staff = document.getElementById('f-staff-in').value.trim();
+    const condition = document.getElementById('f-condition').value;
+    const notes = document.getElementById('f-notes-in').value.trim();
+    if (!staff) { showToast('Staff name is required', true); document.getElementById('f-staff-in').focus(); return; }
+    if (!condition) { showToast('Please select a condition', true); document.getElementById('f-condition').focus(); return; }
+
+  }
+
+  const btn = document.getElementById('action-submit-btn');
+  btn.innerHTML = '<span class="spinner"></span>Saving...';
+  btn.disabled = true;
+
+  const payload = {
+    action: 'checkInOut',
+    assetIds: ids,
+    status: action,
+    who: action === 'OUT' ? document.getElementById('f-who').value.trim() : '',
+    type: action === 'OUT' ? document.getElementById('f-type').value : '',
+    dueBack: action === 'OUT' ? document.getElementById('f-due').value : '',
+    staffName: action === 'OUT' ? document.getElementById('f-staff').value.trim() : document.getElementById('f-staff-in').value.trim(),
+    condition: action === 'IN' ? document.getElementById('f-condition').value : '',
+    notes: action === 'OUT' ? document.getElementById('f-notes-out').value.trim() : document.getElementById('f-notes-in').value.trim(),
+  };
+
+  try {
+    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+    const result = await res.json();
+    if (result.success) {
+      ids.forEach(id => {
+        const item = allItems.find(i => i.assetId === id);
+        if (item) { item.status = action; item.currentShow = action === 'OUT' ? payload.who : ''; item.dueBack = action === 'OUT' ? payload.dueBack : ''; }
+      });
+      showToast(`${action === 'IN' ? '✓ Checked in' : '↗ Checked out'} ${ids.length} item${ids.length !== 1 ? 's' : ''}`);
+      selected.clear();
+      closeActionModal();
+      updateStats(); render();
+    } else {
+      showToast('Error: ' + (result.error || 'Unknown'), true);
+      btn.innerHTML = action === 'OUT' ? '↗ Confirm check out' : '✓ Confirm check in';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    showToast('Could not reach server. Try again.', true);
+    btn.innerHTML = action === 'OUT' ? '↗ Confirm check out' : '✓ Confirm check in';
+    btn.disabled = false;
+  }
+}
+
+function openPanel(idx) {
+  currentPanelIdx = idx;
+  const i = allItems[idx];
+  document.getElementById('panel-name').textContent = i.name;
+  document.getElementById('panel-assetid').textContent = i.assetId || '—';
+  document.getElementById('panel-tagid').textContent = i.tagId || '—';
+  document.getElementById('panel-cat').textContent = i.category + (i.subcategory ? ' · ' + i.subcategory : '') || '—';
+  document.getElementById('panel-loc').textContent = i.location || '—';
+  document.getElementById('panel-show').textContent = i.currentShow || '—';
+  document.getElementById('panel-due').textContent = i.dueBack || '—';
+  document.getElementById('panel-lastdate').textContent = i.lastDate || '—';
+  document.getElementById('panel-lastshow').textContent = i.lastShow || '—';
+  document.getElementById('panel-rental').textContent = i.rental ? '$' + i.rental : '—';
+  document.getElementById('panel-replace').textContent = i.replacement ? '$' + i.replacement : '—';
+  document.getElementById('panel-notes').textContent = i.notes || 'No notes.';
+  document.getElementById('panel-badge').innerHTML = `<span class="badge ${i.status === 'IN' ? 'badge-in' : 'badge-out'}">${i.status === 'IN' ? 'Available' : 'Currently out'}</span>`;
+  const photoSVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>`;
+  document.getElementById('panel-img').innerHTML = i.photo
+    ? `<img src="${i.photo}" alt="${i.name}" style="width:100%;height:200px;object-fit:cover;" onerror="this.parentElement.innerHTML='${photoSVG}'" />`
+    : photoSVG;
+  document.getElementById('panel-actions').innerHTML = i.status === 'IN'
+    ? `<button class="btn btn-out" style="flex:1;" onclick="closePanel();selected.add('${i.assetId}');openActionModal('OUT')">↗ Check out</button>`
+    : `<button class="btn btn-in" style="flex:1;" onclick="closePanel();selected.add('${i.assetId}');openActionModal('IN')">✓ Check in</button>`;
+  document.getElementById('panel-overlay').style.display = 'flex';
+}
+
+function closePanel(e) {
+  if (!e || e.target === document.getElementById('panel-overlay'))
+    document.getElementById('panel-overlay').style.display = 'none';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closePanel(); closeActionModal(); } });
+
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => t.className = 'toast', 3500);
+}
+
+async function testCloudinary() {
+  const file = document.getElementById('test-photo').files[0];
+  const result = document.getElementById('test-result');
+  if (!file) { result.textContent = 'Pick a file first'; return; }
+  result.textContent = 'Uploading...';
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('upload_preset', 'mmt_inventory');
+    const res = await fetch('https://api.cloudinary.com/v1_1/dyzkxnrnd/image/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    result.textContent = JSON.stringify(data).substring(0, 300);
+    if (data.secure_url) result.style.color = 'var(--green)';
+    else result.style.color = 'var(--red)';
+  } catch(e) {
+    result.textContent = 'Error: ' + e.message;
+    result.style.color = 'var(--red)';
+  }
+}
+
+loadData();
+
+// ── TAB SWITCHING ─────────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById('page-inventory').style.display = tab === 'inventory' ? 'block' : 'none';
+  document.getElementById('page-add').style.display = tab === 'add' ? 'block' : 'none';
+  document.getElementById('tab-inventory').classList.toggle('active', tab === 'inventory');
+  document.getElementById('tab-add').classList.toggle('active', tab === 'add');
+  if (tab === 'add') fetchNextId();
+}
+
+// ── PREFIX / SUBCAT LOGIC ─────────────────────────────────────
+const PREFIXES = {
+  'Furniture':'F','Specialty':'SP','Chairs':'CH','Tables':'TB','Desks':'DK',
+  'Set Dressing':'SD','Show Specific':'SS','Couches':'CO','Flats':'FL',
+  'Wall Decor':'WD','Drops':'DR','Other':'OT'
+};
+
+function getSubcatCode(subcat) {
+  if (!subcat) return '';
+  const words = subcat.trim().split(/\s+/);
+  if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
+  return (words[0].substring(0, 2) + words.slice(1).map(w => w[0]).join('')).toUpperCase();
+}
+
+let nextAssetId = null;
+
+async function fetchNextId() {
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getNextId');
+    const data = await res.json();
+    if (data.success) { nextAssetId = data.nextId; updatePreview(); }
+  } catch(e) { nextAssetId = 'S????'; }
+}
+
+function updatePreview() {
+  const name = document.getElementById('a-name').value.trim();
+  const category = document.getElementById('a-category').value;
+  const subcat = document.getElementById('a-subcategory').value.trim();
+  const location = document.getElementById('a-location').value.trim();
+  const prefix = PREFIXES[category] || '';
+  const subcatCode = getSubcatCode(subcat);
+  const assetId = nextAssetId || '—';
+  let tagId = '—';
+  if (prefix && assetId !== '—') {
+    tagId = subcatCode ? `${prefix}-${subcatCode}-${assetId}` : `${prefix}-${assetId}`;
+  }
+  document.getElementById('prev-assetid').textContent = assetId;
+  document.getElementById('prev-tagid').textContent = tagId;
+  document.getElementById('prev-prefix').textContent = prefix ? prefix + '-' : '—';
+  document.getElementById('prev-subcat').textContent = subcatCode || '—';
+  document.getElementById('prev-label').textContent = tagId !== '—' && name
+    ? `${tagId}\n${name}\n────────\n${location || '(location)'}`
+    : '—';
+}
+
+function handlePhoto(input) {
+  const drop = document.getElementById('photo-drop');
+  const label = document.getElementById('photo-label');
+  if (input.files && input.files[0]) {
+    label.textContent = '✓ ' + input.files[0].name;
+    drop.classList.add('has-photo');
+  }
+}
+
+async function saveAsset() {
+  const name = document.getElementById('a-name').value.trim();
+  const category = document.getElementById('a-category').value;
+  const location = document.getElementById('a-location').value.trim();
+  const photoFile = document.getElementById('a-photo').files[0];
+
+  if (!name) { showToast('Item name is required', true); document.getElementById('a-name').focus(); return; }
+  if (!category) { showToast('Category is required', true); document.getElementById('a-category').focus(); return; }
+  if (!location) { showToast('Storage location is required', true); document.getElementById('a-location').focus(); return; }
+  if (!photoFile) { showToast('Photo is required', true); return; }
+  if (!nextAssetId) { showToast('Still loading next ID — try again in a moment', true); return; }
+
+  const btn = document.getElementById('save-asset-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Uploading photo...';
+
+  const subcat = document.getElementById('a-subcategory').value.trim();
+  const prefix = PREFIXES[category] || '';
+  const subcatCode = getSubcatCode(subcat);
+  const assetId = nextAssetId;
+  const tagId = subcatCode ? `${prefix}-${subcatCode}-${assetId}` : `${prefix}-${assetId}`;
+
+  let photoUrl = '';
+  let thumbUrl = '';
+
+  try {
+    const fd = new FormData();
+    fd.append('file', photoFile);
+    fd.append('upload_preset', 'mmt_inventory');
+
+    const uploadRes = await fetch('https://api.cloudinary.com/v1_1/dyzkxnrnd/image/upload', {
+      method: 'POST',
+      body: fd
+    });
+    const uploadResult = await uploadRes.json();
+    if (uploadResult.secure_url) {
+      photoUrl = uploadResult.secure_url;
+      thumbUrl = uploadResult.secure_url.replace('/upload/', '/upload/w_400,c_fill/');
+    } else {
+      const errMsg = uploadResult.error ? uploadResult.error.message : 'Upload failed';
+      showToast('Photo upload failed: ' + errMsg, true);
+      btn.innerHTML = 'Save to inventory';
+      btn.disabled = false;
+      return;
+    }
+  } catch(e) {
+    showToast('Photo upload failed — try again', true);
+    btn.innerHTML = 'Save to inventory';
+    btn.disabled = false;
+    return;
+  }
+
+  btn.innerHTML = '<span class="spinner"></span>Saving to inventory...';
+  const payload = {
+    action: 'addAsset',
+    assetId, tagId, name, category,
+    subcategory: subcat,
+    subcatCode,
+    location,
+    quantity: document.getElementById('a-quantity').value || 1,
+    rentalValue: document.getElementById('a-rental').value || '',
+    replacementValue: document.getElementById('a-replacement').value || '',
+    notes: document.getElementById('a-notes').value.trim(),
+    photoUrl,
+  };
+
+  try {
+    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+    const result = await res.json();
+    if (result.success) {
+      showToast('✓ ' + name + ' added as ' + assetId);
+      allItems.push({ _idx: allItems.length, assetId, tagId, name, category, subcategory: subcat, location, status: 'IN', currentShow: '', dueBack: '', lastDate: '', lastShow: '', rental: payload.rentalValue, replacement: payload.replacementValue, notes: payload.notes, type: '', photo: thumbUrl });
+      updateStats();
+      resetAddForm();
+      fetchNextId();
+      switchTab('inventory');
+    } else {
+      showToast('Error: ' + (result.error || 'Unknown'), true);
+      btn.innerHTML = 'Save to inventory';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    showToast('Could not reach server. Try again.', true);
+    btn.innerHTML = 'Save to inventory';
+    btn.disabled = false;
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function resetAddForm() {
+  ['a-name','a-subcategory','a-location','a-notes','a-rental','a-replacement'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  document.getElementById('a-category').value = '';
+  document.getElementById('a-quantity').value = 1;
+  document.getElementById('a-photo').value = '';
+  document.getElementById('photo-label').textContent = 'Click to upload photo';
+  document.getElementById('photo-drop').classList.remove('has-photo');
+  updatePreview();
+  fetchNextId();
+}
+</script>
+</body>
+</html>
