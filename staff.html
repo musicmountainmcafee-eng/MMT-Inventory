@@ -515,12 +515,6 @@
       <div id="checkin-fields" style="display:none;">
         <div style="display:flex;flex-direction:column;gap:14px;">
           <div class="field">
-            <label>Quick select from currently OUT items</label>
-            <select id="f-out-items" onchange="selectOutItem()" style="font-size:13px;">
-              <option value="">— Pick an item that's out —</option>
-            </select>
-          </div>
-          <div class="field">
             <label>Staff member <span class="required">*</span></label>
             <input type="text" id="f-staff-in" />
           </div>
@@ -870,6 +864,13 @@ function render() {
           <div class="staff-card-tag">${i.tagId}</div>
           <div class="staff-card-cat">${i.category}${i.subcategory?' · '+i.subcategory:''}</div>
           <div class="staff-card-loc">${i.location||'—'}</div>
+          ${i.status==='OUT' ? `
+            <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">
+              <div style="font-size:11px;font-weight:600;color:var(--purple-dark);">${i.currentShow||'—'}</div>
+              ${i.dueBack?`<div style="font-size:11px;color:var(--red);">Due: ${i.dueBack}</div>`:''}
+              ${i.type?`<div style="font-size:10px;color:var(--text-faint);">${i.type}</div>`:''}
+            </div>
+          ` : ''}
           <div class="staff-card-footer">
             <input type="checkbox" class="cb" ${selected.has(i.assetId)?'checked':''} onchange="toggleSelect('${i.assetId}')" onclick="event.stopPropagation()" />
             <button class="detail-btn" onclick="event.stopPropagation();openPanel(${i._idx})">Details</button>
@@ -892,7 +893,11 @@ function render() {
         <div class="staff-list-loc">${i.location||'—'}</div>
         <div>
           <span class="badge ${i.status==='IN'?'badge-in':'badge-out'}">${i.status==='IN'?'In':'Out'}</span>
-          ${i.currentShow?`<div style="font-size:11px;color:var(--text-faint);margin-top:2px;">${i.currentShow}</div>`:''}
+          ${i.status==='OUT' ? `
+            <div style="font-size:11px;color:var(--purple-dark);margin-top:3px;font-weight:500;">${i.currentShow||'—'}</div>
+            ${i.dueBack?`<div style="font-size:11px;color:var(--red);margin-top:1px;">Due: ${i.dueBack}</div>`:''}
+            ${i.type?`<div style="font-size:10px;color:var(--text-faint);margin-top:1px;">${i.type}</div>`:''}
+          ` : ''}
         </div>
         <button class="detail-btn" onclick="openPanel(${i._idx})">Details</button>
       </div>
@@ -944,43 +949,12 @@ function openActionModal(action, singleIdx) {
   document.getElementById('f-condition').value = '';
   document.getElementById('f-due').value = '';
   document.getElementById('f-qty').value = '1';
-  // Populate OUT items dropdown for check-in
-  const outSelect = document.getElementById('f-out-items');
-  outSelect.innerHTML = '<option value="">— Pick an item that\'s out —</option>';
-  if (action === 'IN') {
-    const outItems = allItems.filter(i => i.status === 'OUT');
-    outItems.forEach(i => {
-      const opt = document.createElement('option');
-      opt.value = i.assetId;
-      opt.textContent = i.name + (i.currentShow ? ' (' + i.currentShow + ')' : '') + ' · ' + i.assetId;
-      outSelect.appendChild(opt);
-    });
-  }
   document.getElementById('action-overlay').style.display = 'flex';
   setTimeout(() => {
     const first = action === 'OUT' ? document.getElementById('f-who') : document.getElementById('f-staff-in');
     if (first) first.focus();
   }, 100);
 }
-function selectOutItem() {
-  const assetId = document.getElementById('f-out-items').value;
-  if (!assetId) return;
-  const item = allItems.find(i => i.assetId === assetId);
-  if (!item) return;
-  // Add to selected and update chips
-  selected.add(assetId);
-  const btn = document.getElementById('action-submit-btn');
-  const ids = JSON.parse(btn.dataset.ids || '[]');
-  if (!ids.includes(assetId)) {
-    ids.push(assetId);
-    btn.dataset.ids = JSON.stringify(ids);
-  }
-  // Update chips display
-  const names = ids.map(id => allItems.find(i => i.assetId === id)?.name).filter(Boolean);
-  document.getElementById('action-chips').innerHTML = names.map(n => `<span class="chip">${n}</span>`).join('');
-  document.getElementById('action-subtitle').textContent = ids.length + ' item' + (ids.length !== 1 ? 's' : '') + ' selected';
-}
-
 function closeActionModal(e) {
   if (!e || e.target === document.getElementById('action-overlay'))
     document.getElementById('action-overlay').style.display = 'none';
