@@ -684,14 +684,13 @@ function checkPin() {
     document.getElementById('main').classList.add('visible');
     let historyData = [];
 
-async function loadHistory() {
+function loadHistory() {
   document.getElementById('history-results').innerHTML = '<div class="empty">Loading...</div>';
-  try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'getHistory' })
-    });
-    const data = await res.json();
+  // Remove any existing script tag
+  const old = document.getElementById('history-script');
+  if (old) old.remove();
+  // Use JSONP via script tag to bypass CORS
+  window.historyCallback = function(data) {
     if (data.success) {
       historyData = data.history.map(r => ({
         ...r,
@@ -701,9 +700,14 @@ async function loadHistory() {
     } else {
       document.getElementById('history-results').innerHTML = '<div class="empty">Could not load history.</div>';
     }
-  } catch(e) {
-    document.getElementById('history-results').innerHTML = '<div class="empty">Error: ' + e.message + '</div>';
-  }
+  };
+  const script = document.createElement('script');
+  script.id = 'history-script';
+  script.src = SCRIPT_URL + '?action=getHistory&callback=historyCallback';
+  script.onerror = () => {
+    document.getElementById('history-results').innerHTML = '<div class="empty">Could not load history.</div>';
+  };
+  document.body.appendChild(script);
 }
 
 function renderHistory() {
