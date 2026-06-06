@@ -687,8 +687,12 @@ function checkPin() {
 async function loadHistory() {
   document.getElementById('history-results').innerHTML = '<div class="empty">Loading...</div>';
   try {
-    const res = await fetch(SCRIPT_URL + '?action=getHistory');
-    const data = await res.json();
+    const res = await fetch(SCRIPT_URL + '?action=getHistory', {
+      method: 'GET',
+      redirect: 'follow',
+    });
+    const text = await res.text();
+    const data = JSON.parse(text);
     if (data.success) {
       historyData = data.history.map(r => ({
         ...r,
@@ -699,7 +703,7 @@ async function loadHistory() {
       document.getElementById('history-results').innerHTML = '<div class="empty">Could not load history.</div>';
     }
   } catch(e) {
-    document.getElementById('history-results').innerHTML = '<div class="empty">Could not load history. Try refreshing.</div>';
+    document.getElementById('history-results').innerHTML = '<div class="empty">Error: ' + e.message + '</div>';
   }
 }
 
