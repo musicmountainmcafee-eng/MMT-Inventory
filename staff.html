@@ -328,7 +328,7 @@
       <div class="search-row">
         <div class="search-wrap">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input type="text" id="search" placeholder="Search by name, Asset ID, location..." oninput="render()" autofocus />
+          <input type="text" id="search" placeholder="Search by name, Asset ID, location, renter..." oninput="render()" autofocus />
         </div>
         <select class="filter-select" id="cat-filter" onchange="render()"><option value="">All categories</option></select>
         <select class="filter-select" id="status-filter" onchange="render()">
@@ -871,6 +871,16 @@ function setStaffView(v) {
   render();
 }
 
+function filterByRenter(name) {
+  // Switch to inventory tab
+  switchTab('inventory');
+  // Set search to renter name
+  document.getElementById('search').value = name;
+  render();
+  // Scroll to results
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+}
+
 function renderWhatsOut() {
   const today = new Date(); today.setHours(0,0,0,0);
   const soon = new Date(today); soon.setDate(soon.getDate() + 7);
@@ -907,7 +917,7 @@ function renderWhatsOut() {
       return `<div class="${rowClass}">
         <div class="out-thumb">${i.photo?`<img src="${i.photo}" />`:`${photoSVG}`}</div>
         <div><div style="font-weight:600;font-size:13px;">${i.name}</div><div style="font-size:11px;color:var(--text-faint);font-family:'DM Mono',monospace;">${i.assetId}</div></div>
-        <div style="font-size:13px;">${i.currentShow||'—'}</div>
+        <div style="font-size:13px;">${i.currentShow ? `<span style="color:var(--purple);cursor:pointer;font-weight:500;" onclick="filterByRenter('${i.currentShow}')">${i.currentShow}</span>` : '—'}</div>
         <div style="font-size:13px;">${dueLabel}</div>
         <div><button class="detail-btn" onclick="openPanel(${i._idx})">Details</button></div>
       </div>`;
