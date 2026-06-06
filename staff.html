@@ -477,8 +477,8 @@
     </div>
     <div class="modal-body">
       <div class="field">
-        <label>Items</label>
-        <div class="item-chips" id="action-chips"></div>
+        <label>Items & quantities</label>
+        <div id="action-chips" style="display:flex;flex-direction:column;gap:6px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);"></div>
       </div>
       <div id="checkout-fields">
         <div style="display:flex;flex-direction:column;gap:14px;">
@@ -490,19 +490,13 @@
             <label>Show / production name <span class="required">*</span></label>
             <input type="text" id="f-who" />
           </div>
-          <div class="field-row">
-            <div class="field">
-              <label>Type <span class="required">*</span></label>
-              <select id="f-type">
-                <option value="">Select...</option>
-                <option value="Rental">Rental</option>
-                <option value="Internal">Internal / MMT use</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Quantity</label>
-              <input type="text" inputmode="numeric" id="f-qty" value="1" />
-            </div>
+          <div class="field">
+            <label>Type <span class="required">*</span></label>
+            <select id="f-type">
+              <option value="">Select...</option>
+              <option value="Rental">Rental</option>
+              <option value="Internal">Internal / MMT use</option>
+            </select>
           </div>
           <div class="field">
             <label>Due back date <span class="required">*</span></label>
@@ -944,7 +938,17 @@ function openActionModal(action, singleIdx) {
   const names = ids.map(id => allItems.find(i => i.assetId === id)?.name).filter(Boolean);
   document.getElementById('action-title').textContent = action === 'OUT' ? 'Check out items' : 'Check in items';
   document.getElementById('action-subtitle').textContent = ids.length + ' item' + (ids.length !== 1 ? 's' : '') + ' selected';
-  document.getElementById('action-chips').innerHTML = names.map(n => `<span class="chip">${n}</span>`).join('');
+  document.getElementById('action-chips').innerHTML = ids.map((id, idx) => {
+    const item = allItems.find(i => i.assetId === id);
+    const name = item ? item.name : id;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 8px;background:white;border:1px solid var(--border);border-radius:6px;">
+      <span style="font-size:13px;font-weight:500;flex:1;">${name}</span>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <label style="font-size:11px;color:var(--text-muted);">Qty:</label>
+        <input type="text" inputmode="numeric" id="qty-${id}" value="1" style="width:48px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-family:'DM Sans',sans-serif;text-align:center;" />
+      </div>
+    </div>`;
+  }).join('');
   document.getElementById('checkout-fields').style.display = action === 'OUT' ? 'block' : 'none';
   document.getElementById('checkin-fields').style.display = action === 'IN' ? 'block' : 'none';
   const btn = document.getElementById('action-submit-btn');
@@ -994,9 +998,9 @@ async function submitAction() {
   const payload = {
     action: 'checkInOut', assetIds: ids, status: action,
     who: action === 'OUT' ? (document.getElementById('f-renter').value.trim() + ' — ' + document.getElementById('f-who').value.trim()) : '',
+    quantities: ids.reduce((acc, id) => { const el = document.getElementById('qty-' + id); acc[id] = el ? el.value : '1'; return acc; }, {}),
     type: action === 'OUT' ? document.getElementById('f-type').value : '',
     dueBack: action === 'OUT' ? document.getElementById('f-due').value : '',
-    quantity: document.getElementById('f-qty').value || '1',
     staffName: action === 'OUT' ? document.getElementById('f-staff').value.trim() : document.getElementById('f-staff-in').value.trim(),
     condition: action === 'IN' ? document.getElementById('f-condition').value : '',
     notes: action === 'OUT' ? document.getElementById('f-notes-out').value.trim() : document.getElementById('f-notes-in').value.trim(),
