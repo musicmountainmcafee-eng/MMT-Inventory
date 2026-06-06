@@ -891,12 +891,12 @@ function checkInFromWhatsOut(assetId) {
   const condEl = document.getElementById('wo-cond-' + assetId);
   const condition = condEl ? condEl.value : '';
   if (!condition) { showToast('Please select a condition first', true); condEl.focus(); return; }
-  const staffName = (() => {
-    const name = prompt('Staff member checking in:', sessionStaffName);
-    if (name) sessionStaffName = name;
-    return name;
-  })();
-  if (!staffName) return;
+  if (!sessionStaffName) {
+    const name = prompt('Enter your name (will be remembered for this session):');
+    if (!name) return;
+    sessionStaffName = name;
+  }
+  const staffName = sessionStaffName;
   const item = allItems.find(i => i.assetId === assetId);
   const btn = document.getElementById('wo-btn-' + assetId);
   btn.disabled = true;
