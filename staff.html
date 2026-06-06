@@ -938,16 +938,10 @@ function openActionModal(action, singleIdx) {
   const names = ids.map(id => allItems.find(i => i.assetId === id)?.name).filter(Boolean);
   document.getElementById('action-title').textContent = action === 'OUT' ? 'Check out items' : 'Check in items';
   document.getElementById('action-subtitle').textContent = ids.length + ' item' + (ids.length !== 1 ? 's' : '') + ' selected';
-  document.getElementById('action-chips').innerHTML = ids.map((id, idx) => {
+  document.getElementById('action-chips').innerHTML = ids.map((id) => {
     const item = allItems.find(i => i.assetId === id);
     const name = item ? item.name : id;
-    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 8px;background:white;border:1px solid var(--border);border-radius:6px;">
-      <span style="font-size:13px;font-weight:500;flex:1;">${name}</span>
-      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-        <label style="font-size:11px;color:var(--text-muted);">Qty:</label>
-        <input type="text" inputmode="numeric" id="qty-${id}" value="1" style="width:48px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-family:'DM Sans',sans-serif;text-align:center;" />
-      </div>
-    </div>`;
+    return `<div style="padding:6px 8px;background:white;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:500;">${name}</div>`;
   }).join('');
   document.getElementById('checkout-fields').style.display = action === 'OUT' ? 'block' : 'none';
   document.getElementById('checkin-fields').style.display = action === 'IN' ? 'block' : 'none';
@@ -997,7 +991,6 @@ async function submitAction() {
   const payload = {
     action: 'checkInOut', assetIds: ids, status: action,
     who: action === 'OUT' ? (document.getElementById('f-renter').value.trim() + ' — ' + document.getElementById('f-who').value.trim()) : '',
-    quantities: ids.reduce((acc, id) => { const el = document.getElementById('qty-' + id); acc[id] = el ? el.value : '1'; return acc; }, {}),
     type: action === 'OUT' ? document.getElementById('f-type').value : '',
     dueBack: action === 'OUT' ? document.getElementById('f-due').value : '',
     staffName: action === 'OUT' ? document.getElementById('f-staff').value.trim() : document.getElementById('f-staff-in').value.trim(),
