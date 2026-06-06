@@ -687,28 +687,19 @@ function checkPin() {
 async function loadHistory() {
   document.getElementById('history-results').innerHTML = '<div class="empty">Loading...</div>';
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(HISTORY_CSV_URL, { signal: controller.signal });
-    clearTimeout(timeout);
-    const text = await res.text();
-    const lines = text.trim().split(/\r?\n/);
-    historyData = lines.slice(1).map(line => {
-      const vals = splitLine(line);
-      return {
-        timestamp: vals[0] || '',
-        assetId: vals[1] || '',
-        action: (vals[2] || '').toUpperCase(),
-        who: vals[3] || '',
-        dueDate: vals[4] || '',
-        condition: vals[5] || '',
-        staff: vals[6] || '',
-        type: vals[7] || '',
-      };
-    }).filter(r => r.timestamp && r.assetId && r.assetId.trim() !== '').reverse();
-    renderHistory();
+    const res = await fetch(SCRIPT_URL + '?action=getHistory');
+    const data = await res.json();
+    if (data.success) {
+      historyData = data.history.map(r => ({
+        ...r,
+        action: (r.action || '').toUpperCase()
+      }));
+      renderHistory();
+    } else {
+      document.getElementById('history-results').innerHTML = '<div class="empty">Could not load history.</div>';
+    }
   } catch(e) {
-    document.getElementById('history-results').innerHTML = '<div class="empty">Could not load history. Make sure the Form_Responses tab is published to web and try refreshing.</div>';
+    document.getElementById('history-results').innerHTML = '<div class="empty">Could not load history. Try refreshing.</div>';
   }
 }
 
