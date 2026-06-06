@@ -682,7 +682,16 @@ function checkPin() {
   if (pinEntry === CORRECT_PIN) {
     document.getElementById('pin-screen').style.display = 'none';
     document.getElementById('main').classList.add('visible');
-    let historyData = [];
+    loadData();
+  } else {
+    document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
+    pinEntry = '';
+    updatePinDots();
+    setTimeout(() => document.getElementById('pin-error').textContent = '', 2000);
+  }
+}
+
+let historyData = [];
 
 function loadHistory() {
   document.getElementById('history-results').innerHTML = '<div class="empty">Loading...</div>';
