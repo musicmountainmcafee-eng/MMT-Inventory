@@ -1074,6 +1074,12 @@ async function submitAction() {
     staffName: action === 'OUT' ? document.getElementById('f-staff').value.trim() : document.getElementById('f-staff-in').value.trim(),
     condition: action === 'IN' ? document.getElementById('f-condition').value : '',
     notes: action === 'OUT' ? document.getElementById('f-notes-out').value.trim() : document.getElementById('f-notes-in').value.trim(),
+    conditionNote: action === 'IN' ? (() => {
+      const dateStr = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      const cond = document.getElementById('f-condition').value;
+      const note = document.getElementById('f-notes-in').value.trim();
+      return '[' + dateStr + '] ' + cond + (note ? ': ' + note : '');
+    })() : '',
   };
   try {
     const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
@@ -1084,9 +1090,8 @@ async function submitAction() {
         if (item) {
               item.status = action;
               item.currentShow = action === 'OUT' ? payload.who : '';
-              if (action === 'IN' && payload.notes) {
-                const dateStr = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-                item.notes = (item.notes ? item.notes + '\n' : '') + '[' + dateStr + '] ' + payload.condition + (payload.notes ? ': ' + payload.notes : '');
+              if (action === 'IN' && payload.conditionNote) {
+                item.notes = (item.notes ? item.notes + '\n' : '') + payload.conditionNote;
               }
             }
       });
