@@ -236,6 +236,12 @@
   .history-row:last-child { border-bottom:none; }
   .history-row:hover { background:var(--bg); }
   .history-header { background:var(--bg); font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
+  .out-row { display:grid; grid-template-columns:52px 1fr 1fr 120px 100px; gap:12px; padding:10px 1.25rem; border-bottom:1px solid var(--border); align-items:center; }
+  .out-row:last-child { border-bottom:none; }
+  .out-row.overdue { background:#fff5f5; }
+  .out-row.due-soon { background:#fffbf0; }
+  .out-thumb { width:44px;height:44px;border-radius:6px;overflow:hidden;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+  .out-thumb img { width:44px;height:44px;object-fit:cover; }
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: -2px; margin-right: 6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -302,6 +308,15 @@
 
   <!-- INVENTORY TAB -->
   <div id="page-inventory">
+    <div id="whats-out-section" style="margin-bottom:1.5rem;display:none;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+        <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:15px;font-weight:600;">Currently Out</div>
+          <div id="whats-out-counts" style="font-size:13px;color:var(--text-muted);"></div>
+        </div>
+        <div id="whats-out-list" style="padding:0;"></div>
+      </div>
+    </div>
     <div class="stats">
       <div class="stat"><div class="stat-label">Total items</div><div class="stat-val purple" id="total-count">—</div></div>
       <div class="stat"><div class="stat-label">Available</div><div class="stat-val green" id="avail-count">—</div></div>
@@ -568,6 +583,11 @@
       </div>
       <div class="pf" style="margin-bottom:1rem;"><div class="pf-label">Notes</div><div class="pf-val" id="panel-notes" style="font-size:13px;color:var(--text-muted);font-weight:400;"></div></div>
       <hr class="divider" />
+      <div style="margin-bottom:1rem;">
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Transaction history</div>
+        <div id="panel-history" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;"></div>
+      </div>
+      <hr class="divider" />
       <div class="panel-actions" id="panel-actions"></div>
       <div style="margin-top:8px;">
         <button class="btn btn-ghost" style="width:100%;font-size:13px;" onclick="openEditModal()">✏️ Edit this item</button>
@@ -826,7 +846,7 @@ async function loadData() {
     }));
     const cats = [...new Set(allItems.map(i => i.category).filter(Boolean))].sort();
     document.getElementById('cat-filter').innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option>${c}</option>`).join('');
-    updateStats(); render(); populateLabelList();
+    updateStats(); render(); renderWhatsOut(); populateLabelList();
   } catch(e) {
     document.getElementById('results').innerHTML = '<div class="empty">Could not load inventory.</div>';
   }
@@ -849,6 +869,49 @@ function setStaffView(v) {
   document.getElementById('s-grid-btn').classList.toggle('active', v === 'grid');
   document.getElementById('s-list-btn').classList.toggle('active', v === 'list');
   render();
+}
+
+function renderWhatsOut() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const soon = new Date(today); soon.setDate(soon.getDate() + 7);
+  const outItems = allItems.filter(i => i.status === 'OUT');
+  const section = document.getElementById('whats-out-section');
+  if (!outItems.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  const overdue = outItems.filter(i => i.dueBack && new Date(i.dueBack) < today);
+  const dueSoon = outItems.filter(i => i.dueBack && new Date(i.dueBack) >= today && new Date(i.dueBack) <= soon);
+  document.getElementById('whats-out-counts').innerHTML =
+    `<span style="color:var(--text-muted);">${outItems.length} out</span>` +
+    (overdue.length ? ` &nbsp;·&nbsp; <span style="color:var(--red);font-weight:600;">${overdue.length} overdue</span>` : '') +
+    (dueSoon.length ? ` &nbsp;·&nbsp; <span style="color:#e67e22;font-weight:600;">${dueSoon.length} due soon</span>` : '');
+  const photoSVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;opacity:0.2;"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
+  const formatDate = d => { const dt = new Date(d); return isNaN(dt) ? d : dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); };
+  document.getElementById('whats-out-list').innerHTML =
+    `<div style="display:grid;grid-template-columns:52px 1fr 1fr 120px 100px;gap:12px;padding:8px 1.25rem;background:var(--bg);font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);">
+      <div></div><div>Item</div><div>Renter</div><div>Due back</div><div></div>
+    </div>` +
+    outItems.sort((a,b) => {
+      const da = a.dueBack ? new Date(a.dueBack) : new Date('9999');
+      const db = b.dueBack ? new Date(b.dueBack) : new Date('9999');
+      return da - db;
+    }).map(i => {
+      const due = i.dueBack ? new Date(i.dueBack) : null;
+      const isOverdue = due && due < today;
+      const isSoon = due && due >= today && due <= soon;
+      const rowClass = isOverdue ? 'out-row overdue' : isSoon ? 'out-row due-soon' : 'out-row';
+      const dueLabel = !due ? '—' : isOverdue
+        ? `<span style="color:var(--red);font-weight:600;">⚠ ${formatDate(i.dueBack)}</span>`
+        : isSoon
+        ? `<span style="color:#e67e22;font-weight:600;">${formatDate(i.dueBack)}</span>`
+        : `<span>${formatDate(i.dueBack)}</span>`;
+      return `<div class="${rowClass}">
+        <div class="out-thumb">${i.photo?`<img src="${i.photo}" />`:`${photoSVG}`}</div>
+        <div><div style="font-weight:600;font-size:13px;">${i.name}</div><div style="font-size:11px;color:var(--text-faint);font-family:'DM Mono',monospace;">${i.assetId}</div></div>
+        <div style="font-size:13px;">${i.currentShow||'—'}</div>
+        <div style="font-size:13px;">${dueLabel}</div>
+        <div><button class="detail-btn" onclick="openPanel(${i._idx})">Details</button></div>
+      </div>`;
+    }).join('');
 }
 
 function render() {
@@ -1018,9 +1081,16 @@ async function submitAction() {
     if (result.success) {
       ids.forEach(id => {
         const item = allItems.find(i => i.assetId === id);
-        if (item) { item.status = action; item.currentShow = action === 'OUT' ? payload.who : ''; }
+        if (item) {
+              item.status = action;
+              item.currentShow = action === 'OUT' ? payload.who : '';
+              if (action === 'IN' && payload.notes) {
+                const dateStr = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+                item.notes = (item.notes ? item.notes + '\n' : '') + '[' + dateStr + '] ' + payload.condition + (payload.notes ? ': ' + payload.notes : '');
+              }
+            }
       });
-      showToast(`${action === 'IN' ? '✓ Checked in' : '↗ Checked out'} ${ids.length} item${ids.length !== 1 ? 's' : ''}`);
+      showToast(`${action === 'IN' ? '✓ Checked in' : '↗ Checked out'} ${ids.length} item${ids.length !== 1 ? 's' : ''}`); renderWhatsOut();
       selected.clear(); closeActionModal(); updateStats(); render();
     } else { showToast('Error: ' + (result.error || 'Unknown'), true); }
   } catch(e) { showToast('Could not reach server.', true); }
@@ -1043,6 +1113,23 @@ function openPanel(idx) {
   document.getElementById('panel-rental').textContent = i.rental ? '$' + i.rental : '—';
   document.getElementById('panel-replace').textContent = i.replacement ? '$' + i.replacement : '—';
   document.getElementById('panel-notes').textContent = i.notes || 'No notes.';
+  // Load item history from historyData
+  const itemHistory = historyData.filter(h => h.assetId === i.assetId);
+  const phEl = document.getElementById('panel-history');
+  if (!itemHistory.length) {
+    phEl.innerHTML = '<div style="font-size:12px;color:var(--text-faint);">No transactions on record yet.</div>';
+  } else {
+    const fmtDate = ts => { const d = new Date(ts); return isNaN(d) ? ts : d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); };
+    phEl.innerHTML = itemHistory.map(h => {
+      const isOut = h.action === 'OUT';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;background:var(--bg);font-size:12px;">
+        <span class="badge ${isOut?'badge-out':'badge-in'}" style="font-size:10px;padding:2px 7px;">${isOut?'Out':'In'}</span>
+        <span style="color:var(--text-muted);min-width:90px;">${fmtDate(h.timestamp)}</span>
+        <span style="flex:1;">${h.who||'—'}</span>
+        ${h.condition?`<span style="color:var(--text-muted);">${h.condition}</span>`:''}
+      </div>`;
+    }).join('');
+  }
   document.getElementById('panel-badge').innerHTML = `<span class="badge ${i.status === 'IN' ? 'badge-in' : 'badge-out'}">${i.status === 'IN' ? 'Available' : 'Currently out'}</span>`;
   const photoSVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>`;
   document.getElementById('panel-img').innerHTML = i.photo
