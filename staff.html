@@ -687,12 +687,11 @@ function checkPin() {
 async function loadHistory() {
   document.getElementById('history-results').innerHTML = '<div class="empty">Loading...</div>';
   try {
-    const res = await fetch(SCRIPT_URL + '?action=getHistory', {
-      method: 'GET',
-      redirect: 'follow',
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getHistory' })
     });
-    const text = await res.text();
-    const data = JSON.parse(text);
+    const data = await res.json();
     if (data.success) {
       historyData = data.history.map(r => ({
         ...r,
