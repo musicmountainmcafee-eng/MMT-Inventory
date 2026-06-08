@@ -966,7 +966,15 @@ function checkPin() {
   if (pinEntry === CORRECT_PIN) {
     document.getElementById('pin-screen').style.display = 'none';
     document.getElementById('main').classList.add('visible');
-
+    loadData();
+    setTimeout(initPaint, 800);
+  } else {
+    document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
+    pinEntry = '';
+    updatePinDots();
+    setTimeout(() => document.getElementById('pin-error').textContent = '', 2000);
+  }
+}
 
 // PAINT SYSTEM
 let paintData = [];
@@ -1263,15 +1271,6 @@ function renderPaint() {
         </div>
       </div>`;
     }).join('') + '</div>';
-}
-
-loadData();
-  } else {
-    document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
-    pinEntry = '';
-    updatePinDots();
-    setTimeout(() => document.getElementById('pin-error').textContent = '', 2000);
-  }
 }
 
 let historyData = [];
