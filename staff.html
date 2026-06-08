@@ -501,7 +501,7 @@
 
         <div class="field" style="margin-bottom:12px;">
           <label>Color name <span class="required">*</span></label>
-          <input type="text" id="p-name" />
+          <input type="text" id="p-name" oninput="autoLookup()" />
         </div>
 
         <div class="field" style="margin-bottom:12px;">
@@ -1003,6 +1003,18 @@ const BRAND_URLS = {
 };
 let brandColorCache = {};
 
+let lookupTimer = null;
+function autoLookup() {
+  clearTimeout(lookupTimer);
+  const q = document.getElementById('p-name').value.trim();
+  if (q.length < 2) {
+    document.getElementById('lookup-results').style.display = 'none';
+    document.getElementById('lookup-status').textContent = '';
+    return;
+  }
+  lookupTimer = setTimeout(lookupPaintColor, 400);
+}
+
 async function lookupPaintColor() {
   const name = document.getElementById('p-name').value.trim();
   const code = document.getElementById('p-code').value.trim();
@@ -1394,7 +1406,7 @@ async function loadData() {
     }));
     const cats = [...new Set(allItems.map(i => i.category).filter(Boolean))].sort();
     document.getElementById('cat-filter').innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option>${c}</option>`).join('');
-    updateStats(); render(); renderWhatsOut(); populateLabelList(); loadHistory();
+    updateStats(); render(); renderWhatsOut(); populateLabelList(); loadHistory(); setTimeout(initPaint, 500);
   } catch(e) {
     document.getElementById('results').innerHTML = '<div class="empty">Could not load inventory.</div>';
   }
