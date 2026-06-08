@@ -508,13 +508,14 @@
           <label>Brand <span class="required">*</span></label>
           <select id="p-brand-select" onchange="toggleCustomBrand()">
             <option value="">Select brand...</option>
+            <option selected>Glidden</option>
             <option>Benjamin Moore</option>
             <option>Sherwin Williams</option>
+            <option>Behr</option>
             <option>Rosco</option>
             <option>Createx</option>
             <option>Golden</option>
             <option>Liquitex</option>
-            <option>Behr</option>
             <option>Other / Custom</option>
           </select>
           <input type="text" id="p-brand-custom" placeholder="Enter brand name" style="display:none;margin-top:6px;" />
@@ -992,9 +993,11 @@ function initPaint() {
 }
 
 async function loadPaintData() {
+  document.getElementById('paint-results').innerHTML = '<div class="empty">Loading colors...</div>';
   try {
-    const result = await window.storage.get('paint-library');
-    paintData = result ? JSON.parse(result.value) : [];
+    const res = await fetch(SCRIPT_URL + '?action=getPaints');
+    const data = await res.json();
+    paintData = data.success ? data.paints : [];
   } catch(e) {
     paintData = [];
   }
@@ -1031,11 +1034,28 @@ async function savePaint() {
     });
   }
 
-  await window.storage.set('paint-library', JSON.stringify(paintData));
-  showToast('✓ ' + name + ' saved!');
-  resetPaintForm();
-  renderPaint();
-  updatePaintFilters();
+  const btn = document.getElementById('p-save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'savePaint', id: editingId || null, name, brand, hex, code, notes, shows })
+    });
+    const result = await res.json();
+    if (result.success) {
+      showToast('✓ ' + name + ' saved!');
+      resetPaintForm();
+      await loadPaintData();
+    } else {
+      showToast('Error saving: ' + (result.error || 'Unknown'), true);
+    }
+  } catch(e) {
+    showToast('Could not reach server.', true);
+  }
+  btn.disabled = false;
+  btn.textContent = 'Save color';
 }
 
 function resetPaintForm() {
@@ -1083,11 +1103,21 @@ function editPaint(id) {
 
 async function deletePaint(id) {
   if (!confirm('Delete this color?')) return;
-  paintData = paintData.filter(p => p.id !== id);
-  await window.storage.set('paint-library', JSON.stringify(paintData));
-  renderPaint();
-  updatePaintFilters();
-  showToast('Color deleted');
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'deletePaint', id })
+    });
+    const result = await res.json();
+    if (result.success) {
+      showToast('Color deleted');
+      await loadPaintData();
+    } else {
+      showToast('Error: ' + (result.error || 'Unknown'), true);
+    }
+  } catch(e) {
+    showToast('Could not reach server.', true);
+  }
 }
 
 function updatePaintFilters() {
