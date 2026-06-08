@@ -531,7 +531,10 @@
           <div style="display:flex;gap:8px;align-items:center;">
             <input type="color" id="p-hex-picker" value="#888888" oninput="document.getElementById('p-hex').value=this.value" style="width:44px;height:38px;padding:2px;border:1px solid var(--border);border-radius:6px;cursor:pointer;" />
             <input type="text" id="p-hex" placeholder="#RRGGBB" oninput="syncHexPicker()" style="flex:1;" />
+            <button onclick="lookupPaintColor()" style="padding:8px 12px;background:var(--purple);color:white;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;" title="Auto-find hex from color name">🔍 Look up</button>
           </div>
+          <div id="lookup-results" style="display:none;margin-top:8px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;max-height:180px;overflow-y:auto;"></div>
+          <div id="lookup-status" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
         </div>
 
         <div class="field" style="margin-bottom:12px;">
@@ -990,6 +993,82 @@ function initPaint() {
 
   // Load paint data from storage
   loadPaintData();
+}
+
+const BRAND_URLS = {
+  'Glidden': 'https://raw.githubusercontent.com/jpederson/colornerd/master/json/ppg.json',
+  'Benjamin Moore': 'https://raw.githubusercontent.com/jpederson/colornerd/master/json/benjamin-moore.json',
+  'Behr': 'https://raw.githubusercontent.com/jpederson/colornerd/master/json/behr.json',
+  'Sherwin Williams': 'https://raw.githubusercontent.com/jpederson/colornerd/master/json/sherwin-williams.json',
+};
+let brandColorCache = {};
+
+async function lookupPaintColor() {
+  const name = document.getElementById('p-name').value.trim();
+  const code = document.getElementById('p-code').value.trim();
+  const brandSel = document.getElementById('p-brand-select').value;
+  const brand = brandSel === 'Other / Custom'
+    ? document.getElementById('p-brand-custom').value.trim()
+    : brandSel;
+
+  const query = (code || name).toLowerCase();
+  if (!query) { showToast('Enter a color name or code first', true); return; }
+
+  const status = document.getElementById('lookup-status');
+  const results = document.getElementById('lookup-results');
+  status.textContent = 'Searching...';
+  results.style.display = 'none';
+
+  // Determine which brands to search
+  const brandsToSearch = BRAND_URLS[brand] ? [brand] : Object.keys(BRAND_URLS);
+
+  let found = [];
+  for (const b of brandsToSearch) {
+    if (!brandColorCache[b]) {
+      try {
+        const res = await fetch(BRAND_URLS[b]);
+        brandColorCache[b] = await res.json();
+      } catch(e) {
+        console.log('Could not load', b, e);
+        continue;
+      }
+    }
+    const matches = brandColorCache[b].filter(c =>
+      c.name.toLowerCase().includes(query) ||
+      (c.label && c.label.toString().toLowerCase().includes(query))
+    ).slice(0, 5).map(c => ({...c, brand: b}));
+    found = found.concat(matches);
+    if (found.length >= 8) break;
+  }
+
+  if (!found.length) {
+    status.textContent = 'No colors found. Try a different name or spelling.';
+    results.style.display = 'none';
+    return;
+  }
+
+  status.textContent = found.length + ' result' + (found.length !== 1 ? 's' : '') + ' found — click to use:';
+  results.style.display = 'block';
+  results.innerHTML = found.map(c => `
+    <div onclick="selectLookupColor('${c.hex}','${c.name.replace(/'/g,"\'")}','${c.label||''}','${c.brand}')"
+      style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.1s;"
+      onmouseover="this.style.background='var(--purple-light)'" onmouseout="this.style.background=''">
+      <div style="width:28px;height:28px;border-radius:4px;background:${c.hex};flex-shrink:0;border:1px solid rgba(0,0,0,0.1);"></div>
+      <div>
+        <div style="font-size:13px;font-weight:600;">${c.name}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${c.brand}${c.label?' · '+c.label:''} · ${c.hex}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectLookupColor(hex, name, code, brand) {
+  document.getElementById('p-hex').value = hex;
+  document.getElementById('p-hex-picker').value = hex;
+  if (!document.getElementById('p-name').value) document.getElementById('p-name').value = name;
+  if (!document.getElementById('p-code').value && code) document.getElementById('p-code').value = code;
+  document.getElementById('lookup-results').style.display = 'none';
+  document.getElementById('lookup-status').textContent = '✓ Color selected: ' + name + ' ' + hex;
 }
 
 async function loadPaintData() {
