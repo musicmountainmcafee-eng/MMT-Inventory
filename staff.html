@@ -197,6 +197,10 @@
   }
 
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: white; padding: 10px 20px; border-radius: 99px; font-size: 13px; font-weight: 500; z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none; white-space: nowrap; }
+  .undo-bar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: white; padding: 10px 8px 10px 20px; border-radius: 99px; font-size: 13px; font-weight: 500; z-index: 9999; display: none; align-items: center; gap: 12px; white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+  .undo-btn { background: white; color: #1a1a1a; border: none; padding: 5px 14px; border-radius: 99px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .undo-btn:hover { background: #eee; }
+  .undo-progress { position: absolute; bottom: 0; left: 0; height: 3px; background: var(--purple); border-radius: 99px; transition: width linear; }
   .toast.show { opacity: 1; }
   .toast.error { background: var(--red); }
   /* STAFF GRID VIEW */
@@ -683,6 +687,10 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="undo-bar" id="undo-bar">
+  <span id="undo-msg"></span>
+  <button class="undo-btn" onclick="doUndo()">Undo</button>
+</div>
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
@@ -917,7 +925,11 @@ function checkInFromWhatsOut(assetId) {
           item.dueBack = '';
           if (conditionNote) item.notes = (item.notes ? item.notes + '\n' : '') + conditionNote;
         }
-        showToast('✓ ' + (item?.name || assetId) + ' checked in');
+        showUndoBar('✓ ' + (item?.name || assetId) + ' checked in', {
+          action: 'checkInOut', assetIds: [assetId], status: 'OUT',
+          who: item?.currentShow || '', dueBack: item?.dueBack || '',
+          type: item?.type || '', staffName, condition: '', notes: '', conditionNote: ''
+        });
         updateStats(); render(); renderWhatsOut();
       } else {
         showToast('Error: ' + (result.error || 'Unknown'), true);
@@ -1179,7 +1191,13 @@ async function submitAction() {
       });
       const sn = action === 'OUT' ? document.getElementById('f-staff').value.trim() : document.getElementById('f-staff-in').value.trim();
       if (sn) sessionStaffName = sn;
-      showToast(`${action === 'IN' ? '✓ Checked in' : '↗ Checked out'} ${ids.length} item${ids.length !== 1 ? 's' : ''}`); renderWhatsOut();
+      const undoStatus = action === 'IN' ? 'OUT' : 'IN';
+      showUndoBar(`${action === 'IN' ? '✓ Checked in' : '↗ Checked out'} ${ids.length} item${ids.length !== 1 ? 's' : ''}`, {
+        action: 'checkInOut', assetIds: ids, status: undoStatus,
+        who: payload.who, dueBack: payload.dueBack, type: payload.type,
+        staffName: payload.staffName, condition: '', notes: '', conditionNote: ''
+      });
+      renderWhatsOut();
       selected.clear(); closeActionModal(); updateStats(); render();
     } else { showToast('Error: ' + (result.error || 'Unknown'), true); }
   } catch(e) { showToast('Could not reach server.', true); }
@@ -1529,6 +1547,45 @@ function printLabels() {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closePanel(); closeActionModal(); }
 });
+
+let undoTimeout = null;
+let undoData = null;
+
+function showUndoBar(msg, undoPayload) {
+  if (undoTimeout) clearTimeout(undoTimeout);
+  undoData = undoPayload;
+  const bar = document.getElementById('undo-bar');
+  document.getElementById('undo-msg').textContent = msg;
+  bar.style.display = 'flex';
+  undoTimeout = setTimeout(() => {
+    bar.style.display = 'none';
+    undoData = null;
+  }, 6000);
+}
+
+async function doUndo() {
+  if (!undoData) return;
+  clearTimeout(undoTimeout);
+  document.getElementById('undo-bar').style.display = 'none';
+  const payload = undoData;
+  undoData = null;
+  try {
+    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+    const result = await res.json();
+    if (result.success) {
+      payload.assetIds.forEach(id => {
+        const item = allItems.find(i => i.assetId === id);
+        if (item) {
+          item.status = payload.status;
+          item.currentShow = payload.status === 'OUT' ? payload.who : '';
+          item.dueBack = payload.status === 'OUT' ? payload.dueBack : '';
+        }
+      });
+      showToast('↩ Undone!');
+      updateStats(); render(); renderWhatsOut();
+    }
+  } catch(e) { showToast('Could not undo.', true); }
+}
 
 function showToast(msg, isError) {
   const t = document.getElementById('toast');
