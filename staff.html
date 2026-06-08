@@ -1090,10 +1090,21 @@ async function lookupPaintColor() {
 function selectLookupColor(hex, name, code, brand) {
   document.getElementById('p-hex').value = hex;
   document.getElementById('p-hex-picker').value = hex;
-  if (!document.getElementById('p-name').value) document.getElementById('p-name').value = name;
-  if (!document.getElementById('p-code').value && code) document.getElementById('p-code').value = code;
+  document.getElementById('p-name').value = name;
+  if (code) document.getElementById('p-code').value = code;
+
+  // Auto-set brand dropdown if it matches a known brand
+  const brandSel = document.getElementById('p-brand-select');
+  const knownBrands = Array.from(brandSel.options).map(o => o.value);
+  if (knownBrands.includes(brand)) {
+    brandSel.value = brand;
+    // Hide custom brand field if it was showing
+    const customWrap = document.getElementById('p-brand-custom-wrap');
+    if (customWrap) customWrap.style.display = 'none';
+  }
+
   document.getElementById('lookup-results').style.display = 'none';
-  document.getElementById('lookup-status').textContent = '✓ Color selected: ' + name + ' ' + hex;
+  document.getElementById('lookup-status').textContent = '✓ Color selected: ' + name + (code ? ' · ' + code : '') + ' · ' + hex;
 }
 
 async function loadPaintData() {
