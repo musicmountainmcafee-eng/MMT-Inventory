@@ -308,6 +308,9 @@
     <button class="tab-btn" id="tab-history" onclick="switchTab('history')">
       History
     </button>
+    <button class="tab-btn" id="tab-paint" onclick="switchTab('paint')">
+      🎨 Paint
+    </button>
   </div>
 
   <!-- INVENTORY TAB -->
@@ -485,6 +488,86 @@
         </div>
       </div>
       <div id="history-results" style="padding:1rem;"><div class="empty">Loading history...</div></div>
+    </div>
+  </div>
+
+  <!-- PAINT TAB -->
+  <div id="page-paint" style="display:none;">
+    <div style="display:grid;grid-template-columns:340px 1fr;gap:1.5rem;align-items:start;">
+
+      <!-- ADD PAINT FORM -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;position:sticky;top:1rem;">
+        <div style="font-size:15px;font-weight:600;margin-bottom:1.25rem;" id="paint-form-title">Add paint color</div>
+
+        <div class="field" style="margin-bottom:12px;">
+          <label>Color name <span class="required">*</span></label>
+          <input type="text" id="p-name" />
+        </div>
+
+        <div class="field" style="margin-bottom:12px;">
+          <label>Brand <span class="required">*</span></label>
+          <select id="p-brand-select" onchange="toggleCustomBrand()">
+            <option value="">Select brand...</option>
+            <option>Benjamin Moore</option>
+            <option>Sherwin Williams</option>
+            <option>Rosco</option>
+            <option>Createx</option>
+            <option>Golden</option>
+            <option>Liquitex</option>
+            <option>Behr</option>
+            <option>Other / Custom</option>
+          </select>
+          <input type="text" id="p-brand-custom" placeholder="Enter brand name" style="display:none;margin-top:6px;" />
+        </div>
+
+        <div class="field" style="margin-bottom:12px;">
+          <label>Color code / number</label>
+          <input type="text" id="p-code" placeholder="e.g. HC-172, SW 6119" />
+        </div>
+
+        <div class="field" style="margin-bottom:12px;">
+          <label>Hex color (for swatch)</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="color" id="p-hex-picker" value="#888888" oninput="document.getElementById('p-hex').value=this.value" style="width:44px;height:38px;padding:2px;border:1px solid var(--border);border-radius:6px;cursor:pointer;" />
+            <input type="text" id="p-hex" placeholder="#RRGGBB" oninput="syncHexPicker()" style="flex:1;" />
+          </div>
+        </div>
+
+        <div class="field" style="margin-bottom:12px;">
+          <label>Notes</label>
+          <textarea id="p-notes" style="min-height:60px;"></textarea>
+        </div>
+
+        <div class="field" style="margin-bottom:1.25rem;">
+          <label>Shows used in</label>
+          <div id="p-shows-list" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;background:var(--bg);"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" style="flex:1;" onclick="resetPaintForm()">Clear</button>
+          <button class="btn btn-in" style="flex:1;" id="p-save-btn" onclick="savePaint()">Save color</button>
+        </div>
+      </div>
+
+      <!-- PAINT LIBRARY -->
+      <div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+          <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+            <div style="font-size:15px;font-weight:600;">Color Library</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="text" id="paint-search" placeholder="Search colors..." oninput="renderPaint()" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);width:180px;outline:none;" />
+              <select id="paint-brand-filter" onchange="renderPaint()" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);outline:none;">
+                <option value="">All brands</option>
+              </select>
+              <select id="paint-show-filter" onchange="renderPaint()" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);outline:none;">
+                <option value="">All shows</option>
+              </select>
+            </div>
+          </div>
+          <div id="paint-results" style="padding:1rem;"><div class="empty">No colors yet. Add your first paint color!</div></div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -718,7 +801,347 @@ function checkPin() {
   if (pinEntry === CORRECT_PIN) {
     document.getElementById('pin-screen').style.display = 'none';
     document.getElementById('main').classList.add('visible');
-    loadData();
+    const SHOWS_BY_SEASON = {
+  "2026 \u2014 Season 9": [
+    "Grease",
+    "Les Liaisons Dangereuses",
+    "Shrek",
+    "Mame",
+    "Present Laughter",
+    "Disaster",
+    "My Fair Lady",
+    "Urinetown",
+    "The Will Rogers Follies",
+    "The Cher Show",
+    "And Then There Were None",
+    "It's a Wonderful Life",
+    "A Christmas Carol 2026",
+    "Big Band Holiday Concert 2026"
+  ],
+  "2025 \u2014 Season 8": [
+    "Iconic Broadway (Concert)",
+    "Vanya and Sonia and Masha and Spike",
+    "Fiddler on the Roof",
+    "Ride the Cyclone",
+    "POTUS",
+    "Pippin",
+    "Hair",
+    "Young Frankenstein",
+    "SpongeBob the Musical",
+    "The Rocky Horror Show 2025",
+    "Man of La Mancha",
+    "Beautiful: The Carole King Musical",
+    "Deathtrap",
+    "Sweeney Todd",
+    "Annie 2025",
+    "A Christmas Carol 2025",
+    "Big Band Holiday Concert 2025"
+  ],
+  "2024 \u2014 Season 7": [
+    "Lend Me a Tenor",
+    "City of Angels",
+    "Fun Home",
+    "Hello Dolly!",
+    "Murder on the Orient Express",
+    "Tuck Everlasting",
+    "Sweet Charity",
+    "Avenue Q",
+    "Anything Goes",
+    "The King and I",
+    "The Scarlet Pimpernel",
+    "Beauty and the Beast",
+    "Clue",
+    "White Christmas",
+    "A Christmas Carol 2024",
+    "Big Band Holiday Concert 2024"
+  ],
+  "2023 \u2014 Season 6": [
+    "Ain't Misbehavin'",
+    "The Secret Garden",
+    "Peter and the Starcatcher",
+    "Oliver!",
+    "Blithe Spirit",
+    "Viva Las Vegas",
+    "Something Rotten!",
+    "Spring Awakening",
+    "Assassins",
+    "On the Town",
+    "All Shook Up",
+    "Sunset Boulevard",
+    "Carrie",
+    "Elf 2023",
+    "A Christmas Carol 2023",
+    "Big Band Holiday Concert 2023"
+  ],
+  "2022 \u2014 Season 5": [
+    "Noises Off!",
+    "Gypsy",
+    "Moon Over Buffalo",
+    "The Sound of Music",
+    "The Producers 2022",
+    "Godspell 2022",
+    "La Cage aux Folles",
+    "In the Heights",
+    "Crazy for You",
+    "The Vagina Monologues",
+    "Thoroughly Modern Millie",
+    "A Gentleman's Guide to Love and Murder 2022",
+    "A Christmas Story 2022",
+    "A Christmas Carol 2022",
+    "Big Band Holiday Concert 2022"
+  ],
+  "2021 \u2014 Season 4": [
+    "Strollin' Down Broadway 50s Review",
+    "The Diary of Anne Frank",
+    "Broadway A Go-Go 60s Review",
+    "Songs for a New World",
+    "70s Concert",
+    "The Last 5 Years",
+    "The Fantastiks",
+    "Murder at Cheltenham Manor",
+    "Head Over Heels",
+    "Matilda",
+    "Carousel",
+    "The Drowsy Chaperone",
+    "American Idiot",
+    "The Mystery of Edwin Drood",
+    "The Rocky Horror Show 2021",
+    "Elf 2021",
+    "A Christmas Carol 2021",
+    "Big Band Holiday Concert 2021"
+  ],
+  "2020 \u2014 Season 3": [
+    "Nunsense A-Men! 2020",
+    "Songs of the Silver Screen",
+    "The Laramie Project",
+    "Into the Woods",
+    "Dracula",
+    "The Importance of Being Earnest",
+    "Broadway Request Live",
+    "Fruitcakes"
+  ],
+  "2018-2019 \u2014 Season 2": [
+    "Jesus Christ Superstar",
+    "Curtains",
+    "The Rocky Horror Show 2018",
+    "A Christmas Story 2018",
+    "A Christmas Carol 2018",
+    "The Complete Works of William Shakespeare (Abridged)",
+    "Aida",
+    "Steel Magnolias",
+    "Guys and Dolls",
+    "Joseph and the Amazing Technicolor Dreamcoat",
+    "Spamalot",
+    "Little Women",
+    "The Full Monty",
+    "South Pacific",
+    "Wait Until Dark",
+    "The Will Rogers Follies 2019",
+    "The 25th Annual Putnam County Spelling Bee",
+    "Mamma Mia!",
+    "A Gentleman's Guide to Love and Murder 2019",
+    "Annie 2019",
+    "A Christmas Carol 2019"
+  ],
+  "2017-2018 \u2014 Season 1": [
+    "Phantom",
+    "Hairspray",
+    "A Christmas Carol 2017",
+    "42nd Street",
+    "Nunsense A-Men! 2018",
+    "Seussical",
+    "A Chorus Line",
+    "Beehive",
+    "Grease 2018",
+    "The Producers 2018",
+    "The Music Man",
+    "The Little Mermaid",
+    "Oklahoma!",
+    "Godspell 2018"
+  ]
+};
+
+// PAINT SYSTEM
+let paintData = [];
+
+function toggleCustomBrand() {
+  const sel = document.getElementById('p-brand-select').value;
+  document.getElementById('p-brand-custom').style.display = sel === 'Other / Custom' ? 'block' : 'none';
+}
+
+function syncHexPicker() {
+  const hex = document.getElementById('p-hex').value;
+  if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
+    document.getElementById('p-hex-picker').value = hex;
+  }
+}
+
+function initPaint() {
+  // Build shows list checkboxes
+  const list = document.getElementById('p-shows-list');
+  list.innerHTML = Object.entries(SHOWS_BY_SEASON).map(([season, shows]) =>
+    `<div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;padding:4px 0 2px;">${season}</div>` +
+    shows.map(show => `<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0;cursor:pointer;">
+      <input type="checkbox" class="cb" style="width:14px;height:14px;" value="${show}" name="p-show" />
+      ${show}
+    </label>`).join('')
+  ).join('');
+
+  // Load paint data from storage
+  loadPaintData();
+}
+
+async function loadPaintData() {
+  try {
+    const result = await window.storage.get('paint-library');
+    paintData = result ? JSON.parse(result.value) : [];
+  } catch(e) {
+    paintData = [];
+  }
+  renderPaint();
+  updatePaintFilters();
+}
+
+async function savePaint() {
+  const name = document.getElementById('p-name').value.trim();
+  const brandSel = document.getElementById('p-brand-select').value;
+  const brand = brandSel === 'Other / Custom'
+    ? document.getElementById('p-brand-custom').value.trim()
+    : brandSel;
+  if (!name) { showToast('Color name is required', true); return; }
+  if (!brand) { showToast('Brand is required', true); return; }
+
+  const hex = document.getElementById('p-hex').value.trim() || '#888888';
+  const code = document.getElementById('p-code').value.trim();
+  const notes = document.getElementById('p-notes').value.trim();
+  const shows = [...document.querySelectorAll('input[name="p-show"]:checked')].map(cb => cb.value);
+
+  const editingId = document.getElementById('p-save-btn').dataset.editId;
+
+  if (editingId) {
+    const idx = paintData.findIndex(p => p.id === editingId);
+    if (idx >= 0) {
+      paintData[idx] = { ...paintData[idx], name, brand, hex, code, notes, shows };
+    }
+  } else {
+    paintData.push({
+      id: Date.now().toString(),
+      name, brand, hex, code, notes, shows,
+      addedDate: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+    });
+  }
+
+  await window.storage.set('paint-library', JSON.stringify(paintData));
+  showToast('✓ ' + name + ' saved!');
+  resetPaintForm();
+  renderPaint();
+  updatePaintFilters();
+}
+
+function resetPaintForm() {
+  document.getElementById('p-name').value = '';
+  document.getElementById('p-brand-select').value = '';
+  document.getElementById('p-brand-custom').value = '';
+  document.getElementById('p-brand-custom').style.display = 'none';
+  document.getElementById('p-code').value = '';
+  document.getElementById('p-hex').value = '';
+  document.getElementById('p-hex-picker').value = '#888888';
+  document.getElementById('p-notes').value = '';
+  document.querySelectorAll('input[name="p-show"]:checked').forEach(cb => cb.checked = false);
+  const btn = document.getElementById('p-save-btn');
+  btn.textContent = 'Save color';
+  btn.dataset.editId = '';
+  document.getElementById('paint-form-title').textContent = 'Add paint color';
+}
+
+function editPaint(id) {
+  const p = paintData.find(p => p.id === id);
+  if (!p) return;
+  document.getElementById('p-name').value = p.name;
+  const knownBrands = ['Benjamin Moore','Sherwin Williams','Rosco','Createx','Golden','Liquitex','Behr'];
+  if (knownBrands.includes(p.brand)) {
+    document.getElementById('p-brand-select').value = p.brand;
+    document.getElementById('p-brand-custom').style.display = 'none';
+  } else {
+    document.getElementById('p-brand-select').value = 'Other / Custom';
+    document.getElementById('p-brand-custom').value = p.brand;
+    document.getElementById('p-brand-custom').style.display = 'block';
+  }
+  document.getElementById('p-code').value = p.code || '';
+  document.getElementById('p-hex').value = p.hex || '';
+  document.getElementById('p-hex-picker').value = p.hex || '#888888';
+  document.getElementById('p-notes').value = p.notes || '';
+  document.querySelectorAll('input[name="p-show"]').forEach(cb => {
+    cb.checked = (p.shows || []).includes(cb.value);
+  });
+  const btn = document.getElementById('p-save-btn');
+  btn.textContent = 'Update color';
+  btn.dataset.editId = id;
+  document.getElementById('paint-form-title').textContent = 'Edit: ' + p.name;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function deletePaint(id) {
+  if (!confirm('Delete this color?')) return;
+  paintData = paintData.filter(p => p.id !== id);
+  await window.storage.set('paint-library', JSON.stringify(paintData));
+  renderPaint();
+  updatePaintFilters();
+  showToast('Color deleted');
+}
+
+function updatePaintFilters() {
+  const brands = [...new Set(paintData.map(p => p.brand).filter(Boolean))].sort();
+  const brandSel = document.getElementById('paint-brand-filter');
+  if (brandSel) {
+    const cur = brandSel.value;
+    brandSel.innerHTML = '<option value="">All brands</option>' + brands.map(b => `<option ${b===cur?'selected':''}>${b}</option>`).join('');
+  }
+  const allShows = [...new Set(paintData.flatMap(p => p.shows || []))].sort();
+  const showSel = document.getElementById('paint-show-filter');
+  if (showSel) {
+    const cur = showSel.value;
+    showSel.innerHTML = '<option value="">All shows</option>' + allShows.map(s => `<option ${s===cur?'selected':''}>${s}</option>`).join('');
+  }
+}
+
+function renderPaint() {
+  const q = (document.getElementById('paint-search')?.value || '').toLowerCase();
+  const brandF = document.getElementById('paint-brand-filter')?.value || '';
+  const showF = document.getElementById('paint-show-filter')?.value || '';
+  const filtered = paintData.filter(p =>
+    (!q || [p.name, p.brand, p.code, p.notes].some(f => (f||'').toLowerCase().includes(q))) &&
+    (!brandF || p.brand === brandF) &&
+    (!showF || (p.shows||[]).includes(showF))
+  );
+  const container = document.getElementById('paint-results');
+  if (!filtered.length) {
+    container.innerHTML = '<div class="empty">No colors match your search.</div>';
+    return;
+  }
+  container.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">' +
+    filtered.map(p => {
+      const hex = p.hex || '#888888';
+      const shows = (p.shows || []);
+      return `<div style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface);">
+        <div style="height:80px;background:${hex};position:relative;">
+          <div style="position:absolute;bottom:6px;right:6px;display:flex;gap:4px;">
+            <button onclick="editPaint('${p.id}')" style="background:rgba(255,255,255,0.9);border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;">Edit</button>
+            <button onclick="deletePaint('${p.id}')" style="background:rgba(255,255,255,0.9);border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--red);font-weight:600;">✕</button>
+          </div>
+        </div>
+        <div style="padding:10px 12px;">
+          <div style="font-weight:600;font-size:14px;margin-bottom:2px;">${p.name}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${p.brand}${p.code ? ' · ' + p.code : ''}</div>
+          <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text-faint);margin-bottom:6px;">${hex}</div>
+          ${p.notes ? `<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-style:italic;">${p.notes}</div>` : ''}
+          ${shows.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">${shows.map(s => `<span style="font-size:10px;padding:2px 6px;background:var(--purple-light);color:var(--purple-dark);border-radius:99px;font-weight:500;">${s}</span>`).join('')}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('') + '</div>';
+}
+
+loadData();
   } else {
     document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
     pinEntry = '';
@@ -1366,13 +1789,14 @@ async function saveEdit() {
 
 // TAB SWITCHING
 function switchTab(tab) {
-  ['inventory','add','labels','history'].forEach(t => {
+  ['inventory','add','labels','history','paint'].forEach(t => {
     document.getElementById('page-' + t).style.display = t === tab ? 'block' : 'none';
     document.getElementById('tab-' + t).classList.toggle('active', t === tab);
   });
   if (tab === 'add') fetchNextId();
   if (tab === 'labels') populateLabelList();
   if (tab === 'history') loadHistory();
+  if (tab === 'paint') initPaint();
 }
 
 // ADD ASSET
