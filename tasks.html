@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MMT Tasks</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --card: #0f3460;
+    --accent: #e94560;
+    --accent2: #f5a623;
+    --text: #eaeaea;
+    --text-muted: #8892a4;
+    --border: #1e3a5f;
+    --green: #2ecc71;
+    --red: #e74c3c;
+    --orange: #f39c12;
+    --radius: 10px;
+    --font: 'Segoe UI', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* PIN SCREEN */
+  #pin-screen {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+    flex-direction: column;
+    gap: 24px;
+  }
+  #pin-screen img { width: 160px; opacity: 0.9; }
+  #pin-screen h2 { color: var(--text-muted); font-size: 14px; letter-spacing: 3px; text-transform: uppercase; }
+  #pin-dots { display: flex; gap: 12px; }
+  .pin-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--text-muted);
+    transition: background 0.15s;
+  }
+  .pin-dot.filled { background: var(--accent); border-color: var(--accent); }
+  #pin-pad { display: grid; grid-template-columns: repeat(3, 72px); gap: 10px; }
+  .pin-btn {
+    height: 56px; border-radius: 50%;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); font-size: 20px; font-weight: 600;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .pin-btn:hover { background: var(--card); }
+  #pin-error { color: var(--red); font-size: 13px; height: 18px; }
+
+  /* MAIN APP */
+  #app { display: none; }
+
+  /* TOP BAR */
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex; align-items: center; gap: 0;
+    height: 56px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-logo { font-weight: 800; font-size: 18px; color: var(--accent); margin-right: 32px; letter-spacing: 1px; }
+  .tab-btn {
+    padding: 0 18px; height: 56px;
+    background: none; border: none; border-bottom: 3px solid transparent;
+    color: var(--text-muted); font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .lock-btn {
+    background: none; border: 1px solid var(--border); color: var(--text-muted);
+    padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer;
+  }
+  .lock-btn:hover { color: var(--text); border-color: var(--text-muted); }
+
+  /* CONTENT */
+  .tab-content { display: none; padding: 28px 24px; max-width: 1100px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+
+  /* SHOW NOTES TAB */
+  .show-section { margin-bottom: 36px; }
+  .show-section h2 {
+    font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 14px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .shows-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .show-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+    transition: border-color 0.15s;
+  }
+  .show-card:hover { border-color: var(--accent2); }
+  .show-card.current { border-color: var(--green); }
+  .show-info { flex: 1; min-width: 0; }
+  .show-name { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .show-dates { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .show-badge {
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    padding: 2px 8px; border-radius: 20px; text-transform: uppercase;
+    background: var(--green); color: #000; flex-shrink: 0;
+  }
+  .show-badge.upcoming { background: var(--card); color: var(--text-muted); }
+  .show-badge.past { background: #333; color: var(--text-muted); }
+  .notes-btn {
+    padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .notes-btn.open { background: var(--accent2); color: #000; }
+  .notes-btn.open:hover { opacity: 0.85; }
+  .notes-btn.create { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+  .notes-btn.create:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .notes-btn.loading { background: var(--card); color: var(--text-muted); cursor: default; }
+
+  /* TASKS TAB */
+  .lists-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+  .task-list-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .task-list-header {
+    padding: 14px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .task-list-title { font-weight: 700; font-size: 14px; letter-spacing: 0.5px; }
+  .task-count { font-size: 12px; color: var(--text-muted); }
+  .task-items { padding: 8px 0; min-height: 40px; }
+  .task-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: background 0.1s;
+  }
+  .task-item:last-child { border-bottom: none; }
+  .task-item:hover { background: rgba(255,255,255,0.03); }
+  .task-checkbox {
+    width: 18px; height: 18px; border-radius: 4px;
+    border: 2px solid var(--border);
+    cursor: pointer; flex-shrink: 0; margin-top: 1px;
+    appearance: none; background: transparent; transition: all 0.15s;
+  }
+  .task-checkbox:checked { background: var(--green); border-color: var(--green); }
+  .task-body { flex: 1; min-width: 0; }
+  .task-text { font-size: 14px; line-height: 1.4; word-break: break-word; }
+  .task-text.done { text-decoration: line-through; color: var(--text-muted); }
+  .task-due { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+  .task-due.overdue { color: var(--red); }
+  .task-due.soon { color: var(--orange); }
+  .task-delete {
+    background: none; border: none; color: var(--text-muted);
+    cursor: pointer; font-size: 16px; padding: 0 2px;
+    opacity: 0; transition: opacity 0.15s;
+    flex-shrink: 0;
+  }
+  .task-item:hover .task-delete { opacity: 1; }
+  .task-delete:hover { color: var(--red); }
+  .task-add-row {
+    padding: 10px 18px 14px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .task-input {
+    flex: 1; min-width: 120px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-size: 13px;
+    padding: 7px 10px;
+  }
+  .task-input:focus { outline: none; border-color: var(--accent); }
+  .task-date-input {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text-muted); font-size: 12px;
+    padding: 7px 8px; width: 130px;
+  }
+  .task-date-input:focus { outline: none; border-color: var(--accent); }
+  .add-task-btn {
+    background: var(--accent); border: none; color: #fff;
+    border-radius: 6px; padding: 7px 14px; font-size: 13px; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+  }
+  .add-task-btn:hover { opacity: 0.85; }
+  .empty-tasks { padding: 16px 18px; color: var(--text-muted); font-size: 13px; font-style: italic; }
+
+  /* Add list */
+  .add-list-card {
+    background: transparent;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center;
+    min-height: 120px; cursor: pointer;
+    color: var(--text-muted); font-size: 14px; gap: 8px;
+    transition: all 0.15s;
+  }
+  .add-list-card:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 500; padding: 20px;
+  }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 28px; width: 100%; max-width: 420px;
+  }
+  .modal h3 { font-size: 18px; margin-bottom: 18px; }
+  .modal input, .modal select {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-size: 14px;
+    padding: 10px 12px; margin-bottom: 12px;
+  }
+  .modal input:focus, .modal select:focus { outline: none; border-color: var(--accent); }
+  .modal-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+  .btn-cancel {
+    background: var(--card); border: none; color: var(--text-muted);
+    padding: 9px 18px; border-radius: 6px; cursor: pointer; font-size: 14px;
+  }
+  .btn-confirm {
+    background: var(--accent); border: none; color: #fff;
+    padding: 9px 18px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;
+  }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #222; color: var(--text); padding: 12px 22px;
+    border-radius: 8px; font-size: 14px; z-index: 9999;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    border: 1px solid var(--border);
+  }
+  #toast.show { opacity: 1; }
+
+  /* LIST COLOR DOTS */
+  .color-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  /* Loading spinner */
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- PIN SCREEN -->
+<div id="pin-screen">
+  <div style="text-align:center">
+    <div style="font-size:32px;font-weight:900;color:#e94560;letter-spacing:2px;margin-bottom:4px;">MMT</div>
+    <div style="font-size:11px;letter-spacing:4px;color:#8892a4;text-transform:uppercase;">Tasks & Notes</div>
+  </div>
+  <div id="pin-dots">
+    <div class="pin-dot" id="d0"></div>
+    <div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div>
+    <div class="pin-dot" id="d3"></div>
+  </div>
+  <div id="pin-pad">
+    <button class="pin-btn" onclick="pinPress('1')">1</button>
+    <button class="pin-btn" onclick="pinPress('2')">2</button>
+    <button class="pin-btn" onclick="pinPress('3')">3</button>
+    <button class="pin-btn" onclick="pinPress('4')">4</button>
+    <button class="pin-btn" onclick="pinPress('5')">5</button>
+    <button class="pin-btn" onclick="pinPress('6')">6</button>
+    <button class="pin-btn" onclick="pinPress('7')">7</button>
+    <button class="pin-btn" onclick="pinPress('8')">8</button>
+    <button class="pin-btn" onclick="pinPress('9')">9</button>
+    <button class="pin-btn" onclick="pinPress('back')" style="font-size:14px;">⌫</button>
+    <button class="pin-btn" onclick="pinPress('0')">0</button>
+    <button class="pin-btn" onclick="pinPress('back')" style="font-size:14px; opacity:0; pointer-events:none;"></button>
+  </div>
+  <div id="pin-error"></div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <div class="topbar">
+    <span class="topbar-logo">MMT</span>
+    <button class="tab-btn active" onclick="switchTab('shows')">Show Notes</button>
+    <button class="tab-btn" onclick="switchTab('tasks')">Tasks</button>
+    <div class="topbar-right">
+      <button class="lock-btn" onclick="lock()">Lock</button>
+    </div>
+  </div>
+
+  <!-- SHOW NOTES TAB -->
+  <div id="tab-shows" class="tab-content active">
+    <div class="show-section">
+      <h2>Mainstage</h2>
+      <div class="shows-grid" id="mainstage-grid">
+        <div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading shows...</div>
+      </div>
+    </div>
+    <div class="show-section">
+      <h2>Children's Theatre</h2>
+      <div class="shows-grid" id="childrens-grid">
+        <div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading shows...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASKS TAB -->
+  <div id="tab-tasks" class="tab-content">
+    <div class="lists-grid" id="lists-grid">
+      <div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading tasks...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal" style="display:none;">
+  <div class="modal">
+    <h3 id="modal-title">New List</h3>
+    <input type="text" id="modal-input" placeholder="List name..." />
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-confirm" id="modal-confirm" onclick="confirmModal()">Create</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
+const PIN = '1483';
+
+// ── SHOWS DATA ───────────────────────────────────────────────────────────────
+const MAINSTAGE = [
+  { name: 'My Fair Lady',            start: '2026-06-12', end: '2026-07-05' },
+  { name: 'Urinetown',               start: '2026-07-10', end: '2026-08-02' },
+  { name: 'The Will Rogers Follies', start: '2026-08-07', end: '2026-08-30' },
+  { name: 'The Cher Show',           start: '2026-09-04', end: '2026-09-27' },
+  { name: 'And Then There Were None',start: '2026-10-02', end: '2026-10-18' },
+  { name: "It's a Wonderful Life",   start: '2026-10-23', end: '2026-11-15' },
+  { name: 'A Christmas Carol',       start: '2026-11-20', end: '2026-12-13' },
+  { name: 'Big Band Holiday Concert',start: '2026-12-18', end: '2026-12-20' },
+];
+
+const CHILDRENS = [
+  { name: 'Moana Jr.',              start: '2026-06-06', end: '2026-06-27' },
+  { name: 'The Jungle Book Kids',   start: '2026-07-03', end: '2026-07-11' },
+  { name: 'The Little Mermaid',     start: '2026-07-17', end: '2026-07-25' },
+  { name: 'Aladdin Kids',           start: '2026-07-31', end: '2026-08-15' },
+  { name: 'Alice in Wonderland',    start: '2026-08-21', end: '2026-08-29' },
+  { name: 'Lion King Kids',         start: '2026-09-12', end: '2026-09-26' },
+  { name: 'The Great Pumpkin',      start: '2026-10-10', end: '2026-10-24' },
+  { name: 'James and the Giant Peach', start: '2026-10-31', end: '2026-11-14' },
+  { name: 'Frosty & Rudolph',       start: '2026-11-28', end: '2026-12-19' },
+];
+
+const LIST_COLORS = ['#e94560','#f5a623','#2ecc71','#3498db','#9b59b6','#1abc9c','#e67e22','#e91e63'];
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let tasks = {};      // { listName: [ {id, text, done, due} ] }
+let lists = [];      // [ {name, color} ]
+let showNotes = {};  // { showKey: docUrl }
+let modalCallback = null;
+
+// ── PIN ──────────────────────────────────────────────────────────────────────
+let pinEntry = '';
+function pinPress(val) {
+  if (val === 'back') {
+    pinEntry = pinEntry.slice(0, -1);
+  } else {
+    if (pinEntry.length >= 4) return;
+    pinEntry += val;
+  }
+  updateDots();
+  if (pinEntry.length === 4) {
+    setTimeout(() => {
+      if (pinEntry === PIN) {
+        document.getElementById('pin-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        initApp();
+      } else {
+        document.getElementById('pin-error').textContent = 'Incorrect PIN';
+        pinEntry = '';
+        updateDots();
+        setTimeout(() => document.getElementById('pin-error').textContent = '', 1500);
+      }
+    }, 150);
+  }
+}
+function updateDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('d' + i).classList.toggle('filled', i < pinEntry.length);
+  }
+}
+function lock() {
+  pinEntry = '';
+  updateDots();
+  document.getElementById('pin-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+// ── TAB ──────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', ['shows','tasks'][i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+async function initApp() {
+  renderShows();
+  await loadData();
+  renderTasks();
+}
+
+// ── SHOWS ─────────────────────────────────────────────────────────────────────
+function showStatus(start, end) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const s = new Date(start + 'T00:00:00');
+  const e = new Date(end + 'T00:00:00');
+  if (today >= s && today <= e) return 'current';
+  if (today < s) return 'upcoming';
+  return 'past';
+}
+
+function formatDates(start, end) {
+  const opts = { month: 'short', day: 'numeric' };
+  const s = new Date(start + 'T00:00:00').toLocaleDateString('en-US', opts);
+  const e = new Date(end + 'T00:00:00').toLocaleDateString('en-US', opts);
+  return s + ' – ' + e;
+}
+
+function renderShows() {
+  renderShowGrid('mainstage-grid', MAINSTAGE, 'mainstage');
+  renderShowGrid('childrens-grid', CHILDRENS, 'childrens');
+}
+
+function renderShowGrid(gridId, shows, prefix) {
+  const grid = document.getElementById(gridId);
+  grid.innerHTML = shows.map(show => {
+    const status = showStatus(show.start, show.end);
+    const key = prefix + '_' + show.name.replace(/[^a-z0-9]/gi, '_');
+    const docUrl = showNotes[key];
+    const badgeLabel = status === 'current' ? 'Now Playing' : status === 'upcoming' ? 'Upcoming' : 'Past';
+    const btnClass = docUrl ? 'open' : 'create';
+    const btnLabel = docUrl ? '📄 Open Notes' : '+ Create Notes';
+    return `
+      <div class="show-card ${status === 'current' ? 'current' : ''}">
+        <div class="show-info">
+          <div class="show-name">${show.name}</div>
+          <div class="show-dates">${formatDates(show.start, show.end)}</div>
+        </div>
+        <span class="show-badge ${status !== 'current' ? status : ''}">${badgeLabel}</span>
+        <button class="notes-btn ${btnClass}" onclick="handleNotes('${key}', '${show.name}')" id="btn-${key}">
+          ${btnLabel}
+        </button>
+      </div>`;
+  }).join('');
+}
+
+async function handleNotes(key, showName) {
+  const docUrl = showNotes[key];
+  if (docUrl) {
+    window.open(docUrl, '_blank');
+    return;
+  }
+  // Create a new Google Doc via Apps Script
+  const btn = document.getElementById('btn-' + key);
+  btn.innerHTML = '<span class="spinner"></span>Creating...';
+  btn.className = 'notes-btn loading';
+  btn.disabled = true;
+  try {
+    const url = SCRIPT_URL + '?action=createDoc&showName=' + encodeURIComponent(showName) + '&key=' + encodeURIComponent(key);
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.url) {
+      showNotes[key] = data.url;
+      btn.innerHTML = '📄 Open Notes';
+      btn.className = 'notes-btn open';
+      btn.disabled = false;
+      btn.onclick = () => window.open(data.url, '_blank');
+      toast('Notes doc created for ' + showName);
+      // Save to sheet
+      await sheetWrite('showNotes', key, data.url);
+    } else {
+      throw new Error(data.error || 'Unknown error');
+    }
+  } catch(e) {
+    btn.innerHTML = '+ Create Notes';
+    btn.className = 'notes-btn create';
+    btn.disabled = false;
+    toast('Error creating doc — check Apps Script setup');
+    console.error(e);
+  }
+}
+
+// ── DATA LOAD/SAVE ────────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const url = SCRIPT_URL + '?action=getTasks';
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.lists) lists = data.lists;
+    if (data.tasks) tasks = data.tasks;
+    if (data.showNotes) showNotes = data.showNotes;
+    // Ensure default lists exist
+    ensureDefaultLists();
+    // Re-render shows with loaded note URLs
+    renderShows();
+  } catch(e) {
+    console.error('Load error:', e);
+    ensureDefaultLists();
+  }
+}
+
+function ensureDefaultLists() {
+  const defaults = ['Building', 'Long Term Projects', 'Tech To-Do', 'Maintenance'];
+  defaults.forEach((name, i) => {
+    if (!lists.find(l => l.name === name)) {
+      lists.push({ name, color: LIST_COLORS[i % LIST_COLORS.length] });
+    }
+    if (!tasks[name]) tasks[name] = [];
+  });
+}
+
+async function saveData() {
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'saveTasks', lists, tasks }),
+    });
+  } catch(e) {
+    console.error('Save error:', e);
+  }
+}
+
+async function sheetWrite(type, key, value) {
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'saveShowNote', key, value }),
+    });
+  } catch(e) { console.error(e); }
+}
+
+// ── TASKS ─────────────────────────────────────────────────────────────────────
+function renderTasks() {
+  const grid = document.getElementById('lists-grid');
+  grid.innerHTML = lists.map((list, li) => renderListCard(list, li)).join('') +
+    `<div class="add-list-card" onclick="addList()">＋ New List</div>`;
+}
+
+function renderListCard(list, li) {
+  const items = tasks[list.name] || [];
+  const active = items.filter(t => !t.done);
+  const done = items.filter(t => t.done);
+  const allItems = [...active, ...done];
+  return `
+    <div class="task-list-card">
+      <div class="task-list-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="color-dot" style="background:${list.color}"></div>
+          <span class="task-list-title">${list.name}</span>
+        </div>
+        <span class="task-count">${active.length} left</span>
+      </div>
+      <div class="task-items">
+        ${allItems.length === 0 ? `<div class="empty-tasks">No tasks yet</div>` :
+          allItems.map(task => renderTaskItem(list.name, task)).join('')}
+      </div>
+      <div class="task-add-row">
+        <input class="task-input" type="text" placeholder="Add a task..." id="input-${list.name.replace(/\s/g,'_')}"
+          onkeydown="if(event.key==='Enter') addTask('${list.name}')" />
+        <input class="task-date-input" type="date" id="date-${list.name.replace(/\s/g,'_')}" />
+        <button class="add-task-btn" onclick="addTask('${list.name}')">Add</button>
+      </div>
+    </div>`;
+}
+
+function renderTaskItem(listName, task) {
+  const dueStr = task.due ? dueBadge(task.due) : '';
+  return `
+    <div class="task-item" id="task-${task.id}">
+      <input type="checkbox" class="task-checkbox" ${task.done ? 'checked' : ''}
+        onchange="toggleTask('${listName}', '${task.id}', this.checked)" />
+      <div class="task-body">
+        <div class="task-text ${task.done ? 'done' : ''}">${escHtml(task.text)}</div>
+        ${dueStr}
+      </div>
+      <button class="task-delete" onclick="deleteTask('${listName}', '${task.id}')">×</button>
+    </div>`;
+}
+
+function dueBadge(due) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(due + 'T00:00:00');
+  const diff = Math.round((d - today) / 86400000);
+  let cls = '', label = '';
+  if (diff < 0) { cls = 'overdue'; label = 'Overdue · ' + fmtDate(due); }
+  else if (diff === 0) { cls = 'soon'; label = 'Due today'; }
+  else if (diff <= 3) { cls = 'soon'; label = 'Due ' + fmtDate(due); }
+  else { label = 'Due ' + fmtDate(due); }
+  return `<div class="task-due ${cls}">${label}</div>`;
+}
+
+function fmtDate(iso) {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' });
+}
+
+function addTask(listName) {
+  const key = listName.replace(/\s/g,'_');
+  const input = document.getElementById('input-' + key);
+  const dateEl = document.getElementById('date-' + key);
+  const text = input.value.trim();
+  if (!text) return;
+  const task = {
+    id: Date.now().toString(),
+    text,
+    done: false,
+    due: dateEl.value || null,
+  };
+  if (!tasks[listName]) tasks[listName] = [];
+  tasks[listName].unshift(task);
+  input.value = '';
+  dateEl.value = '';
+  renderTasks();
+  saveData();
+}
+
+function toggleTask(listName, id, done) {
+  const task = tasks[listName]?.find(t => t.id === id);
+  if (task) { task.done = done; renderTasks(); saveData(); }
+}
+
+function deleteTask(listName, id) {
+  if (!tasks[listName]) return;
+  tasks[listName] = tasks[listName].filter(t => t.id !== id);
+  renderTasks();
+  saveData();
+}
+
+function addList() {
+  openModal('New List', 'List name...', (name) => {
+    if (!name) return;
+    if (lists.find(l => l.name === name)) { toast('List already exists'); return; }
+    const color = LIST_COLORS[lists.length % LIST_COLORS.length];
+    lists.push({ name, color });
+    tasks[name] = [];
+    renderTasks();
+    saveData();
+  });
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function openModal(title, placeholder, callback) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-input').placeholder = placeholder;
+  document.getElementById('modal-input').value = '';
+  document.getElementById('modal').style.display = 'flex';
+  modalCallback = callback;
+  setTimeout(() => document.getElementById('modal-input').focus(), 50);
+}
+function closeModal() {
+  document.getElementById('modal').style.display = 'none';
+  modalCallback = null;
+}
+function confirmModal() {
+  const val = document.getElementById('modal-input').value.trim();
+  if (modalCallback) modalCallback(val);
+  closeModal();
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Enter' && document.getElementById('modal').style.display !== 'none') confirmModal();
+});
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
