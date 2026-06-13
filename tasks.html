@@ -92,34 +92,72 @@
   .tab-content.active { display: block; }
 
   /* SHOW NOTES TAB */
-  .show-section { margin-bottom: 36px; }
-  .show-section h2 {
+  .show-section { margin-bottom: 28px; }
+  .section-label {
     font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
-    color: var(--text-muted); margin-bottom: 14px; padding-bottom: 8px;
+    color: var(--text-muted); margin-bottom: 12px; padding-bottom: 8px;
     border-bottom: 1px solid var(--border);
   }
-  .shows-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
-  .show-card {
+
+  /* CURRENT SHOW - big hero card */
+  .show-card-hero {
+    background: var(--surface);
+    border: 2px solid var(--green);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 20px;
+  }
+  .show-card-hero .show-info { flex: 1; }
+  .show-card-hero .show-name { font-weight: 800; font-size: 22px; }
+  .show-card-hero .show-dates { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+  .show-card-hero .show-countdown {
+    font-size: 13px; color: var(--green); margin-top: 6px; font-weight: 600;
+  }
+  .show-card-hero .show-badge-now {
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    padding: 4px 12px; border-radius: 20px; text-transform: uppercase;
+    background: var(--green); color: #000; flex-shrink: 0;
+  }
+
+  /* NEXT SHOW - medium card */
+  .show-card-next {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 16px 18px;
+    padding: 18px 22px;
     display: flex; align-items: center; justify-content: space-between;
-    gap: 12px;
-    transition: border-color 0.15s;
+    gap: 16px;
   }
-  .show-card:hover { border-color: var(--accent2); }
-  .show-card.current { border-color: var(--green); }
-  .show-info { flex: 1; min-width: 0; }
-  .show-name { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .show-dates { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
-  .show-badge {
-    font-size: 10px; font-weight: 700; letter-spacing: 1px;
-    padding: 2px 8px; border-radius: 20px; text-transform: uppercase;
-    background: var(--green); color: #000; flex-shrink: 0;
+  .show-card-next .show-name { font-weight: 700; font-size: 17px; }
+  .show-card-next .show-dates { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .show-card-next .show-opens { font-size: 12px; color: var(--accent2); margin-top: 4px; font-weight: 600; }
+
+  /* ALL SHOWS COLLAPSIBLE */
+  .all-shows-toggle {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 600;
+    transition: all 0.15s; text-align: left;
   }
-  .show-badge.upcoming { background: var(--card); color: var(--text-muted); }
-  .show-badge.past { background: #333; color: var(--text-muted); }
+  .all-shows-toggle:hover { border-color: var(--accent2); color: var(--text); }
+  .all-shows-toggle .chevron { transition: transform 0.2s; font-size: 11px; }
+  .all-shows-toggle.open .chevron { transform: rotate(180deg); }
+  .all-shows-list {
+    display: none; flex-direction: column; gap: 6px;
+    margin-top: 8px;
+  }
+  .all-shows-list.open { display: flex; }
+  .show-card-mini {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .show-card-mini .show-name { font-size: 14px; font-weight: 600; }
+  .show-card-mini .show-dates { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  /* NOTES BUTTONS */
   .notes-btn {
     padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600;
     cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap;
@@ -310,17 +348,8 @@
 
   <!-- SHOW NOTES TAB -->
   <div id="tab-shows" class="tab-content active">
-    <div class="show-section">
-      <h2>Mainstage</h2>
-      <div class="shows-grid" id="mainstage-grid">
-        <div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading shows...</div>
-      </div>
-    </div>
-    <div class="show-section">
-      <h2>Children's Theatre</h2>
-      <div class="shows-grid" id="childrens-grid">
-        <div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading shows...</div>
-      </div>
+    <div id="shows-content">
+      <div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading shows...</div>
     </div>
   </div>
 
@@ -453,32 +482,160 @@ function formatDates(start, end) {
   return s + ' – ' + e;
 }
 
-function renderShows() {
-  renderShowGrid('mainstage-grid', MAINSTAGE, 'mainstage');
-  renderShowGrid('childrens-grid', CHILDRENS, 'childrens');
+function daysUntil(dateStr) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateStr + 'T00:00:00');
+  return Math.round((d - today) / 86400000);
 }
 
-function renderShowGrid(gridId, shows, prefix) {
-  const grid = document.getElementById(gridId);
-  grid.innerHTML = shows.map(show => {
-    const status = showStatus(show.start, show.end);
-    const key = prefix + '_' + show.name.replace(/[^a-z0-9]/gi, '_');
+function daysLeft(dateStr) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateStr + 'T00:00:00');
+  return Math.round((d - today) / 86400000);
+}
+
+function renderShows() {
+  const container = document.getElementById('shows-content');
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Find current and next mainstage
+  const currentMain = MAINSTAGE.find(s => showStatus(s.start, s.end) === 'current');
+  const upcomingMain = MAINSTAGE.filter(s => showStatus(s.start, s.end) === 'upcoming');
+  const nextMain = upcomingMain[0] || null;
+  const restMain = upcomingMain.slice(1);
+  const pastMain = MAINSTAGE.filter(s => showStatus(s.start, s.end) === 'past');
+
+  // Find current children's
+  const currentKids = CHILDRENS.find(s => showStatus(s.start, s.end) === 'current');
+
+  let html = '';
+
+  // ── CURRENT MAINSTAGE ──
+  if (currentMain) {
+    const key = 'mainstage_' + currentMain.name.replace(/[^a-z0-9]/gi, '_');
     const docUrl = showNotes[key];
-    const badgeLabel = status === 'current' ? 'Now Playing' : status === 'upcoming' ? 'Upcoming' : 'Past';
-    const btnClass = docUrl ? 'open' : 'create';
-    const btnLabel = docUrl ? '📄 Open Notes' : '+ Create Notes';
-    return `
-      <div class="show-card ${status === 'current' ? 'current' : ''}">
+    const closing = daysLeft(currentMain.end);
+    const closingStr = closing === 0 ? 'Closes tonight!' : closing === 1 ? 'Closes tomorrow' : `${closing} days left`;
+    html += `
+    <div class="show-section">
+      <div class="section-label">Now Playing — Mainstage</div>
+      <div class="show-card-hero">
         <div class="show-info">
-          <div class="show-name">${show.name}</div>
-          <div class="show-dates">${formatDates(show.start, show.end)}</div>
+          <div class="show-name">${currentMain.name}</div>
+          <div class="show-dates">${formatDates(currentMain.start, currentMain.end)}</div>
+          <div class="show-countdown">🎭 ${closingStr}</div>
         </div>
-        <span class="show-badge ${status !== 'current' ? status : ''}">${badgeLabel}</span>
-        <button class="notes-btn ${btnClass}" onclick="handleNotes('${key}', '${show.name}')" id="btn-${key}">
-          ${btnLabel}
+        <span class="show-badge-now">Now Playing</span>
+        <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentMain.name}')" id="btn-${key}">
+          ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
         </button>
+      </div>
+    </div>`;
+  }
+
+  // ── NEXT MAINSTAGE ──
+  if (nextMain) {
+    const key = 'mainstage_' + nextMain.name.replace(/[^a-z0-9]/gi, '_');
+    const docUrl = showNotes[key];
+    const opens = daysUntil(nextMain.start);
+    const opensStr = opens === 0 ? 'Opens today!' : opens === 1 ? 'Opens tomorrow' : `Opens in ${opens} days`;
+    html += `
+    <div class="show-section">
+      <div class="section-label">Up Next — Mainstage</div>
+      <div class="show-card-next">
+        <div class="show-info">
+          <div class="show-name">${nextMain.name}</div>
+          <div class="show-dates">${formatDates(nextMain.start, nextMain.end)}</div>
+          <div class="show-opens">📅 ${opensStr}</div>
+        </div>
+        <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextMain.name}')" id="btn-${key}">
+          ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
+        </button>
+      </div>
+    </div>`;
+  }
+
+  // ── ALL MAINSTAGE SHOWS (collapsible) ──
+  const allOtherMain = [...restMain, ...pastMain];
+  if (allOtherMain.length > 0) {
+    html += `
+    <div class="show-section">
+      <button class="all-shows-toggle" onclick="toggleAllShows(this)">
+        <span>All Mainstage Shows (${MAINSTAGE.length} total)</span>
+        <span class="chevron">▼</span>
+      </button>
+      <div class="all-shows-list">
+        ${MAINSTAGE.map(show => {
+          const key = 'mainstage_' + show.name.replace(/[^a-z0-9]/gi, '_');
+          const docUrl = showNotes[key];
+          const status = showStatus(show.start, show.end);
+          const badge = status === 'current' ? '🟢' : status === 'upcoming' ? '🔵' : '⚫';
+          return `
+          <div class="show-card-mini">
+            <div class="show-info">
+              <div class="show-name">${badge} ${show.name}</div>
+              <div class="show-dates">${formatDates(show.start, show.end)}</div>
+            </div>
+            <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${show.name}')" id="btn-${key}" style="padding:6px 10px;font-size:12px;">
+              ${docUrl ? '📄 Notes' : '+ Notes'}
+            </button>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // ── CURRENT CHILDREN'S THEATRE ──
+  if (currentKids) {
+    const key = 'childrens_' + currentKids.name.replace(/[^a-z0-9]/gi, '_');
+    const docUrl = showNotes[key];
+    const closing = daysLeft(currentKids.end);
+    const closingStr = closing === 0 ? 'Closes tonight!' : closing === 1 ? 'Closes tomorrow' : `${closing} days left`;
+    html += `
+    <div class="show-section">
+      <div class="section-label">Now Playing — Children's Theatre</div>
+      <div class="show-card-hero" style="border-color: var(--accent2);">
+        <div class="show-info">
+          <div class="show-name">${currentKids.name}</div>
+          <div class="show-dates">${formatDates(currentKids.start, currentKids.end)}</div>
+          <div class="show-countdown" style="color:var(--accent2);">🎪 ${closingStr}</div>
+        </div>
+        <span class="show-badge-now" style="background:var(--accent2);">Now Playing</span>
+        <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentKids.name}')" id="btn-${key}">
+          ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
+        </button>
+      </div>
+    </div>`;
+  } else {
+    // Show next children's if none current
+    const nextKids = CHILDRENS.find(s => showStatus(s.start, s.end) === 'upcoming');
+    if (nextKids) {
+      const key = 'childrens_' + nextKids.name.replace(/[^a-z0-9]/gi, '_');
+      const docUrl = showNotes[key];
+      const opens = daysUntil(nextKids.start);
+      html += `
+      <div class="show-section">
+        <div class="section-label">Up Next — Children's Theatre</div>
+        <div class="show-card-next">
+          <div class="show-info">
+            <div class="show-name">${nextKids.name}</div>
+            <div class="show-dates">${formatDates(nextKids.start, nextKids.end)}</div>
+            <div class="show-opens" style="color:var(--accent2);">📅 Opens in ${opens} days</div>
+          </div>
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextKids.name}')" id="btn-${key}">
+            ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
+          </button>
+        </div>
       </div>`;
-  }).join('');
+    }
+  }
+
+  container.innerHTML = html || '<div style="color:var(--text-muted);padding:8px;">No current shows found.</div>';
+}
+
+function toggleAllShows(btn) {
+  btn.classList.toggle('open');
+  btn.nextElementSibling.classList.toggle('open');
 }
 
 async function handleNotes(key, showName) {
@@ -487,15 +644,15 @@ async function handleNotes(key, showName) {
     window.open(docUrl, '_blank');
     return;
   }
-  // Create a new Google Doc via Apps Script
   const btn = document.getElementById('btn-' + key);
   btn.innerHTML = '<span class="spinner"></span>Creating...';
   btn.className = 'notes-btn loading';
   btn.disabled = true;
   try {
-    const url = SCRIPT_URL + '?action=createDoc&showName=' + encodeURIComponent(showName) + '&key=' + encodeURIComponent(key);
-    const res = await fetch(url);
-    const data = await res.json();
+    const res = await fetch(SCRIPT_URL + '?action=createDoc&showName=' + encodeURIComponent(showName) + '&key=' + encodeURIComponent(key));
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch(e) { throw new Error('Bad response: ' + text.slice(0,100)); }
     if (data.url) {
       showNotes[key] = data.url;
       btn.innerHTML = '📄 Open Notes';
@@ -503,7 +660,6 @@ async function handleNotes(key, showName) {
       btn.disabled = false;
       btn.onclick = () => window.open(data.url, '_blank');
       toast('Notes doc created for ' + showName);
-      // Save to sheet
       await sheetWrite('showNotes', key, data.url);
     } else {
       throw new Error(data.error || 'Unknown error');
@@ -512,7 +668,7 @@ async function handleNotes(key, showName) {
     btn.innerHTML = '+ Create Notes';
     btn.className = 'notes-btn create';
     btn.disabled = false;
-    toast('Error creating doc — check Apps Script setup');
+    toast('Error: ' + e.message);
     console.error(e);
   }
 }
