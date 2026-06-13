@@ -482,9 +482,12 @@ function pinClear() {
 }
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
+// Start loading data immediately on page load — before PIN is entered
+loadData();
+
 async function initApp() {
   renderShows();
-  await loadData();
+  renderTasks();
 }
 
 // ── SHOWS ─────────────────────────────────────────────────────────────────────
@@ -730,6 +733,21 @@ function jsonp(url, onSuccess, onError) {
 
 // ── DATA LOAD/SAVE ────────────────────────────────────────────────────────────
 function loadData() {
+  // Show cached data instantly if available
+  const cached = localStorage.getItem('mmt_data');
+  if (cached) {
+    try {
+      const d = JSON.parse(cached);
+      if (d.lists) lists = d.lists;
+      if (d.tasks) tasks = d.tasks;
+      if (d.showNotes) showNotes = d.showNotes;
+      ensureDefaultLists();
+      renderShows();
+      renderTasks();
+    } catch(e) {}
+  }
+
+  // Then fetch fresh data in background
   return new Promise((resolve) => {
     jsonp(
       SCRIPT_URL + '?action=getTasks',
@@ -740,6 +758,10 @@ function loadData() {
         ensureDefaultLists();
         renderShows();
         renderTasks();
+        // Save to cache for next load
+        try {
+          localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes }));
+        } catch(e) {}
         resolve();
       },
       function(err) {
