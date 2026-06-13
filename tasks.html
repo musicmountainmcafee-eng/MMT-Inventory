@@ -423,6 +423,15 @@ let modalCallback = null;
 
 // ── PIN ──────────────────────────────────────────────────────────────────────
 let pinEntry = '';
+
+// Keyboard support for PIN entry
+document.addEventListener('keydown', function(e) {
+  if (document.getElementById('pin-screen').style.display === 'none') return;
+  if (e.key >= '0' && e.key <= '9') pinPress(e.key);
+  else if (e.key === 'Backspace') pinPress('back');
+  else if (e.key === 'Escape') pinClear();
+});
+
 function pinPress(val) {
   if (val === 'back') {
     pinEntry = pinEntry.slice(0, -1);
