@@ -733,7 +733,7 @@ function jsonp(url, onSuccess, onError) {
 
 // ── DATA LOAD/SAVE ────────────────────────────────────────────────────────────
 function loadData() {
-  // Show cached data instantly if available
+  // Show cached data instantly if available (for speed)
   const cached = localStorage.getItem('mmt_data');
   if (cached) {
     try {
@@ -747,18 +747,19 @@ function loadData() {
     } catch(e) {}
   }
 
-  // Then fetch fresh data in background
+  // Always fetch fresh from sheet — this is the source of truth
   return new Promise((resolve) => {
     jsonp(
       SCRIPT_URL + '?action=getTasks',
       function(data) {
-        if (data.lists) lists = data.lists;
+        // Sheet data always wins over cache
+        lists = data.lists && data.lists.length ? data.lists : lists;
         if (data.tasks) tasks = data.tasks;
         if (data.showNotes) showNotes = data.showNotes;
         ensureDefaultLists();
         renderShows();
         renderTasks();
-        // Save to cache for next load
+        // Update cache with fresh data
         try {
           localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes }));
         } catch(e) {}
@@ -766,7 +767,8 @@ function loadData() {
       },
       function(err) {
         console.error('Load error:', err);
-        ensureDefaultLists();
+        // If sheet load fails and we have no cache, show defaults
+        if (!cached) ensureDefaultLists();
         renderTasks();
         resolve();
       }
@@ -785,6 +787,11 @@ function ensureDefaultLists() {
 }
 
 async function saveData() {
+  // Update local cache immediately
+  try {
+    localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes }));
+  } catch(e) {}
+  // Save to sheet via POST
   try {
     await fetch(SCRIPT_URL, {
       method: 'POST',
