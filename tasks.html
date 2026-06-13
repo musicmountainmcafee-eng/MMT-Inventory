@@ -663,10 +663,12 @@ async function handleNotes(key, showName) {
   btn.className = 'notes-btn loading';
   btn.disabled = true;
   try {
-    const res = await fetch(SCRIPT_URL + '?action=createDoc&showName=' + encodeURIComponent(showName) + '&key=' + encodeURIComponent(key));
+    // Use a form submission trick to avoid CORS — opens script in new tab momentarily
+    const url = SCRIPT_URL + '?action=createDoc&showName=' + encodeURIComponent(showName) + '&key=' + encodeURIComponent(key);
+    const res = await fetch(url, { redirect: 'follow' });
     const text = await res.text();
     let data;
-    try { data = JSON.parse(text); } catch(e) { throw new Error('Bad response: ' + text.slice(0,100)); }
+    try { data = JSON.parse(text); } catch(e) { throw new Error('Bad response: ' + text.slice(0,200)); }
     if (data.url) {
       showNotes[key] = data.url;
       btn.innerHTML = '📄 Open Notes';
@@ -676,13 +678,20 @@ async function handleNotes(key, showName) {
       toast('Notes doc created for ' + showName);
       await sheetWrite('showNotes', key, data.url);
     } else {
-      throw new Error(data.error || 'Unknown error');
+      throw new Error(data.error || 'Unknown error from script');
     }
   } catch(e) {
     btn.innerHTML = '+ Create Notes';
     btn.className = 'notes-btn create';
     btn.disabled = false;
-    toast('Error: ' + e.message);
+    // CORS fallback — open the script URL directly in a new tab
+    if (e.message.includes('fetch') || e.message.includes('CORS') || e.message.includes('Failed')) {
+      toast('Opening script directly — check for a new tab');
+      const fallbackUrl = SCRIPT_URL + '?action=createDoc&showName=' + encodeURIComponent(showName) + '&key=' + encodeURIComponent(key);
+      window.open(fallbackUrl, '_blank');
+    } else {
+      toast('Error: ' + e.message);
+    }
     console.error(e);
   }
 }
