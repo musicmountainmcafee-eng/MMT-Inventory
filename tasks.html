@@ -485,7 +485,6 @@ function pinClear() {
 async function initApp() {
   renderShows();
   await loadData();
-  renderTasks();
 }
 
 // ── SHOWS ─────────────────────────────────────────────────────────────────────
@@ -730,22 +729,27 @@ function jsonp(url, onSuccess, onError) {
 }
 
 // ── DATA LOAD/SAVE ────────────────────────────────────────────────────────────
-async function loadData() {
-  try {
-    const url = SCRIPT_URL + '?action=getTasks';
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data.lists) lists = data.lists;
-    if (data.tasks) tasks = data.tasks;
-    if (data.showNotes) showNotes = data.showNotes;
-    // Ensure default lists exist
-    ensureDefaultLists();
-    // Re-render shows with loaded note URLs
-    renderShows();
-  } catch(e) {
-    console.error('Load error:', e);
-    ensureDefaultLists();
-  }
+function loadData() {
+  return new Promise((resolve) => {
+    jsonp(
+      SCRIPT_URL + '?action=getTasks',
+      function(data) {
+        if (data.lists) lists = data.lists;
+        if (data.tasks) tasks = data.tasks;
+        if (data.showNotes) showNotes = data.showNotes;
+        ensureDefaultLists();
+        renderShows();
+        renderTasks();
+        resolve();
+      },
+      function(err) {
+        console.error('Load error:', err);
+        ensureDefaultLists();
+        renderTasks();
+        resolve();
+      }
+    );
+  });
 }
 
 function ensureDefaultLists() {
