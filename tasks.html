@@ -732,8 +732,38 @@ function jsonp(url, onSuccess, onError) {
 }
 
 // ── DATA LOAD/SAVE ────────────────────────────────────────────────────────────
+const SHEET_ID = '1ZC6eyjym1wLtPNG9G_rNFP_Txke1-VJtt7mrPsL0WOA';
+const TASKS_GID = '1754603688';
+const NOTES_GID = '1706051284';
+
+async function fetchSheetCSV(gid) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  return parseCSV(text);
+}
+
+function parseCSV(text) {
+  const rows = [];
+  const lines = text.split('\n');
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cols = [];
+    let col = '', inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQuote = !inQuote; }
+      else if (ch === ',' && !inQuote) { cols.push(col.trim()); col = ''; }
+      else { col += ch; }
+    }
+    cols.push(col.trim());
+    rows.push(cols);
+  }
+  return rows;
+}
+
 function loadData() {
-  // Show cached data instantly if available (for speed)
+  // Show cached data instantly
   const cached = localStorage.getItem('mmt_data');
   if (cached) {
     try {
@@ -747,32 +777,49 @@ function loadData() {
     } catch(e) {}
   }
 
-  // Always fetch fresh from sheet — this is the source of truth
-  return new Promise((resolve) => {
-    jsonp(
-      SCRIPT_URL + '?action=getTasks',
-      function(data) {
-        // Sheet data always wins over cache
-        lists = data.lists && data.lists.length ? data.lists : lists;
-        if (data.tasks) tasks = data.tasks;
-        if (data.showNotes) showNotes = data.showNotes;
-        ensureDefaultLists();
-        renderShows();
-        renderTasks();
-        // Update cache with fresh data
+  // Fetch fresh from sheet — no Google account needed
+  return Promise.all([
+    fetchSheetCSV(TASKS_GID),
+    fetchSheetCSV(NOTES_GID),
+  ]).then(([taskRows, noteRows]) => {
+    const colors = ['#534AB7','#f5a623','#3B6D11','#185FA5','#9b59b6','#1abc9c','#e67e22','#e91e63'];
+    const newLists = [], newTasks = {};
+
+    for (let i = 1; i < taskRows.length; i++) {
+      const listName = taskRows[i][0];
+      const taskJson = taskRows[i][1];
+      if (!listName) continue;
+      if (!newLists.find(l => l.name === listName))
+        newLists.push({ name: listName, color: colors[newLists.length % colors.length] });
+      if (taskJson) {
         try {
-          localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes }));
+          const task = JSON.parse(taskJson);
+          if (!newTasks[listName]) newTasks[listName] = [];
+          newTasks[listName].push(task);
         } catch(e) {}
-        resolve();
-      },
-      function(err) {
-        console.error('Load error:', err);
-        // If sheet load fails and we have no cache, show defaults
-        if (!cached) ensureDefaultLists();
-        renderTasks();
-        resolve();
       }
-    );
+    }
+
+    const newShowNotes = {};
+    for (let i = 1; i < noteRows.length; i++) {
+      if (noteRows[i][0]) newShowNotes[noteRows[i][0]] = noteRows[i][1];
+    }
+
+    if (newLists.length) lists = newLists;
+    tasks = newTasks;
+    showNotes = newShowNotes;
+    ensureDefaultLists();
+    renderShows();
+    renderTasks();
+
+    try {
+      localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes }));
+    } catch(e) {}
+
+  }).catch(err => {
+    console.error('Load error:', err);
+    if (!cached) ensureDefaultLists();
+    renderTasks();
   });
 }
 
