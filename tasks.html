@@ -383,6 +383,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:10px;color:#ccc;z-index:1;pointer-events:none;">v2026.06.13-2</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -732,36 +733,9 @@ function jsonp(url, onSuccess, onError) {
 }
 
 // ── DATA LOAD/SAVE ────────────────────────────────────────────────────────────
-const SHEET_ID = '1ZC6eyjym1wLtPNG9G_rNFP_Txke1-VJtt7mrPsL0WOA';
-const TASKS_GID = '1754603688';
-const NOTES_GID = '1706051284';
-
-async function fetchSheetCSV(gid) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
-  const res = await fetch(url);
-  const text = await res.text();
-  return parseCSV(text);
-}
-
-function parseCSV(text) {
-  const rows = [];
-  const lines = text.split('\n');
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    const cols = [];
-    let col = '', inQuote = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') { inQuote = !inQuote; }
-      else if (ch === ',' && !inQuote) { cols.push(col.trim()); col = ''; }
-      else { col += ch; }
-    }
-    cols.push(col.trim());
-    rows.push(cols);
-  }
-  return rows;
-}
-
+// This uses the exact same JSONP-via-Apps-Script pattern as the inventory
+// system's getHistory/getPaints — proven to work cross-device. A cache-buster
+// is added so neither the browser nor any proxy ever serves a stale response.
 function loadData() {
   // Show cached data instantly
   const cached = localStorage.getItem('mmt_data');
@@ -777,49 +751,29 @@ function loadData() {
     } catch(e) {}
   }
 
-  // Fetch fresh from sheet — no Google account needed
-  return Promise.all([
-    fetchSheetCSV(TASKS_GID),
-    fetchSheetCSV(NOTES_GID),
-  ]).then(([taskRows, noteRows]) => {
-    const colors = ['#534AB7','#f5a623','#3B6D11','#185FA5','#9b59b6','#1abc9c','#e67e22','#e91e63'];
-    const newLists = [], newTasks = {};
-
-    for (let i = 1; i < taskRows.length; i++) {
-      const listName = taskRows[i][0];
-      const taskJson = taskRows[i][1];
-      if (!listName) continue;
-      if (!newLists.find(l => l.name === listName))
-        newLists.push({ name: listName, color: colors[newLists.length % colors.length] });
-      if (taskJson) {
+  return new Promise((resolve) => {
+    jsonp(
+      SCRIPT_URL + '?action=getTasks&_=' + Date.now(),
+      function(data) {
+        if (data.lists && data.lists.length) lists = data.lists;
+        if (data.tasks) tasks = data.tasks;
+        if (data.showNotes) showNotes = data.showNotes;
+        ensureDefaultLists();
+        renderShows();
+        renderTasks();
         try {
-          const task = JSON.parse(taskJson);
-          if (!newTasks[listName]) newTasks[listName] = [];
-          newTasks[listName].push(task);
+          localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes }));
         } catch(e) {}
+        resolve();
+      },
+      function(err) {
+        console.error('Load error:', err);
+        toast('Sync error — using offline data');
+        if (!cached) ensureDefaultLists();
+        renderTasks();
+        resolve();
       }
-    }
-
-    const newShowNotes = {};
-    for (let i = 1; i < noteRows.length; i++) {
-      if (noteRows[i][0]) newShowNotes[noteRows[i][0]] = noteRows[i][1];
-    }
-
-    if (newLists.length) lists = newLists;
-    tasks = newTasks;
-    showNotes = newShowNotes;
-    ensureDefaultLists();
-    renderShows();
-    renderTasks();
-
-    try {
-      localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes }));
-    } catch(e) {}
-
-  }).catch(err => {
-    console.error('Load error:', err);
-    if (!cached) ensureDefaultLists();
-    renderTasks();
+    );
   });
 }
 
