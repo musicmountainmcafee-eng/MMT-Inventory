@@ -115,6 +115,13 @@
   .right-header .rh-title { font-size: 14px; font-weight: 600; }
   .right-header .rh-show { font-size: 12px; color: var(--text-muted); }
 
+  .edit-doc-btn {
+    font-size: 12px; font-weight: 600; color: white; text-decoration: none;
+    background: var(--purple); padding: 6px 14px; border-radius: var(--radius-sm);
+    white-space: nowrap; transition: all 0.15s; flex-shrink: 0;
+  }
+  .edit-doc-btn:hover { background: var(--purple-dark); }
+
   .show-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-x: auto; }
   .show-tab {
     padding: 10px 16px; font-size: 12px; font-weight: 500; cursor: pointer;
@@ -172,19 +179,29 @@
   .link-del {
     position: absolute; top: 6px; right: 8px; border: none; background: none;
     color: var(--text-faint); font-size: 16px; cursor: pointer; line-height: 1;
-    padding: 2px 6px; border-radius: 6px; opacity: 0; transition: opacity 0.15s;
+    padding: 2px 6px; border-radius: 6px; display: none; transition: opacity 0.15s;
   }
-  .link-card:hover .link-del { opacity: 1; }
+  .links-grid.editing .link-del { display: block; }
   .link-del:hover { color: var(--red); background: rgba(192,57,43,0.08); }
 
   .add-link-card {
     background: transparent; border: 2px dashed var(--border);
     border-radius: var(--radius); padding: 18px;
-    display: flex; align-items: center; justify-content: center; gap: 10px;
+    display: none; align-items: center; justify-content: center; gap: 10px;
     cursor: pointer; color: var(--text-muted); font-weight: 500; font-size: 14px;
     transition: all 0.15s; min-height: 80px;
   }
+  .links-grid.editing .add-link-card { display: flex; }
   .add-link-card:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-light); }
+
+  .edit-links-btn {
+    font-size: 12px; font-weight: 500; color: var(--text-muted);
+    background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 4px 14px; cursor: pointer; font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  .edit-links-btn:hover { border-color: var(--purple); color: var(--purple); }
+  .edit-links-btn.active { background: var(--purple); color: white; border-color: var(--purple); }
 
   /* WIDGETS ROW */
   .widgets {
@@ -427,7 +444,7 @@
     <div class="left-col">
       <!-- LINKS -->
       <div class="section">
-        <div class="section-label"><span>Resources</span></div>
+        <div class="section-label"><span>Resources</span><button class="edit-links-btn" id="edit-links-btn" onclick="toggleEditLinks()">Edit</button></div>
         <div class="links-grid" id="links-grid"></div>
       </div>
 
@@ -475,6 +492,7 @@
           <div class="rh-title">Show Notes</div>
           <div class="rh-show" id="rh-show-name">Loading...</div>
         </div>
+        <a class="edit-doc-btn" id="edit-doc-btn" href="#" target="_blank" rel="noopener" style="display:none;">Edit in Docs ↗</a>
       </div>
       <div class="show-tabs" id="show-tabs"></div>
       <div class="right-body">
@@ -505,7 +523,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-4</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-5</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -682,6 +700,16 @@ function esc(s) {
 }
 
 // ── LINKS ─────────────────────────────────────────────────────────────────────
+let editingLinks = false;
+
+function toggleEditLinks() {
+  editingLinks = !editingLinks;
+  const btn = document.getElementById('edit-links-btn');
+  btn.textContent = editingLinks ? 'Done' : 'Edit';
+  btn.classList.toggle('active', editingLinks);
+  document.getElementById('links-grid').classList.toggle('editing', editingLinks);
+}
+
 function loadCustomLinks() {
   try { customLinks = JSON.parse(localStorage.getItem('mmt_dash_links') || '[]'); }
   catch(e) { customLinks = []; }
@@ -956,16 +984,21 @@ function selectShowTab(idx) {
 
   const iframe = document.getElementById('notes-iframe');
   const empty = document.getElementById('notes-empty');
+  const editBtn = document.getElementById('edit-doc-btn');
 
   if (docUrl) {
-    const embedUrl = docUrl.replace(/\/edit.*$/, '/preview');
+    // Try embedded edit mode — falls back to preview if Google blocks it
+    const embedUrl = docUrl.replace(/\/edit.*$/, '/edit?embedded=true&rm=minimal');
     iframe.src = embedUrl;
     iframe.style.display = 'block';
     empty.style.display = 'none';
+    editBtn.href = docUrl;
+    editBtn.style.display = 'inline-block';
   } else {
     iframe.src = 'about:blank';
     iframe.style.display = 'none';
     empty.style.display = 'flex';
+    editBtn.style.display = 'none';
   }
 }
 
