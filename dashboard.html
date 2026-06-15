@@ -96,12 +96,15 @@
   .layout { display: flex; gap: 0; min-height: calc(100vh - 100px); }
   .left-col { flex: 1; min-width: 0; padding: 0 1.25rem 3rem; overflow-y: auto; }
   .right-col {
-    width: 420px; flex-shrink: 0; border-left: 1px solid var(--border);
+    width: 480px; flex-shrink: 0; border-left: 1px solid var(--border);
     display: flex; flex-direction: column; background: var(--surface);
   }
   @media (max-width: 960px) {
     .layout { flex-direction: column; }
     .right-col { width: 100%; border-left: none; border-top: 1px solid var(--border); min-height: 500px; }
+  }
+  @media (min-width: 1400px) {
+    .right-col { width: 560px; }
   }
 
   .right-header {
@@ -502,7 +505,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-3</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-4</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -743,11 +746,11 @@ function confirmAddLink() {
 
 // ── WIDGETS ───────────────────────────────────────────────────────────────────
 function renderWidgets() {
-  renderNowNext();
-  renderTaskWidget();
-  renderActivity();
-  renderCalendar();
-  renderNotesAccess();
+  try { renderNowNext(); } catch(e) { console.error('renderNowNext:', e); }
+  try { renderTaskWidget(); } catch(e) { console.error('renderTaskWidget:', e); }
+  try { renderActivity(); } catch(e) { console.error('renderActivity:', e); }
+  try { renderCalendar(); } catch(e) { console.error('renderCalendar:', e); }
+  try { renderNotesAccess(); } catch(e) { console.error('renderNotesAccess:', e); }
 }
 
 function showCard(label, show, kind) {
@@ -1004,7 +1007,7 @@ function loadData() {
     const ca = JSON.parse(localStorage.getItem('mmt_activity') || 'null');
     if (ca) activity = ca;
   } catch(e) {}
-  if (document.getElementById('app').style.display !== 'none') renderWidgets();
+  renderWidgets();
 
   return fetchAllData().then(d => {
     if (d.lists && d.lists.length) lists = d.lists;
@@ -1013,10 +1016,10 @@ function loadData() {
     if (d.activity) activity = d.activity;
     try { localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes })); } catch(e) {}
     if (d.activity) { try { localStorage.setItem('mmt_activity', JSON.stringify(activity)); } catch(e) {} }
-    if (document.getElementById('app').style.display !== 'none') renderWidgets();
+    renderWidgets();
   }).catch(err => {
     console.warn('Dashboard load error:', err.message);
-    if (document.getElementById('app').style.display !== 'none') renderWidgets();
+    renderWidgets();
   });
 }
 
