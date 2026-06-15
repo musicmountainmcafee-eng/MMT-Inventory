@@ -466,44 +466,38 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* SEASON CALENDAR */
-  .cal-wrapper { overflow-x: auto; padding-bottom: 8px; }
-  .cal-track { position: relative; min-width: 700px; }
-  .cal-months {
-    display: flex; border-bottom: 1px solid var(--border); margin-bottom: 4px;
+  /* SEASON OVERVIEW */
+  .season-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+  .season-table th {
+    text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--text-faint); padding: 6px 10px 10px;
   }
-  .cal-month {
-    flex: 1; text-align: center; font-size: 11px; font-weight: 600;
-    color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;
-    padding: 6px 0;
+  .season-table td { padding: 9px 10px; border-top: 1px solid var(--border); font-size: 14px; }
+  .season-table tr:hover td { background: var(--bg); }
+  .season-table .s-name { font-weight: 600; }
+  .season-table .s-type {
+    font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 99px;
+    text-transform: uppercase; white-space: nowrap;
   }
-  .cal-row { position: relative; height: 30px; margin-bottom: 6px; }
-  .cal-row-label {
-    font-size: 11px; font-weight: 600; color: var(--text-faint);
-    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;
+  .season-table .s-type.main { background: var(--purple-light); color: var(--purple-dark); }
+  .season-table .s-type.kids { background: var(--green-light); color: var(--green-dark); }
+  .season-table .s-dates { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+  .season-table .s-status { font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .season-table .s-status.now { color: var(--green-dark); }
+  .season-table .s-status.soon { color: var(--blue-dark); }
+  .season-table .s-status.past { color: var(--text-faint); }
+  .season-table .s-status.far { color: var(--text-muted); }
+
+  /* REORDER BUTTONS */
+  .link-reorder {
+    display: none; flex-direction: column; gap: 1px; flex-shrink: 0;
   }
-  .cal-bar {
-    position: absolute; height: 26px; border-radius: 6px;
-    display: flex; align-items: center; padding: 0 8px;
-    font-size: 11px; font-weight: 600; color: white;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    cursor: default; transition: opacity 0.15s;
-    min-width: 18px;
+  .links-grid.editing .link-reorder { display: flex; }
+  .reorder-btn {
+    border: none; background: none; font-size: 11px; cursor: pointer;
+    color: var(--text-faint); padding: 0 4px; line-height: 1.2;
   }
-  .cal-bar:hover { opacity: 0.85; }
-  .cal-bar.main { background: var(--purple); }
-  .cal-bar.kids { background: var(--green); }
-  .cal-bar.past { opacity: 0.4; }
-  .cal-today {
-    position: absolute; top: 0; bottom: 0; width: 2px;
-    background: var(--red); z-index: 2;
-  }
-  .cal-today::after {
-    content: 'Today'; position: absolute; top: -18px; left: 50%;
-    transform: translateX(-50%); font-size: 9px; font-weight: 700;
-    color: var(--red); text-transform: uppercase; letter-spacing: 0.5px;
-    white-space: nowrap;
-  }
+  .reorder-btn:hover { color: var(--purple); }
 
   /* SHOW NOTES PREVIEW */
   .notes-list { display: flex; flex-direction: column; gap: 8px; }
@@ -636,11 +630,11 @@
         </div>
       </div>
 
-      <!-- SEASON CALENDAR -->
+      <!-- SEASON OVERVIEW -->
       <div class="section">
-        <div class="section-label"><span>Season Calendar</span></div>
+        <div class="section-label"><span>Season Overview</span></div>
         <div class="widget">
-          <div class="cal-wrapper" id="cal-wrapper"></div>
+          <div id="season-overview"></div>
         </div>
       </div>
 
@@ -746,7 +740,7 @@
 
   </div>
 </div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-7</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-8</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -966,11 +960,25 @@ function renderLinks() {
         <div class="link-name">${esc(l.name)}</div>
         <div class="link-sub">${esc(hostOf(l.url))}</div>
       </div>
+      <div class="link-reorder">
+        <button class="reorder-btn" title="Move up" onclick="reorderLink(event, ${i}, -1)">▲</button>
+        <button class="reorder-btn" title="Move down" onclick="reorderLink(event, ${i}, 1)">▼</button>
+      </div>
       <button class="link-del" title="Remove" onclick="deleteLink(event, ${i})">×</button>
     </a>`;
   });
   html += `<div class="add-link-card" onclick="openModal()"><span style="font-size:18px;">＋</span> Add Link</div>`;
   grid.innerHTML = html;
+}
+function reorderLink(e, i, dir) {
+  e.preventDefault(); e.stopPropagation();
+  const j = i + dir;
+  if (j < 0 || j >= customLinks.length) return;
+  const tmp = customLinks[i];
+  customLinks[i] = customLinks[j];
+  customLinks[j] = tmp;
+  saveCustomLinks();
+  renderLinks();
 }
 function deleteLink(e, i) {
   e.preventDefault(); e.stopPropagation();
@@ -1004,7 +1012,7 @@ function renderWidgets() {
   try { renderNowNext(); } catch(e) { console.error('renderNowNext:', e); }
   try { renderTaskWidget(); } catch(e) { console.error('renderTaskWidget:', e); }
   try { renderActivity(); } catch(e) { console.error('renderActivity:', e); }
-  try { renderCalendar(); } catch(e) { console.error('renderCalendar:', e); }
+  try { renderSeasonOverview(); } catch(e) { console.error('renderSeasonOverview:', e); }
   try { renderNotesAccess(); } catch(e) { console.error('renderNotesAccess:', e); }
   try { updateOverdueBadge(); } catch(e) { console.error('updateOverdueBadge:', e); }
   try { populateQAList(); } catch(e) { console.error('populateQAList:', e); }
@@ -1038,12 +1046,25 @@ function renderNowNext() {
   const nextKids = CHILDRENS.filter(s => showStatus(s.start, s.end) === 'upcoming')[0];
 
   let html = '';
-  if (curMain) html += showCard('Now Playing — Mainstage', curMain, 'main');
-  else if (nextMain) html += showCard('Next — Mainstage', nextMain, 'main');
 
-  if (curKids || nextKids) html += '<div class="np-divider"></div>';
-  if (curKids) html += showCard("Now Playing — Children's", curKids, 'kids');
-  else if (nextKids) html += showCard("Next — Children's", nextKids, 'kids');
+  // Mainstage: show current + next
+  if (curMain) {
+    html += showCard('Now Playing — Mainstage', curMain);
+    if (nextMain) html += showCard('Up Next — Mainstage', nextMain);
+  } else if (nextMain) {
+    html += showCard('Up Next — Mainstage', nextMain);
+  }
+
+  // Divider if both sections have content
+  if ((curKids || nextKids) && html) html += '<div class="np-divider"></div>';
+
+  // Children's: show current + next
+  if (curKids) {
+    html += showCard("Now Playing — Children's", curKids);
+    if (nextKids) html += showCard("Up Next — Children's", nextKids);
+  } else if (nextKids) {
+    html += showCard("Up Next — Children's", nextKids);
+  }
 
   if (!html) html = '<div class="np-empty">No current or upcoming shows scheduled.</div>';
   el.innerHTML = html;
@@ -1104,59 +1125,48 @@ function renderActivity() {
   }).join('');
 }
 
-// ── SEASON CALENDAR ──────────────────────────────────────────────────────────
-function renderCalendar() {
-  const el = document.getElementById('cal-wrapper');
-  // Season spans June–December 2026
-  const SEASON_START = new Date('2026-06-01T00:00:00');
-  const SEASON_END   = new Date('2026-12-31T00:00:00');
-  const totalDays = Math.round((SEASON_END - SEASON_START) / 86400000);
-  const months = ['Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const monthStarts = months.map((m, i) => new Date(2026, 5 + i, 1));
-
-  function pct(date) {
-    const d = new Date(date + 'T00:00:00');
-    return Math.max(0, Math.min(100, ((d - SEASON_START) / 86400000) / totalDays * 100));
-  }
-
-  let html = '<div class="cal-track">';
-  // Month headers
-  html += '<div class="cal-months">';
-  monthStarts.forEach((ms, i) => {
-    const next = i < monthStarts.length - 1 ? monthStarts[i+1] : SEASON_END;
-    const w = ((next - ms) / 86400000) / totalDays * 100;
-    html += `<div class="cal-month" style="flex:0 0 ${w}%">${months[i]}</div>`;
-  });
-  html += '</div>';
-
-  // Today marker
+// ── SEASON OVERVIEW ──────────────────────────────────────────────────────────
+function renderSeasonOverview() {
+  const el = document.getElementById('season-overview');
   const today = new Date(); today.setHours(0,0,0,0);
-  if (today >= SEASON_START && today <= SEASON_END) {
-    const tp = ((today - SEASON_START) / 86400000) / totalDays * 100;
-    html += `<div class="cal-today" style="left:${tp}%"></div>`;
+  const all = [
+    ...MAINSTAGE.map(s => ({ ...s, type: 'Mainstage' })),
+    ...CHILDRENS.map(s => ({ ...s, type: "Children's" })),
+  ].sort((a, b) => a.start.localeCompare(b.start));
+
+  if (!all.length) {
+    el.innerHTML = '<div style="color:var(--text-faint);font-size:14px;">No shows configured. Add them in Settings.</div>';
+    return;
   }
 
-  // Mainstage bars
-  html += '<div class="cal-row-label">Mainstage</div>';
-  MAINSTAGE.forEach(s => {
-    const left = pct(s.start);
-    const right = pct(s.end);
-    const width = Math.max(right - left, 1);
-    const past = showStatus(s.start, s.end) === 'past';
-    html += `<div class="cal-row"><div class="cal-bar main${past ? ' past' : ''}" style="left:${left}%;width:${width}%" title="${esc(s.name)}\n${formatDates(s.start, s.end)}">${esc(s.name)}</div></div>`;
-  });
+  let html = '<table class="season-table"><thead><tr><th>Show</th><th></th><th>Dates</th><th>Status</th></tr></thead><tbody>';
+  all.forEach(s => {
+    const st = showStatus(s.start, s.end);
+    const typeCls = s.type === 'Mainstage' ? 'main' : 'kids';
+    const typeLabel = s.type === 'Mainstage' ? 'MS' : "CT";
 
-  // Children's bars
-  html += '<div class="cal-row-label" style="margin-top:10px">Children\'s Theatre</div>';
-  CHILDRENS.forEach(s => {
-    const left = pct(s.start);
-    const right = pct(s.end);
-    const width = Math.max(right - left, 1);
-    const past = showStatus(s.start, s.end) === 'past';
-    html += `<div class="cal-row"><div class="cal-bar kids${past ? ' past' : ''}" style="left:${left}%;width:${width}%" title="${esc(s.name)}\n${formatDates(s.start, s.end)}">${esc(s.name)}</div></div>`;
-  });
+    let statusText = '', statusCls = '';
+    if (st === 'current') {
+      const left = daysUntil(s.end);
+      statusText = left === 0 ? '🔴 Closes tonight' : '🟢 Now playing · ' + left + 'd left';
+      statusCls = 'now';
+    } else if (st === 'upcoming') {
+      const until = daysUntil(s.start);
+      if (until <= 7) { statusText = '🔵 Opens in ' + until + ' day' + (until !== 1 ? 's' : ''); statusCls = 'soon'; }
+      else if (until <= 30) { statusText = 'Opens in ' + until + ' days'; statusCls = 'soon'; }
+      else { const weeks = Math.floor(until / 7); statusText = 'In ' + weeks + ' week' + (weeks !== 1 ? 's' : ''); statusCls = 'far'; }
+    } else {
+      statusText = 'Closed'; statusCls = 'past';
+    }
 
-  html += '</div>';
+    html += `<tr>
+      <td class="s-name">${esc(s.name)}</td>
+      <td><span class="s-type ${typeCls}">${typeLabel}</span></td>
+      <td class="s-dates">${formatDates(s.start, s.end)}</td>
+      <td class="s-status ${statusCls}">${statusText}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
   el.innerHTML = html;
 }
 
