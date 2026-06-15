@@ -383,7 +383,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.13-4</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.13-5</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -487,6 +487,10 @@ function pinClear() {
 loadData();
 
 async function initApp() {
+  // Show something immediately, regardless of whether the network fetch
+  // has resolved yet — prevents an indefinite blank/empty state on slow
+  // or unreachable networks.
+  ensureDefaultLists();
   renderShows();
   renderTasks();
 }
@@ -741,10 +745,24 @@ const NOTES_GID = '1706051284';
 // fetches Google with NO cookies/account context, so this works even on
 // devices/browsers where direct requests to *.google.com get intercepted by
 // Google's account-chooser due to a different signed-in account.
+// A hard timeout ensures this never hangs forever on a slow/blocked network.
 async function fetchSheetCSV(gid) {
   const csvUrl = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?format=csv&gid=' + gid;
   const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(csvUrl) + '&_=' + Date.now();
-  const res = await fetch(proxyUrl, { cache: 'no-store' });
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+  let res;
+  try {
+    res = await fetch(proxyUrl, { cache: 'no-store', signal: controller.signal });
+  } catch(e) {
+    if (e.name === 'AbortError') throw new Error('timed out after 8s');
+    throw e;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
   if (!res.ok) throw new Error('proxy HTTP ' + res.status);
   const text = await res.text();
   if (text.trim().startsWith('<')) throw new Error('got HTML instead of CSV (sheet may not be public)');
