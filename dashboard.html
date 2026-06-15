@@ -19,6 +19,26 @@
     --accent: var(--purple); --accent2: #f5a623;
     --orange: #f39c12;
   }
+  [data-theme="dark"] {
+    --bg: #161625; --surface: #1e1e32;
+    --border: rgba(255,255,255,0.1);
+    --text: #e4e4ec; --text-muted: #9494ae; --text-faint: #5e5e78;
+    --green-light: #1a3319; --green-dark: #6dcc6d;
+    --purple-light: #2a2745; --purple-dark: #b0a8f4;
+    --blue-light: #19284a; --blue-dark: #82b8f0;
+  }
+  [data-theme="dark"] .pin-card { background: var(--surface); color: var(--text); }
+  [data-theme="dark"] .pin-btn { background: var(--bg); color: var(--text); border-color: var(--border); }
+  [data-theme="dark"] .pin-btn:hover { background: var(--purple-light); }
+  [data-theme="dark"] .modal { background: var(--surface); }
+  [data-theme="dark"] .modal input, [data-theme="dark"] .modal select { background: var(--bg); color: var(--text); }
+  [data-theme="dark"] .settings-panel { background: var(--surface); }
+  [data-theme="dark"] .settings-header { background: var(--surface); }
+  [data-theme="dark"] .show-form { background: var(--bg); }
+  [data-theme="dark"] .show-form input, [data-theme="dark"] .show-form select { background: var(--surface); color: var(--text); }
+  [data-theme="dark"] .right-col { background: var(--surface); }
+  [data-theme="dark"] .right-header { background: var(--bg); }
+  [data-theme="dark"] .scratch-area { background: var(--bg); color: var(--text); }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -231,6 +251,48 @@
   }
   .import-section textarea:focus { outline: none; border-color: var(--purple); }
   .import-status { font-size: 13px; color: var(--text-muted); margin-top: 8px; }
+
+  /* OVERDUE BADGE */
+  .topbar-badge {
+    position: relative; display: inline-flex; align-items: center;
+  }
+  .overdue-dot {
+    position: absolute; top: -6px; right: -8px;
+    min-width: 18px; height: 18px; border-radius: 99px;
+    background: var(--red); color: white; font-size: 10px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 4px; border: 2px solid #1a1a2e;
+  }
+  .overdue-dot.hidden { display: none; }
+
+  /* QUICK-ADD TASK */
+  .quick-add {
+    display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;
+    margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);
+  }
+  .qa-field { display: flex; flex-direction: column; gap: 3px; }
+  .qa-field label { font-size: 10px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.5px; }
+  .qa-field input, .qa-field select {
+    padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 13px; font-family: 'DM Sans', sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  .qa-field input:focus, .qa-field select:focus { outline: none; border-color: var(--purple); }
+  .qa-add-btn {
+    padding: 7px 16px; border: none; border-radius: 6px;
+    background: var(--purple); color: white; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: 'DM Sans', sans-serif; white-space: nowrap;
+  }
+  .qa-add-btn:hover { background: var(--purple-dark); }
+
+  /* DARK MODE TOGGLE */
+  .theme-btn {
+    font-size: 15px; border: 1px solid rgba(255,255,255,0.2);
+    background: none; color: rgba(255,255,255,0.7); padding: 5px 10px;
+    border-radius: var(--radius-sm); cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+  }
+  .theme-btn:hover { background: rgba(255,255,255,0.1); color: white; }
 
   .section-label {
     font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
@@ -520,9 +582,13 @@
       <h1>MMT TD Dashboard</h1>
       <p>Music Mountain Theatre</p>
     </div>
-    <div style="display:flex; gap:8px;">
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="theme-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">🌙</button>
       <button class="lock-btn" onclick="openSettings()" title="Settings">⚙ Settings</button>
-      <button class="lock-btn" id="refresh-btn" onclick="refreshData()" title="Refresh">↻ Refresh</button>
+      <span class="topbar-badge">
+        <button class="lock-btn" id="refresh-btn" onclick="refreshData()" title="Refresh">↻ Refresh</button>
+        <span class="overdue-dot hidden" id="overdue-dot">0</span>
+      </span>
       <button class="lock-btn" onclick="lock()">Lock</button>
     </div>
   </div>
@@ -547,6 +613,21 @@
           <div class="widget">
             <div class="widget-title">Tasks</div>
             <div id="tasks-content"><span class="spinner"></span>Loading tasks...</div>
+            <div class="quick-add">
+              <div class="qa-field" style="flex:2;">
+                <label>Task</label>
+                <input type="text" id="qa-text" placeholder="Add a task..." />
+              </div>
+              <div class="qa-field" style="flex:1;">
+                <label>List</label>
+                <select id="qa-list"></select>
+              </div>
+              <div class="qa-field">
+                <label>Due</label>
+                <input type="date" id="qa-due" />
+              </div>
+              <button class="qa-add-btn" onclick="quickAddTask()">Add</button>
+            </div>
           </div>
         </div>
         <div class="widget" style="margin-top:16px;">
@@ -665,7 +746,7 @@
 
   </div>
 </div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-6</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-7</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -802,6 +883,9 @@ function initApp() {
   renderWidgets();
   initScratchpad();
   applyZoom();
+  // Enter key to submit quick-add
+  const qa = document.getElementById('qa-text');
+  if (qa) qa.addEventListener('keydown', e => { if (e.key === 'Enter') quickAddTask(); });
 }
 
 async function refreshData() {
@@ -922,6 +1006,8 @@ function renderWidgets() {
   try { renderActivity(); } catch(e) { console.error('renderActivity:', e); }
   try { renderCalendar(); } catch(e) { console.error('renderCalendar:', e); }
   try { renderNotesAccess(); } catch(e) { console.error('renderNotesAccess:', e); }
+  try { updateOverdueBadge(); } catch(e) { console.error('updateOverdueBadge:', e); }
+  try { populateQAList(); } catch(e) { console.error('populateQAList:', e); }
 }
 
 function showCard(label, show, kind) {
@@ -1422,6 +1508,103 @@ async function importFromUrl() {
 // Load stored shows on startup (before first render)
 loadStoredShows();
 
+// ── DARK MODE ───────────────────────────────────────────────────────────────
+function toggleDarkMode() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', isDark ? '' : 'dark');
+  document.getElementById('theme-toggle').textContent = isDark ? '🌙' : '☀️';
+  try { localStorage.setItem('mmt_theme', isDark ? 'light' : 'dark'); } catch(e) {}
+}
+// Restore saved theme
+try {
+  const t = localStorage.getItem('mmt_theme');
+  if (t === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    // Update toggle icon after DOM is ready
+    setTimeout(() => { const el = document.getElementById('theme-toggle'); if (el) el.textContent = '☀️'; }, 0);
+  }
+} catch(e) {}
+
+// ── OVERDUE BADGE ───────────────────────────────────────────────────────────
+function updateOverdueBadge() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  let count = 0;
+  (lists || []).forEach(list => {
+    (tasks[list.name] || []).forEach(t => {
+      if (t.done || !t.due) return;
+      const d = new Date(t.due + 'T00:00:00');
+      if (!isNaN(d) && d < today) count++;
+    });
+  });
+  const dot = document.getElementById('overdue-dot');
+  if (dot) {
+    dot.textContent = count;
+    dot.classList.toggle('hidden', count === 0);
+  }
+}
+
+// ── QUICK-ADD TASK ──────────────────────────────────────────────────────────
+function populateQAList() {
+  const sel = document.getElementById('qa-list');
+  if (!sel) return;
+  const val = sel.value;
+  sel.innerHTML = (lists || []).map(l => `<option value="${esc(l.name)}">${esc(l.name)}</option>`).join('');
+  if (val) sel.value = val;
+}
+
+async function quickAddTask() {
+  const text = document.getElementById('qa-text').value.trim();
+  const list = document.getElementById('qa-list').value;
+  const due = document.getElementById('qa-due').value || '';
+  if (!text) { toast('Enter a task'); return; }
+  if (!list) { toast('No list selected'); return; }
+
+  // Add locally immediately
+  if (!tasks[list]) tasks[list] = [];
+  const id = Date.now() + '_qa';
+  tasks[list].push({ id, text, done: false, due: due || null });
+  renderTaskWidget();
+  updateOverdueBadge();
+  document.getElementById('qa-text').value = '';
+  document.getElementById('qa-due').value = '';
+  toast('Task added');
+
+  // Save to Apps Script
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'saveTask', list, text, done: false, due: due || '', id }),
+    });
+    try { localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes })); } catch(e) {}
+  } catch(e) {
+    console.warn('Quick-add save failed:', e.message);
+    // Also try JSONP fallback
+    try {
+      const params = 'action=saveTask&list=' + encodeURIComponent(list) + '&text=' + encodeURIComponent(text) + '&done=false&due=' + encodeURIComponent(due) + '&id=' + encodeURIComponent(id);
+      jsonp(SCRIPT_URL + '?' + params + '&_=' + Date.now(), () => {}, () => {});
+    } catch(e2) {}
+  }
+}
+
+// ── INVENTORY ACTIVITY ──────────────────────────────────────────────────────
+// Fetches recent check-in/out activity from the Apps Script.
+// Requires a 'getActivity' action in the script (see provided code).
+async function fetchActivity() {
+  try {
+    const data = await withTimeout(new Promise((resolve, reject) => {
+      jsonp(SCRIPT_URL + '?action=getActivity&_=' + Date.now(), resolve, reject);
+    }), 6000, 'Activity');
+    if (data && Array.isArray(data.activity)) {
+      activity = data.activity;
+      try { localStorage.setItem('mmt_activity', JSON.stringify(activity)); } catch(e) {}
+      renderActivity();
+    }
+  } catch(e) {
+    console.warn('Activity fetch:', e.message);
+  }
+}
+
 // ── DATA LOAD ─────────────────────────────────────────────────────────────────
 function loadData() {
   // Instant paint from cache shared with the Notes & Tasks page
@@ -1450,6 +1633,9 @@ function loadData() {
   }).catch(err => {
     console.warn('Dashboard load error:', err.message);
     renderWidgets();
+  }).finally(() => {
+    // Try fetching inventory activity separately (optional endpoint)
+    fetchActivity();
   });
 }
 
