@@ -383,7 +383,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.13-5</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.13-6</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -741,32 +741,83 @@ const SHEET_ID = '1ZC6eyjym1wLtPNG9G_rNFP_Txke1-VJtt7mrPsL0WOA';
 const TASKS_GID = '1754603688';
 const NOTES_GID = '1706051284';
 
-// Fetch a public sheet tab as CSV through a CORS proxy. The proxy server
-// fetches Google with NO cookies/account context, so this works even on
-// devices/browsers where direct requests to *.google.com get intercepted by
-// Google's account-chooser due to a different signed-in account.
-// A hard timeout ensures this never hangs forever on a slow/blocked network.
-async function fetchSheetCSV(gid) {
-  const csvUrl = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?format=csv&gid=' + gid;
-  const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(csvUrl) + '&_=' + Date.now();
-
+// Fetch a public sheet tab through one of several methods, trying each in
+// turn until one succeeds. This handles networks where any single method
+// (a specific proxy, or direct google.com access) might be blocked/slow.
+async function fetchWithTimeout(fn, ms) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-  let res;
+  const timeoutId = setTimeout(() => controller.abort(), ms);
   try {
-    res = await fetch(proxyUrl, { cache: 'no-store', signal: controller.signal });
+    return await fn(controller.signal);
   } catch(e) {
-    if (e.name === 'AbortError') throw new Error('timed out after 8s');
+    if (e.name === 'AbortError') throw new Error('timed out after ' + (ms/1000) + 's');
     throw e;
   } finally {
     clearTimeout(timeoutId);
   }
+}
 
-  if (!res.ok) throw new Error('proxy HTTP ' + res.status);
-  const text = await res.text();
-  if (text.trim().startsWith('<')) throw new Error('got HTML instead of CSV (sheet may not be public)');
-  return parseCSV(text);
+function parseGvizText(text) {
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  const json = JSON.parse(text.substring(start, end + 1));
+  const cols = (json.table.cols || []).map(c => c.label || '');
+  const rows = [cols];
+  (json.table.rows || []).forEach(r => {
+    rows.push((r.c || []).map(cell => (cell && cell.v != null) ? String(cell.v) : ''));
+  });
+  return rows;
+}
+
+async function fetchSheetCSV(gid) {
+  const csvUrl = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?format=csv&gid=' + gid;
+  const gvizUrl = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?gid=' + gid + '&tqx=out:json';
+
+  const strategies = [
+    // 1. Direct gviz fetch — sometimes allows CORS for public sheets
+    async (signal) => {
+      const res = await fetch(gvizUrl + '&_=' + Date.now(), { signal, cache: 'no-store' });
+      if (!res.ok) throw new Error('gviz HTTP ' + res.status);
+      return parseGvizText(await res.text());
+    },
+    // 2. allorigins.win proxy + CSV
+    async (signal) => {
+      const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(csvUrl) + '&_=' + Date.now();
+      const res = await fetch(proxyUrl, { signal, cache: 'no-store' });
+      if (!res.ok) throw new Error('allorigins HTTP ' + res.status);
+      const text = await res.text();
+      if (text.trim().startsWith('<')) throw new Error('allorigins returned HTML');
+      return parseCSV(text);
+    },
+    // 3. corsproxy.io + CSV
+    async (signal) => {
+      const proxyUrl = 'https://corsproxy.io/?url=' + encodeURIComponent(csvUrl) + '&_=' + Date.now();
+      const res = await fetch(proxyUrl, { signal, cache: 'no-store' });
+      if (!res.ok) throw new Error('corsproxy HTTP ' + res.status);
+      const text = await res.text();
+      if (text.trim().startsWith('<')) throw new Error('corsproxy returned HTML');
+      return parseCSV(text);
+    },
+    // 4. Direct CSV fetch — last resort
+    async (signal) => {
+      const res = await fetch(csvUrl + '&_=' + Date.now(), { signal, cache: 'no-store' });
+      if (!res.ok) throw new Error('direct HTTP ' + res.status);
+      const text = await res.text();
+      if (text.trim().startsWith('<')) throw new Error('direct returned HTML');
+      return parseCSV(text);
+    },
+  ];
+
+  let lastErr;
+  for (const strategy of strategies) {
+    try {
+      return await fetchWithTimeout(strategy, 6000);
+    } catch(e) {
+      lastErr = e;
+      console.warn('Sheet fetch strategy failed:', e.message);
+    }
+  }
+  throw lastErr || new Error('all fetch strategies failed');
 }
 
 function parseCSV(text) {
