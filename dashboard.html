@@ -138,12 +138,99 @@
   .show-tab .tab-badge.now { background: var(--green-light); color: var(--green-dark); }
   .show-tab .tab-badge.next { background: var(--blue-light); color: var(--blue-dark); }
 
-  .right-body { flex: 1; display: flex; flex-direction: column; }
-  .right-body iframe { flex: 1; border: none; width: 100%; min-height: 400px; }
+  .right-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .iframe-wrap {
+    flex: 1; position: relative; overflow: hidden;
+  }
+  .iframe-wrap iframe {
+    position: absolute; top: 0; left: 0; border: none;
+    transform-origin: top left;
+  }
   .right-empty {
     flex: 1; display: flex; align-items: center; justify-content: center;
     color: var(--text-faint); font-size: 14px; padding: 40px; text-align: center;
   }
+
+  .zoom-controls {
+    display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+  }
+  .zoom-btn {
+    width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface); font-size: 16px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Sans', sans-serif; color: var(--text-muted); transition: all 0.15s;
+  }
+  .zoom-btn:hover { border-color: var(--purple); color: var(--purple); }
+  .zoom-label { font-size: 11px; color: var(--text-faint); min-width: 32px; text-align: center; }
+
+  /* SETTINGS PANEL */
+  .settings-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    z-index: 400; display: none; backdrop-filter: blur(2px);
+  }
+  .settings-overlay.open { display: block; }
+  .settings-panel {
+    position: fixed; top: 0; right: -520px; bottom: 0; width: 500px;
+    background: var(--surface); box-shadow: -8px 0 32px rgba(0,0,0,0.15);
+    z-index: 401; transition: right 0.3s ease; overflow-y: auto; padding: 0;
+  }
+  .settings-panel.open { right: 0; }
+  @media (max-width: 560px) { .settings-panel { width: 100%; right: -100%; } }
+  .settings-header {
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; background: var(--surface); z-index: 1;
+  }
+  .settings-header h2 { font-size: 18px; font-weight: 600; }
+  .settings-close {
+    border: none; background: none; font-size: 22px; cursor: pointer;
+    color: var(--text-muted); padding: 4px 8px; border-radius: 6px;
+  }
+  .settings-close:hover { background: var(--bg); color: var(--text); }
+  .settings-body { padding: 24px; }
+  .settings-section { margin-bottom: 32px; }
+  .settings-section h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+
+  .show-mgmt-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .show-mgmt-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    background: var(--bg); border-radius: var(--radius-sm); border: 1px solid transparent;
+  }
+  .show-mgmt-item:hover { border-color: var(--border); }
+  .smi-type {
+    font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 99px;
+    text-transform: uppercase; flex-shrink: 0;
+  }
+  .smi-type.main { background: var(--purple-light); color: var(--purple-dark); }
+  .smi-type.kids { background: var(--green-light); color: var(--green-dark); }
+  .smi-name { flex: 1; font-weight: 500; font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .smi-dates { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
+  .smi-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .smi-btn {
+    border: none; background: none; font-size: 14px; cursor: pointer;
+    color: var(--text-faint); padding: 2px 6px; border-radius: 4px;
+  }
+  .smi-btn:hover { background: var(--border); color: var(--text); }
+  .smi-btn.del:hover { color: var(--red); }
+
+  .show-form { background: var(--bg); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 16px; }
+  .show-form label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
+  .show-form input, .show-form select {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 14px; font-family: 'DM Sans', sans-serif; margin-bottom: 10px;
+    background: var(--surface); color: var(--text);
+  }
+  .show-form input:focus, .show-form select:focus { outline: none; border-color: var(--purple); }
+  .show-form .form-row { display: flex; gap: 10px; }
+  .show-form .form-row > * { flex: 1; }
+
+  .import-section textarea {
+    width: 100%; min-height: 60px; resize: vertical; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: 6px; font-size: 13px;
+    font-family: 'DM Sans', sans-serif; margin-bottom: 10px; background: var(--surface);
+  }
+  .import-section textarea:focus { outline: none; border-color: var(--purple); }
+  .import-status { font-size: 13px; color: var(--text-muted); margin-top: 8px; }
 
   .section-label {
     font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
@@ -434,6 +521,7 @@
       <p>Music Mountain Theatre</p>
     </div>
     <div style="display:flex; gap:8px;">
+      <button class="lock-btn" onclick="openSettings()" title="Settings">⚙ Settings</button>
       <button class="lock-btn" id="refresh-btn" onclick="refreshData()" title="Refresh">↻ Refresh</button>
       <button class="lock-btn" onclick="lock()">Lock</button>
     </div>
@@ -492,11 +580,20 @@
           <div class="rh-title">Show Notes</div>
           <div class="rh-show" id="rh-show-name">Loading...</div>
         </div>
-        <a class="edit-doc-btn" id="edit-doc-btn" href="#" target="_blank" rel="noopener" style="display:none;">Edit in Docs ↗</a>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="zoom-controls">
+            <button class="zoom-btn" onclick="zoomDoc(-0.1)">−</button>
+            <span class="zoom-label" id="zoom-label">75%</span>
+            <button class="zoom-btn" onclick="zoomDoc(0.1)">+</button>
+          </div>
+          <a class="edit-doc-btn" id="edit-doc-btn" href="#" target="_blank" rel="noopener" style="display:none;">Edit in Docs ↗</a>
+        </div>
       </div>
       <div class="show-tabs" id="show-tabs"></div>
       <div class="right-body">
-        <iframe id="notes-iframe" src="about:blank"></iframe>
+        <div class="iframe-wrap" id="iframe-wrap">
+          <iframe id="notes-iframe" src="about:blank"></iframe>
+        </div>
         <div class="right-empty" id="notes-empty" style="display:none;">
           No notes doc linked for this show yet.<br>Create one from the Notes &amp; Tasks page.
         </div>
@@ -523,7 +620,52 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-5</div>
+
+<!-- Settings Panel -->
+<div class="settings-overlay" id="settings-overlay" onclick="closeSettings()"></div>
+<div class="settings-panel" id="settings-panel">
+  <div class="settings-header">
+    <h2>Settings</h2>
+    <button class="settings-close" onclick="closeSettings()">×</button>
+  </div>
+  <div class="settings-body">
+
+    <div class="settings-section">
+      <h3>Manage Shows</h3>
+      <div class="show-mgmt-list" id="show-mgmt-list"></div>
+      <div class="show-form" id="show-form" style="display:none;">
+        <label>Show Name</label>
+        <input type="text" id="sf-name" placeholder="e.g. My Fair Lady" />
+        <label>Type</label>
+        <select id="sf-type">
+          <option value="Mainstage">Mainstage</option>
+          <option value="Children's">Children's Theatre</option>
+        </select>
+        <div class="form-row">
+          <div><label>Start Date</label><input type="date" id="sf-start" /></div>
+          <div><label>End Date</label><input type="date" id="sf-end" /></div>
+        </div>
+        <div class="modal-btns">
+          <button class="btn-cancel" onclick="cancelShowForm()">Cancel</button>
+          <button class="btn-confirm" id="sf-save" onclick="saveShow()">Add Show</button>
+        </div>
+      </div>
+      <button class="btn-confirm" id="add-show-btn" onclick="showAddForm()" style="width:100%;">+ Add Show</button>
+    </div>
+
+    <div class="settings-section">
+      <h3>Import from Website</h3>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">Paste a link to your theater's season page and we'll try to extract the show schedule automatically.</p>
+      <div class="import-section">
+        <input type="text" id="import-url" placeholder="https://musicmountaintheatre.org/season" style="width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:6px; font-size:14px; font-family:'DM Sans',sans-serif; margin-bottom:10px;" />
+        <button class="btn-confirm" onclick="importFromUrl()" id="import-btn" style="width:100%;">Import Shows</button>
+        <div class="import-status" id="import-status"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-6</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -549,7 +691,7 @@ const PIN_BG_PHOTOS = [
 ];
 
 // ── SHOWS DATA (kept in sync with MMT Notes & Tasks) ─────────────────────────
-const MAINSTAGE = [
+let MAINSTAGE = [
   { name: 'My Fair Lady',            start: '2026-06-12', end: '2026-07-05' },
   { name: 'Urinetown',               start: '2026-07-10', end: '2026-08-02' },
   { name: 'The Will Rogers Follies', start: '2026-08-07', end: '2026-08-30' },
@@ -560,7 +702,7 @@ const MAINSTAGE = [
   { name: 'Big Band Holiday Concert',start: '2026-12-18', end: '2026-12-20' },
 ];
 
-const CHILDRENS = [
+let CHILDRENS = [
   { name: 'Moana Jr.',              start: '2026-06-06', end: '2026-06-27' },
   { name: 'The Jungle Book Kids',   start: '2026-07-03', end: '2026-07-11' },
   { name: 'The Little Mermaid',     start: '2026-07-17', end: '2026-07-25' },
@@ -659,6 +801,7 @@ function initApp() {
   renderLinks();
   renderWidgets();
   initScratchpad();
+  applyZoom();
 }
 
 async function refreshData() {
@@ -994,6 +1137,7 @@ function selectShowTab(idx) {
     empty.style.display = 'none';
     editBtn.href = docUrl;
     editBtn.style.display = 'inline-block';
+    applyZoom();
   } else {
     iframe.src = 'about:blank';
     iframe.style.display = 'none';
@@ -1024,6 +1168,259 @@ function initScratchpad() {
     }, 600);
   });
 }
+
+// ── DOC ZOOM ────────────────────────────────────────────────────────────────
+let docZoom = 0.75;
+
+function applyZoom() {
+  const iframe = document.getElementById('notes-iframe');
+  const wrap = document.getElementById('iframe-wrap');
+  if (!iframe || !wrap) return;
+  iframe.style.width = (100 / docZoom) + '%';
+  iframe.style.height = (100 / docZoom) + '%';
+  iframe.style.transform = 'scale(' + docZoom + ')';
+  document.getElementById('zoom-label').textContent = Math.round(docZoom * 100) + '%';
+}
+
+function zoomDoc(delta) {
+  docZoom = Math.max(0.4, Math.min(1.2, docZoom + delta));
+  applyZoom();
+  try { localStorage.setItem('mmt_doc_zoom', String(docZoom)); } catch(e) {}
+}
+
+// Restore saved zoom
+try { const z = parseFloat(localStorage.getItem('mmt_doc_zoom')); if (z) docZoom = z; } catch(e) {}
+
+// ── SETTINGS PANEL ──────────────────────────────────────────────────────────
+function openSettings() {
+  renderShowMgmt();
+  document.getElementById('settings-overlay').classList.add('open');
+  document.getElementById('settings-panel').classList.add('open');
+}
+function closeSettings() {
+  document.getElementById('settings-overlay').classList.remove('open');
+  document.getElementById('settings-panel').classList.remove('open');
+}
+
+// ── SHOW MANAGEMENT ─────────────────────────────────────────────────────────
+// Default shows are hardcoded above. Stored shows in localStorage override them.
+const DEFAULT_MAINSTAGE = [...MAINSTAGE];
+const DEFAULT_CHILDRENS = [...CHILDRENS];
+
+function loadStoredShows() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('mmt_shows') || 'null');
+    if (stored && stored.mainstage) MAINSTAGE = stored.mainstage;
+    if (stored && stored.childrens) CHILDRENS = stored.childrens;
+  } catch(e) {}
+}
+
+function saveStoredShows() {
+  try {
+    localStorage.setItem('mmt_shows', JSON.stringify({
+      mainstage: MAINSTAGE,
+      childrens: CHILDRENS,
+    }));
+  } catch(e) {}
+}
+
+let editingShowIdx = -1; // -1 = adding new
+let editingShowType = '';
+
+function allShows() {
+  return [
+    ...MAINSTAGE.map((s, i) => ({ ...s, type: 'Mainstage', idx: i })),
+    ...CHILDRENS.map((s, i) => ({ ...s, type: "Children's", idx: i })),
+  ].sort((a, b) => a.start.localeCompare(b.start));
+}
+
+function renderShowMgmt() {
+  const el = document.getElementById('show-mgmt-list');
+  const shows = allShows();
+  if (!shows.length) {
+    el.innerHTML = '<div style="color:var(--text-faint);font-size:13px;padding:8px;">No shows configured.</div>';
+    return;
+  }
+  el.innerHTML = shows.map(s => {
+    const typeCls = s.type === 'Mainstage' ? 'main' : 'kids';
+    return `<div class="show-mgmt-item">
+      <span class="smi-type ${typeCls}">${s.type === 'Mainstage' ? 'MS' : 'CT'}</span>
+      <span class="smi-name">${esc(s.name)}</span>
+      <span class="smi-dates">${formatDates(s.start, s.end)}</span>
+      <div class="smi-actions">
+        <button class="smi-btn" title="Edit" onclick="editShow('${s.type}', ${s.idx})">✎</button>
+        <button class="smi-btn del" title="Delete" onclick="deleteShow('${s.type}', ${s.idx})">×</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showAddForm() {
+  editingShowIdx = -1;
+  editingShowType = '';
+  document.getElementById('sf-name').value = '';
+  document.getElementById('sf-type').value = 'Mainstage';
+  document.getElementById('sf-start').value = '';
+  document.getElementById('sf-end').value = '';
+  document.getElementById('sf-save').textContent = 'Add Show';
+  document.getElementById('show-form').style.display = 'block';
+  document.getElementById('add-show-btn').style.display = 'none';
+  document.getElementById('sf-name').focus();
+}
+
+function editShow(type, idx) {
+  const arr = type === 'Mainstage' ? MAINSTAGE : CHILDRENS;
+  const s = arr[idx];
+  if (!s) return;
+  editingShowIdx = idx;
+  editingShowType = type;
+  document.getElementById('sf-name').value = s.name;
+  document.getElementById('sf-type').value = type;
+  document.getElementById('sf-start').value = s.start;
+  document.getElementById('sf-end').value = s.end;
+  document.getElementById('sf-save').textContent = 'Save Changes';
+  document.getElementById('show-form').style.display = 'block';
+  document.getElementById('add-show-btn').style.display = 'none';
+}
+
+function cancelShowForm() {
+  document.getElementById('show-form').style.display = 'none';
+  document.getElementById('add-show-btn').style.display = 'block';
+  editingShowIdx = -1;
+  editingShowType = '';
+}
+
+function saveShow() {
+  const name = document.getElementById('sf-name').value.trim();
+  const type = document.getElementById('sf-type').value;
+  const start = document.getElementById('sf-start').value;
+  const end = document.getElementById('sf-end').value;
+  if (!name || !start || !end) { toast('Fill in all fields'); return; }
+  if (end < start) { toast('End date must be after start date'); return; }
+
+  const show = { name, start, end };
+  const arr = type === 'Mainstage' ? MAINSTAGE : CHILDRENS;
+
+  if (editingShowIdx >= 0) {
+    // Editing existing — might be changing type
+    const oldArr = editingShowType === 'Mainstage' ? MAINSTAGE : CHILDRENS;
+    oldArr.splice(editingShowIdx, 1);
+    const targetArr = type === 'Mainstage' ? MAINSTAGE : CHILDRENS;
+    targetArr.push(show);
+  } else {
+    arr.push(show);
+  }
+
+  // Sort by start date
+  MAINSTAGE.sort((a, b) => a.start.localeCompare(b.start));
+  CHILDRENS.sort((a, b) => a.start.localeCompare(b.start));
+
+  saveStoredShows();
+  renderShowMgmt();
+  renderWidgets();
+  cancelShowForm();
+  toast(editingShowIdx >= 0 ? 'Show updated' : 'Show added');
+}
+
+function deleteShow(type, idx) {
+  const arr = type === 'Mainstage' ? MAINSTAGE : CHILDRENS;
+  const s = arr[idx];
+  if (!s) return;
+  if (!confirm('Delete "' + s.name + '"?')) return;
+  arr.splice(idx, 1);
+  saveStoredShows();
+  renderShowMgmt();
+  renderWidgets();
+  toast('Show deleted');
+}
+
+function resetToDefaults() {
+  if (!confirm('Reset all shows to the built-in defaults? Custom shows will be lost.')) return;
+  MAINSTAGE = [...DEFAULT_MAINSTAGE];
+  CHILDRENS = [...DEFAULT_CHILDRENS];
+  try { localStorage.removeItem('mmt_shows'); } catch(e) {}
+  renderShowMgmt();
+  renderWidgets();
+  toast('Shows reset to defaults');
+}
+
+// ── IMPORT FROM URL ─────────────────────────────────────────────────────────
+async function importFromUrl() {
+  const url = document.getElementById('import-url').value.trim();
+  if (!url) { toast('Paste a URL first'); return; }
+  const btn = document.getElementById('import-btn');
+  const status = document.getElementById('import-status');
+  btn.disabled = true;
+  btn.textContent = 'Importing...';
+  status.textContent = 'Fetching page...';
+
+  try {
+    // Fetch via CORS proxy
+    const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+    const res = await fetch(proxyUrl);
+    if (!res.ok) throw new Error('Could not fetch page (HTTP ' + res.status + ')');
+    const html = await res.text();
+
+    status.textContent = 'Analyzing page with AI...';
+
+    // Use Anthropic API to extract show data
+    const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
+        messages: [{
+          role: 'user',
+          content: 'Extract all theater show/production names and their date ranges from this webpage HTML. Return ONLY a JSON array, no other text. Each item should have: name (string), start (YYYY-MM-DD), end (YYYY-MM-DD), type ("Mainstage" or "Children\'s" — guess based on context, kids/junior versions are Children\'s). If dates only show month or are vague, estimate. Here is the HTML:\n\n' + html.substring(0, 30000)
+        }]
+      })
+    });
+
+    if (!apiRes.ok) throw new Error('AI analysis failed (HTTP ' + apiRes.status + ')');
+    const apiData = await apiRes.json();
+    const text = apiData.content.map(c => c.text || '').join('');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const shows = JSON.parse(clean);
+
+    if (!Array.isArray(shows) || !shows.length) throw new Error('No shows found on that page');
+
+    // Preview the imported shows
+    const mainShows = shows.filter(s => s.type === 'Mainstage');
+    const kidsShows = shows.filter(s => s.type !== 'Mainstage');
+
+    status.innerHTML = '<strong>Found ' + shows.length + ' shows:</strong><br>' +
+      shows.map(s => esc(s.name) + ' (' + s.start + ' → ' + s.end + ') [' + s.type + ']').join('<br>') +
+      '<br><br>';
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'btn-confirm';
+    confirmBtn.style.width = '100%';
+    confirmBtn.textContent = 'Replace All Shows With These';
+    confirmBtn.onclick = function() {
+      MAINSTAGE = mainShows.map(s => ({ name: s.name, start: s.start, end: s.end }));
+      CHILDRENS = kidsShows.map(s => ({ name: s.name, start: s.start, end: s.end }));
+      MAINSTAGE.sort((a, b) => a.start.localeCompare(b.start));
+      CHILDRENS.sort((a, b) => a.start.localeCompare(b.start));
+      saveStoredShows();
+      renderShowMgmt();
+      renderWidgets();
+      status.textContent = 'Shows imported successfully!';
+      toast('Shows imported');
+    };
+    status.appendChild(confirmBtn);
+
+  } catch(e) {
+    status.textContent = 'Error: ' + e.message;
+    console.error('Import error:', e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Import Shows';
+  }
+}
+
+// Load stored shows on startup (before first render)
+loadStoredShows();
 
 // ── DATA LOAD ─────────────────────────────────────────────────────────────────
 function loadData() {
