@@ -92,8 +92,48 @@
   }
   .lock-btn:hover { background: rgba(255,255,255,0.1); color: white; }
 
-  /* CONTENT WRAP */
-  .wrap { max-width: 900px; margin: 0 auto; padding: 0 1rem 3rem; }
+  /* TWO-COLUMN LAYOUT */
+  .layout { display: flex; gap: 0; min-height: calc(100vh - 100px); }
+  .left-col { flex: 1; min-width: 0; padding: 0 1.25rem 3rem; overflow-y: auto; }
+  .right-col {
+    width: 420px; flex-shrink: 0; border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; background: var(--surface);
+  }
+  @media (max-width: 960px) {
+    .layout { flex-direction: column; }
+    .right-col { width: 100%; border-left: none; border-top: 1px solid var(--border); min-height: 500px; }
+  }
+
+  .right-header {
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg); flex-shrink: 0;
+  }
+  .right-header .rh-title { font-size: 14px; font-weight: 600; }
+  .right-header .rh-show { font-size: 12px; color: var(--text-muted); }
+
+  .show-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-x: auto; }
+  .show-tab {
+    padding: 10px 16px; font-size: 12px; font-weight: 500; cursor: pointer;
+    border: none; background: none; color: var(--text-muted);
+    border-bottom: 2px solid transparent; white-space: nowrap;
+    font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+  }
+  .show-tab:hover { color: var(--text); background: var(--bg); }
+  .show-tab.active { color: var(--purple); border-bottom-color: var(--purple); font-weight: 600; }
+  .show-tab .tab-badge {
+    display: inline-block; font-size: 9px; padding: 1px 6px; border-radius: 99px;
+    margin-left: 6px; vertical-align: middle; font-weight: 700; text-transform: uppercase;
+  }
+  .show-tab .tab-badge.now { background: var(--green-light); color: var(--green-dark); }
+  .show-tab .tab-badge.next { background: var(--blue-light); color: var(--blue-dark); }
+
+  .right-body { flex: 1; display: flex; flex-direction: column; }
+  .right-body iframe { flex: 1; border: none; width: 100%; min-height: 400px; }
+  .right-empty {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    color: var(--text-faint); font-size: 14px; padding: 40px; text-align: center;
+  }
 
   .section-label {
     font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
@@ -320,24 +360,7 @@
   .notes-row .nr-btn.open:hover { background: var(--purple-dark); }
   .notes-row .nr-btn.none { background: var(--bg); color: var(--text-faint); border: 1px solid var(--border); cursor: default; }
 
-  .notes-preview-panel {
-    margin-top: 12px; border: 1px solid var(--border); border-radius: var(--radius);
-    overflow: hidden; background: white; display: none;
-  }
-  .notes-preview-panel.open { display: block; }
-  .notes-preview-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 16px; background: var(--bg); border-bottom: 1px solid var(--border);
-  }
-  .notes-preview-header span { font-size: 13px; font-weight: 600; }
-  .notes-preview-close {
-    border: none; background: none; font-size: 18px; cursor: pointer;
-    color: var(--text-muted); padding: 2px 8px; border-radius: 6px;
-  }
-  .notes-preview-close:hover { background: var(--border); color: var(--text); }
-  .notes-preview-panel iframe {
-    width: 100%; height: 500px; border: none;
-  }
+  .notes-preview-panel { display: none; } /* legacy — now in right col */
 
   /* SCRATCHPAD */
   .scratch-area {
@@ -396,62 +419,66 @@
     </div>
   </div>
 
-  <div class="wrap">
-    <!-- LINKS -->
-    <div class="section">
-      <div class="section-label"><span>Resources</span></div>
-      <div class="links-grid" id="links-grid"></div>
-    </div>
-
-    <!-- WIDGETS -->
-    <div class="section">
-      <div class="section-label"><span>At a Glance</span></div>
-      <div class="widgets">
-        <div class="widget">
-          <div class="widget-title">Now &amp; Next</div>
-          <div id="np-content"><span class="spinner"></span>Loading shows...</div>
-        </div>
-        <div class="widget">
-          <div class="widget-title">Tasks</div>
-          <div id="tasks-content"><span class="spinner"></span>Loading tasks...</div>
-        </div>
+  <div class="layout">
+    <!-- LEFT COLUMN — dashboard content -->
+    <div class="left-col">
+      <!-- LINKS -->
+      <div class="section">
+        <div class="section-label"><span>Resources</span></div>
+        <div class="links-grid" id="links-grid"></div>
       </div>
-      <div class="widget" style="margin-top:16px;">
-        <div class="widget-title">Recent Inventory Activity</div>
-        <div id="activity-content"><span class="spinner"></span>Loading activity...</div>
-      </div>
-    </div>
 
-    <!-- SEASON CALENDAR -->
-    <div class="section">
-      <div class="section-label"><span>Season Calendar</span></div>
-      <div class="widget">
-        <div class="cal-wrapper" id="cal-wrapper"></div>
-      </div>
-    </div>
-
-    <!-- SHOW NOTES -->
-    <div class="section">
-      <div class="section-label"><span>Show Notes</span></div>
-      <div class="widget">
-        <div class="widget-title">Quick Access</div>
-        <div class="notes-list" id="notes-list"></div>
-        <div class="notes-preview-panel" id="notes-panel">
-          <div class="notes-preview-header">
-            <span id="notes-panel-title">Show Notes</span>
-            <button class="notes-preview-close" onclick="closeNotesPanel()">×</button>
+      <!-- AT A GLANCE WIDGETS -->
+      <div class="section">
+        <div class="section-label"><span>At a Glance</span></div>
+        <div class="widgets">
+          <div class="widget">
+            <div class="widget-title">Now &amp; Next</div>
+            <div id="np-content"><span class="spinner"></span>Loading shows...</div>
           </div>
-          <iframe id="notes-iframe" src="about:blank"></iframe>
+          <div class="widget">
+            <div class="widget-title">Tasks</div>
+            <div id="tasks-content"><span class="spinner"></span>Loading tasks...</div>
+          </div>
+        </div>
+        <div class="widget" style="margin-top:16px;">
+          <div class="widget-title">Recent Inventory Activity</div>
+          <div id="activity-content"><span class="spinner"></span>Loading activity...</div>
+        </div>
+      </div>
+
+      <!-- SEASON CALENDAR -->
+      <div class="section">
+        <div class="section-label"><span>Season Calendar</span></div>
+        <div class="widget">
+          <div class="cal-wrapper" id="cal-wrapper"></div>
+        </div>
+      </div>
+
+      <!-- QUICK SCRATCHPAD -->
+      <div class="section">
+        <div class="section-label"><span>Quick Scratchpad</span></div>
+        <div class="widget">
+          <textarea class="scratch-area" id="scratchpad" placeholder="Jot something down..."></textarea>
+          <div class="scratch-meta" id="scratch-meta"></div>
         </div>
       </div>
     </div>
 
-    <!-- QUICK SCRATCHPAD -->
-    <div class="section">
-      <div class="section-label"><span>Quick Scratchpad</span></div>
-      <div class="widget">
-        <textarea class="scratch-area" id="scratchpad" placeholder="Jot something down..."></textarea>
-        <div class="scratch-meta" id="scratch-meta"></div>
+    <!-- RIGHT COLUMN — show notes preview -->
+    <div class="right-col">
+      <div class="right-header">
+        <div>
+          <div class="rh-title">Show Notes</div>
+          <div class="rh-show" id="rh-show-name">Loading...</div>
+        </div>
+      </div>
+      <div class="show-tabs" id="show-tabs"></div>
+      <div class="right-body">
+        <iframe id="notes-iframe" src="about:blank"></iframe>
+        <div class="right-empty" id="notes-empty" style="display:none;">
+          No notes doc linked for this show yet.<br>Create one from the Notes &amp; Tasks page.
+        </div>
       </div>
     </div>
   </div>
@@ -475,7 +502,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-2</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-3</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -873,54 +900,70 @@ function renderCalendar() {
   el.innerHTML = html;
 }
 
-// ── SHOW NOTES PREVIEW ──────────────────────────────────────────────────────
+// ── SHOW NOTES (RIGHT COLUMN) ────────────────────────────────────────────────
+let notesShows = []; // populated on render
+
 function renderNotesAccess() {
-  const el = document.getElementById('notes-list');
-  const allShows = [
-    ...MAINSTAGE.map(s => ({ ...s, type: 'Mainstage' })),
-    ...CHILDRENS.map(s => ({ ...s, type: "Children's" })),
+  const tabsEl = document.getElementById('show-tabs');
+
+  // Build list of current + upcoming shows (Mainstage first, then Children's)
+  notesShows = [
+    ...MAINSTAGE.filter(s => showStatus(s.start, s.end) !== 'past').map(s => ({ ...s, type: 'Mainstage' })),
+    ...CHILDRENS.filter(s => showStatus(s.start, s.end) !== 'past').map(s => ({ ...s, type: "Children's" })),
   ];
 
-  // Show current and upcoming shows only
-  const relevant = allShows.filter(s => {
-    const st = showStatus(s.start, s.end);
-    return st === 'current' || st === 'upcoming';
-  });
-
-  if (!relevant.length) {
-    el.innerHTML = '<div class="np-empty">No current or upcoming shows.</div>';
+  if (!notesShows.length) {
+    tabsEl.innerHTML = '';
+    document.getElementById('notes-iframe').style.display = 'none';
+    document.getElementById('notes-empty').style.display = 'flex';
+    document.getElementById('notes-empty').textContent = 'No current or upcoming shows.';
+    document.getElementById('rh-show-name').textContent = '';
     return;
   }
 
-  el.innerHTML = relevant.map(s => {
+  tabsEl.innerHTML = notesShows.map((s, i) => {
     const st = showStatus(s.start, s.end);
-    const key = (s.type === 'Mainstage' ? 'mainstage_' : 'childrens_') + s.name.replace(/[^a-z0-9]/gi, '_');
-    const docUrl = showNotes[key];
-    const badge = st === 'current' ? '<span class="nr-badge now">Now</span>' : '<span class="nr-badge next">Next</span>';
-    const btn = docUrl
-      ? `<button class="nr-btn open" onclick="openNotesPreview('${esc(s.name)}', '${esc(docUrl)}')">View Notes</button>`
-      : '<button class="nr-btn none">No Doc</button>';
-    return `<div class="notes-row">${badge}<span class="nr-name">${esc(s.name)}</span><span style="font-size:11px;color:var(--text-faint)">${esc(s.type)}</span>${btn}</div>`;
+    const badge = st === 'current'
+      ? '<span class="tab-badge now">Now</span>'
+      : i === 0 || (notesShows[0] && showStatus(notesShows[0].start, notesShows[0].end) !== 'current' && i === 0)
+        ? '<span class="tab-badge next">Next</span>'
+        : '';
+    return `<button class="show-tab" data-idx="${i}" onclick="selectShowTab(${i})">${esc(s.name)}${badge}</button>`;
   }).join('');
+
+  // Auto-select first current show, or first upcoming
+  const currentIdx = notesShows.findIndex(s => showStatus(s.start, s.end) === 'current');
+  selectShowTab(currentIdx >= 0 ? currentIdx : 0);
 }
 
-function openNotesPreview(name, url) {
-  const panel = document.getElementById('notes-panel');
-  const iframe = document.getElementById('notes-iframe');
-  const title = document.getElementById('notes-panel-title');
-  // Convert /edit URL to /preview for embedding
-  const embedUrl = url.replace(/\/edit.*$/, '/preview');
-  title.textContent = name + ' — Notes';
-  iframe.src = embedUrl;
-  panel.classList.add('open');
-  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
+function selectShowTab(idx) {
+  const s = notesShows[idx];
+  if (!s) return;
 
-function closeNotesPanel() {
-  const panel = document.getElementById('notes-panel');
+  // Highlight active tab
+  document.querySelectorAll('.show-tab').forEach((tab, i) => {
+    tab.classList.toggle('active', i === idx);
+  });
+
+  // Build the show key (same pattern as tasks.html)
+  const key = (s.type === 'Mainstage' ? 'mainstage_' : 'childrens_') + s.name.replace(/[^a-z0-9]/gi, '_');
+  const docUrl = showNotes[key];
+
+  document.getElementById('rh-show-name').textContent = s.name + ' — ' + s.type;
+
   const iframe = document.getElementById('notes-iframe');
-  panel.classList.remove('open');
-  iframe.src = 'about:blank';
+  const empty = document.getElementById('notes-empty');
+
+  if (docUrl) {
+    const embedUrl = docUrl.replace(/\/edit.*$/, '/preview');
+    iframe.src = embedUrl;
+    iframe.style.display = 'block';
+    empty.style.display = 'none';
+  } else {
+    iframe.src = 'about:blank';
+    iframe.style.display = 'none';
+    empty.style.display = 'flex';
+  }
 }
 
 // ── QUICK SCRATCHPAD ────────────────────────────────────────────────────────
