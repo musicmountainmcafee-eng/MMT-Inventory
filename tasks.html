@@ -383,7 +383,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.13-6</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.14-1</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -863,53 +863,91 @@ function loadData() {
     } catch(e) {}
   }
 
-  return Promise.all([
-    fetchSheetCSV(TASKS_GID),
-    fetchSheetCSV(NOTES_GID),
-  ]).then(([taskRows, noteRows]) => {
-    const colors = ['#534AB7','#f5a623','#3B6D11','#185FA5','#9b59b6','#1abc9c','#e67e22','#e91e63'];
-    const newLists = [], newTasks = {};
-
-    for (let i = 1; i < taskRows.length; i++) {
-      const row = taskRows[i];
-      const listName = row[0];
-      if (!listName) continue;
-      if (!newLists.find(l => l.name === listName))
-        newLists.push({ name: listName, color: colors[newLists.length % colors.length] });
-      if (!newTasks[listName]) newTasks[listName] = [];
-      const taskText = row[1];
-      if (taskText) {
-        newTasks[listName].push({
-          id: row[4] || (Date.now() + '_' + i),
-          text: taskText,
-          done: (row[2] || '').toUpperCase() === 'TRUE',
-          due: row[3] || null,
-        });
-      }
-    }
-
-    const newShowNotes = {};
-    for (let i = 1; i < noteRows.length; i++) {
-      if (noteRows[i][0]) newShowNotes[noteRows[i][0]] = noteRows[i][1];
-    }
-
-    if (newLists.length) lists = newLists;
-    tasks = newTasks;
-    showNotes = newShowNotes;
+  return fetchAllData().then((d) => {
+    if (d.lists && d.lists.length) lists = d.lists;
+    tasks = d.tasks || {};
+    showNotes = d.showNotes || {};
     ensureDefaultLists();
     renderShows();
     renderTasks();
-
     try {
       localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes }));
     } catch(e) {}
-
   }).catch(err => {
     console.error('Load error:', err);
     toast('Sync failed: ' + err.message);
     if (!cached) ensureDefaultLists();
     renderTasks();
   });
+}
+
+function withTimeout(promise, ms, label) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error((label || 'request') + ' timed out after ' + (ms/1000) + 's')), ms);
+    promise.then(
+      v => { clearTimeout(t); resolve(v); },
+      e => { clearTimeout(t); reject(e); }
+    );
+  });
+}
+
+function csvRowsToData(taskRows, noteRows) {
+  const colors = ['#534AB7','#f5a623','#3B6D11','#185FA5','#9b59b6','#1abc9c','#e67e22','#e91e63'];
+  const lists = [], tasks = {};
+
+  for (let i = 1; i < taskRows.length; i++) {
+    const row = taskRows[i];
+    const listName = row[0];
+    if (!listName) continue;
+    if (!lists.find(l => l.name === listName))
+      lists.push({ name: listName, color: colors[lists.length % colors.length] });
+    if (!tasks[listName]) tasks[listName] = [];
+    const taskText = row[1];
+    if (taskText) {
+      tasks[listName].push({
+        id: row[4] || (Date.now() + '_' + i),
+        text: taskText,
+        done: (row[2] || '').toUpperCase() === 'TRUE',
+        due: row[3] || null,
+      });
+    }
+  }
+
+  const showNotes = {};
+  for (let i = 1; i < noteRows.length; i++) {
+    if (noteRows[i][0]) showNotes[noteRows[i][0]] = noteRows[i][1];
+  }
+
+  return { lists, tasks, showNotes };
+}
+
+// Try JSONP-to-Apps-Script first (same pattern as the working inventory
+// pages). If that fails entirely, fall back to the CSV-proxy chain.
+async function fetchAllData() {
+  const strategies = [
+    // A: JSONP to Apps Script getTasks — returns {lists, tasks, showNotes} directly
+    () => withTimeout(new Promise((resolve, reject) => {
+      jsonp(SCRIPT_URL + '?action=getTasks&_=' + Date.now(), resolve, reject);
+    }), 7000, 'JSONP'),
+
+    // B: CSV via gviz/proxy chain for both tabs
+    () => withTimeout(
+      Promise.all([fetchSheetCSV(TASKS_GID), fetchSheetCSV(NOTES_GID)])
+        .then(([taskRows, noteRows]) => csvRowsToData(taskRows, noteRows)),
+      26000, 'CSV chain'
+    ),
+  ];
+
+  let lastErr;
+  for (const strategy of strategies) {
+    try {
+      return await strategy();
+    } catch(e) {
+      lastErr = e;
+      console.warn('fetchAllData strategy failed:', e.message);
+    }
+  }
+  throw lastErr || new Error('all strategies failed');
 }
 
 function ensureDefaultLists() {
@@ -927,14 +965,28 @@ async function saveData() {
   try {
     localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes }));
   } catch(e) {}
-  // Save to sheet via POST
+
+  const payload = JSON.stringify({ lists, tasks });
+
+  // Try POST first (works on most browsers)
   try {
     await fetch(SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'saveTasks', lists, tasks }),
     });
   } catch(e) {
-    console.error('Save error:', e);
+    console.warn('POST save failed, trying JSONP fallback:', e.message);
+  }
+
+  // Also try JSONP GET fallback (works on phones where POST fetch gets
+  // intercepted by Google's account redirect)
+  try {
+    const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(payload))));
+    await new Promise((resolve, reject) => {
+      jsonp(SCRIPT_URL + '?action=saveTasksGet&data=' + encoded + '&_=' + Date.now(), resolve, reject);
+    });
+  } catch(e) {
+    console.warn('JSONP save fallback failed:', e.message);
   }
 }
 
