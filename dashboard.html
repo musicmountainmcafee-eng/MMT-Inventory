@@ -740,7 +740,7 @@
 
   </div>
 </div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-8</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-9</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -1115,14 +1115,31 @@ function renderActivity() {
     el.innerHTML = '<div class="act-empty">No recent check-in / check-out activity.</div>';
     return;
   }
-  el.innerHTML = activity.slice(0, 6).map(a => {
-    const isIn = (a.action || '').toLowerCase().indexOf('in') === 0;
+  el.innerHTML = activity.slice(0, 8).map(a => {
+    const isIn = a.action === 'in';
+    const detail = isIn
+      ? (a.staff ? 'by ' + a.staff : '')
+      : (a.who ? 'to ' + a.who : '') + (a.staff ? (a.who ? ' · ' : '') + 'by ' + a.staff : '');
     return `<div class="act-item">
       <span class="act-badge ${isIn ? 'in' : 'out'}">${isIn ? 'IN' : 'OUT'}</span>
-      <span class="item-name">${esc(a.item)}</span>
-      <span class="item-when">${esc(a.when || '')}</span>
+      <span class="item-name">${esc(a.item)}${detail ? ' <span style="color:var(--text-faint);font-size:12px;">' + esc(detail) + '</span>' : ''}</span>
+      <span class="item-when">${esc(a.when)}</span>
     </div>`;
   }).join('');
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  const now = new Date();
+  const diff = Math.floor((now - d) / 1000);
+  if (diff < 60) return 'Just now';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  if (diff < 172800) return 'Yesterday';
+  if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 // ── SEASON OVERVIEW ──────────────────────────────────────────────────────────
@@ -1598,15 +1615,38 @@ async function quickAddTask() {
 }
 
 // ── INVENTORY ACTIVITY ──────────────────────────────────────────────────────
-// Fetches recent check-in/out activity from the Apps Script.
-// Requires a 'getActivity' action in the script (see provided code).
+// Uses the existing getHistory endpoint (Form_Responses tab)
 async function fetchActivity() {
   try {
     const data = await withTimeout(new Promise((resolve, reject) => {
-      jsonp(SCRIPT_URL + '?action=getActivity&_=' + Date.now(), resolve, reject);
-    }), 6000, 'Activity');
-    if (data && Array.isArray(data.activity)) {
-      activity = data.activity;
+      jsonp(SCRIPT_URL + '?action=getHistory&_=' + Date.now(), resolve, reject);
+    }), 8000, 'Activity');
+    if (data && data.success && Array.isArray(data.history)) {
+      activity = data.history.slice(0, 15).map(h => {
+        const isIn = String(h.action || '').toLowerCase().indexOf('in') >= 0;
+        let when = '';
+        try {
+          const d = new Date(h.timestamp);
+          if (!isNaN(d)) {
+            const now = new Date();
+            const diffMin = Math.floor((now - d) / 60000);
+            const diffHr = Math.floor(diffMin / 60);
+            const diffDay = Math.floor(diffHr / 24);
+            if (diffMin < 1) when = 'Just now';
+            else if (diffMin < 60) when = diffMin + 'm ago';
+            else if (diffHr < 24) when = diffHr + 'h ago';
+            else if (diffDay < 7) when = diffDay + 'd ago';
+            else when = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          }
+        } catch(e) { when = ''; }
+        return {
+          item: h.assetId || '',
+          action: isIn ? 'in' : 'out',
+          who: h.who || '',
+          staff: h.staff || '',
+          when,
+        };
+      });
       try { localStorage.setItem('mmt_activity', JSON.stringify(activity)); } catch(e) {}
       renderActivity();
     }
