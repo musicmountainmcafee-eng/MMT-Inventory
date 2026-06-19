@@ -186,6 +186,18 @@
   }
   .task-list-title { font-weight: 600; font-size: 14px; }
   .task-count { font-size: 12px; color: var(--text-muted); }
+  .list-actions { display: flex; align-items: center; gap: 4px; }
+  .list-reorder-btn {
+    border: none; background: none; font-size: 12px; cursor: pointer;
+    color: var(--text-faint); padding: 2px 6px; border-radius: 4px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .list-reorder-btn:hover { color: var(--purple); background: var(--purple-light); }
+  .list-delete-btn {
+    border: none; background: none; font-size: 14px; cursor: pointer;
+    color: var(--text-faint); padding: 2px 6px; border-radius: 4px;
+  }
+  .list-delete-btn:hover { color: var(--red); background: rgba(192,57,43,0.08); }
   .task-items { padding: 4px 0; min-height: 40px; }
   .task-item {
     display: flex; align-items: flex-start; gap: 10px;
@@ -1025,12 +1037,24 @@ async function saveData() {
 }
 
 async function sheetWrite(type, key, value) {
+  // Update local cache immediately so it survives page reload
+  try {
+    localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes }));
+  } catch(e) {}
+
+  // Save to sheet via POST
   try {
     await fetch(SCRIPT_URL, {
       method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'saveShowNote', key, value }),
     });
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    // JSONP fallback
+    try {
+      jsonp(SCRIPT_URL + '?action=saveShowNote&key=' + encodeURIComponent(key) + '&value=' + encodeURIComponent(value) + '&_=' + Date.now(), () => {}, () => {});
+    } catch(e2) { console.warn('sheetWrite failed:', e2.message); }
+  }
 }
 
 // ── TASKS ─────────────────────────────────────────────────────────────────────
@@ -1052,7 +1076,12 @@ function renderListCard(list, li) {
           <div class="color-dot" style="background:${list.color}"></div>
           <span class="task-list-title">${list.name}</span>
         </div>
-        <span class="task-count">${active.length} left</span>
+        <div class="list-actions">
+          <span class="task-count">${active.length} left</span>
+          ${li > 0 ? `<button class="list-reorder-btn" onclick="reorderList(${li}, -1)" title="Move left">◀</button>` : ''}
+          ${li < lists.length - 1 ? `<button class="list-reorder-btn" onclick="reorderList(${li}, 1)" title="Move right">▶</button>` : ''}
+          <button class="list-delete-btn" onclick="deleteList(${li})" title="Delete list">×</button>
+        </div>
       </div>
       <div class="task-items">
         ${allItems.length === 0 ? `<div class="empty-tasks">No tasks yet</div>` :
@@ -1139,6 +1168,30 @@ function addList() {
     renderTasks();
     saveData();
   });
+}
+
+function reorderList(idx, dir) {
+  const j = idx + dir;
+  if (j < 0 || j >= lists.length) return;
+  const tmp = lists[idx];
+  lists[idx] = lists[j];
+  lists[j] = tmp;
+  renderTasks();
+  saveData();
+}
+
+function deleteList(idx) {
+  const name = lists[idx].name;
+  const taskCount = (tasks[name] || []).filter(t => !t.done).length;
+  const msg = taskCount > 0
+    ? 'Delete "' + name + '" and its ' + taskCount + ' task' + (taskCount > 1 ? 's' : '') + '?'
+    : 'Delete "' + name + '"?';
+  if (!confirm(msg)) return;
+  lists.splice(idx, 1);
+  delete tasks[name];
+  renderTasks();
+  saveData();
+  toast('List deleted');
 }
 
 // ── MODAL ─────────────────────────────────────────────────────────────────────
