@@ -112,9 +112,27 @@
   }
   .lock-btn:hover { background: rgba(255,255,255,0.1); color: white; }
 
+  /* STICKY NAV BAR */
+  .nav-bar {
+    display: flex; gap: 0; overflow-x: auto; background: var(--surface);
+    border-bottom: 1px solid var(--border); padding: 0 1rem;
+    position: sticky; top: 0; z-index: 50;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-bar::-webkit-scrollbar { display: none; }
+  .nav-link {
+    padding: 10px 16px; font-size: 12px; font-weight: 500;
+    color: var(--text-muted); text-decoration: none; white-space: nowrap;
+    border-bottom: 2px solid transparent; transition: all 0.15s;
+    font-family: 'DM Sans', sans-serif; cursor: pointer;
+    background: none; border-top: none; border-left: none; border-right: none;
+  }
+  .nav-link:hover { color: var(--text); background: var(--bg); }
+  .nav-link.active { color: var(--purple); border-bottom-color: var(--purple); font-weight: 600; }
+
   /* TWO-COLUMN LAYOUT */
   .layout { display: flex; gap: 0; min-height: calc(100vh - 100px); }
-  .left-col { flex: 1; min-width: 0; padding: 0 1.25rem 3rem; overflow-y: auto; }
+  .left-col { flex: 1; min-width: 0; padding: 0 1.25rem 3rem; overflow-y: auto; scroll-padding-top: 50px; }
   .right-col {
     width: 480px; flex-shrink: 0; border-left: 1px solid var(--border);
     display: flex; flex-direction: column; background: var(--surface);
@@ -254,7 +272,7 @@
 
   /* QUICK STATS BAR */
   .stats-bar {
-    display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px;
+    display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; padding-top: 4px;
   }
   .stat-card {
     flex: 1; min-width: 120px; background: var(--surface); border: 1px solid var(--border);
@@ -619,7 +637,7 @@
   @media (max-width: 640px) {
     .topbar {
       flex-direction: column; align-items: stretch; gap: 10px;
-      margin: 0; border-radius: 0; padding: 1rem;
+      margin: 0; border-radius: 0; padding: 1rem 1rem 0.75rem;
     }
     .topbar-left h1 { font-size: 1.1rem; }
     .topbar-left p { font-size: 12px; }
@@ -628,6 +646,10 @@
     }
     .lock-btn { font-size: 12px; padding: 5px 10px; }
     .theme-btn { padding: 4px 8px; font-size: 13px; }
+
+    /* Nav bar */
+    .nav-bar { padding: 0 0.5rem; }
+    .nav-link { padding: 8px 12px; font-size: 11px; }
 
     .left-col { padding: 0 0.75rem 2rem; }
     .section { margin-bottom: 20px; }
@@ -760,6 +782,16 @@
     </div>
   </div>
 
+  <nav class="nav-bar" id="nav-bar">
+    <button class="nav-link" onclick="scrollToSection('stats-bar')">Stats</button>
+    <button class="nav-link" onclick="scrollToSection('sec-resources')">Resources</button>
+    <button class="nav-link" onclick="scrollToSection('sec-glance')">At a Glance</button>
+    <button class="nav-link" onclick="scrollToSection('sec-season')">Season</button>
+    <button class="nav-link" onclick="scrollToSection('sec-shopping')">Shopping</button>
+    <button class="nav-link" onclick="scrollToSection('sec-scratchpad')">Scratchpad</button>
+    <button class="nav-link" onclick="scrollToSection('sec-notes')">Show Notes</button>
+  </nav>
+
   <div class="layout">
     <!-- LEFT COLUMN — dashboard content -->
     <div class="left-col">
@@ -767,13 +799,13 @@
       <div class="stats-bar" id="stats-bar"></div>
 
       <!-- LINKS -->
-      <div class="section">
+      <div class="section" id="sec-resources">
         <div class="section-label"><span>Resources</span><button class="edit-links-btn" id="edit-links-btn" onclick="toggleEditLinks()">Edit</button></div>
         <div class="links-grid" id="links-grid"></div>
       </div>
 
       <!-- AT A GLANCE WIDGETS -->
-      <div class="section">
+      <div class="section" id="sec-glance">
         <div class="section-label"><span>At a Glance</span></div>
         <div class="widgets">
           <div class="widget">
@@ -807,7 +839,7 @@
       </div>
 
       <!-- SEASON OVERVIEW -->
-      <div class="section">
+      <div class="section" id="sec-season">
         <div class="section-label"><span>Season Overview</span></div>
         <div class="widget">
           <div id="season-overview"></div>
@@ -815,7 +847,7 @@
       </div>
 
       <!-- SHOPPING LISTS -->
-      <div class="section">
+      <div class="section" id="sec-shopping">
         <div class="section-label"><span>Shopping Lists</span></div>
         <div class="widget">
           <div class="shop-tabs" id="shop-tabs"></div>
@@ -829,7 +861,7 @@
       </div>
 
       <!-- QUICK SCRATCHPAD -->
-      <div class="section">
+      <div class="section" id="sec-scratchpad">
         <div class="section-label"><span>Quick Scratchpad</span></div>
         <div class="widget">
           <textarea class="scratch-area" id="scratchpad" placeholder="Jot something down..."></textarea>
@@ -839,7 +871,7 @@
     </div>
 
     <!-- RIGHT COLUMN — show notes preview -->
-    <div class="right-col">
+    <div class="right-col" id="sec-notes">
       <div class="right-header">
         <div>
           <div class="rh-title">Show Notes</div>
@@ -930,7 +962,7 @@
 
   </div>
 </div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-15</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.18-1</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -1068,12 +1100,47 @@ function initApp() {
   initScratchpad();
   renderShop();
   applyZoom();
+  initNavSpy();
   // Enter key to submit quick-add task
   const qa = document.getElementById('qa-text');
   if (qa) qa.addEventListener('keydown', e => { if (e.key === 'Enter') quickAddTask(); });
   // Enter key to add shop item
   const si = document.getElementById('shop-input');
   if (si) si.addEventListener('keydown', e => { if (e.key === 'Enter') addShopItem(); });
+}
+
+// ── NAV BAR ─────────────────────────────────────────────────────────────────
+function scrollToSection(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const navHeight = document.getElementById('nav-bar').offsetHeight || 40;
+  const y = el.getBoundingClientRect().top + window.scrollY - navHeight - 8;
+  window.scrollTo({ top: y, behavior: 'smooth' });
+}
+
+function initNavSpy() {
+  const sections = ['stats-bar','sec-resources','sec-glance','sec-season','sec-shopping','sec-scratchpad','sec-notes'];
+  const navLinks = document.querySelectorAll('.nav-link');
+  if (!navLinks.length) return;
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        navLinks.forEach((link, i) => {
+          link.classList.toggle('active', sections[i] === id);
+        });
+        // Scroll active tab into view in nav bar
+        const activeLink = document.querySelector('.nav-link.active');
+        if (activeLink) activeLink.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  sections.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) observer.observe(el);
+  });
 }
 
 async function refreshData() {
@@ -1452,6 +1519,7 @@ function selectShowTab(idx) {
   document.getElementById('rh-show-name').textContent = s.name + ' — ' + s.type;
 
   const iframe = document.getElementById('notes-iframe');
+  const iframeWrap = document.getElementById('iframe-wrap');
   const empty = document.getElementById('notes-empty');
   const editBtn = document.getElementById('edit-doc-btn');
 
@@ -1459,14 +1527,14 @@ function selectShowTab(idx) {
     // Try embedded edit mode — falls back to preview if Google blocks it
     const embedUrl = docUrl.replace(/\/edit.*$/, '/edit?embedded=true&rm=minimal');
     iframe.src = embedUrl;
-    iframe.style.display = 'block';
+    iframeWrap.style.display = 'block';
     empty.style.display = 'none';
     editBtn.href = docUrl;
     editBtn.style.display = 'inline-block';
     applyZoom();
   } else {
     iframe.src = 'about:blank';
-    iframe.style.display = 'none';
+    iframeWrap.style.display = 'none';
     empty.style.display = 'flex';
     editBtn.style.display = 'none';
   }
