@@ -962,7 +962,7 @@
 
   </div>
 </div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.18-2</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.18-3</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -1225,6 +1225,7 @@ function renderLinks() {
         <button class="reorder-btn" title="Move up" onclick="reorderLink(event, ${i}, -1)">▲</button>
         <button class="reorder-btn" title="Move down" onclick="reorderLink(event, ${i}, 1)">▼</button>
       </div>
+      <button class="link-del" title="Edit" onclick="editLink(event, ${i})" style="font-size:13px;">✎</button>
       <button class="link-del" title="Remove" onclick="deleteLink(event, ${i})">×</button>
     </a>`;
   });
@@ -1243,29 +1244,54 @@ function reorderLink(e, i, dir) {
 }
 function deleteLink(e, i) {
   e.preventDefault(); e.stopPropagation();
+  if (!confirm('Delete "' + customLinks[i].name + '"?')) return;
   customLinks.splice(i, 1);
   saveCustomLinks();
   renderLinks();
 }
+
+let editingLinkIdx = -1;
+
+function editLink(e, i) {
+  e.preventDefault(); e.stopPropagation();
+  editingLinkIdx = i;
+  const l = customLinks[i];
+  document.getElementById('modal-name').value = l.name;
+  document.getElementById('modal-url').value = l.url;
+  document.getElementById('modal-icon').value = l.icon || '';
+  document.getElementById('modal').style.display = 'flex';
+  // Change modal button text
+  document.querySelector('#modal .btn-confirm').textContent = 'Save';
+  document.querySelector('#modal h3').textContent = 'Edit Link';
+  setTimeout(() => document.getElementById('modal-name').focus(), 50);
+}
 function openModal() {
+  editingLinkIdx = -1;
   document.getElementById('modal-name').value = '';
   document.getElementById('modal-url').value = '';
   document.getElementById('modal-icon').value = '';
+  document.querySelector('#modal .btn-confirm').textContent = 'Add Link';
+  document.querySelector('#modal h3').textContent = 'Add a Link';
   document.getElementById('modal').style.display = 'flex';
   setTimeout(() => document.getElementById('modal-name').focus(), 50);
 }
-function closeModal() { document.getElementById('modal').style.display = 'none'; }
+function closeModal() { document.getElementById('modal').style.display = 'none'; editingLinkIdx = -1; }
 function confirmAddLink() {
   const name = document.getElementById('modal-name').value.trim();
   let url = document.getElementById('modal-url').value.trim();
   const icon = document.getElementById('modal-icon').value.trim() || '🔗';
   if (!name || !url) { toast('Name and URL are both required'); return; }
   if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-  customLinks.push({ name, url, icon });
+  if (editingLinkIdx >= 0) {
+    customLinks[editingLinkIdx] = { name, url, icon };
+    toast('Link updated');
+  } else {
+    customLinks.push({ name, url, icon });
+    toast('Link added');
+  }
   saveCustomLinks();
   renderLinks();
   closeModal();
-  toast('Link added');
 }
 
 // ── WIDGETS ───────────────────────────────────────────────────────────────────
@@ -1524,11 +1550,9 @@ function selectShowTab(idx) {
   const editBtn = document.getElementById('edit-doc-btn');
 
   if (docUrl) {
-    // Mobile browsers block embedded edit — use preview instead
-    const isMobile = window.innerWidth <= 960;
-    const embedUrl = isMobile
-      ? docUrl.replace(/\/edit.*$/, '/preview')
-      : docUrl.replace(/\/edit.*$/, '/edit?embedded=true&rm=minimal');
+    // Use preview mode for reliable iframe loading on all platforms
+    // "Edit in Docs" button opens the full editor in a new tab
+    const embedUrl = docUrl.replace(/\/edit.*$/, '/preview');
     iframe.src = embedUrl;
     iframeWrap.style.display = 'block';
     empty.style.display = 'none';
@@ -2153,11 +2177,16 @@ function loadData() {
   renderWidgets();
 
   return fetchAllData().then(d => {
+    // SAFETY: only overwrite with server data if it actually has content
+    // Never wipe cached data with empty responses
     if (d.lists && d.lists.length) lists = d.lists;
-    if (d.tasks) tasks = d.tasks;
-    if (d.showNotes) showNotes = d.showNotes;
+    if (d.tasks && Object.keys(d.tasks).length) tasks = d.tasks;
+    if (d.showNotes && Object.keys(d.showNotes).length) showNotes = d.showNotes;
     if (d.activity) activity = d.activity;
-    try { localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes })); } catch(e) {}
+    // Only update cache if we have real data
+    if (lists.length || Object.keys(tasks).length) {
+      try { localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes })); } catch(e) {}
+    }
     if (d.activity) { try { localStorage.setItem('mmt_activity', JSON.stringify(activity)); } catch(e) {} }
     renderWidgets();
   }).catch(err => {
