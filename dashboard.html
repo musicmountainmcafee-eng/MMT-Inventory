@@ -121,7 +121,7 @@
   }
   .nav-bar::-webkit-scrollbar { display: none; }
   .nav-link {
-    padding: 10px 16px; font-size: 12px; font-weight: 500;
+    padding: 12px 18px; font-size: 13px; font-weight: 500;
     color: var(--text-muted); text-decoration: none; white-space: nowrap;
     border-bottom: 2px solid transparent; transition: all 0.15s;
     font-family: 'DM Sans', sans-serif; cursor: pointer;
@@ -649,7 +649,7 @@
 
     /* Nav bar */
     .nav-bar { padding: 0 0.5rem; }
-    .nav-link { padding: 8px 12px; font-size: 11px; }
+    .nav-link { padding: 10px 14px; font-size: 13px; }
 
     .left-col { padding: 0 0.75rem 2rem; }
     .section { margin-bottom: 20px; }
@@ -962,7 +962,7 @@
 
   </div>
 </div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.18-1</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.18-2</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -1524,8 +1524,11 @@ function selectShowTab(idx) {
   const editBtn = document.getElementById('edit-doc-btn');
 
   if (docUrl) {
-    // Try embedded edit mode — falls back to preview if Google blocks it
-    const embedUrl = docUrl.replace(/\/edit.*$/, '/edit?embedded=true&rm=minimal');
+    // Mobile browsers block embedded edit — use preview instead
+    const isMobile = window.innerWidth <= 960;
+    const embedUrl = isMobile
+      ? docUrl.replace(/\/edit.*$/, '/preview')
+      : docUrl.replace(/\/edit.*$/, '/edit?embedded=true&rm=minimal');
     iframe.src = embedUrl;
     iframeWrap.style.display = 'block';
     empty.style.display = 'none';
