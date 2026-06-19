@@ -252,18 +252,21 @@
   .import-section textarea:focus { outline: none; border-color: var(--purple); }
   .import-status { font-size: 13px; color: var(--text-muted); margin-top: 8px; }
 
-  /* OVERDUE BADGE */
-  .topbar-badge {
-    position: relative; display: inline-flex; align-items: center;
+  /* QUICK STATS BAR */
+  .stats-bar {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px;
   }
-  .overdue-dot {
-    position: absolute; top: -6px; right: -8px;
-    min-width: 18px; height: 18px; border-radius: 99px;
-    background: var(--red); color: white; font-size: 10px; font-weight: 700;
-    display: flex; align-items: center; justify-content: center;
-    padding: 0 4px; border: 2px solid #1a1a2e;
+  .stat-card {
+    flex: 1; min-width: 120px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px; text-align: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
   }
-  .overdue-dot.hidden { display: none; }
+  .stat-card .stat-num { font-size: 28px; font-weight: 700; line-height: 1; }
+  .stat-card .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 5px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .stat-card.alert .stat-num { color: var(--red); }
+  .stat-card.warn .stat-num { color: var(--orange); }
+  .stat-card.good .stat-num { color: var(--green-dark); }
+  .stat-card.info .stat-num { color: var(--purple); }
 
   /* QUICK-ADD TASK */
   .quick-add {
@@ -293,6 +296,63 @@
     font-family: 'DM Sans', sans-serif; transition: all 0.15s;
   }
   .theme-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+
+  /* SHOPPING LISTS */
+  .shop-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 14px; overflow-x: auto; }
+  .shop-tab {
+    padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer;
+    border: none; background: none; color: var(--text-muted);
+    border-bottom: 2px solid transparent; white-space: nowrap;
+    font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+  }
+  .shop-tab:hover { color: var(--text); background: var(--bg); }
+  .shop-tab.active { color: var(--purple); border-bottom-color: var(--purple); font-weight: 600; }
+  .shop-tab.add-tab { color: var(--text-faint); font-size: 16px; padding: 8px 12px; }
+  .shop-tab.add-tab:hover { color: var(--purple); }
+
+  .shop-add-input {
+    display: flex; gap: 8px; margin-bottom: 12px;
+  }
+  .shop-add-input input {
+    flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 14px; font-family: 'DM Sans', sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  .shop-add-input input:focus { outline: none; border-color: var(--purple); }
+  .shop-add-input button {
+    padding: 8px 16px; border: none; border-radius: 6px;
+    background: var(--purple); color: white; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: 'DM Sans', sans-serif; white-space: nowrap;
+  }
+  .shop-add-input button:hover { background: var(--purple-dark); }
+
+  .shop-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 0;
+    border-top: 1px solid var(--border); font-size: 14px;
+  }
+  .shop-item:first-child { border-top: none; }
+  .shop-item input[type="checkbox"] {
+    width: 18px; height: 18px; accent-color: var(--purple); flex-shrink: 0; cursor: pointer;
+  }
+  .shop-item .si-text { flex: 1; min-width: 0; }
+  .shop-item .si-text.done { text-decoration: line-through; color: var(--text-faint); }
+  .shop-item .si-del {
+    border: none; background: none; color: var(--text-faint); font-size: 14px;
+    cursor: pointer; padding: 2px 6px; border-radius: 4px; opacity: 0; transition: opacity 0.15s;
+  }
+  .shop-item:hover .si-del { opacity: 1; }
+  .shop-item .si-del:hover { color: var(--red); background: rgba(192,57,43,0.08); }
+  .shop-empty { color: var(--text-faint); font-size: 13px; padding: 8px 0; }
+  .shop-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--text-faint);
+  }
+  .shop-footer button {
+    border: none; background: none; color: var(--text-faint); font-size: 12px;
+    cursor: pointer; font-family: 'DM Sans', sans-serif; padding: 4px 8px; border-radius: 4px;
+  }
+  .shop-footer button:hover { color: var(--red); background: rgba(192,57,43,0.08); }
 
   .section-label {
     font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
@@ -488,6 +548,13 @@
   .season-table .s-status.past { color: var(--text-faint); }
   .season-table .s-status.far { color: var(--text-muted); }
 
+  .s-overlap-tag {
+    display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px;
+    border-radius: 99px; margin: 1px 2px; white-space: nowrap;
+  }
+  .s-overlap-tag.main { background: var(--purple-light); color: var(--purple-dark); }
+  .s-overlap-tag.kids { background: var(--green-light); color: var(--green-dark); }
+
   /* REORDER BUTTONS */
   .link-reorder {
     display: none; flex-direction: column; gap: 1px; flex-shrink: 0;
@@ -579,10 +646,7 @@
     <div style="display:flex; gap:8px; align-items:center;">
       <button class="theme-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">🌙</button>
       <button class="lock-btn" onclick="openSettings()" title="Settings">⚙ Settings</button>
-      <span class="topbar-badge">
-        <button class="lock-btn" id="refresh-btn" onclick="refreshData()" title="Refresh">↻ Refresh</button>
-        <span class="overdue-dot hidden" id="overdue-dot">0</span>
-      </span>
+      <button class="lock-btn" id="refresh-btn" onclick="refreshData()" title="Refresh">↻ Refresh</button>
       <button class="lock-btn" onclick="lock()">Lock</button>
     </div>
   </div>
@@ -590,6 +654,9 @@
   <div class="layout">
     <!-- LEFT COLUMN — dashboard content -->
     <div class="left-col">
+      <!-- QUICK STATS -->
+      <div class="stats-bar" id="stats-bar"></div>
+
       <!-- LINKS -->
       <div class="section">
         <div class="section-label"><span>Resources</span><button class="edit-links-btn" id="edit-links-btn" onclick="toggleEditLinks()">Edit</button></div>
@@ -635,6 +702,20 @@
         <div class="section-label"><span>Season Overview</span></div>
         <div class="widget">
           <div id="season-overview"></div>
+        </div>
+      </div>
+
+      <!-- SHOPPING LISTS -->
+      <div class="section">
+        <div class="section-label"><span>Shopping Lists</span></div>
+        <div class="widget">
+          <div class="shop-tabs" id="shop-tabs"></div>
+          <div class="shop-add-input">
+            <input type="text" id="shop-input" placeholder="Add an item..." />
+            <button onclick="addShopItem()">Add</button>
+          </div>
+          <div id="shop-items"></div>
+          <div class="shop-footer" id="shop-footer"></div>
         </div>
       </div>
 
@@ -740,7 +821,7 @@
 
   </div>
 </div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-9</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.15-13</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -876,10 +957,14 @@ function initApp() {
   renderLinks();
   renderWidgets();
   initScratchpad();
+  renderShop();
   applyZoom();
-  // Enter key to submit quick-add
+  // Enter key to submit quick-add task
   const qa = document.getElementById('qa-text');
   if (qa) qa.addEventListener('keydown', e => { if (e.key === 'Enter') quickAddTask(); });
+  // Enter key to add shop item
+  const si = document.getElementById('shop-input');
+  if (si) si.addEventListener('keydown', e => { if (e.key === 'Enter') addShopItem(); });
 }
 
 async function refreshData() {
@@ -1014,7 +1099,7 @@ function renderWidgets() {
   try { renderActivity(); } catch(e) { console.error('renderActivity:', e); }
   try { renderSeasonOverview(); } catch(e) { console.error('renderSeasonOverview:', e); }
   try { renderNotesAccess(); } catch(e) { console.error('renderNotesAccess:', e); }
-  try { updateOverdueBadge(); } catch(e) { console.error('updateOverdueBadge:', e); }
+  try { renderStats(); } catch(e) { console.error('renderStats:', e); }
   try { populateQAList(); } catch(e) { console.error('populateQAList:', e); }
 }
 
@@ -1156,7 +1241,12 @@ function renderSeasonOverview() {
     return;
   }
 
-  let html = '<table class="season-table"><thead><tr><th>Show</th><th></th><th>Dates</th><th>Status</th></tr></thead><tbody>';
+  // Detect overlaps: for each show, find shows from the OTHER stage that overlap
+  function overlaps(a, b) {
+    return a.start <= b.end && b.start <= a.end;
+  }
+
+  let html = '<table class="season-table"><thead><tr><th>Show</th><th></th><th>Dates</th><th>Status</th><th>Overlap</th></tr></thead><tbody>';
   all.forEach(s => {
     const st = showStatus(s.start, s.end);
     const typeCls = s.type === 'Mainstage' ? 'main' : 'kids';
@@ -1176,11 +1266,25 @@ function renderSeasonOverview() {
       statusText = 'Closed'; statusCls = 'past';
     }
 
+    // Find overlapping shows from the other stage
+    const otherStage = s.type === 'Mainstage' ? CHILDRENS : MAINSTAGE;
+    const otherLabel = s.type === 'Mainstage' ? 'kids' : 'main';
+    const overlapShows = otherStage.filter(o => overlaps(s, o));
+    let overlapHtml = '';
+    if (overlapShows.length) {
+      overlapHtml = overlapShows.map(o =>
+        '<span class="s-overlap-tag ' + otherLabel + '">' + esc(o.name) + '</span>'
+      ).join(' ');
+    } else {
+      overlapHtml = '<span style="color:var(--text-faint);font-size:12px;">—</span>';
+    }
+
     html += `<tr>
       <td class="s-name">${esc(s.name)}</td>
       <td><span class="s-type ${typeCls}">${typeLabel}</span></td>
       <td class="s-dates">${formatDates(s.start, s.end)}</td>
       <td class="s-status ${statusCls}">${statusText}</td>
+      <td>${overlapHtml}</td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -1258,6 +1362,173 @@ function selectShowTab(idx) {
     editBtn.style.display = 'none';
   }
 }
+
+// ── SHOPPING LISTS ───────────────────────────────────────────────────────────
+const DEFAULT_STORES = ['Home Depot', 'Rose Brand', 'Full Compass', 'McMaster-Carr', 'Dollar General'];
+let shopData = {}; // { storeName: [ {text, done} ] }
+let activeStore = '';
+let shopSyncing = false;
+
+function loadShopData() {
+  // Instant paint from cache
+  try {
+    const saved = JSON.parse(localStorage.getItem('mmt_shopping') || 'null');
+    if (saved) shopData = saved;
+  } catch(e) {}
+  // Ensure defaults exist
+  DEFAULT_STORES.forEach(s => { if (!shopData[s]) shopData[s] = []; });
+  if (!activeStore || !shopData[activeStore]) activeStore = Object.keys(shopData)[0] || DEFAULT_STORES[0];
+
+  // Fetch from server
+  fetchShopData();
+}
+
+async function fetchShopData() {
+  try {
+    const data = await withTimeout(new Promise((resolve, reject) => {
+      jsonp(SCRIPT_URL + '?action=getShopping&_=' + Date.now(), resolve, reject);
+    }), 8000, 'Shopping');
+    if (data && data.success && data.shopping) {
+      shopData = data.shopping;
+      DEFAULT_STORES.forEach(s => { if (!shopData[s]) shopData[s] = []; });
+      if (!activeStore || !shopData[activeStore]) activeStore = Object.keys(shopData)[0] || DEFAULT_STORES[0];
+      try { localStorage.setItem('mmt_shopping', JSON.stringify(shopData)); } catch(e) {}
+      renderShop();
+    }
+  } catch(e) {
+    console.warn('Shopping fetch:', e.message);
+  }
+}
+
+function saveShopData() {
+  // Save to cache immediately
+  try { localStorage.setItem('mmt_shopping', JSON.stringify(shopData)); } catch(e) {}
+  // Sync to server (debounced)
+  clearTimeout(saveShopData._timer);
+  saveShopData._timer = setTimeout(() => syncShopToServer(), 800);
+}
+
+async function syncShopToServer() {
+  if (shopSyncing) return;
+  shopSyncing = true;
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'saveShopping', shopping: shopData }),
+    });
+  } catch(e) {
+    // Fallback: try JSONP GET
+    try {
+      jsonp(SCRIPT_URL + '?action=saveShopping&shopping=' + encodeURIComponent(JSON.stringify(shopData)) + '&_=' + Date.now(), () => {}, () => {});
+    } catch(e2) { console.warn('Shopping save failed:', e2.message); }
+  } finally {
+    shopSyncing = false;
+  }
+}
+
+function renderShopTabs() {
+  const el = document.getElementById('shop-tabs');
+  const stores = Object.keys(shopData);
+  el.innerHTML = stores.map(s => {
+    const count = (shopData[s] || []).filter(i => !i.done).length;
+    const badge = count > 0 ? ' <span style="font-size:10px;background:var(--purple-light);color:var(--purple-dark);padding:1px 6px;border-radius:99px;font-weight:700;">' + count + '</span>' : '';
+    return `<button class="shop-tab${s === activeStore ? ' active' : ''}" onclick="switchStore('${esc(s)}')">${esc(s)}${badge}</button>`;
+  }).join('') + '<button class="shop-tab add-tab" onclick="addStore()" title="Add store">＋</button>';
+}
+
+function renderShopItems() {
+  const items = shopData[activeStore] || [];
+  const el = document.getElementById('shop-items');
+  if (!items.length) {
+    el.innerHTML = '<div class="shop-empty">No items yet. Add something above.</div>';
+  } else {
+    el.innerHTML = items.map((item, i) => `<div class="shop-item">
+      <input type="checkbox" ${item.done ? 'checked' : ''} onchange="toggleShopItem(${i})" />
+      <span class="si-text${item.done ? ' done' : ''}">${esc(item.text)}</span>
+      <button class="si-del" onclick="deleteShopItem(${i})">×</button>
+    </div>`).join('');
+  }
+  const footer = document.getElementById('shop-footer');
+  const total = items.length;
+  const done = items.filter(i => i.done).length;
+  if (total > 0) {
+    footer.innerHTML = `<span>${done} of ${total} checked off</span>` +
+      (done > 0 ? '<button onclick="clearDoneItems()">Clear checked</button>' : '') +
+      '<button onclick="removeStore()" style="margin-left:auto;">Delete this list</button>';
+  } else {
+    footer.innerHTML = '<button onclick="removeStore()" style="margin-left:auto;">Delete this list</button>';
+  }
+}
+
+function renderShop() { renderShopTabs(); renderShopItems(); }
+
+function switchStore(name) {
+  activeStore = name;
+  renderShop();
+}
+
+function addShopItem() {
+  const input = document.getElementById('shop-input');
+  const text = input.value.trim();
+  if (!text) return;
+  if (!shopData[activeStore]) shopData[activeStore] = [];
+  shopData[activeStore].push({ text, done: false });
+  saveShopData();
+  input.value = '';
+  renderShop();
+}
+
+function toggleShopItem(i) {
+  if (shopData[activeStore] && shopData[activeStore][i]) {
+    shopData[activeStore][i].done = !shopData[activeStore][i].done;
+    saveShopData();
+    renderShop();
+  }
+}
+
+function deleteShopItem(i) {
+  if (shopData[activeStore]) {
+    shopData[activeStore].splice(i, 1);
+    saveShopData();
+    renderShop();
+  }
+}
+
+function clearDoneItems() {
+  if (shopData[activeStore]) {
+    shopData[activeStore] = shopData[activeStore].filter(i => !i.done);
+    saveShopData();
+    renderShop();
+    toast('Checked items cleared');
+  }
+}
+
+function addStore() {
+  const name = prompt('New store/vendor name:');
+  if (!name || !name.trim()) return;
+  const trimmed = name.trim();
+  if (shopData[trimmed]) { toast('That store already exists'); return; }
+  shopData[trimmed] = [];
+  activeStore = trimmed;
+  saveShopData();
+  renderShop();
+  toast(trimmed + ' added');
+}
+
+function removeStore() {
+  if (!confirm('Delete the "' + activeStore + '" list and all its items?')) return;
+  delete shopData[activeStore];
+  const keys = Object.keys(shopData);
+  activeStore = keys[0] || '';
+  saveShopData();
+  if (!activeStore) { DEFAULT_STORES.forEach(s => { if (!shopData[s]) shopData[s] = []; }); activeStore = DEFAULT_STORES[0]; saveShopData(); }
+  renderShop();
+  toast('List deleted');
+}
+
+// Init shopping lists
+loadShopData();
 
 // ── QUICK SCRATCHPAD ────────────────────────────────────────────────────────
 function initScratchpad() {
@@ -1552,22 +1823,53 @@ try {
   }
 } catch(e) {}
 
-// ── OVERDUE BADGE ───────────────────────────────────────────────────────────
-function updateOverdueBadge() {
+// ── QUICK STATS ─────────────────────────────────────────────────────────────
+function renderStats() {
+  const el = document.getElementById('stats-bar');
+  if (!el) return;
   const today = new Date(); today.setHours(0,0,0,0);
-  let count = 0;
+  const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
+
+  let overdue = 0, dueToday = 0, dueWeek = 0;
   (lists || []).forEach(list => {
     (tasks[list.name] || []).forEach(t => {
       if (t.done || !t.due) return;
       const d = new Date(t.due + 'T00:00:00');
-      if (!isNaN(d) && d < today) count++;
+      if (isNaN(d)) return;
+      if (d < today) overdue++;
+      else if (d.getTime() === today.getTime()) dueToday++;
+      else if (d <= weekEnd) dueWeek++;
     });
   });
-  const dot = document.getElementById('overdue-dot');
-  if (dot) {
-    dot.textContent = count;
-    dot.classList.toggle('hidden', count === 0);
+
+  // Next opening night
+  const allUpcoming = [
+    ...MAINSTAGE.filter(s => showStatus(s.start, s.end) === 'upcoming'),
+    ...CHILDRENS.filter(s => showStatus(s.start, s.end) === 'upcoming'),
+  ].sort((a, b) => a.start.localeCompare(b.start));
+  const nextOpening = allUpcoming[0];
+  const daysToOpen = nextOpening ? daysUntil(nextOpening.start) : null;
+
+  // Items currently checked out
+  const checkedOut = activity.filter(a => a.action === 'out').length;
+
+  // Shopping items pending
+  let shopPending = 0;
+  Object.values(shopData || {}).forEach(items => {
+    shopPending += (items || []).filter(i => !i.done).length;
+  });
+
+  let html = '';
+  html += `<div class="stat-card ${overdue > 0 ? 'alert' : 'good'}"><div class="stat-num">${overdue}</div><div class="stat-label">Overdue</div></div>`;
+  html += `<div class="stat-card ${dueToday > 0 ? 'warn' : 'good'}"><div class="stat-num">${dueToday}</div><div class="stat-label">Due Today</div></div>`;
+  html += `<div class="stat-card info"><div class="stat-num">${dueWeek}</div><div class="stat-label">Due This Week</div></div>`;
+  if (daysToOpen !== null) {
+    html += `<div class="stat-card ${daysToOpen <= 7 ? 'warn' : 'info'}"><div class="stat-num">${daysToOpen}</div><div class="stat-label">Days to Opening</div></div>`;
   }
+  if (shopPending > 0) {
+    html += `<div class="stat-card warn"><div class="stat-num">${shopPending}</div><div class="stat-label">To Buy</div></div>`;
+  }
+  el.innerHTML = html;
 }
 
 // ── QUICK-ADD TASK ──────────────────────────────────────────────────────────
