@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MMT Team Dashboard</title>
+<link rel="manifest" href="manifest-team.json">
+<meta name="theme-color" content="#3C3489">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MMT Team">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
@@ -209,7 +215,7 @@
   </div>
 </div>
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-3</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-5</div>
 
 <script>
 // ══════════════════════════════════════════════════════════════════════════════
@@ -484,6 +490,11 @@ document.getElementById('shop-input').addEventListener('keydown',e=>{if(e.key===
 // ── DARK MODE ────────────────────────────────────────────────────────────────
 function toggleDarkMode(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'':'dark');document.getElementById('theme-toggle').textContent=d?'🌙':'☀️';try{localStorage.setItem('mmt_theme',d?'light':'dark');}catch(e){}}
 try{if(localStorage.getItem('mmt_theme')==='dark'){document.documentElement.setAttribute('data-theme','dark');setTimeout(()=>{const e=document.getElementById('theme-toggle');if(e)e.textContent='☀️';},0);}}catch(e){}
+
+// Register service worker for PWA
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
