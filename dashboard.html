@@ -828,6 +828,10 @@
                 <label>Due</label>
                 <input type="date" id="qa-due" />
               </div>
+              <div class="qa-field" style="flex:0;">
+                <label>Email</label>
+                <div style="display:flex;align-items:center;height:34px;"><input type="checkbox" id="qa-notify" title="Email me on due date" style="width:18px;height:18px;accent-color:var(--purple);cursor:pointer;" /></div>
+              </div>
               <button class="qa-add-btn" onclick="quickAddTask()">Add</button>
             </div>
           </div>
@@ -974,7 +978,7 @@
 
   </div>
 </div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-3</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-4</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -2158,32 +2162,33 @@ async function quickAddTask() {
   const text = document.getElementById('qa-text').value.trim();
   const list = document.getElementById('qa-list').value;
   const due = document.getElementById('qa-due').value || '';
+  const notify = document.getElementById('qa-notify').checked;
   if (!text) { toast('Enter a task'); return; }
   if (!list) { toast('No list selected'); return; }
 
   // Add locally immediately
   if (!tasks[list]) tasks[list] = [];
   const id = Date.now() + '_qa';
-  tasks[list].push({ id, text, done: false, due: due || null });
+  tasks[list].push({ id, text, done: false, due: due || null, notify });
   renderTaskWidget();
-  updateOverdueBadge();
+  renderStats();
   document.getElementById('qa-text').value = '';
   document.getElementById('qa-due').value = '';
-  toast('Task added');
+  document.getElementById('qa-notify').checked = false;
+  toast('Task added' + (notify && due ? ' (email reminder set)' : ''));
 
   // Save to Apps Script
   try {
     await fetch(SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'saveTask', list, text, done: false, due: due || '', id }),
+      body: JSON.stringify({ action: 'saveTask', list, text, done: false, due: due || '', id, notify }),
     });
     try { localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes })); } catch(e) {}
   } catch(e) {
     console.warn('Quick-add save failed:', e.message);
-    // Also try JSONP fallback
     try {
-      const params = 'action=saveTask&list=' + encodeURIComponent(list) + '&text=' + encodeURIComponent(text) + '&done=false&due=' + encodeURIComponent(due) + '&id=' + encodeURIComponent(id);
+      const params = 'action=saveTask&list=' + encodeURIComponent(list) + '&text=' + encodeURIComponent(text) + '&done=false&due=' + encodeURIComponent(due) + '&id=' + encodeURIComponent(id) + '&notify=' + notify;
       jsonp(SCRIPT_URL + '?' + params + '&_=' + Date.now(), () => {}, () => {});
     } catch(e2) {}
   }
