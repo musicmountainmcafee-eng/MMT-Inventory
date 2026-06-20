@@ -175,7 +175,7 @@
   <div class="modal">
     <h3 id="modal-title">Add Drop</h3>
     <div class="form-row">
-      <div><label>Drop Number</label><input type="text" id="f-number" placeholder="e.g. D-01" /></div>
+      <div><label>Drop Number</label><select id="f-number"><option value="">Select...</option></select></div>
       <div><label>Name</label><input type="text" id="f-name" placeholder="e.g. Forest Backdrop" /></div>
     </div>
     <div class="form-row">
@@ -213,7 +213,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-2</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-3</div>
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
@@ -287,7 +287,7 @@ function renderDrops() {
     return `<div class="drop-card" onclick="showDetail(${realIdx})">
       ${photoHtml}
       <div class="drop-info">
-        <div class="drop-number">${esc(d.number || 'No #')}</div>
+        <div class="drop-number">${d.number ? 'Drop #' + esc(d.number) : 'No #'}</div>
         <div class="drop-name">${esc(d.name || 'Unnamed')}</div>
         <div class="drop-meta">
           ${d.category ? `<span class="drop-tag cat">${esc(d.category)}</span>` : ''}
@@ -309,7 +309,7 @@ function showDetail(idx) {
   const photo = d.photo ? `<img src="${esc(d.photo)}" style="width:100%;border-radius:var(--radius-sm);margin-bottom:16px;" onerror="this.style.display='none'" />` : '';
   document.getElementById('detail-content').innerHTML = `
     ${photo}
-    <div style="font-size:12px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:1px;">${esc(d.number||'')}</div>
+    <div style="font-size:12px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:1px;">${d.number ? 'Drop #' + esc(d.number) : ''}</div>
     <h2 style="font-size:22px;font-weight:600;margin:4px 0 12px;">${esc(d.name||'Unnamed')}</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
       ${d.category ? `<span class="drop-tag cat">${esc(d.category)}</span>` : ''}
@@ -326,12 +326,24 @@ function editFromDetail() {
 }
 
 // ── ADD/EDIT ─────────────────────────────────────────────────────────────────
+function populateNumberDropdown(currentNumber) {
+  const sel = document.getElementById('f-number');
+  const taken = drops.map(d => d.number).filter(Boolean);
+  sel.innerHTML = '<option value="">Select...</option>';
+  for (let i = 1; i <= 200; i++) {
+    const num = String(i);
+    // Skip if taken by another drop (allow the current drop's own number)
+    if (taken.includes(num) && num !== currentNumber) continue;
+    sel.innerHTML += `<option value="${num}"${num === currentNumber ? ' selected' : ''}>${num}</option>`;
+  }
+}
+
 function openAddDrop() {
   editingIdx = -1;
   document.getElementById('modal-title').textContent = 'Add Drop';
   document.getElementById('btn-save').textContent = 'Add Drop';
   document.getElementById('btn-delete').style.display = 'none';
-  document.getElementById('f-number').value = '';
+  populateNumberDropdown('');
   document.getElementById('f-name').value = '';
   document.getElementById('f-category').value = '';
   document.getElementById('f-type').value = 'Printed';
@@ -349,7 +361,7 @@ function openEditDrop(idx) {
   document.getElementById('modal-title').textContent = 'Edit Drop';
   document.getElementById('btn-save').textContent = 'Save Changes';
   document.getElementById('btn-delete').style.display = 'inline-block';
-  document.getElementById('f-number').value = d.number || '';
+  populateNumberDropdown(d.number || '');
   document.getElementById('f-name').value = d.name || '';
   document.getElementById('f-category').value = d.category || '';
   document.getElementById('f-type').value = d.type || 'Printed';
@@ -426,7 +438,7 @@ async function saveDrop() {
   if(!drop.name) { toast('Name is required'); return; }
 
   if(editingIdx >= 0) { drops[editingIdx] = drop; } else { drops.push(drop); }
-  drops.sort((a,b) => (a.number||'').localeCompare(b.number||''));
+  drops.sort((a,b) => (parseInt(a.number)||999) - (parseInt(b.number)||999));
   try{localStorage.setItem('mmt_drops',JSON.stringify(drops));}catch(e){}
   renderDrops();
   closeModal();
