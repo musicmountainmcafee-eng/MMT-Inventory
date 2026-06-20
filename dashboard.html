@@ -984,7 +984,7 @@
 
   </div>
 </div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-5</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.20-4</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -1215,11 +1215,24 @@ function toggleEditLinks() {
 }
 
 function loadCustomLinks() {
-  try { customLinks = JSON.parse(localStorage.getItem('mmt_dash_links') || '[]'); }
-  catch(e) { customLinks = []; }
+  // Instant paint from cache
+  try { customLinks = JSON.parse(localStorage.getItem('mmt_dash_links') || '[]'); } catch(e) { customLinks = []; }
+  // Fetch from server
+  jsonp(SCRIPT_URL + '?action=getLinks&_=' + Date.now(), d => {
+    if (d.success && d.links && d.links.length) {
+      customLinks = d.links;
+      try { localStorage.setItem('mmt_dash_links', JSON.stringify(customLinks)); } catch(e) {}
+      renderLinks();
+    }
+  }, () => {});
 }
 function saveCustomLinks() {
   try { localStorage.setItem('mmt_dash_links', JSON.stringify(customLinks)); } catch(e) {}
+  // Sync to server
+  clearTimeout(saveCustomLinks._t);
+  saveCustomLinks._t = setTimeout(() => {
+    fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'saveLinks',links:customLinks}) }).catch(() => {});
+  }, 800);
 }
 function hostOf(url) {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch(e) { return url; }
