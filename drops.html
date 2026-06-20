@@ -77,6 +77,25 @@
 
   /* GRID */
   .drops-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:16px; }
+  .drops-grid.list-view { display:table; width:100%; border-collapse:separate; border-spacing:0; }
+
+  /* VIEW TOGGLE */
+  .view-toggle { display:flex; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; }
+  .view-toggle button { padding:8px 14px; border:none; background:var(--surface); color:var(--text-muted); font-size:13px; cursor:pointer; font-family:'DM Sans',sans-serif; }
+  .view-toggle button.active { background:var(--purple); color:white; }
+  .view-toggle button:not(:last-child) { border-right:1px solid var(--border); }
+
+  /* LIST/TABLE VIEW */
+  .drop-table { width:100%; border-collapse:separate; border-spacing:0; }
+  .drop-table th { text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text-faint); padding:8px 10px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg); }
+  .drop-table td { padding:10px; border-bottom:1px solid var(--border); font-size:14px; vertical-align:middle; }
+  .drop-table tr { cursor:pointer; transition:background 0.1s; }
+  .drop-table tr:hover td { background:var(--surface); }
+  .drop-table .dt-thumb { width:50px; height:34px; border-radius:4px; object-fit:cover; background:var(--bg); }
+  .drop-table .dt-num { font-weight:700; color:var(--purple); font-size:13px; white-space:nowrap; }
+  .drop-table .dt-name { font-weight:600; }
+  .drop-table .dt-tag { font-size:10px; font-weight:600; padding:2px 7px; border-radius:99px; white-space:nowrap; display:inline-block; margin:1px 2px; }
+  .drop-table .dt-notes { font-size:12px; color:var(--text-muted); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .drop-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.04); transition:all 0.15s; cursor:pointer; }
   .drop-card:hover { border-color:var(--purple); transform:translateY(-2px); box-shadow:0 6px 16px rgba(0,0,0,0.08); }
   .drop-photo { width:100%; aspect-ratio:16/10; object-fit:cover; background:var(--bg); display:flex; align-items:center; justify-content:center; color:var(--text-faint); font-size:13px; }
@@ -159,6 +178,10 @@
       <input type="text" id="search" placeholder="Search drops..." oninput="renderDrops()" />
       <select id="filter-cat" onchange="renderDrops()"><option value="">All Categories</option></select>
       <select id="filter-type" onchange="renderDrops()"><option value="">All Types</option></select>
+      <div class="view-toggle">
+        <button id="btn-grid" class="active" onclick="setView('grid')" title="Grid view">▦</button>
+        <button id="btn-list" onclick="setView('list')" title="List view">☰</button>
+      </div>
       <button onclick="openAddDrop()">+ Add Drop</button>
     </div>
     <div class="drop-stats" id="drop-stats"></div>
@@ -209,13 +232,25 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.20-2</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.20-3</div>
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
 const PIN = '1483';
 let drops = [];
 let editingIdx = -1;
+let viewMode = 'grid';
+try { viewMode = localStorage.getItem('mmt_drops_view') || 'grid'; } catch(e) {}
+
+function setView(mode) {
+  viewMode = mode;
+  try { localStorage.setItem('mmt_drops_view', mode); } catch(e) {}
+  document.getElementById('btn-grid').classList.toggle('active', mode === 'grid');
+  document.getElementById('btn-list').classList.toggle('active', mode === 'list');
+  renderDrops();
+}
+// Set initial toggle state
+setTimeout(() => { document.getElementById('btn-grid').classList.toggle('active', viewMode === 'grid'); document.getElementById('btn-list').classList.toggle('active', viewMode === 'list'); }, 0);
 
 function esc(s) { return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function toast(m) { const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000); }
@@ -279,6 +314,26 @@ function renderDrops() {
 
   const grid = document.getElementById('drops-grid');
   if(!filtered.length) { grid.innerHTML = '<div class="drops-empty">No drops found.' + (drops.length ? ' Try a different search.' : ' Add your first drop!') + '</div>'; return; }
+
+  if (viewMode === 'list') {
+    grid.innerHTML = `<table class="drop-table">
+      <thead><tr><th></th><th>#</th><th>Name</th><th>Category</th><th>Type</th><th>Size</th><th>Notes</th></tr></thead>
+      <tbody>${filtered.map((d, fi) => {
+        const realIdx = drops.indexOf(d);
+        const thumb = d.photo ? `<img class="dt-thumb" src="${esc(d.photo)}" onerror="this.style.display='none'" />` : '<div class="dt-thumb" style="display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text-faint);">—</div>';
+        return `<tr onclick="showDetail(${realIdx})">
+          <td>${thumb}</td>
+          <td class="dt-num">${d.number || '—'}</td>
+          <td class="dt-name">${esc(d.name || '')}</td>
+          <td>${d.category ? `<span class="dt-tag" style="background:var(--blue-light);color:var(--blue-dark);">${esc(d.category)}</span>` : ''}</td>
+          <td>${d.type ? `<span class="dt-tag" style="background:var(--green-light);color:var(--green-dark);">${esc(d.type)}</span>` : ''}</td>
+          <td>${esc(d.size || '')}</td>
+          <td class="dt-notes">${esc(d.notes || '')}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+    return;
+  }
 
   grid.innerHTML = filtered.map((d, fi) => {
     const realIdx = drops.indexOf(d);
