@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>MMT Cues</title>
+<meta name="theme-color" content="#3C3489">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root {
+    --purple: #534AB7; --purple-light: #EEEDFE; --purple-dark: #3C3489;
+    --bg: #1a1a2e; --surface: #232340; --surface2: #2a2a4a;
+    --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.06);
+    --text: #e4e4ec; --text-muted: #9494ae; --text-faint: #5e5e78;
+    --red: #e74c3c; --green: #2ecc71; --blue: #3498db; --orange: #f39c12;
+    --yellow: #f1c40f; --pink: #e91e63; --cyan: #00bcd4; --white: #ecf0f1;
+    --radius: 10px; --radius-sm: 6px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+  /* TOPBAR */
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; z-index: 10; }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .topbar-left h1 { font-size: 16px; font-weight: 600; }
+  .topbar-left .show-name { font-size: 13px; color: var(--text-muted); }
+  .top-btn { padding: 6px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: none; color: var(--text-muted); font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .top-btn:hover { background: var(--surface2); color: var(--text); }
+  .top-btn.primary { background: var(--purple); color: white; border-color: var(--purple); }
+  .top-btn.primary:hover { background: var(--purple-dark); }
+
+  /* MAIN LAYOUT */
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  /* TOOLBAR (left) */
+  .tool-sidebar { width: 52px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 10px 0; gap: 4px; flex-shrink: 0; }
+  .tool-btn { width: 40px; height: 40px; border: none; border-radius: var(--radius-sm); background: none; color: var(--text-muted); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .tool-btn:hover { background: var(--surface2); color: var(--text); }
+  .tool-btn.active { background: var(--purple); color: white; }
+  .tool-divider { width: 28px; height: 1px; background: var(--border); margin: 4px 0; }
+  .tool-color { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; margin: 2px 0; }
+  .tool-color.active { border-color: white; box-shadow: 0 0 0 2px var(--purple); }
+
+  /* PDF VIEWER (center) */
+  .viewer { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #111; }
+  .page-nav { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 8px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .page-nav button { padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: none; color: var(--text-muted); font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .page-nav button:hover { background: var(--surface2); }
+  .page-nav span { font-size: 13px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+  .canvas-wrap { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 20px; position: relative; }
+  .canvas-container { position: relative; box-shadow: 0 4px 24px rgba(0,0,0,0.5); }
+  .canvas-container canvas { display: block; }
+  #draw-canvas { position: absolute; top: 0; left: 0; cursor: crosshair; touch-action: none; }
+
+  /* CUE PANEL (right) */
+  .cue-panel { width: 300px; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+  .cue-panel-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .cue-panel-header h3 { font-size: 14px; font-weight: 600; }
+  .cue-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .cue-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--radius-sm); margin-bottom: 4px; font-size: 13px; cursor: pointer; transition: background 0.1s; }
+  .cue-item:hover { background: var(--surface2); }
+  .cue-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .cue-id { font-family: 'DM Mono', monospace; font-weight: 600; font-size: 12px; min-width: 50px; }
+  .cue-desc { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+  .cue-page { font-size: 11px; color: var(--text-faint); flex-shrink: 0; }
+  .cue-add { padding: 12px 16px; border-top: 1px solid var(--border); }
+  .cue-add input, .cue-add select { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface2); color: var(--text); font-size: 13px; font-family: 'DM Sans', sans-serif; margin-bottom: 6px; }
+  .cue-add input:focus, .cue-add select:focus { outline: none; border-color: var(--purple); }
+  .cue-add button { width: 100%; padding: 8px; border: none; border-radius: var(--radius-sm); background: var(--purple); color: white; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+
+  /* UPLOAD SCREEN */
+  .upload-screen { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 100; flex-direction: column; gap: 20px; }
+  .upload-card { background: var(--surface); border-radius: var(--radius); padding: 40px; text-align: center; max-width: 450px; width: 90%; }
+  .upload-card h2 { font-size: 22px; margin-bottom: 6px; }
+  .upload-card p { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; }
+  .upload-area { border: 2px dashed var(--border); border-radius: var(--radius); padding: 40px 20px; cursor: pointer; transition: all 0.15s; margin-bottom: 16px; }
+  .upload-area:hover { border-color: var(--purple); background: rgba(83,74,183,0.1); }
+  .upload-area input { display: none; }
+  .upload-area .icon { font-size: 36px; margin-bottom: 8px; }
+  .upload-area .label { font-size: 14px; color: var(--text-muted); }
+  .recent-shows { text-align: left; }
+  .recent-shows h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-faint); margin-bottom: 8px; }
+  .recent-show { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--radius-sm); cursor: pointer; transition: background 0.1s; }
+  .recent-show:hover { background: var(--surface2); }
+  .recent-show .rs-name { font-weight: 500; font-size: 14px; }
+  .recent-show .rs-meta { font-size: 12px; color: var(--text-faint); }
+
+  /* CUE TYPE MANAGER */
+  .type-manager { padding: 12px 16px; border-top: 1px solid var(--border); }
+  .type-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 12px; }
+  .type-color { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; cursor: pointer; }
+  .type-label { flex: 1; }
+  .type-del { border: none; background: none; color: var(--text-faint); cursor: pointer; font-size: 12px; padding: 2px 4px; }
+  .type-del:hover { color: var(--red); }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--text); padding: 10px 20px; border-radius: 99px; font-size: 13px; border: 1px solid var(--border); z-index: 999; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 768px) {
+    .cue-panel { width: 100%; position: fixed; bottom: 0; left: 0; right: 0; height: 45vh; z-index: 20; transform: translateY(100%); transition: transform 0.3s; border-top: 1px solid var(--border); border-left: none; }
+    .cue-panel.open { transform: translateY(0); }
+    .tool-sidebar { width: 44px; }
+    .tool-btn { width: 34px; height: 34px; font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- UPLOAD SCREEN -->
+<div class="upload-screen" id="upload-screen">
+  <div class="upload-card">
+    <h2>MMT Cues</h2>
+    <p>Upload a script to start marking cues</p>
+    <div class="upload-area" onclick="document.getElementById('pdf-input').click()">
+      <input type="file" id="pdf-input" accept="application/pdf" onchange="loadPDF(this.files[0])" />
+      <div class="icon">📄</div>
+      <div class="label">Tap to upload PDF script</div>
+    </div>
+    <div class="recent-shows" id="recent-shows"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none;height:100vh;display:none;flex-direction:column;">
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1>MMT Cues</h1>
+      <span class="show-name" id="show-name"></span>
+    </div>
+    <div style="display:flex;gap:6px;">
+      <button class="top-btn" id="toggle-cues" onclick="toggleCuePanel()">Cues ▸</button>
+      <button class="top-btn" onclick="exportCueSheet()">Export Cue Sheet</button>
+      <button class="top-btn" onclick="exportAnnotatedPDF()">Export PDF</button>
+      <button class="top-btn" onclick="goHome()">← Back</button>
+    </div>
+  </div>
+  <div class="main">
+    <!-- TOOL SIDEBAR -->
+    <div class="tool-sidebar">
+      <button class="tool-btn active" id="tool-pen" onclick="setTool('pen')" title="Pen">✏️</button>
+      <button class="tool-btn" id="tool-cue" onclick="setTool('cue')" title="Place Cue">🔵</button>
+      <button class="tool-btn" id="tool-eraser" onclick="setTool('eraser')" title="Eraser">🧹</button>
+      <div class="tool-divider"></div>
+      <button class="tool-btn" onclick="undo()" title="Undo">↩</button>
+      <button class="tool-btn" onclick="clearPage()" title="Clear Page">🗑</button>
+      <div class="tool-divider"></div>
+      <div id="color-swatches"></div>
+      <div class="tool-divider"></div>
+      <input type="range" min="1" max="8" value="2" id="pen-size" style="width:36px;writing-mode:vertical-lr;height:60px;accent-color:var(--purple);" title="Pen size" />
+    </div>
+
+    <!-- PDF VIEWER -->
+    <div class="viewer">
+      <div class="page-nav">
+        <button onclick="prevPage()">◀ Prev</button>
+        <span id="page-info">Page 1 / 1</span>
+        <button onclick="nextPage()">Next ▶</button>
+      </div>
+      <div class="canvas-wrap" id="canvas-wrap">
+        <div class="canvas-container" id="canvas-container">
+          <canvas id="pdf-canvas"></canvas>
+          <canvas id="draw-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- CUE PANEL -->
+    <div class="cue-panel" id="cue-panel">
+      <div class="cue-panel-header">
+        <h3>Cue Sheet</h3>
+        <span style="font-size:12px;color:var(--text-faint);" id="cue-count">0 cues</span>
+      </div>
+      <div class="cue-list" id="cue-list"></div>
+      <div class="cue-add">
+        <select id="cue-type-sel"></select>
+        <input type="text" id="cue-num" placeholder="Cue # (e.g. LX 1)" />
+        <input type="text" id="cue-desc" placeholder="Description (optional)" />
+        <button onclick="addCue()">+ Add Cue to Page</button>
+      </div>
+      <div class="type-manager">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-faint);">Cue Types</span>
+          <button class="top-btn" style="font-size:11px;padding:3px 8px;" onclick="addCueType()">+ Type</button>
+        </div>
+        <div id="type-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let pdfDoc = null, currentPage = 1, totalPages = 0;
+let currentTool = 'pen';
+let penColor = '#e74c3c';
+let penSize = 2;
+let isDrawing = false;
+let showId = '';
+
+// Cue types: { id, name, color }
+let cueTypes = [
+  { id: 'lx', name: 'LX', color: '#e74c3c' },
+  { id: 'sfx', name: 'SFX', color: '#3498db' },
+  { id: 'fly', name: 'FLY', color: '#2ecc71' },
+  { id: 'spot', name: 'SPOT', color: '#f1c40f' },
+];
+
+// Cues: { id, type, number, description, page }
+let cues = [];
+
+// Annotations per page: { [page]: [ {type:'stroke', points:[], color, size} | {type:'cue', x, y, cueId} ] }
+let annotations = {};
+let undoStack = {};
+
+function toast(m) { const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000); }
+
+// ── PDF LOADING ──────────────────────────────────────────────────────────────
+function loadPDF(file) {
+  if (!file) return;
+  showId = file.name.replace(/\.[^.]+$/, '').replace(/[^a-z0-9]/gi, '_');
+  document.getElementById('show-name').textContent = file.name.replace(/\.[^.]+$/, '');
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const data = new Uint8Array(e.target.result);
+    pdfDoc = await pdfjsLib.getDocument({ data }).promise;
+    totalPages = pdfDoc.numPages;
+    currentPage = 1;
+
+    // Load saved data
+    loadShowData();
+
+    document.getElementById('upload-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+
+    renderPage();
+    renderCueTypes();
+    renderCueList();
+    renderColorSwatches();
+    saveToRecent(file.name);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function renderPage() {
+  const page = await pdfDoc.getPage(currentPage);
+  const scale = 1.5;
+  const viewport = page.getViewport({ scale });
+
+  const pdfCanvas = document.getElementById('pdf-canvas');
+  const drawCanvas = document.getElementById('draw-canvas');
+  pdfCanvas.width = viewport.width;
+  pdfCanvas.height = viewport.height;
+  drawCanvas.width = viewport.width;
+  drawCanvas.height = viewport.height;
+
+  const ctx = pdfCanvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport }).promise;
+
+  // Redraw annotations for this page
+  redrawAnnotations();
+  document.getElementById('page-info').textContent = `Page ${currentPage} / ${totalPages}`;
+}
+
+function prevPage() { if (currentPage > 1) { savePageAnnotations(); currentPage--; renderPage(); } }
+function nextPage() { if (currentPage < totalPages) { savePageAnnotations(); currentPage++; renderPage(); } }
+
+// ── DRAWING ──────────────────────────────────────────────────────────────────
+const drawCanvas = document.getElementById('draw-canvas');
+let currentStroke = null;
+
+function getPos(e) {
+  const rect = drawCanvas.getBoundingClientRect();
+  const scaleX = drawCanvas.width / rect.width;
+  const scaleY = drawCanvas.height / rect.height;
+  const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+  const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+  return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+}
+
+drawCanvas.addEventListener('pointerdown', e => {
+  if (currentTool === 'cue') return;
+  e.preventDefault();
+  isDrawing = true;
+  const pos = getPos(e);
+  const color = currentTool === 'eraser' ? 'erase' : penColor;
+  const size = currentTool === 'eraser' ? 20 : parseInt(document.getElementById('pen-size').value);
+  currentStroke = { type: 'stroke', points: [pos], color, size };
+  drawCanvas.setPointerCapture(e.pointerId);
+});
+
+drawCanvas.addEventListener('pointermove', e => {
+  if (!isDrawing || !currentStroke) return;
+  e.preventDefault();
+  const pos = getPos(e);
+  currentStroke.points.push(pos);
+  // Draw incrementally
+  const ctx = drawCanvas.getContext('2d');
+  const pts = currentStroke.points;
+  if (pts.length < 2) return;
+  ctx.beginPath();
+  if (currentStroke.color === 'erase') {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.strokeStyle = 'rgba(0,0,0,1)';
+  } else {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = currentStroke.color;
+  }
+  ctx.lineWidth = currentStroke.size;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.moveTo(pts[pts.length-2].x, pts[pts.length-2].y);
+  ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y);
+  ctx.stroke();
+  ctx.globalCompositeOperation = 'source-over';
+});
+
+drawCanvas.addEventListener('pointerup', e => {
+  if (!isDrawing) return;
+  isDrawing = false;
+  if (currentStroke && currentStroke.points.length > 1) {
+    if (!annotations[currentPage]) annotations[currentPage] = [];
+    if (!undoStack[currentPage]) undoStack[currentPage] = [];
+    annotations[currentPage].push(currentStroke);
+    undoStack[currentPage].push(currentStroke);
+    saveShowData();
+  }
+  currentStroke = null;
+});
+
+// Cue placement
+drawCanvas.addEventListener('click', e => {
+  if (currentTool !== 'cue') return;
+  const pos = getPos(e);
+  // Auto-create cue at click position
+  const typeId = document.getElementById('cue-type-sel').value;
+  const type = cueTypes.find(t => t.id === typeId);
+  if (!type) { toast('Select a cue type first'); return; }
+
+  const num = document.getElementById('cue-num').value.trim();
+  const desc = document.getElementById('cue-desc').value.trim();
+  const cueId = Date.now().toString();
+
+  cues.push({ id: cueId, type: typeId, number: num || (type.name + ' ' + (cues.filter(c=>c.type===typeId).length+1)), description: desc, page: currentPage });
+
+  if (!annotations[currentPage]) annotations[currentPage] = [];
+  annotations[currentPage].push({ type: 'cue', x: pos.x, y: pos.y, cueId, color: type.color, label: num || (type.name + ' ' + cues.filter(c=>c.type===typeId).length) });
+
+  document.getElementById('cue-num').value = '';
+  document.getElementById('cue-desc').value = '';
+  redrawAnnotations();
+  renderCueList();
+  saveShowData();
+  toast('Cue placed');
+});
+
+function redrawAnnotations() {
+  const ctx = drawCanvas.getContext('2d');
+  ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  const anns = annotations[currentPage] || [];
+  anns.forEach(a => {
+    if (a.type === 'stroke') {
+      ctx.beginPath();
+      if (a.color === 'erase') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.strokeStyle = 'rgba(0,0,0,1)';
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = a.color;
+      }
+      ctx.lineWidth = a.size;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (let i = 0; i < a.points.length; i++) {
+        if (i === 0) ctx.moveTo(a.points[i].x, a.points[i].y);
+        else ctx.lineTo(a.points[i].x, a.points[i].y);
+      }
+      ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+    } else if (a.type === 'cue') {
+      // Draw cue marker
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 14, 0, Math.PI * 2);
+      ctx.fillStyle = a.color;
+      ctx.fill();
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Label
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 9px "DM Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(a.label || '?', a.x, a.y);
+    }
+  });
+}
+
+function undo() {
+  const anns = annotations[currentPage];
+  if (!anns || !anns.length) return;
+  anns.pop();
+  redrawAnnotations();
+  saveShowData();
+}
+
+function clearPage() {
+  if (!confirm('Clear all annotations on this page?')) return;
+  annotations[currentPage] = [];
+  redrawAnnotations();
+  saveShowData();
+}
+
+// ── TOOLS ────────────────────────────────────────────────────────────────────
+function setTool(tool) {
+  currentTool = tool;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById('tool-' + tool);
+  if (el) el.classList.add('active');
+  drawCanvas.style.cursor = tool === 'cue' ? 'cell' : tool === 'eraser' ? 'grab' : 'crosshair';
+}
+
+function renderColorSwatches() {
+  const el = document.getElementById('color-swatches');
+  el.innerHTML = cueTypes.map(t =>
+    `<div class="tool-color${penColor === t.color ? ' active' : ''}" style="background:${t.color}" onclick="setPenColor('${t.color}')" title="${t.name}"></div>`
+  ).join('') + `<div class="tool-color${penColor === '#ecf0f1' ? ' active' : ''}" style="background:#ecf0f1" onclick="setPenColor('#ecf0f1')" title="White"></div>`;
+}
+
+function setPenColor(c) { penColor = c; renderColorSwatches(); setTool('pen'); }
+
+// ── CUE TYPES ────────────────────────────────────────────────────────────────
+function renderCueTypes() {
+  document.getElementById('type-list').innerHTML = cueTypes.map((t, i) =>
+    `<div class="type-row"><div class="type-color" style="background:${t.color}" onclick="editTypeColor(${i})"></div><span class="type-label">${t.name}</span><button class="type-del" onclick="deleteCueType(${i})">×</button></div>`
+  ).join('');
+  document.getElementById('cue-type-sel').innerHTML = cueTypes.map(t =>
+    `<option value="${t.id}">${t.name}</option>`
+  ).join('');
+  renderColorSwatches();
+}
+
+function addCueType() {
+  const name = prompt('New cue type name (e.g. VIDEO, PYRO):');
+  if (!name) return;
+  const colors = ['#e74c3c','#3498db','#2ecc71','#f1c40f','#e91e63','#00bcd4','#f39c12','#9b59b6'];
+  const color = colors[cueTypes.length % colors.length];
+  cueTypes.push({ id: name.toLowerCase().replace(/\s+/g,'_'), name: name.toUpperCase(), color });
+  renderCueTypes();
+  saveShowData();
+  toast(name + ' added');
+}
+
+function deleteCueType(i) {
+  if (!confirm('Delete "' + cueTypes[i].name + '" cue type?')) return;
+  cueTypes.splice(i, 1);
+  renderCueTypes();
+  saveShowData();
+}
+
+function editTypeColor(i) {
+  const c = prompt('Hex color for ' + cueTypes[i].name + ' (e.g. #ff0000):', cueTypes[i].color);
+  if (c && /^#[0-9a-f]{6}$/i.test(c)) { cueTypes[i].color = c; renderCueTypes(); saveShowData(); }
+}
+
+// ── CUE LIST ─────────────────────────────────────────────────────────────────
+function renderCueList() {
+  const sorted = [...cues].sort((a, b) => a.page - b.page || a.number.localeCompare(b.number));
+  document.getElementById('cue-count').textContent = cues.length + ' cue' + (cues.length !== 1 ? 's' : '');
+  document.getElementById('cue-list').innerHTML = sorted.length
+    ? sorted.map(c => {
+        const t = cueTypes.find(t => t.id === c.type);
+        return `<div class="cue-item" onclick="goToPage(${c.page})"><div class="cue-dot" style="background:${t ? t.color : '#999'}"></div><span class="cue-id">${c.number}</span><span class="cue-desc">${c.description || ''}</span><span class="cue-page">p.${c.page}</span></div>`;
+      }).join('')
+    : '<div style="padding:20px;text-align:center;color:var(--text-faint);font-size:13px;">No cues yet.<br>Select the 🔵 tool and tap on the script to place cues.</div>';
+}
+
+function addCue() {
+  const typeId = document.getElementById('cue-type-sel').value;
+  const num = document.getElementById('cue-num').value.trim();
+  const desc = document.getElementById('cue-desc').value.trim();
+  if (!typeId) { toast('Select a type'); return; }
+  const type = cueTypes.find(t => t.id === typeId);
+  cues.push({ id: Date.now().toString(), type: typeId, number: num || (type.name + ' ' + (cues.filter(c=>c.type===typeId).length+1)), description: desc, page: currentPage });
+  document.getElementById('cue-num').value = '';
+  document.getElementById('cue-desc').value = '';
+  renderCueList();
+  saveShowData();
+  toast('Cue added to page ' + currentPage);
+}
+
+function goToPage(p) { if (p !== currentPage) { savePageAnnotations(); currentPage = p; renderPage(); } }
+
+function toggleCuePanel() {
+  const panel = document.getElementById('cue-panel');
+  panel.classList.toggle('open');
+  document.getElementById('toggle-cues').textContent = panel.classList.contains('open') ? 'Cues ◂' : 'Cues ▸';
+}
+
+// ── SAVE/LOAD ────────────────────────────────────────────────────────────────
+function savePageAnnotations() { /* annotations are saved per-stroke already */ }
+
+function saveShowData() {
+  if (!showId) return;
+  try {
+    localStorage.setItem('mmt_cues_' + showId, JSON.stringify({ cueTypes, cues, annotations }));
+  } catch(e) {}
+}
+
+function loadShowData() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('mmt_cues_' + showId) || 'null');
+    if (saved) {
+      if (saved.cueTypes) cueTypes = saved.cueTypes;
+      if (saved.cues) cues = saved.cues;
+      if (saved.annotations) annotations = saved.annotations;
+    }
+  } catch(e) {}
+}
+
+function saveToRecent(fileName) {
+  try {
+    let recent = JSON.parse(localStorage.getItem('mmt_cues_recent') || '[]');
+    recent = recent.filter(r => r.id !== showId);
+    recent.unshift({ id: showId, name: fileName.replace(/\.[^.]+$/, ''), date: new Date().toLocaleDateString() });
+    if (recent.length > 5) recent = recent.slice(0, 5);
+    localStorage.setItem('mmt_cues_recent', JSON.stringify(recent));
+  } catch(e) {}
+}
+
+function goHome() {
+  saveShowData();
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('upload-screen').style.display = 'flex';
+  loadRecent();
+}
+
+function loadRecent() {
+  try {
+    const recent = JSON.parse(localStorage.getItem('mmt_cues_recent') || '[]');
+    const el = document.getElementById('recent-shows');
+    if (recent.length) {
+      el.innerHTML = '<h4>Recent Scripts</h4>' + recent.map(r =>
+        `<div class="recent-show" onclick="toast('Re-upload the PDF to continue where you left off — annotations are saved')"><span class="rs-name">${r.name}</span><span class="rs-meta">${r.date}</span></div>`
+      ).join('');
+    }
+  } catch(e) {}
+}
+loadRecent();
+
+// ── EXPORT ───────────────────────────────────────────────────────────────────
+function exportCueSheet() {
+  const sorted = [...cues].sort((a, b) => a.page - b.page || a.number.localeCompare(b.number));
+  if (!sorted.length) { toast('No cues to export'); return; }
+  let csv = 'Cue,Type,Page,Description\n';
+  sorted.forEach(c => {
+    const t = cueTypes.find(t => t.id === c.type);
+    csv += `"${c.number}","${t ? t.name : ''}",${c.page},"${c.description || ''}"\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = (showId || 'cue-sheet') + '.csv'; a.click();
+  toast('Cue sheet exported');
+}
+
+async function exportAnnotatedPDF() {
+  toast('Preparing export...');
+  // For each page, merge PDF canvas + annotation canvas
+  const { jsPDF } = await import('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.es.min.js');
+  const firstPage = await pdfDoc.getPage(1);
+  const vp = firstPage.getViewport({ scale: 1.5 });
+  const pdf = new jsPDF({ orientation: vp.width > vp.height ? 'l' : 'p', unit: 'px', format: [vp.width, vp.height] });
+
+  for (let p = 1; p <= totalPages; p++) {
+    if (p > 1) pdf.addPage([vp.width, vp.height], vp.width > vp.height ? 'l' : 'p');
+    const page = await pdfDoc.getPage(p);
+    const viewport = page.getViewport({ scale: 1.5 });
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = viewport.width; tmpCanvas.height = viewport.height;
+    const ctx = tmpCanvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    // Draw annotations on top
+    const anns = annotations[p] || [];
+    anns.forEach(a => {
+      if (a.type === 'stroke' && a.color !== 'erase') {
+        ctx.beginPath(); ctx.strokeStyle = a.color; ctx.lineWidth = a.size;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        a.points.forEach((pt, i) => { if (i === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y); });
+        ctx.stroke();
+      } else if (a.type === 'cue') {
+        ctx.beginPath(); ctx.arc(a.x, a.y, 14, 0, Math.PI*2);
+        ctx.fillStyle = a.color; ctx.fill();
+        ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = 'white'; ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(a.label || '?', a.x, a.y);
+      }
+    });
+    pdf.addImage(tmpCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, viewport.width, viewport.height);
+  }
+  pdf.save((showId || 'annotated-script') + '.pdf');
+  toast('PDF exported');
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'ArrowLeft') prevPage();
+  if (e.key === 'ArrowRight') nextPage();
+  if (e.key === 'p') setTool('pen');
+  if (e.key === 'c') setTool('cue');
+  if (e.key === 'e') setTool('eraser');
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
+});
+</script>
+</body>
+</html>
