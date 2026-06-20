@@ -962,18 +962,19 @@
 
     <div class="settings-section">
       <h3>Team Dashboard</h3>
-      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Control what your crew sees on the team dashboard. <a href="team.html" target="_blank" style="color:var(--purple);">Open team dashboard ↗</a></p>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Control what your crew sees. <a href="team.html" target="_blank" style="color:var(--purple);">Open team dashboard ↗</a></p>
       <label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px;">Visible Task Lists (one per line)</label>
       <textarea id="tc-lists" style="width:100%;min-height:80px;resize:vertical;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);margin-bottom:12px;"></textarea>
-      <label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px;">Crew Names (one per line)</label>
-      <textarea id="tc-names" style="width:100%;min-height:80px;resize:vertical;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);margin-bottom:12px;"></textarea>
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px;">Crew Members &amp; PINs</label>
+      <p style="font-size:12px;color:var(--text-faint);margin-bottom:8px;">One per line: Name, PIN (4 digits). Crew uses their PIN to log in.</p>
+      <textarea id="tc-crew" style="width:100%;min-height:100px;resize:vertical;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);margin-bottom:12px;" placeholder="Alex, 1111&#10;Ben, 2222&#10;Chris, 3333"></textarea>
       <button class="btn-confirm" onclick="saveTeamConfig()" style="width:100%;">Save Team Config</button>
       <div id="tc-status" style="font-size:12px;color:var(--text-muted);margin-top:8px;"></div>
     </div>
 
   </div>
 </div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-2</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-3</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -1803,31 +1804,56 @@ function loadTeamConfig() {
   jsonp(SCRIPT_URL + '?action=getTeamConfig&_=' + Date.now(), d => {
     if (d.success && d.teamConfig) {
       const listsEl = document.getElementById('tc-lists');
-      const namesEl = document.getElementById('tc-names');
+      const crewEl = document.getElementById('tc-crew');
       if (listsEl && d.teamConfig.visibleLists) listsEl.value = d.teamConfig.visibleLists.join('\n');
-      if (namesEl && d.teamConfig.crewNames) namesEl.value = d.teamConfig.crewNames.join('\n');
+      if (crewEl) {
+        const names = d.teamConfig.crewNames || [];
+        const pins = d.teamConfig.crewPins || {};
+        crewEl.value = names.map(n => n + ', ' + (pins[n] || '0000')).join('\n');
+      }
     }
   }, () => {});
 }
 
 async function saveTeamConfig() {
   const listsEl = document.getElementById('tc-lists');
-  const namesEl = document.getElementById('tc-names');
+  const crewEl = document.getElementById('tc-crew');
   const status = document.getElementById('tc-status');
   const visibleLists = listsEl.value.split('\n').map(s => s.trim()).filter(Boolean);
-  const crewNames = namesEl.value.split('\n').map(s => s.trim()).filter(Boolean);
+  
+  // Parse crew lines: "Name, PIN"
+  const crewNames = [];
+  const crewPins = {};
+  const seenPins = {};
+  let error = '';
+  crewEl.value.split('\n').forEach(line => {
+    line = line.trim();
+    if (!line) return;
+    const parts = line.split(',').map(s => s.trim());
+    const name = parts[0];
+    const pin = parts[1] || '';
+    if (!name) return;
+    if (!/^\d{4}$/.test(pin)) { error = name + ' needs a 4-digit PIN'; return; }
+    if (seenPins[pin]) { error = name + ' and ' + seenPins[pin] + ' have the same PIN (' + pin + ')'; return; }
+    seenPins[pin] = name;
+    crewNames.push(name);
+    crewPins[name] = pin;
+  });
+
+  if (error) { toast(error); status.textContent = error; return; }
   if (!visibleLists.length) { toast('Add at least one list'); return; }
-  if (!crewNames.length) { toast('Add at least one crew name'); return; }
+  if (!crewNames.length) { toast('Add at least one crew member'); return; }
+
   status.textContent = 'Saving...';
   try {
     await fetch(SCRIPT_URL, {
       method: 'POST', headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'saveTeamConfig', teamConfig: { visibleLists, crewNames } }),
+      body: JSON.stringify({ action: 'saveTeamConfig', teamConfig: { visibleLists, crewNames, crewPins } }),
     });
-    status.textContent = 'Saved!';
+    status.textContent = 'Saved! Crew can use their PINs now.';
     toast('Team config updated');
   } catch(e) {
-    jsonp(SCRIPT_URL + '?action=saveTeamConfig&teamConfig=' + encodeURIComponent(JSON.stringify({ visibleLists, crewNames })) + '&_=' + Date.now(), () => { status.textContent = 'Saved!'; toast('Team config updated'); }, () => { status.textContent = 'Error saving'; });
+    jsonp(SCRIPT_URL + '?action=saveTeamConfig&teamConfig=' + encodeURIComponent(JSON.stringify({ visibleLists, crewNames, crewPins })) + '&_=' + Date.now(), () => { status.textContent = 'Saved!'; toast('Team config updated'); }, () => { status.textContent = 'Error saving'; });
   }
 }
 function closeSettings() {

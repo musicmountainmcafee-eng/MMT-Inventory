@@ -169,19 +169,6 @@
   </div>
 </div>
 
-<!-- NAME PICKER -->
-<div class="name-screen" id="name-screen">
-  <div class="name-card">
-    <h2>Who are you?</h2>
-    <p>So we know who added tasks & items</p>
-    <div class="name-list" id="name-list"></div>
-    <div class="name-other">
-      <input type="text" id="name-input" placeholder="Or type your name..." />
-      <button onclick="pickCustomName()">Go</button>
-    </div>
-  </div>
-</div>
-
 <!-- MAIN APP -->
 <div id="app">
   <div class="topbar">
@@ -191,7 +178,7 @@
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
       <button class="theme-btn" id="theme-toggle" onclick="toggleDarkMode()">🌙</button>
-      <button class="lock-btn" onclick="switchUser()">Switch User</button>
+      <button class="lock-btn" onclick="changePin()">Change PIN</button>
       <button class="lock-btn" onclick="lock()">Lock</button>
     </div>
   </div>
@@ -222,7 +209,7 @@
   </div>
 </div>
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-2</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-3</div>
 
 <script>
 // ══════════════════════════════════════════════════════════════════════════════
@@ -286,6 +273,7 @@ const CHILDRENS = [
 let userName = '';
 let lists = [], tasks = {}, shopData = {};
 let activeShopStore = '';
+let teamConfig = { visibleLists: VISIBLE_LISTS, crewNames: CREW_NAMES, crewPins: {} };
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
 function esc(s) { return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -297,32 +285,67 @@ function toast(m) { const t=document.getElementById('toast');t.textContent=m;t.c
 // ── PIN ──────────────────────────────────────────────────────────────────────
 let pinEntry = '';
 const UNLOCK_MS = 13*60*60*1000;
+let configLoaded = false;
+
+// Fetch config first so we know the PINs
+function loadTeamConfig(cb) {
+  jsonp(SCRIPT_URL+'?action=getTeamConfig&_='+Date.now(), d => {
+    if (d.success && d.teamConfig) {
+      teamConfig = d.teamConfig;
+      if (teamConfig.visibleLists && teamConfig.visibleLists.length) VISIBLE_LISTS = teamConfig.visibleLists;
+      if (teamConfig.crewNames && teamConfig.crewNames.length) CREW_NAMES = teamConfig.crewNames;
+    }
+    configLoaded = true;
+    if (cb) cb();
+  }, () => { configLoaded = true; if (cb) cb(); });
+}
+loadTeamConfig();
 
 function pinPress(v) {
   if(v==='back'){pinEntry=pinEntry.slice(0,-1);}else{if(pinEntry.length>=4)return;pinEntry+=v;}
   for(let i=0;i<4;i++)document.getElementById('d'+i).classList.toggle('filled',i<pinEntry.length);
   if(pinEntry.length===4) setTimeout(()=>{
-    if(pinEntry===PIN){document.getElementById('pin-screen').style.display='none';try{localStorage.setItem('mmt_unlock_time',String(Date.now()));}catch(e){}showNamePicker();}
-    else{document.getElementById('pin-error').textContent='Incorrect PIN';pinEntry='';for(let i=0;i<4;i++)document.getElementById('d'+i).classList.remove('filled');setTimeout(()=>document.getElementById('pin-error').textContent='',1500);}
+    // Look up who this PIN belongs to
+    const pins = teamConfig.crewPins || {};
+    let foundName = '';
+    for (const [name, pin] of Object.entries(pins)) {
+      if (pin === pinEntry) { foundName = name; break; }
+    }
+    if (foundName) {
+      userName = foundName;
+      try { localStorage.setItem('mmt_unlock_time', String(Date.now())); localStorage.setItem('mmt_team_user', foundName); } catch(e) {}
+      document.getElementById('pin-screen').style.display = 'none';
+      startApp();
+    } else {
+      document.getElementById('pin-error').textContent = 'PIN not recognized';
+      pinEntry = '';
+      for(let i=0;i<4;i++) document.getElementById('d'+i).classList.remove('filled');
+      setTimeout(() => document.getElementById('pin-error').textContent = '', 2000);
+    }
   },150);
 }
 function pinClear(){pinEntry='';for(let i=0;i<4;i++)document.getElementById('d'+i).classList.remove('filled');}
-function lock(){pinEntry='';pinClear();try{localStorage.removeItem('mmt_unlock_time');localStorage.removeItem('mmt_team_user');}catch(e){}document.getElementById('pin-screen').style.display='flex';document.getElementById('app').style.display='none';document.getElementById('name-screen').style.display='none';}
+function lock(){pinEntry='';pinClear();try{localStorage.removeItem('mmt_unlock_time');localStorage.removeItem('mmt_team_user');}catch(e){}document.getElementById('pin-screen').style.display='flex';document.getElementById('app').style.display='none';}
 document.addEventListener('keydown',e=>{if(document.getElementById('pin-screen').style.display==='none')return;if(e.key>='0'&&e.key<='9')pinPress(e.key);else if(e.key==='Backspace')pinPress('back');else if(e.key==='Escape')pinClear();});
 
 // Auto-unlock
-try{const l=parseInt(localStorage.getItem('mmt_unlock_time')||'0');if(l&&(Date.now()-l)<UNLOCK_MS){document.getElementById('pin-screen').style.display='none';const u=localStorage.getItem('mmt_team_user');if(u){userName=u;startApp();}else{showNamePicker();}}}catch(e){}
+try{const l=parseInt(localStorage.getItem('mmt_unlock_time')||'0');if(l&&(Date.now()-l)<UNLOCK_MS){const u=localStorage.getItem('mmt_team_user');if(u){userName=u;document.getElementById('pin-screen').style.display='none';startApp();}}}catch(e){}
 
-// ── NAME PICKER ──────────────────────────────────────────────────────────────
-function showNamePicker() {
-  const el = document.getElementById('name-list');
-  el.innerHTML = CREW_NAMES.map(n => `<button class="name-btn" onclick="pickName('${esc(n)}')">${esc(n)}</button>`).join('');
-  document.getElementById('name-screen').style.display = 'flex';
+// ── CHANGE PIN ──────────────────────────────────────────────────────────────
+function changePin() {
+  const newPin = prompt('Enter a new 4-digit PIN:');
+  if (!newPin || !/^\d{4}$/.test(newPin)) { toast('PIN must be exactly 4 digits'); return; }
+  // Check if PIN is already taken
+  const pins = teamConfig.crewPins || {};
+  for (const [name, pin] of Object.entries(pins)) {
+    if (pin === newPin && name !== userName) { toast('That PIN is already taken by ' + name); return; }
+  }
+  pins[userName] = newPin;
+  teamConfig.crewPins = pins;
+  // Save to server
+  fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'saveTeamConfig',teamConfig}) }).catch(()=>{});
+  toast('PIN updated!');
 }
-function pickName(n) { userName=n; try{localStorage.setItem('mmt_team_user',n);}catch(e){} document.getElementById('name-screen').style.display='none'; startApp(); }
-function pickCustomName() { const n=document.getElementById('name-input').value.trim(); if(!n){toast('Enter your name');return;} pickName(n); }
-function switchUser() { try{localStorage.removeItem('mmt_team_user');}catch(e){} document.getElementById('app').style.display='none'; showNamePicker(); }
-document.getElementById('name-input').addEventListener('keydown',e=>{if(e.key==='Enter')pickCustomName();});
 
 // ── APP ──────────────────────────────────────────────────────────────────────
 function startApp() {
