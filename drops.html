@@ -175,8 +175,8 @@
       <div><label>Name</label><input type="text" id="f-name" placeholder="e.g. Forest Backdrop" /></div>
     </div>
     <div class="form-row">
-      <div><label>Category</label><input type="text" id="f-category" placeholder="e.g. Scenic, Cyc, Leg" list="cat-list" /><datalist id="cat-list"></datalist></div>
-      <div><label>Type</label><input type="text" id="f-type" placeholder="e.g. Muslin, Printed, Scrim" list="type-list" /><datalist id="type-list"></datalist></div>
+      <div><label>Category</label><select id="f-category" onchange="handleNewOption(this,'f-category-new')"><option value="">Select...</option></select><input type="text" id="f-category-new" placeholder="Enter new category..." style="display:none;margin-top:4px;" /><datalist id="cat-list"></datalist></div>
+      <div><label>Type</label><select id="f-type" onchange="handleNewOption(this,'f-type-new')"><option value="">Select...</option></select><input type="text" id="f-type-new" placeholder="Enter new type..." style="display:none;margin-top:4px;" /></div>
     </div>
     <label>Size</label>
     <input type="text" id="f-size" placeholder="e.g. 30' x 18'" />
@@ -209,7 +209,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.20-1</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.20-2</div>
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
@@ -257,12 +257,11 @@ function renderDrops() {
   catSel.innerHTML = '<option value="">All Categories</option>' + cats.map(c=>`<option value="${esc(c)}"${c===curCat?' selected':''}>${esc(c)}</option>`).join('');
   document.getElementById('cat-list').innerHTML = cats.map(c=>`<option value="${esc(c)}">`).join('');
 
-  // Populate type filter and datalist
+  // Populate type filter
   const types = [...new Set(drops.map(d=>d.type).filter(Boolean))].sort();
   const typeSel = document.getElementById('filter-type');
   const curType = typeSel.value;
   typeSel.innerHTML = '<option value="">All Types</option>' + types.map(t=>`<option value="${esc(t)}"${t===curType?' selected':''}>${esc(t)}</option>`).join('');
-  document.getElementById('type-list').innerHTML = types.map(t=>`<option value="${esc(t)}">`).join('');
 
   const filtered = drops.filter(d => {
     if(search && !(d.name||'').toLowerCase().includes(search) && !(d.number||'').toLowerCase().includes(search) && !(d.notes||'').toLowerCase().includes(search) && !(d.category||'').toLowerCase().includes(search)) return false;
@@ -334,10 +333,54 @@ function populateNumberDropdown(currentNumber) {
   sel.innerHTML = '<option value="">Select...</option>';
   for (let i = 1; i <= 200; i++) {
     const num = String(i);
-    // Skip if taken by another drop (allow the current drop's own number)
     if (taken.includes(num) && num !== currentNumber) continue;
     sel.innerHTML += `<option value="${num}"${num === currentNumber ? ' selected' : ''}>${num}</option>`;
   }
+}
+
+function populateFormDropdowns(currentType, currentCategory) {
+  const types = [...new Set(drops.map(d=>d.type).filter(Boolean))].sort();
+  const cats = [...new Set(drops.map(d=>d.category).filter(Boolean))].sort();
+
+  const typeSel = document.getElementById('f-type');
+  typeSel.innerHTML = '<option value="">Select...</option>' +
+    types.map(t => `<option value="${esc(t)}"${t===currentType?' selected':''}>${esc(t)}</option>`).join('') +
+    '<option value="__new__">+ Add new type...</option>';
+  document.getElementById('f-type-new').style.display = currentType && !types.includes(currentType) ? 'block' : 'none';
+  document.getElementById('f-type-new').value = '';
+  if (currentType && !types.includes(currentType)) {
+    typeSel.innerHTML = '<option value="">Select...</option>' +
+      types.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('') +
+      '<option value="__new__" selected>+ Add new type...</option>';
+    document.getElementById('f-type-new').value = currentType;
+    document.getElementById('f-type-new').style.display = 'block';
+  }
+
+  const catSel = document.getElementById('f-category');
+  catSel.innerHTML = '<option value="">Select...</option>' +
+    cats.map(c => `<option value="${esc(c)}"${c===currentCategory?' selected':''}>${esc(c)}</option>`).join('') +
+    '<option value="__new__">+ Add new category...</option>';
+  document.getElementById('f-category-new').style.display = currentCategory && !cats.includes(currentCategory) ? 'block' : 'none';
+  document.getElementById('f-category-new').value = '';
+  if (currentCategory && !cats.includes(currentCategory)) {
+    catSel.innerHTML = '<option value="">Select...</option>' +
+      cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('') +
+      '<option value="__new__" selected>+ Add new category...</option>';
+    document.getElementById('f-category-new').value = currentCategory;
+    document.getElementById('f-category-new').style.display = 'block';
+  }
+}
+
+function handleNewOption(sel, newInputId) {
+  const inp = document.getElementById(newInputId);
+  if (sel.value === '__new__') { inp.style.display = 'block'; inp.focus(); }
+  else { inp.style.display = 'none'; inp.value = ''; }
+}
+
+function getFormValue(selectId, newInputId) {
+  const sel = document.getElementById(selectId);
+  if (sel.value === '__new__') return document.getElementById(newInputId).value.trim();
+  return sel.value;
 }
 
 function openAddDrop() {
@@ -346,9 +389,8 @@ function openAddDrop() {
   document.getElementById('btn-save').textContent = 'Add Drop';
   document.getElementById('btn-delete').style.display = 'none';
   populateNumberDropdown('');
+  populateFormDropdowns('', '');
   document.getElementById('f-name').value = '';
-  document.getElementById('f-category').value = '';
-  document.getElementById('f-type').value = 'Printed';
   document.getElementById('f-size').value = '';
   document.getElementById('f-photo').value = '';
   document.getElementById('f-photo-file').value = '';
@@ -364,9 +406,8 @@ function openEditDrop(idx) {
   document.getElementById('btn-save').textContent = 'Save Changes';
   document.getElementById('btn-delete').style.display = 'inline-block';
   populateNumberDropdown(d.number || '');
+  populateFormDropdowns(d.type || '', d.category || '');
   document.getElementById('f-name').value = d.name || '';
-  document.getElementById('f-category').value = d.category || '';
-  document.getElementById('f-type').value = d.type || 'Printed';
   document.getElementById('f-size').value = d.size || '';
   document.getElementById('f-photo').value = d.photo || '';
   document.getElementById('f-photo-file').value = '';
@@ -430,8 +471,8 @@ async function saveDrop() {
   const drop = {
     number: document.getElementById('f-number').value.trim(),
     name: document.getElementById('f-name').value.trim(),
-    category: document.getElementById('f-category').value.trim(),
-    type: document.getElementById('f-type').value,
+    category: getFormValue('f-category', 'f-category-new'),
+    type: getFormValue('f-type', 'f-type-new'),
     size: document.getElementById('f-size').value.trim(),
     photo: document.getElementById('f-photo').value.trim(),
     notes: document.getElementById('f-notes').value.trim(),
