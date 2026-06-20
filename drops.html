@@ -158,11 +158,7 @@
     <div class="toolbar">
       <input type="text" id="search" placeholder="Search drops..." oninput="renderDrops()" />
       <select id="filter-cat" onchange="renderDrops()"><option value="">All Categories</option></select>
-      <select id="filter-type" onchange="renderDrops()">
-        <option value="">All Types</option>
-        <option value="Printed">Printed</option>
-        <option value="Muslin">Muslin</option>
-      </select>
+      <select id="filter-type" onchange="renderDrops()"><option value="">All Types</option></select>
       <button onclick="openAddDrop()">+ Add Drop</button>
     </div>
     <div class="drop-stats" id="drop-stats"></div>
@@ -180,7 +176,7 @@
     </div>
     <div class="form-row">
       <div><label>Category</label><input type="text" id="f-category" placeholder="e.g. Scenic, Cyc, Leg" list="cat-list" /><datalist id="cat-list"></datalist></div>
-      <div><label>Type</label><select id="f-type"><option value="Printed">Printed</option><option value="Muslin">Muslin</option></select></div>
+      <div><label>Type</label><input type="text" id="f-type" placeholder="e.g. Muslin, Printed, Scrim" list="type-list" /><datalist id="type-list"></datalist></div>
     </div>
     <label>Size</label>
     <input type="text" id="f-size" placeholder="e.g. 30' x 18'" />
@@ -213,7 +209,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-3</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.20-1</div>
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
@@ -259,8 +255,14 @@ function renderDrops() {
   const catSel = document.getElementById('filter-cat');
   const curCat = catSel.value;
   catSel.innerHTML = '<option value="">All Categories</option>' + cats.map(c=>`<option value="${esc(c)}"${c===curCat?' selected':''}>${esc(c)}</option>`).join('');
-  // Populate datalist
   document.getElementById('cat-list').innerHTML = cats.map(c=>`<option value="${esc(c)}">`).join('');
+
+  // Populate type filter and datalist
+  const types = [...new Set(drops.map(d=>d.type).filter(Boolean))].sort();
+  const typeSel = document.getElementById('filter-type');
+  const curType = typeSel.value;
+  typeSel.innerHTML = '<option value="">All Types</option>' + types.map(t=>`<option value="${esc(t)}"${t===curType?' selected':''}>${esc(t)}</option>`).join('');
+  document.getElementById('type-list').innerHTML = types.map(t=>`<option value="${esc(t)}">`).join('');
 
   const filtered = drops.filter(d => {
     if(search && !(d.name||'').toLowerCase().includes(search) && !(d.number||'').toLowerCase().includes(search) && !(d.notes||'').toLowerCase().includes(search) && !(d.category||'').toLowerCase().includes(search)) return false;
