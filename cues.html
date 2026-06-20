@@ -111,13 +111,16 @@
 <div class="upload-screen" id="upload-screen">
   <div class="upload-card">
     <h2>MMT Cues</h2>
-    <p>Upload a script to start marking cues</p>
+    <p>Upload a new script or open a saved one</p>
     <div class="upload-area" onclick="document.getElementById('pdf-input').click()">
-      <input type="file" id="pdf-input" accept="application/pdf" onchange="loadPDF(this.files[0])" />
+      <input type="file" id="pdf-input" accept="application/pdf" onchange="uploadAndLoadPDF(this.files[0])" />
       <div class="icon">📄</div>
-      <div class="label">Tap to upload PDF script</div>
+      <div class="label">Tap to upload new PDF script</div>
     </div>
-    <div class="recent-shows" id="recent-shows"></div>
+    <div id="drive-scripts">
+      <h4 style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text-faint);margin-bottom:8px;">Saved Scripts</h4>
+      <div id="script-list" style="color:var(--text-faint);font-size:13px;">Loading...</div>
+    </div>
   </div>
 </div>
 
@@ -219,37 +222,94 @@ let undoStack = {};
 
 function toast(m) { const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000); }
 
-// ── PDF LOADING ──────────────────────────────────────────────────────────────
-function loadPDF(file) {
-  if (!file) return;
-  showId = file.name.replace(/\.[^.]+$/, '').replace(/[^a-z0-9]/gi, '_');
-  document.getElementById('show-name').textContent = file.name.replace(/\.[^.]+$/, '');
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
 
+function jsonp(url,ok,err){const cb='cb_'+Date.now()+'_'+Math.floor(Math.random()*1e6);const s=document.createElement('script');const t=setTimeout(()=>{cleanup();err&&err();},30000);window[cb]=function(d){cleanup();ok(d);};function cleanup(){clearTimeout(t);delete window[cb];if(s.parentNode)s.parentNode.removeChild(s);}s.onerror=function(){cleanup();err&&err();};s.src=url+(url.indexOf('?')===-1?'?':'&')+'callback='+cb;document.head.appendChild(s);}
+
+// Load script list from Drive on startup
+function loadScriptList() {
+  jsonp(SCRIPT_URL + '?action=listScripts&_=' + Date.now(), d => {
+    if (d.success && d.scripts) {
+      const el = document.getElementById('script-list');
+      if (!d.scripts.length) { el.innerHTML = '<div style="padding:8px;color:var(--text-faint);">No scripts saved yet. Upload one above.</div>'; return; }
+      el.innerHTML = d.scripts.map(s =>
+        `<div class="recent-show" onclick="loadFromDrive('${s.id}','${s.name.replace(/'/g,"\\'")}')"><span class="rs-name">${s.name}</span><span class="rs-meta">${s.date}</span></div>`
+      ).join('');
+    }
+  }, () => { document.getElementById('script-list').innerHTML = '<div style="color:var(--text-faint);">Could not load scripts.</div>'; });
+}
+loadScriptList();
+
+// Upload PDF to Drive then open it
+async function uploadAndLoadPDF(file) {
+  if (!file) return;
+  toast('Uploading to Drive...');
   const reader = new FileReader();
   reader.onload = async function(e) {
-    const data = new Uint8Array(e.target.result);
-    pdfDoc = await pdfjsLib.getDocument({ data }).promise;
-    totalPages = pdfDoc.numPages;
-    currentPage = 1;
-
-    // Load saved data
-    loadShowData();
-
-    document.getElementById('upload-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-
-    renderPage();
-    renderCueTypes();
-    renderCueList();
-    renderColorSwatches();
-    saveToRecent(file.name);
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(e.target.result)));
+    // Upload to Drive
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST', headers: {'Content-Type':'text/plain'},
+        body: JSON.stringify({ action: 'uploadScript', base64, fileName: file.name })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast('Saved to Drive');
+        showId = data.fileId;
+        document.getElementById('show-name').textContent = file.name.replace(/\.[^.]+$/, '');
+        // Load the PDF
+        const pdfData = new Uint8Array(e.target.result);
+        pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
+        totalPages = pdfDoc.numPages;
+        currentPage = 1;
+        loadShowData();
+        document.getElementById('upload-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'flex';
+        renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches();
+      } else { toast('Upload failed'); }
+    } catch(err) {
+      // Fallback: load locally
+      toast('Drive upload failed, loading locally');
+      showId = file.name.replace(/\.[^.]+$/, '').replace(/[^a-z0-9]/gi, '_');
+      document.getElementById('show-name').textContent = file.name.replace(/\.[^.]+$/, '');
+      const pdfData = new Uint8Array(e.target.result);
+      pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
+      totalPages = pdfDoc.numPages; currentPage = 1;
+      loadShowData();
+      document.getElementById('upload-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches();
+    }
   };
   reader.readAsArrayBuffer(file);
 }
 
+// Load PDF from Drive by file ID
+async function loadFromDrive(fileId, name) {
+  toast('Loading ' + name + '...');
+  showId = fileId;
+  document.getElementById('show-name').textContent = name;
+  jsonp(SCRIPT_URL + '?action=loadScript&fileId=' + fileId + '&_=' + Date.now(), async d => {
+    if (d.success && d.data) {
+      const bytes = atob(d.data);
+      const arr = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+      pdfDoc = await pdfjsLib.getDocument({ data: arr }).promise;
+      totalPages = pdfDoc.numPages; currentPage = 1;
+      loadShowData();
+      document.getElementById('upload-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches();
+    } else { toast('Failed to load script'); }
+  }, () => { toast('Failed to load script'); });
+}
+
 async function renderPage() {
   const page = await pdfDoc.getPage(currentPage);
-  const scale = 1.5;
+  // Use lower scale on phones to save memory
+  const isMobile = window.innerWidth <= 768;
+  const scale = isMobile ? 1.0 : 1.5;
   const viewport = page.getViewport({ scale });
 
   const pdfCanvas = document.getElementById('pdf-canvas');
@@ -505,12 +565,20 @@ function savePageAnnotations() { /* annotations are saved per-stroke already */ 
 
 function saveShowData() {
   if (!showId) return;
-  try {
-    localStorage.setItem('mmt_cues_' + showId, JSON.stringify({ cueTypes, cues, annotations }));
-  } catch(e) {}
+  const data = { cueTypes, cues, annotations };
+  // Save locally for instant access
+  try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(data)); } catch(e) {}
+  // Sync to Sheet (debounced)
+  clearTimeout(saveShowData._t);
+  saveShowData._t = setTimeout(() => {
+    fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ action:'saveCueData', scriptId: showId, cueData: data })
+    }).catch(() => {});
+  }, 2000);
 }
 
 function loadShowData() {
+  // Local cache first
   try {
     const saved = JSON.parse(localStorage.getItem('mmt_cues_' + showId) || 'null');
     if (saved) {
@@ -519,37 +587,24 @@ function loadShowData() {
       if (saved.annotations) annotations = saved.annotations;
     }
   } catch(e) {}
-}
-
-function saveToRecent(fileName) {
-  try {
-    let recent = JSON.parse(localStorage.getItem('mmt_cues_recent') || '[]');
-    recent = recent.filter(r => r.id !== showId);
-    recent.unshift({ id: showId, name: fileName.replace(/\.[^.]+$/, ''), date: new Date().toLocaleDateString() });
-    if (recent.length > 5) recent = recent.slice(0, 5);
-    localStorage.setItem('mmt_cues_recent', JSON.stringify(recent));
-  } catch(e) {}
+  // Then fetch from Sheet
+  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(showId) + '&_=' + Date.now(), d => {
+    if (d.success && d.cueData) {
+      if (d.cueData.cueTypes) cueTypes = d.cueData.cueTypes;
+      if (d.cueData.cues) cues = d.cueData.cues;
+      if (d.cueData.annotations) annotations = d.cueData.annotations;
+      try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(d.cueData)); } catch(e) {}
+      redrawAnnotations(); renderCueTypes(); renderCueList(); renderColorSwatches();
+    }
+  }, () => {});
 }
 
 function goHome() {
   saveShowData();
   document.getElementById('app').style.display = 'none';
   document.getElementById('upload-screen').style.display = 'flex';
-  loadRecent();
+  loadScriptList();
 }
-
-function loadRecent() {
-  try {
-    const recent = JSON.parse(localStorage.getItem('mmt_cues_recent') || '[]');
-    const el = document.getElementById('recent-shows');
-    if (recent.length) {
-      el.innerHTML = '<h4>Recent Scripts</h4>' + recent.map(r =>
-        `<div class="recent-show" onclick="toast('Re-upload the PDF to continue where you left off — annotations are saved')"><span class="rs-name">${r.name}</span><span class="rs-meta">${r.date}</span></div>`
-      ).join('');
-    }
-  } catch(e) {}
-}
-loadRecent();
 
 // ── EXPORT ───────────────────────────────────────────────────────────────────
 function exportCueSheet() {
