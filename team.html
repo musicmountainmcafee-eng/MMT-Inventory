@@ -222,7 +222,7 @@
   </div>
 </div>
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-1</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-2</div>
 
 <script>
 // ══════════════════════════════════════════════════════════════════════════════
@@ -232,11 +232,25 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3
 const PIN = '1483';
 const BASE = 'https://musicmountainmcafee-eng.github.io/MMT-Inventory/';
 
-// Which task lists crew can see and add to (must match list names exactly)
-const VISIBLE_LISTS = ['Building', 'Tech To-Do', 'TO DO', 'Home Depot', 'Maintenance', 'Long Term Projects'];
+// Which task lists crew can see and add to (loaded from sheet, these are defaults)
+let VISIBLE_LISTS = ['Building', 'Tech To-Do', 'TO DO', 'Home Depot', 'Maintenance', 'Long Term Projects'];
 
-// Crew names for the picker (they can also type a custom name)
-const CREW_NAMES = ['Alex', 'Ben', 'Chris', 'Dana', 'Jamie', 'Jordan', 'Morgan', 'Riley', 'Sam', 'Taylor'];
+// Crew names for the picker (loaded from sheet, these are defaults)
+let CREW_NAMES = ['Alex', 'Ben', 'Chris', 'Dana', 'Jamie', 'Jordan', 'Morgan', 'Riley', 'Sam', 'Taylor'];
+
+// Fetch config from sheet
+function loadTeamConfig() {
+  jsonp(SCRIPT_URL+'?action=getTeamConfig&_='+Date.now(), d => {
+    if (d.success && d.teamConfig) {
+      if (d.teamConfig.visibleLists && d.teamConfig.visibleLists.length) VISIBLE_LISTS = d.teamConfig.visibleLists;
+      if (d.teamConfig.crewNames && d.teamConfig.crewNames.length) CREW_NAMES = d.teamConfig.crewNames;
+      // Re-render if already showing
+      if (document.getElementById('app').style.display === 'block') renderTasks();
+      if (document.getElementById('name-screen').style.display === 'flex') showNamePicker();
+    }
+  }, () => {});
+}
+loadTeamConfig();
 
 // Quick links
 const LINKS = [

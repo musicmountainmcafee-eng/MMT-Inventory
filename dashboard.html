@@ -960,9 +960,20 @@
       </div>
     </div>
 
+    <div class="settings-section">
+      <h3>Team Dashboard</h3>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Control what your crew sees on the team dashboard. <a href="team.html" target="_blank" style="color:var(--purple);">Open team dashboard ↗</a></p>
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px;">Visible Task Lists (one per line)</label>
+      <textarea id="tc-lists" style="width:100%;min-height:80px;resize:vertical;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);margin-bottom:12px;"></textarea>
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px;">Crew Names (one per line)</label>
+      <textarea id="tc-names" style="width:100%;min-height:80px;resize:vertical;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);margin-bottom:12px;"></textarea>
+      <button class="btn-confirm" onclick="saveTeamConfig()" style="width:100%;">Save Team Config</button>
+      <div id="tc-status" style="font-size:12px;color:var(--text-muted);margin-top:8px;"></div>
+    </div>
+
   </div>
 </div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.18-3</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-2</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -1782,8 +1793,42 @@ try { const z = parseFloat(localStorage.getItem('mmt_doc_zoom')); if (z) docZoom
 // ── SETTINGS PANEL ──────────────────────────────────────────────────────────
 function openSettings() {
   renderShowMgmt();
+  loadTeamConfig();
   document.getElementById('settings-overlay').classList.add('open');
   document.getElementById('settings-panel').classList.add('open');
+}
+
+// ── TEAM CONFIG ─────────────────────────────────────────────────────────────
+function loadTeamConfig() {
+  jsonp(SCRIPT_URL + '?action=getTeamConfig&_=' + Date.now(), d => {
+    if (d.success && d.teamConfig) {
+      const listsEl = document.getElementById('tc-lists');
+      const namesEl = document.getElementById('tc-names');
+      if (listsEl && d.teamConfig.visibleLists) listsEl.value = d.teamConfig.visibleLists.join('\n');
+      if (namesEl && d.teamConfig.crewNames) namesEl.value = d.teamConfig.crewNames.join('\n');
+    }
+  }, () => {});
+}
+
+async function saveTeamConfig() {
+  const listsEl = document.getElementById('tc-lists');
+  const namesEl = document.getElementById('tc-names');
+  const status = document.getElementById('tc-status');
+  const visibleLists = listsEl.value.split('\n').map(s => s.trim()).filter(Boolean);
+  const crewNames = namesEl.value.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!visibleLists.length) { toast('Add at least one list'); return; }
+  if (!crewNames.length) { toast('Add at least one crew name'); return; }
+  status.textContent = 'Saving...';
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'saveTeamConfig', teamConfig: { visibleLists, crewNames } }),
+    });
+    status.textContent = 'Saved!';
+    toast('Team config updated');
+  } catch(e) {
+    jsonp(SCRIPT_URL + '?action=saveTeamConfig&teamConfig=' + encodeURIComponent(JSON.stringify({ visibleLists, crewNames })) + '&_=' + Date.now(), () => { status.textContent = 'Saved!'; toast('Team config updated'); }, () => { status.textContent = 'Error saving'; });
+  }
 }
 function closeSettings() {
   document.getElementById('settings-overlay').classList.remove('open');
