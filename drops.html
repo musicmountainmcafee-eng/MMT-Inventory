@@ -184,8 +184,13 @@
     </div>
     <label>Size</label>
     <input type="text" id="f-size" placeholder="e.g. 30' x 18'" />
-    <label>Photo URL</label>
-    <input type="text" id="f-photo" placeholder="Google Drive link or image URL" />
+    <label>Photo</label>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <input type="file" id="f-photo-file" accept="image/*" capture="environment" onchange="handlePhotoUpload()" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);" />
+      <span id="photo-status" style="font-size:12px;color:var(--text-faint);align-self:center;"></span>
+    </div>
+    <input type="hidden" id="f-photo" />
+    <div id="photo-preview" style="margin-bottom:12px;display:none;"><img id="photo-preview-img" style="width:100%;max-height:200px;object-fit:cover;border-radius:var(--radius-sm);" /></div>
     <label>Notes</label>
     <textarea id="f-notes" placeholder="Condition, storage location, show history..."></textarea>
     <div class="modal-btns">
@@ -208,7 +213,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-1</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.19-2</div>
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
@@ -332,7 +337,10 @@ function openAddDrop() {
   document.getElementById('f-type').value = 'Printed';
   document.getElementById('f-size').value = '';
   document.getElementById('f-photo').value = '';
+  document.getElementById('f-photo-file').value = '';
   document.getElementById('f-notes').value = '';
+  document.getElementById('photo-preview').style.display = 'none';
+  document.getElementById('photo-status').textContent = '';
   document.getElementById('modal').classList.add('open');
 }
 function openEditDrop(idx) {
@@ -347,8 +355,60 @@ function openEditDrop(idx) {
   document.getElementById('f-type').value = d.type || 'Printed';
   document.getElementById('f-size').value = d.size || '';
   document.getElementById('f-photo').value = d.photo || '';
+  document.getElementById('f-photo-file').value = '';
   document.getElementById('f-notes').value = d.notes || '';
+  document.getElementById('photo-status').textContent = '';
+  if (d.photo) {
+    document.getElementById('photo-preview').style.display = 'block';
+    document.getElementById('photo-preview-img').src = d.photo;
+  } else {
+    document.getElementById('photo-preview').style.display = 'none';
+  }
   document.getElementById('modal').classList.add('open');
+}
+
+async function handlePhotoUpload() {
+  const file = document.getElementById('f-photo-file').files[0];
+  if (!file) return;
+  const status = document.getElementById('photo-status');
+  status.textContent = 'Uploading...';
+
+  // Show preview immediately
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('photo-preview').style.display = 'block';
+    document.getElementById('photo-preview-img').src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+
+  // Convert to base64 and upload to Drive via Apps Script
+  const b64reader = new FileReader();
+  b64reader.onload = async function(e) {
+    const base64 = e.target.result.split(',')[1];
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          action: 'uploadDropPhoto',
+          fileName: file.name || 'drop-photo.jpg',
+          mimeType: file.type || 'image/jpeg',
+          base64: base64,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.url) {
+        document.getElementById('f-photo').value = data.url;
+        status.textContent = 'Uploaded ✓';
+      } else {
+        status.textContent = 'Upload failed';
+      }
+    } catch(err) {
+      status.textContent = 'Upload failed';
+      console.error('Photo upload error:', err);
+    }
+  };
+  b64reader.readAsDataURL(file);
 }
 function closeModal() { document.getElementById('modal').classList.remove('open'); editingIdx=-1; }
 
