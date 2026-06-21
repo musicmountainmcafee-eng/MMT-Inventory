@@ -6,7 +6,12 @@
 <title>MMT Cues</title>
 <meta name="theme-color" content="#3C3489">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js">
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+</script>
 <style>
   :root {
     --purple: #534AB7; --purple-light: #EEEDFE; --purple-dark: #3C3489;
@@ -460,7 +465,45 @@ drawCanvas.addEventListener('pointerdown', e => {
         }
       }
     }
-    // Start drawing rectangle
+
+    const typeId = document.getElementById('cue-type-sel').value;
+    const type = cueTypes.find(t => t.id === typeId);
+    const isSpot = type && type.name.toLowerCase().includes('spot');
+
+    if (isSpot) {
+      // SPOT cues: single tap places a circle
+      if (!type) { toast('Select a cue type'); return; }
+      const spotCues = cues.filter(c => c.type === typeId);
+      const lastSpotNum = spotCues.length > 0 ? parseInt(spotCues[spotCues.length - 1].number.replace(/\D/g, '') || '0') : 0;
+      const nextNum = lastSpotNum === 1 ? 2 : 1; // alternate 1 and 2
+      const num = document.getElementById('cue-num').value.trim() || (type.name + ' ' + nextNum);
+      const action = document.getElementById('cue-action').value.trim();
+      const cueLine = document.getElementById('cue-line').value.trim();
+      const notes = document.getElementById('cue-desc').value.trim();
+      const cueId = Date.now().toString();
+      const labelX = drawCanvas.width - 60;
+      const labelY = pos.y;
+
+      cues.push({ id: cueId, type: typeId, number: num, action, cueLine, notes, description: notes, page: currentPage });
+      if (!annotations[currentPage]) annotations[currentPage] = [];
+      annotations[currentPage].push({
+        type: 'cue', spot: true,
+        cx: pos.x, cy: pos.y, radius: 24,
+        labelX, labelY, cueId,
+        color: type.color, label: num
+      });
+      document.getElementById('cue-num').value = '';
+      document.getElementById('cue-action').value = '';
+      document.getElementById('cue-line').value = '';
+      document.getElementById('cue-desc').value = '';
+      redrawAnnotations();
+      renderCueList();
+      saveShowData();
+      toast(num + ' placed');
+      return;
+    }
+
+    // Regular cues: start drawing rectangle
     isDrawing = true;
     cueRect = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y };
     drawCanvas.setPointerCapture(e.pointerId);
@@ -619,7 +662,39 @@ function redrawAnnotations() {
       ctx.stroke();
       ctx.globalCompositeOperation = 'source-over';
     } else if (a.type === 'cue') {
-      if (a.rect) {
+      if (a.spot) {
+        // SPOT cue: circle on the page
+        ctx.beginPath();
+        ctx.arc(a.cx, a.cy, a.radius || 24, 0, Math.PI * 2);
+        ctx.strokeStyle = a.color;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.fillStyle = a.color + '25';
+        ctx.fill();
+
+        // Connecting line from circle to label
+        ctx.beginPath();
+        ctx.moveTo(a.cx + (a.radius || 24), a.cy);
+        ctx.lineTo(a.labelX, a.labelY);
+        ctx.strokeStyle = a.color;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Label
+        ctx.font = 'bold 11px "DM Sans", sans-serif';
+        const tw = ctx.measureText(a.label).width;
+        const px = 6, py = 4;
+        ctx.fillStyle = a.color;
+        ctx.beginPath();
+        ctx.roundRect(a.labelX - px, a.labelY - 8 - py, tw + px * 2, 16 + py * 2, 4);
+        ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(a.label, a.labelX, a.labelY);
+      } else if (a.rect) {
         // New style: highlight rectangle + label + line
         const r = a.rect;
         // Highlight rectangle
@@ -912,14 +987,20 @@ function goHome() {
 function exportCueSheet() {
   const sorted = [...cues].sort((a, b) => a.page - b.page || (a.number||'').localeCompare(b.number||''));
   if (!sorted.length) { toast('No cues to export'); return; }
-  let csv = 'Type,Cue #,Action,Cue Line,Notes,Page\n';
+  const showName = document.getElementById('show-name').textContent || 'Untitled';
+  let csv = 'CUE SHEET: ' + showName + '\n';
+  csv += 'Exported: ' + new Date().toLocaleDateString() + '\n';
+  csv += '\n';
+  csv += 'Type,Cue #,Action,Cue Line,Notes,Page\n';
   sorted.forEach(c => {
     const t = cueTypes.find(t => t.id === c.type);
-    csv += `"${t ? t.name : ''}","${c.number || ''}","${c.action || ''}","${c.cueLine || ''}","${c.notes || c.description || ''}",${c.page}\n`;
+    csv += `"${t ? t.name : ''}","${c.number || ''}","${(c.action || '').replace(/"/g, '""')}","${(c.cueLine || '').replace(/"/g, '""')}","${(c.notes || c.description || '').replace(/"/g, '""')}",${c.page}\n`;
   });
+  csv += '\n';
+  csv += 'Total cues: ' + sorted.length + '\n';
   const blob = new Blob([csv], { type: 'text/csv' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = (showId || 'cue-sheet') + '.csv'; a.click();
+  a.download = showName.replace(/[^a-z0-9]/gi, '_') + '_cue_sheet.csv'; a.click();
   toast('Cue sheet exported');
 }
 
