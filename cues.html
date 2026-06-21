@@ -343,26 +343,82 @@ function getPos(e) {
   return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
 }
 
+// Cue placement - drag rectangle, label auto-snaps to right margin
+let cueRect = null;
+let draggingCue = null; // index of annotation being dragged
+
 drawCanvas.addEventListener('pointerdown', e => {
-  if (currentTool === 'cue') return;
   e.preventDefault();
-  isDrawing = true;
   const pos = getPos(e);
-  const color = currentTool === 'eraser' ? 'erase' : penColor;
-  const size = currentTool === 'eraser' ? 20 : parseInt(document.getElementById('pen-size').value);
-  currentStroke = { type: 'stroke', points: [pos], color, size };
-  drawCanvas.setPointerCapture(e.pointerId);
+
+  if (currentTool === 'cue') {
+    // Check if clicking on an existing cue label to drag it
+    const anns = annotations[currentPage] || [];
+    for (let i = anns.length - 1; i >= 0; i--) {
+      const a = anns[i];
+      if (a.type === 'cue' && a.labelX !== undefined) {
+        const ctx = drawCanvas.getContext('2d');
+        ctx.font = 'bold 11px "DM Sans", sans-serif';
+        const tw = ctx.measureText(a.label).width + 12;
+        if (pos.x >= a.labelX - 6 && pos.x <= a.labelX + tw && pos.y >= a.labelY - 12 && pos.y <= a.labelY + 12) {
+          draggingCue = i;
+          drawCanvas.setPointerCapture(e.pointerId);
+          return;
+        }
+      }
+    }
+    // Start drawing rectangle
+    isDrawing = true;
+    cueRect = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y };
+    drawCanvas.setPointerCapture(e.pointerId);
+    return;
+  }
+
+  if (currentTool === 'pen' || currentTool === 'eraser') {
+    isDrawing = true;
+    const color = currentTool === 'eraser' ? 'erase' : penColor;
+    const size = currentTool === 'eraser' ? 20 : parseInt(document.getElementById('pen-size').value);
+    currentStroke = { type: 'stroke', points: [pos], color, size };
+    drawCanvas.setPointerCapture(e.pointerId);
+  }
 });
 
 drawCanvas.addEventListener('pointermove', e => {
-  if (!isDrawing || !currentStroke) return;
   e.preventDefault();
   const pos = getPos(e);
-  currentStroke.points.push(pos);
-  // Draw incrementally
-  const ctx = drawCanvas.getContext('2d');
+
+  // Dragging a cue label
+  if (draggingCue !== null) {
+    const a = (annotations[currentPage] || [])[draggingCue];
+    if (a) { a.labelX = pos.x; a.labelY = pos.y; redrawAnnotations(); }
+    return;
+  }
+
+  if (currentTool === 'cue' && isDrawing && cueRect) {
+    cueRect.x2 = pos.x;
+    cueRect.y2 = pos.y;
+    redrawAnnotations();
+    const ctx = drawCanvas.getContext('2d');
+    const typeId = document.getElementById('cue-type-sel').value;
+    const type = cueTypes.find(t => t.id === typeId);
+    const color = type ? type.color : '#f1c40f';
+    const x = Math.min(cueRect.x1, cueRect.x2);
+    const y = Math.min(cueRect.y1, cueRect.y2);
+    const w = Math.abs(cueRect.x2 - cueRect.x1);
+    const h = Math.abs(cueRect.y2 - cueRect.y1);
+    ctx.fillStyle = color + '40';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, w, h);
+    return;
+  }
+
+  if (!isDrawing || !currentStroke) return;
   const pts = currentStroke.points;
+  currentStroke.points.push(pos);
   if (pts.length < 2) return;
+  const ctx = drawCanvas.getContext('2d');
   ctx.beginPath();
   if (currentStroke.color === 'erase') {
     ctx.globalCompositeOperation = 'destination-out';
@@ -380,6 +436,57 @@ drawCanvas.addEventListener('pointermove', e => {
 });
 
 drawCanvas.addEventListener('pointerup', e => {
+  // Finish dragging label
+  if (draggingCue !== null) {
+    draggingCue = null;
+    redrawAnnotations();
+    saveShowData();
+    return;
+  }
+
+  if (currentTool === 'cue' && isDrawing && cueRect) {
+    isDrawing = false;
+    const w = Math.abs(cueRect.x2 - cueRect.x1);
+    const h = Math.abs(cueRect.y2 - cueRect.y1);
+    if (w > 10 && h > 5) {
+      // Auto-place label on right margin
+      const typeId = document.getElementById('cue-type-sel').value;
+      const type = cueTypes.find(t => t.id === typeId);
+      if (!type) { toast('Select a cue type'); cueRect = null; redrawAnnotations(); return; }
+
+      const rect = {
+        x: Math.min(cueRect.x1, cueRect.x2),
+        y: Math.min(cueRect.y1, cueRect.y2),
+        w, h
+      };
+
+      const num = document.getElementById('cue-num').value.trim() || (type.name + ' ' + (cues.filter(c=>c.type===typeId).length+1));
+      const desc = document.getElementById('cue-desc').value.trim();
+      const cueId = Date.now().toString();
+
+      // Default label position: right margin, same Y as rectangle center
+      const labelX = drawCanvas.width - 60;
+      const labelY = rect.y + rect.h / 2;
+
+      cues.push({ id: cueId, type: typeId, number: num, description: desc, page: currentPage });
+
+      if (!annotations[currentPage]) annotations[currentPage] = [];
+      annotations[currentPage].push({
+        type: 'cue', rect, labelX, labelY, cueId,
+        color: type.color, label: num
+      });
+
+      document.getElementById('cue-num').value = '';
+      document.getElementById('cue-desc').value = '';
+      redrawAnnotations();
+      renderCueList();
+      saveShowData();
+      toast(num + ' placed — drag label to reposition');
+    }
+    cueRect = null;
+    return;
+  }
+
   if (!isDrawing) return;
   isDrawing = false;
   if (currentStroke && currentStroke.points.length > 1) {
@@ -390,32 +497,6 @@ drawCanvas.addEventListener('pointerup', e => {
     saveShowData();
   }
   currentStroke = null;
-});
-
-// Cue placement
-drawCanvas.addEventListener('click', e => {
-  if (currentTool !== 'cue') return;
-  const pos = getPos(e);
-  // Auto-create cue at click position
-  const typeId = document.getElementById('cue-type-sel').value;
-  const type = cueTypes.find(t => t.id === typeId);
-  if (!type) { toast('Select a cue type first'); return; }
-
-  const num = document.getElementById('cue-num').value.trim();
-  const desc = document.getElementById('cue-desc').value.trim();
-  const cueId = Date.now().toString();
-
-  cues.push({ id: cueId, type: typeId, number: num || (type.name + ' ' + (cues.filter(c=>c.type===typeId).length+1)), description: desc, page: currentPage });
-
-  if (!annotations[currentPage]) annotations[currentPage] = [];
-  annotations[currentPage].push({ type: 'cue', x: pos.x, y: pos.y, cueId, color: type.color, label: num || (type.name + ' ' + cues.filter(c=>c.type===typeId).length) });
-
-  document.getElementById('cue-num').value = '';
-  document.getElementById('cue-desc').value = '';
-  redrawAnnotations();
-  renderCueList();
-  saveShowData();
-  toast('Cue placed');
 });
 
 function redrawAnnotations() {
@@ -441,20 +522,61 @@ function redrawAnnotations() {
       ctx.stroke();
       ctx.globalCompositeOperation = 'source-over';
     } else if (a.type === 'cue') {
-      // Draw cue marker
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, 14, 0, Math.PI * 2);
-      ctx.fillStyle = a.color;
-      ctx.fill();
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      // Label
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 9px "DM Sans", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(a.label || '?', a.x, a.y);
+      if (a.rect) {
+        // New style: highlight rectangle + label + line
+        const r = a.rect;
+        // Highlight rectangle
+        ctx.fillStyle = a.color + '35';
+        ctx.fillRect(r.x, r.y, r.w, r.h);
+        ctx.strokeStyle = a.color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(r.x, r.y, r.w, r.h);
+
+        // Connecting line from rectangle right edge to label
+        const lineStartX = r.x + r.w;
+        const lineStartY = r.y + r.h / 2;
+        ctx.beginPath();
+        ctx.moveTo(lineStartX, lineStartY);
+        ctx.lineTo(a.labelX, a.labelY);
+        ctx.strokeStyle = a.color;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Label background
+        ctx.font = 'bold 11px "DM Sans", sans-serif';
+        const textW = ctx.measureText(a.label).width;
+        const padX = 6, padY = 4;
+        const bgX = a.labelX - padX;
+        const bgY = a.labelY - 8 - padY;
+        const bgW = textW + padX * 2;
+        const bgH = 16 + padY * 2;
+        ctx.fillStyle = a.color;
+        ctx.beginPath();
+        ctx.roundRect(bgX, bgY, bgW, bgH, 4);
+        ctx.fill();
+
+        // Label text
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(a.label, a.labelX, a.labelY);
+      } else {
+        // Legacy circle marker (old cues)
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, 14, 0, Math.PI * 2);
+        ctx.fillStyle = a.color;
+        ctx.fill();
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 9px "DM Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(a.label || '?', a.x, a.y);
+      }
     }
   });
 }
