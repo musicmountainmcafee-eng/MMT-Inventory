@@ -248,6 +248,32 @@
   .out-thumb img { width:44px;height:44px;object-fit:cover; }
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: -2px; margin-right: 6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  /* SIDEBAR NAV */
+  .hamburger { font-size: 22px; border: none; background: none; color: rgba(255,255,255,0.8); cursor: pointer; padding: 4px 8px; }
+  .hamburger:hover { color: white; }
+  @media (max-width: 768px) { .hamburger { display: none; } }
+  .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 80; display: none; }
+  .sidebar-overlay.open { display: block; }
+  .sidebar { position: fixed; top: 0; left: -280px; bottom: 0; width: 260px; background: var(--surface); z-index: 81; transition: left 0.25s ease; box-shadow: 4px 0 24px rgba(0,0,0,0.2); display: flex; flex-direction: column; }
+  .sidebar.open { left: 0; }
+  .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .sidebar-header h2 { font-size: 16px; font-weight: 600; }
+  .sidebar-close { border: none; background: none; font-size: 20px; color: var(--text-muted); cursor: pointer; padding: 4px 8px; }
+  .sidebar-nav { flex: 1; padding: 12px; }
+  .sidebar-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; text-decoration: none; color: var(--text); font-size: 15px; font-weight: 500; transition: background 0.15s; margin-bottom: 2px; }
+  .sidebar-link:hover { background: var(--bg); }
+  .sidebar-link.active { background: var(--purple); color: white; }
+  .sidebar-link .sl-icon { font-size: 20px; width: 28px; text-align: center; }
+  .sidebar-footer { padding: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-faint); }
+  .bottom-tabs { display: none; }
+  @media (max-width: 768px) {
+    .bottom-tabs { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); z-index: 60; padding: 4px 0 env(safe-area-inset-bottom, 4px); }
+    .bottom-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; text-decoration: none; color: var(--text-faint); font-size: 10px; font-weight: 500; border: none; background: none; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+    .bottom-tab.active { color: var(--purple); }
+    .bottom-tab .bt-icon { font-size: 20px; }
+    body { padding-bottom: 64px; }
+  }
+
 </style>
 </head>
 <body>
@@ -287,14 +313,9 @@
 <div class="container">
   <div class="header">
     <div class="header-left">
-      <h1>MMT Staff Portal</h1>
-      <p>Inventory management & check-in/out</p>
+      <div style="display:flex;align-items:center;gap:12px;"><button onclick="toggleSidebar()" style="font-size:22px;border:none;background:none;color:white;cursor:pointer;padding:4px 8px;">☰</button><div><h1>Inventory</h1><p>MMT Dashboard</p></div></div>
     </div>
     <div class="header-right" style="flex-wrap:wrap;">
-      <a href="dashboard.html" class="catalogue-link" style="text-decoration:none;">Dashboard</a>
-      <a href="tasks.html" class="catalogue-link" style="text-decoration:none;">Tasks</a>
-      <a href="drops.html" class="catalogue-link" style="text-decoration:none;">Drops</a>
-      <a href="cues.html" class="catalogue-link" style="text-decoration:none;">Cues</a>
       <a href="https://musicmountainmcafee-eng.github.io/MMT-Inventory/" class="catalogue-link" target="_blank">Catalogue ↗</a>
     </div>
   </div>
@@ -2158,5 +2179,26 @@ function showToast(msg, isError) {
   setTimeout(() => t.className = 'toast', 3500);
 }
 </script>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header"><h2>MMT Dashboard</h2><button class="sidebar-close" onclick="toggleSidebar()">×</button></div>
+  <nav class="sidebar-nav">
+    <a class="sidebar-link" href="dashboard.html"><span class="sl-icon">🏠</span> Home</a>
+    <a class="sidebar-link" href="tasks.html"><span class="sl-icon">📋</span> Lists</a>
+    <a class="sidebar-link active" href="staff.html"><span class="sl-icon">📦</span> Inventory</a>
+    <a class="sidebar-link" href="drops.html"><span class="sl-icon">🎭</span> Backdrops</a>
+    <a class="sidebar-link" href="cues.html"><span class="sl-icon">🎬</span> Scripts</a>
+  </nav>
+  <div class="sidebar-footer">Music Mountain Theatre</div>
+</div>
+<div class="bottom-tabs">
+  <a class="bottom-tab" href="dashboard.html"><span class="bt-icon">🏠</span>Home</a>
+  <a class="bottom-tab" href="tasks.html"><span class="bt-icon">📋</span>Lists</a>
+  <a class="bottom-tab active" href="staff.html"><span class="bt-icon">📦</span>Inventory</a>
+  <a class="bottom-tab" href="drops.html"><span class="bt-icon">🎭</span>Backdrops</a>
+  <a class="bottom-tab" href="cues.html"><span class="bt-icon">🎬</span>Scripts</a>
+</div>
+
 </body>
 </html>
