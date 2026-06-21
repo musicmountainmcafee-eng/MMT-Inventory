@@ -131,11 +131,20 @@
       <h1>MMT Cues</h1>
       <span class="show-name" id="show-name"></span>
     </div>
-    <div style="display:flex;gap:6px;">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <select class="top-btn" onchange="if(this.value)window.location.href=this.value;this.value='';" style="font-size:12px;">
+        <option value="">Go to...</option>
+        <option value="dashboard.html">TD Dashboard</option>
+        <option value="team.html">Team Dashboard</option>
+        <option value="tasks.html">Notes & Tasks</option>
+        <option value="staff.html">Staff Portal</option>
+        <option value="drops.html">Drops</option>
+        <option value="index.html">Public Catalogue</option>
+      </select>
       <button class="top-btn" id="toggle-cues" onclick="toggleCuePanel()">Cues ▸</button>
-      <button class="top-btn" onclick="exportCueSheet()">Export Cue Sheet</button>
+      <button class="top-btn" onclick="exportCueSheet()">Export Cues</button>
       <button class="top-btn" onclick="exportAnnotatedPDF()">Export PDF</button>
-      <button class="top-btn" onclick="goHome()">← Back</button>
+      <button class="top-btn" onclick="goHome()">← Scripts</button>
     </div>
   </div>
   <div class="main">
@@ -148,7 +157,7 @@
       <button class="tool-btn" onclick="undo()" title="Undo">↩</button>
       <button class="tool-btn" onclick="clearPage()" title="Clear Page">🗑</button>
       <div class="tool-divider"></div>
-      <div id="color-swatches"></div>
+      <div id="type-quick" style="display:flex;flex-direction:column;gap:3px;align-items:center;"></div>
       <div class="tool-divider"></div>
       <input type="range" min="1" max="8" value="2" id="pen-size" style="width:36px;writing-mode:vertical-lr;height:60px;accent-color:var(--purple);" title="Pen size" />
     </div>
@@ -606,13 +615,19 @@ function setTool(tool) {
 }
 
 function renderColorSwatches() {
-  const el = document.getElementById('color-swatches');
-  el.innerHTML = cueTypes.map(t =>
-    `<div class="tool-color${penColor === t.color ? ' active' : ''}" style="background:${t.color}" onclick="setPenColor('${t.color}')" title="${t.name}"></div>`
-  ).join('') + `<div class="tool-color${penColor === '#ecf0f1' ? ' active' : ''}" style="background:#ecf0f1" onclick="setPenColor('#ecf0f1')" title="White"></div>`;
+  const selType = document.getElementById('cue-type-sel').value;
+  document.getElementById('type-quick').innerHTML = cueTypes.map(t =>
+    `<button class="tool-btn" style="font-size:10px;font-weight:700;width:40px;height:28px;border:2px solid ${t.id===selType?'white':t.color};background:${t.id===selType?t.color:'transparent'};color:${t.id===selType?'white':t.color};border-radius:4px;padding:0;" onclick="quickSetType('${t.id}')" title="${t.name}">${t.name}</button>`
+  ).join('');
 }
 
-function setPenColor(c) { penColor = c; renderColorSwatches(); setTool('pen'); }
+function quickSetType(id) {
+  document.getElementById('cue-type-sel').value = id;
+  const type = cueTypes.find(t => t.id === id);
+  if (type) penColor = type.color;
+  renderColorSwatches();
+  setTool('cue');
+}
 
 // ── CUE TYPES ────────────────────────────────────────────────────────────────
 function renderCueTypes() {
