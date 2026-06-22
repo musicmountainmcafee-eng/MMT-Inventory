@@ -120,8 +120,9 @@
 
   /* Role-based visibility */
   body.crew-role .td-only { display: none !important; }
-  body.crew-role .crew-badge { display: inline-block; font-size: 10px; background: var(--purple); color: white; padding: 2px 6px; border-radius: 8px; margin-left: 6px; }
-  .crew-badge { display: none; }
+  body.crew-role .crew-badge { display: inline-block; }
+  .crew-badge { display: none; font-size: 10px; background: var(--purple); color: white; padding: 2px 6px; border-radius: 8px; margin-left: 6px; }
+  .collapsed { display: none; }
   .hamburger { font-size: 22px; border: none; background: none; color: rgba(255,255,255,0.8); cursor: pointer; padding: 4px 8px; }
   .hamburger:hover { color: white; }
   @media (max-width: 768px) { .hamburger { display: none; } }
@@ -902,7 +903,10 @@
           </div>
         </div>
         <div class="widget" style="margin-top:16px;">
-          <div class="widget-title">Recent Inventory Activity</div>
+          <div class="widget-title" onclick="document.getElementById('activity-content').classList.toggle('collapsed')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+            <span>Recent Inventory Activity</span>
+            <span style="font-size:12px;color:var(--text-faint);">▼</span>
+          </div>
           <div id="activity-content"><span class="spinner"></span>Loading activity...</div>
         </div>
       </div>
@@ -1544,12 +1548,16 @@ function renderActivity() {
   }
   el.innerHTML = activity.slice(0, 8).map(a => {
     const isIn = a.action === 'in';
+    const name = a.name || a.item || 'Unknown item';
     const detail = isIn
       ? (a.staff ? 'by ' + a.staff : '')
       : (a.who ? 'to ' + a.who : '') + (a.staff ? (a.who ? ' · ' : '') + 'by ' + a.staff : '');
     return `<div class="act-item">
       <span class="act-badge ${isIn ? 'in' : 'out'}">${isIn ? 'IN' : 'OUT'}</span>
-      <span class="item-name">${esc(a.item)}${detail ? ' <span style="color:var(--text-faint);font-size:12px;">' + esc(detail) + '</span>' : ''}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:13px;">${esc(name)}</div>
+        ${detail ? '<div style="color:var(--text-faint);font-size:11px;">' + esc(detail) + '</div>' : ''}
+      </div>
       <span class="item-when">${esc(a.when)}</span>
     </div>`;
   }).join('');
