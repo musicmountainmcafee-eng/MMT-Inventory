@@ -1105,6 +1105,8 @@ let lists = [];      // [ {name, color} ]
 let showNotes = {};
 let activity = [];   // [ {item, action: 'in'|'out', when} ]
 let customLinks = [];
+let notesShows = []; // populated on render
+let shopData = {};   // { storeName: [ {text, done} ] }
 
 // ── PIN ──────────────────────────────────────────────────────────────────────
 let pinEntry = '';
@@ -1197,8 +1199,19 @@ function lock() {
 // ── INIT ─────────────────────────────────────────────────────────────────────
 // Load crew PINs from TeamConfig
 (function loadCrewPins() {
+  // Try localStorage first (immediate)
+  try {
+    const cached = localStorage.getItem('mmt_crew_pins');
+    if (cached) {
+      const data = JSON.parse(cached);
+      crewPins = {};
+      Object.entries(data).forEach(([pin, name]) => { crewPins[pin] = name; });
+    }
+  } catch(e) {}
+  // Then try Sheet (may overwrite)
   const s = document.createElement('script');
   s.src = SCRIPT_URL + '?action=getTeamConfig&callback=onCrewPins&t=' + Date.now();
+  s.onerror = () => {}; // fail silently
   document.body.appendChild(s);
 })();
 function onCrewPins(data) {
@@ -1207,6 +1220,7 @@ function onCrewPins(data) {
     data.members.forEach(m => {
       if (m.pin) crewPins[String(m.pin)] = m.name;
     });
+    try { localStorage.setItem('mmt_crew_pins', JSON.stringify(crewPins)); } catch(e) {}
   }
 }
 
@@ -1642,7 +1656,6 @@ function renderSeasonOverview() {
 }
 
 // ── SHOW NOTES (RIGHT COLUMN) ────────────────────────────────────────────────
-let notesShows = []; // populated on render
 
 function renderNotesAccess() {
   const tabsEl = document.getElementById('show-tabs');
@@ -1717,7 +1730,6 @@ function selectShowTab(idx) {
 
 // ── SHOPPING LISTS ───────────────────────────────────────────────────────────
 const DEFAULT_STORES = ['Home Depot', 'Rose Brand', 'Full Compass', 'McMaster-Carr', 'Dollar General'];
-let shopData = {}; // { storeName: [ {text, done} ] }
 let activeStore = '';
 let shopSyncing = false;
 
@@ -1960,7 +1972,7 @@ async function saveTeamConfig() {
   
   // Parse crew lines: "Name, PIN"
   const crewNames = [];
-  const crewPins = {};
+  const localCrewPins = {};
   const seenPins = {};
   let error = '';
   crewEl.value.split('\n').forEach(line => {
@@ -1974,23 +1986,29 @@ async function saveTeamConfig() {
     if (seenPins[pin]) { error = name + ' and ' + seenPins[pin] + ' have the same PIN (' + pin + ')'; return; }
     seenPins[pin] = name;
     crewNames.push(name);
-    crewPins[name] = pin;
+    localCrewPins[name] = pin;
   });
 
   if (error) { toast(error); status.textContent = error; return; }
   if (!visibleLists.length) { toast('Add at least one list'); return; }
   if (!crewNames.length) { toast('Add at least one crew member'); return; }
 
+  // Update global crewPins (pin -> name) immediately
+  crewPins = {};
+  Object.entries(localCrewPins).forEach(([name, pin]) => { crewPins[pin] = name; });
+  try { localStorage.setItem('mmt_crew_pins', JSON.stringify(crewPins)); } catch(e) {}
+
   status.textContent = 'Saving...';
   try {
     await fetch(SCRIPT_URL, {
       method: 'POST', headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'saveTeamConfig', teamConfig: { visibleLists, crewNames, crewPins } }),
+      body: JSON.stringify({ action: 'saveTeamConfig', teamConfig: { visibleLists, crewNames, crewPins: localCrewPins } }),
     });
     status.textContent = 'Saved! Crew can use their PINs now.';
     toast('Team config updated');
   } catch(e) {
-    jsonp(SCRIPT_URL + '?action=saveTeamConfig&teamConfig=' + encodeURIComponent(JSON.stringify({ visibleLists, crewNames, crewPins })) + '&_=' + Date.now(), () => { status.textContent = 'Saved!'; toast('Team config updated'); }, () => { status.textContent = 'Error saving'; });
+    status.textContent = 'Saved locally! Will sync when script is updated.';
+    toast('Crew PINs saved locally');
   }
 }
 function closeSettings() {
