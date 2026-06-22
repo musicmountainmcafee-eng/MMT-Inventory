@@ -118,7 +118,10 @@
   }
   .lock-btn:hover { background: rgba(255,255,255,0.1); color: white; }
 
-  /* SIDEBAR NAV (desktop) */
+  /* Role-based visibility */
+  body.crew-role .td-only { display: none !important; }
+  body.crew-role .crew-badge { display: inline-block; font-size: 10px; background: var(--purple); color: white; padding: 2px 6px; border-radius: 8px; margin-left: 6px; }
+  .crew-badge { display: none; }
   .hamburger { font-size: 22px; border: none; background: none; color: rgba(255,255,255,0.8); cursor: pointer; padding: 4px 8px; }
   .hamburger:hover { color: white; }
   @media (max-width: 768px) { .hamburger { display: none; } }
@@ -820,7 +823,7 @@
     </div>
     <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
       <button class="theme-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">🌙</button>
-      <button class="lock-btn" onclick="openSettings()">⚙</button>
+      <button class="lock-btn td-only" onclick="openSettings()">⚙</button>
       <button class="lock-btn" id="refresh-btn" onclick="refreshData()">↻</button>
       <button class="lock-btn" onclick="lock()">Lock</button>
     </div>
@@ -862,7 +865,7 @@
 
       <!-- LINKS -->
       <div class="section" id="sec-resources">
-        <div class="section-label"><span>Resources</span><button class="edit-links-btn" id="edit-links-btn" onclick="toggleEditLinks()">Edit</button></div>
+        <div class="section-label"><span>Resources</span><button class="edit-links-btn td-only" id="edit-links-btn" onclick="toggleEditLinks()">Edit</button></div>
         <div class="links-grid" id="links-grid"></div>
       </div>
 
@@ -1045,7 +1048,10 @@
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
-const PIN = '1483';
+const TD_PIN = '1483';
+let userRole = ''; // 'td' or 'crew'
+let userName = '';  // crew member name or 'TD'
+let crewPins = {};  // { pin: name } loaded from TeamConfig
 
 // Built-in resource links. Replace the href '#' values with the real page URLs
 // (or add them via the "Add Link" button — those persist on the device).
@@ -1108,10 +1114,16 @@ const UNLOCK_DURATION_MS = 13 * 60 * 60 * 1000; // 13 hours
   }
 })();
 
-function unlockApp() {
+function unlockApp(role, name) {
+  userRole = role || 'td';
+  userName = name || 'TD';
   document.getElementById('pin-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  try { localStorage.setItem('mmt_unlock_time', String(Date.now())); } catch(e) {}
+  try {
+    localStorage.setItem('mmt_unlock_time', String(Date.now()));
+    localStorage.setItem('mmt_user_role', userRole);
+    localStorage.setItem('mmt_user_name', userName);
+  } catch(e) {}
   initApp();
 }
 
@@ -1120,7 +1132,9 @@ function unlockApp() {
   try {
     const last = parseInt(localStorage.getItem('mmt_unlock_time') || '0', 10);
     if (last && (Date.now() - last) < UNLOCK_DURATION_MS) {
-      unlockApp();
+      const savedRole = localStorage.getItem('mmt_user_role') || 'td';
+      const savedName = localStorage.getItem('mmt_user_name') || 'TD';
+      unlockApp(savedRole, savedName);
     }
   } catch(e) {}
 })();
@@ -1143,8 +1157,10 @@ function pinPress(val) {
   updateDots();
   if (pinEntry.length === 4) {
     setTimeout(() => {
-      if (pinEntry === PIN) {
-        unlockApp();
+      if (pinEntry === TD_PIN) {
+        unlockApp('td', 'TD');
+      } else if (crewPins[pinEntry]) {
+        unlockApp('crew', crewPins[pinEntry]);
       } else {
         document.getElementById('pin-error').textContent = 'Incorrect PIN';
         pinEntry = '';
@@ -1162,16 +1178,38 @@ function updateDots() {
 function pinClear() { pinEntry = ''; updateDots(); }
 function lock() {
   pinEntry = '';
+  userRole = '';
+  userName = '';
   updateDots();
-  try { localStorage.removeItem('mmt_unlock_time'); } catch(e) {}
+  try {
+    localStorage.removeItem('mmt_unlock_time');
+    localStorage.removeItem('mmt_user_role');
+    localStorage.removeItem('mmt_user_name');
+  } catch(e) {}
   document.getElementById('pin-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
 }
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
+// Load crew PINs from TeamConfig
+(function loadCrewPins() {
+  const s = document.createElement('script');
+  s.src = SCRIPT_URL + '?action=getTeamConfig&callback=onCrewPins&t=' + Date.now();
+  document.body.appendChild(s);
+})();
+function onCrewPins(data) {
+  if (data && data.members) {
+    crewPins = {};
+    data.members.forEach(m => {
+      if (m.pin) crewPins[String(m.pin)] = m.name;
+    });
+  }
+}
+
 loadData();
 
 function initApp() {
+  applyRoleVisibility();
   loadCustomLinks();
   renderLinks();
   renderWidgets();
@@ -1185,6 +1223,17 @@ function initApp() {
   // Enter key to add shop item
   const si = document.getElementById('shop-input');
   if (si) si.addEventListener('keydown', e => { if (e.key === 'Enter') addShopItem(); });
+}
+
+function applyRoleVisibility() {
+  document.body.classList.toggle('crew-role', userRole === 'crew');
+  // Update title to show who's logged in
+  const subtitle = document.querySelector('.topbar-left p');
+  if (subtitle) {
+    subtitle.textContent = userRole === 'crew' 
+      ? 'Logged in as ' + userName
+      : 'Music Mountain Theatre';
+  }
 }
 
 // ── NAV BAR ─────────────────────────────────────────────────────────────────
@@ -1767,8 +1816,9 @@ function addShopItem() {
   const input = document.getElementById('shop-input');
   const text = input.value.trim();
   if (!text) return;
+  const itemText = userRole === 'crew' ? text + ' [' + userName + ']' : text;
   if (!shopData[activeStore]) shopData[activeStore] = [];
-  shopData[activeStore].push({ text, done: false });
+  shopData[activeStore].push({ text: itemText, done: false });
   saveShopData();
   input.value = '';
   renderShop();
@@ -2247,10 +2297,10 @@ async function quickAddTask() {
   if (!text) { toast('Enter a task'); return; }
   if (!list) { toast('No list selected'); return; }
 
-  // Add locally immediately
+  const taskText = userRole === 'crew' ? text + ' [' + userName + ']' : text;
   if (!tasks[list]) tasks[list] = [];
   const id = Date.now() + '_qa';
-  tasks[list].push({ id, text, done: false, due: due || null, notify });
+  tasks[list].push({ id, text: taskText, done: false, due: due || null, notify });
   renderTaskWidget();
   renderStats();
   document.getElementById('qa-text').value = '';
