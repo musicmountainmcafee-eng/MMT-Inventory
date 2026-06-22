@@ -445,6 +445,7 @@ function getPos(e) {
 // Cue placement - drag rectangle, label auto-snaps to right margin
 let cueRect = null;
 let draggingCue = null; // index of annotation being dragged
+let dragStartPos = null; // track start for tap detection
 
 drawCanvas.addEventListener('pointerdown', e => {
   e.preventDefault();
@@ -461,6 +462,7 @@ drawCanvas.addEventListener('pointerdown', e => {
         const tw = ctx.measureText(a.label).width + 12;
         if (pos.x >= a.labelX - 6 && pos.x <= a.labelX + tw && pos.y >= a.labelY - 12 && pos.y <= a.labelY + 12) {
           draggingCue = i;
+          dragStartPos = { x: a.labelX, y: a.labelY };
           drawCanvas.setPointerCapture(e.pointerId);
           return;
         }
@@ -472,35 +474,10 @@ drawCanvas.addEventListener('pointerdown', e => {
     const isSpot = type && type.name.toLowerCase().includes('spot');
 
     if (isSpot) {
-      // SPOT cues: single tap places a circle
-      if (!type) { toast('Select a cue type'); return; }
-      const spotCues = cues.filter(c => c.type === typeId);
-      const lastSpotNum = spotCues.length > 0 ? parseInt(spotCues[spotCues.length - 1].number.replace(/\D/g, '') || '0') : 0;
-      const nextNum = lastSpotNum === 1 ? 2 : 1; // alternate 1 and 2
-      const num = document.getElementById('cue-num').value.trim() || (type.name + ' ' + nextNum);
-      const action = document.getElementById('cue-action').value.trim();
-      const cueLine = document.getElementById('cue-line').value.trim();
-      const notes = document.getElementById('cue-desc').value.trim();
-      const cueId = Date.now().toString();
-      const labelX = drawCanvas.width - 60;
-      const labelY = pos.y;
-
-      cues.push({ id: cueId, type: typeId, number: num, action, cueLine, notes, description: notes, page: currentPage });
-      if (!annotations[currentPage]) annotations[currentPage] = [];
-      annotations[currentPage].push({
-        type: 'cue', spot: true,
-        cx: pos.x, cy: pos.y, radius: 24,
-        labelX, labelY, cueId,
-        color: type.color, label: num
-      });
-      document.getElementById('cue-num').value = '';
-      document.getElementById('cue-action').value = '';
-      document.getElementById('cue-line').value = '';
-      document.getElementById('cue-desc').value = '';
-      redrawAnnotations();
-      renderCueList();
-      saveShowData();
-      toast(num + ' placed');
+      // SPOT cues: drag to draw an oval
+      isDrawing = true;
+      cueRect = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y };
+      drawCanvas.setPointerCapture(e.pointerId);
       return;
     }
 
@@ -543,11 +520,22 @@ drawCanvas.addEventListener('pointermove', e => {
     const y = Math.min(cueRect.y1, cueRect.y2);
     const w = Math.abs(cueRect.x2 - cueRect.x1);
     const h = Math.abs(cueRect.y2 - cueRect.y1);
-    ctx.fillStyle = color + '40';
-    ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x, y, w, h);
+    const isSpot = type && type.name.toLowerCase().includes('spot');
+    if (isSpot) {
+      ctx.beginPath();
+      ctx.ellipse(x + w/2, y + h/2, w/2, h/2, 0, 0, Math.PI * 2);
+      ctx.fillStyle = color + '30';
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = color + '40';
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, w, h);
+    }
     return;
   }
 
@@ -573,9 +561,19 @@ drawCanvas.addEventListener('pointermove', e => {
 });
 
 drawCanvas.addEventListener('pointerup', e => {
-  // Finish dragging label
+  // Finish dragging label (or tap to edit)
   if (draggingCue !== null) {
+    const a = (annotations[currentPage] || [])[draggingCue];
+    if (a && a.cueId) {
+      // Check if it was a tap (barely moved) — open edit
+      const dx = Math.abs(dragStartPos.x - a.labelX);
+      const dy = Math.abs(dragStartPos.y - a.labelY);
+      if (dx < 4 && dy < 4) {
+        editCue(a.cueId);
+      }
+    }
     draggingCue = null;
+    dragStartPos = null;
     redrawAnnotations();
     saveShowData();
     return;
@@ -591,19 +589,29 @@ drawCanvas.addEventListener('pointerup', e => {
       const type = cueTypes.find(t => t.id === typeId);
       if (!type) { toast('Select a cue type'); cueRect = null; redrawAnnotations(); return; }
 
+      const isSpot = type.name.toLowerCase().includes('spot');
       const rect = {
         x: Math.min(cueRect.x1, cueRect.x2),
         y: Math.min(cueRect.y1, cueRect.y2),
         w, h
       };
 
-      const num = document.getElementById('cue-num').value.trim() || (type.name + ' ' + (cues.filter(c=>c.type===typeId).length+1));
+      // Auto-number: for spots, alternate 1/2
+      let num = document.getElementById('cue-num').value.trim();
+      if (!num) {
+        if (isSpot) {
+          const spotCues = cues.filter(c => c.type === typeId);
+          const lastNum = spotCues.length > 0 ? parseInt((spotCues[spotCues.length-1].number||'').replace(/\D/g,'') || '0') : 0;
+          num = type.name + ' ' + (lastNum === 1 ? 2 : 1);
+        } else {
+          num = type.name + ' ' + (cues.filter(c=>c.type===typeId).length+1);
+        }
+      }
       const action = document.getElementById('cue-action').value.trim();
       const cueLine = document.getElementById('cue-line').value.trim();
       const notes = document.getElementById('cue-desc').value.trim();
       const cueId = Date.now().toString();
 
-      // Default label position: right margin, same Y as rectangle center
       const labelX = drawCanvas.width - 60;
       const labelY = rect.y + rect.h;
 
@@ -611,7 +619,7 @@ drawCanvas.addEventListener('pointerup', e => {
 
       if (!annotations[currentPage]) annotations[currentPage] = [];
       annotations[currentPage].push({
-        type: 'cue', rect, labelX, labelY, cueId,
+        type: 'cue', spot: isSpot, rect, labelX, labelY, cueId,
         color: type.color, label: num
       });
 
@@ -663,19 +671,24 @@ function redrawAnnotations() {
       ctx.stroke();
       ctx.globalCompositeOperation = 'source-over';
     } else if (a.type === 'cue') {
-      if (a.spot) {
-        // SPOT cue: circle on the page
+      if (a.spot && a.rect) {
+        // SPOT cue: oval inside the dragged rectangle
+        const r = a.rect;
+        const cx = r.x + r.w / 2;
+        const cy = r.y + r.h / 2;
+        const rx = r.w / 2;
+        const ry = r.h / 2;
         ctx.beginPath();
-        ctx.arc(a.cx, a.cy, a.radius || 24, 0, Math.PI * 2);
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
         ctx.strokeStyle = a.color;
         ctx.lineWidth = 3;
         ctx.stroke();
         ctx.fillStyle = a.color + '25';
         ctx.fill();
 
-        // Connecting line from circle to label
+        // Connecting line from oval bottom-right to label
         ctx.beginPath();
-        ctx.moveTo(a.cx + (a.radius || 24), a.cy);
+        ctx.moveTo(r.x + r.w, r.y + r.h);
         ctx.lineTo(a.labelX, a.labelY);
         ctx.strokeStyle = a.color;
         ctx.lineWidth = 1.5;
@@ -690,6 +703,33 @@ function redrawAnnotations() {
         ctx.fillStyle = a.color;
         ctx.beginPath();
         ctx.roundRect(a.labelX - px, a.labelY - 8 - py, tw + px * 2, 16 + py * 2, 4);
+        ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(a.label, a.labelX, a.labelY);
+      } else if (a.spot) {
+        // Legacy circle spot cue
+        ctx.beginPath();
+        ctx.arc(a.cx, a.cy, a.radius || 24, 0, Math.PI * 2);
+        ctx.strokeStyle = a.color;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.fillStyle = a.color + '25';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(a.cx + (a.radius || 24), a.cy);
+        ctx.lineTo(a.labelX, a.labelY);
+        ctx.strokeStyle = a.color;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = 'bold 11px "DM Sans", sans-serif';
+        const tw2 = ctx.measureText(a.label).width;
+        ctx.fillStyle = a.color;
+        ctx.beginPath();
+        ctx.roundRect(a.labelX - 6, a.labelY - 12, tw2 + 12, 24, 4);
         ctx.fill();
         ctx.fillStyle = 'white';
         ctx.textAlign = 'left';
