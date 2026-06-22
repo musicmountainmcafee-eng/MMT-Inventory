@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MMT Staff Portal</title>
+<title>Inventory — MMT Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -19,6 +19,25 @@
     --radius: 12px; --radius-sm: 8px;
   }
   body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  [data-theme="dark"] {
+    --bg: #0d0d1a; --surface: #1a1a2e;
+    --border: rgba(255,255,255,0.1);
+    --text: #f0f0f0; --text-muted: #a0a0b0; --text-faint: #666680;
+    --green-light: #1a2e0d; --purple-light: #1a1a2e; --blue-light: #0d1a2e;
+  }
+  [data-theme="dark"] .pin-card { background: #1a1a2e; color: #f0f0f0; }
+  [data-theme="dark"] .pin-btn { background: #0d0d1a; color: #f0f0f0; border-color: rgba(255,255,255,0.1); }
+  [data-theme="dark"] .pin-btn:hover { background: #2a2a4e; }
+  [data-theme="dark"] .tab-btn { background: var(--surface); color: var(--text-muted); border-color: var(--border); }
+  [data-theme="dark"] .tab-btn.active { background: var(--purple); color: white; }
+  [data-theme="dark"] .card { background: var(--surface); border-color: var(--border); }
+  [data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea { background: var(--bg); color: var(--text); border-color: var(--border); }
+  [data-theme="dark"] .stat-card { background: var(--surface); }
+  [data-theme="dark"] .item-row { border-color: var(--border); }
+  [data-theme="dark"] .item-row:hover { background: rgba(255,255,255,0.03); }
+  [data-theme="dark"] .modal-content { background: var(--surface); color: var(--text); }
+  [data-theme="dark"] .detail-row { border-color: var(--border); }
 
   /* PIN SCREEN */
   .pin-screen { position: fixed; inset: 0; background: linear-gradient(135deg, #1a1a2e 0%, #3C3489 60%, #185FA5 100%); display: flex; align-items: center; justify-content: center; z-index: 9999; }
@@ -316,6 +335,7 @@
       <div style="display:flex;align-items:center;gap:12px;"><button onclick="toggleSidebar()" style="font-size:22px;border:none;background:none;color:white;cursor:pointer;padding:4px 8px;">☰</button><div><h1>Inventory</h1><p>MMT Dashboard</p></div></div>
     </div>
     <div class="header-right" style="flex-wrap:wrap;">
+      <button onclick="toggleDarkMode()" id="theme-toggle" style="font-size:18px;border:none;background:none;color:rgba(255,255,255,0.7);cursor:pointer;">🌙</button>
       <a href="https://musicmountainmcafee-eng.github.io/MMT-Inventory/" class="catalogue-link" target="_blank">Catalogue ↗</a>
     </div>
   </div>
@@ -991,6 +1011,7 @@ function checkPin() {
   if (pinEntry === CORRECT_PIN) {
     document.getElementById('pin-screen').style.display = 'none';
     document.getElementById('main').classList.add('visible');
+    try { localStorage.setItem('mmt_staff_unlock', String(Date.now())); } catch(e) {}
     loadData();
     setTimeout(initPaint, 800);
   } else {
@@ -1000,6 +1021,18 @@ function checkPin() {
     setTimeout(() => document.getElementById('pin-error').textContent = '', 2000);
   }
 }
+// Auto-unlock if PIN entered within 13 hours
+(function checkAutoUnlock() {
+  try {
+    const last = parseInt(localStorage.getItem('mmt_staff_unlock') || '0', 10);
+    if (last && (Date.now() - last) < 13 * 60 * 60 * 1000) {
+      document.getElementById('pin-screen').style.display = 'none';
+      document.getElementById('main').classList.add('visible');
+      loadData();
+      setTimeout(initPaint, 800);
+    }
+  } catch(e) {}
+})();
 
 // PAINT SYSTEM
 let paintData = [];
@@ -2183,6 +2216,13 @@ function toggleSidebar(){
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebar-overlay').classList.toggle('open');
 }
+function toggleDarkMode() {
+  const d = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', d ? '' : 'dark');
+  document.getElementById('theme-toggle').textContent = d ? '🌙' : '☀️';
+  try { localStorage.setItem('mmt_theme', d ? 'light' : 'dark'); } catch(e) {}
+}
+try { if (localStorage.getItem('mmt_theme') === 'dark') { document.documentElement.setAttribute('data-theme', 'dark'); setTimeout(() => { const e = document.getElementById('theme-toggle'); if (e) e.textContent = '☀️'; }, 0); } } catch(e) {}
 </script>
 
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
