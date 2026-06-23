@@ -205,14 +205,41 @@
   .btn-print { background: var(--purple); color: white; flex: 1; text-align: center; }
   .btn-print:hover { background: var(--purple-dark); }
 
-  /* PRINT STYLES */
+  /* PRINT STYLES — Avery 8163: 4"×2", 2 columns, 5 rows */
   @media print {
+    @page { margin: 0; size: 8.5in 11in; }
     body * { visibility: hidden; }
     .print-area, .print-area * { visibility: visible; }
-    .print-area { position: fixed; left: 0; top: 0; width: 100%; }
-    .label-grid-print { border: none; display: grid; grid-template-columns: 4in 4in; }
-    .label-cell { height: 2in; border: none; padding: 0.1in 0.15in; page-break-inside: avoid; }
-    .label-cell.empty { display: none; }
+    .print-area {
+      position: fixed; left: 0; top: 0; width: 8.5in; height: 11in;
+      padding: 0.5in 0.15625in 0.5in 0.15625in;
+      box-sizing: border-box;
+    }
+    .label-grid-print {
+      border: none;
+      display: grid;
+      grid-template-columns: 4in 4in;
+      grid-template-rows: repeat(5, 2in);
+      column-gap: 0.1875in;
+      row-gap: 0;
+      width: 100%;
+    }
+    .label-cell {
+      width: 4in; height: 2in;
+      border: none;
+      padding: 0.15in 0.2in;
+      page-break-inside: avoid;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    .label-cell.empty { visibility: hidden; }
+    .label-cell .lc-name { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+    .label-cell .lc-tagid { font-size: 12px; }
+    .label-cell .lc-cat { font-size: 12px; }
+    .label-cell .lc-loc-label { font-size: 11px; }
+    .label-cell .lc-loc { font-size: 13px; }
+    .label-cell .lc-notes { font-size: 11px; }
+    .label-cell .lc-url { font-size: 9px; color: #666; }
   }
 
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: white; padding: 10px 20px; border-radius: 99px; font-size: 13px; font-weight: 500; z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none; white-space: nowrap; }
