@@ -804,6 +804,195 @@
   font-weight: 600;
 }
 .tab-placeholder-link:hover { opacity: .9; }
+
+/* ── LISTS TAB (merged from tasks.html — Session 2) ──────────────────── */
+  /* TABS */
+  .tabs { display: flex; gap: 4px; margin: 0 1rem 1.5rem; }
+  .tab-btn {
+    padding: 9px 18px; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text-muted); transition: all 0.15s;
+  }
+  .tab-btn.active { background: var(--purple); color: white; border-color: var(--purple); }
+  .tab-btn:hover:not(.active) { border-color: var(--purple); color: var(--purple); }
+
+  /* CONTENT */
+  .tab-content { display: none; padding: 0 1rem 2rem; max-width: 900px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+
+  /* SHOW NOTES TAB */
+  .show-section { margin-bottom: 24px; }
+  .section-label {
+    font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--text-muted); font-weight: 600;
+    margin-bottom: 10px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* CURRENT SHOW - big hero card */
+  .show-card-hero {
+    background: var(--surface);
+    border: 2px solid var(--green);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .show-card-hero .show-info { flex: 1; }
+  .show-card-hero .show-name { font-weight: 700; font-size: 20px; }
+  .show-card-hero .show-dates { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+  .show-card-hero .show-countdown { font-size: 13px; color: var(--green-dark); margin-top: 5px; font-weight: 600; }
+  .show-badge-now {
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    padding: 4px 12px; border-radius: 99px; text-transform: uppercase;
+    background: var(--green-light); color: var(--green-dark); flex-shrink: 0;
+    border: 1px solid var(--green);
+  }
+
+  /* NEXT SHOW - medium card */
+  .show-card-next {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .show-card-next .show-name { font-weight: 600; font-size: 16px; }
+  .show-card-next .show-dates { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .show-card-next .show-opens { font-size: 12px; color: var(--purple); margin-top: 3px; font-weight: 600; }
+
+  /* ALL SHOWS COLLAPSIBLE */
+  .all-shows-toggle {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 13px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 500;
+    transition: all 0.15s; text-align: left; font-family: 'DM Sans', sans-serif;
+  }
+  .all-shows-toggle:hover { border-color: var(--purple); color: var(--purple); }
+  .all-shows-toggle .chevron { transition: transform 0.2s; font-size: 11px; }
+  .all-shows-toggle.open .chevron { transform: rotate(180deg); }
+  .all-shows-list { display: none; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .all-shows-list.open { display: flex; }
+  .show-card-mini {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .show-card-mini .show-name { font-size: 14px; font-weight: 500; }
+  .show-card-mini .show-dates { font-size: 11px; color: var(--text-faint); margin-top: 1px; }
+
+  /* NOTES BUTTONS */
+  .notes-btn {
+    padding: 8px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+    cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap;
+    flex-shrink: 0; font-family: 'DM Sans', sans-serif;
+  }
+  .notes-btn.open { background: var(--purple-light); color: var(--purple-dark); border: 1px solid rgba(83,74,183,0.2); }
+  .notes-btn.open:hover { background: var(--purple); color: white; }
+  .notes-btn.create { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+  .notes-btn.create:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-light); }
+  .notes-btn.loading { background: var(--bg); color: var(--text-faint); border: 1px solid var(--border); cursor: default; }
+
+  /* TASKS TAB */
+  .lists-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+  .task-list-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .task-list-header {
+    padding: 12px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .task-list-title { font-weight: 600; font-size: 14px; }
+  .task-count { font-size: 12px; color: var(--text-muted); }
+  .list-actions { display: flex; align-items: center; gap: 4px; }
+  .list-reorder-btn {
+    border: none; background: none; font-size: 12px; cursor: pointer;
+    color: var(--text-faint); padding: 2px 6px; border-radius: 4px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .list-reorder-btn:hover { color: var(--purple); background: var(--purple-light); }
+  .list-delete-btn {
+    border: none; background: none; font-size: 14px; cursor: pointer;
+    color: var(--text-faint); padding: 2px 6px; border-radius: 4px;
+  }
+  .list-delete-btn:hover { color: var(--red); background: rgba(192,57,43,0.08); }
+  .task-items { padding: 4px 0; min-height: 40px; }
+  .task-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 16px; border-bottom: 1px solid rgba(0,0,0,0.04);
+    transition: background 0.1s;
+  }
+  .task-item:last-child { border-bottom: none; }
+  .task-item:hover { background: var(--bg); }
+  .task-checkbox {
+    width: 18px; height: 18px; border-radius: 4px;
+    border: 1.5px solid var(--border); cursor: pointer;
+    flex-shrink: 0; margin-top: 1px; appearance: none;
+    background: white; transition: all 0.15s;
+  }
+  .task-checkbox:checked {
+    background: var(--purple); border-color: var(--purple);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M2 6l3 3 5-5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: center;
+  }
+  .task-body { flex: 1; min-width: 0; }
+  .task-text { font-size: 14px; line-height: 1.4; word-break: break-word; }
+  .task-text.done { text-decoration: line-through; color: var(--text-muted); }
+  .task-due { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .task-due.overdue { color: var(--red); font-weight: 600; }
+  .task-due.soon { color: var(--orange); font-weight: 600; }
+  .task-delete {
+    background: none; border: none; color: var(--text-faint);
+    cursor: pointer; font-size: 16px; padding: 0 2px;
+    opacity: 0; transition: opacity 0.15s; flex-shrink: 0;
+  }
+  .task-item:hover .task-delete { opacity: 1; }
+  .task-delete:hover { color: var(--red); }
+  .task-add-row {
+    padding: 10px 16px 12px; border-top: 1px solid var(--border);
+    display: flex; gap: 8px; flex-wrap: wrap; background: var(--bg);
+  }
+  .task-input {
+    flex: 1; min-width: 120px; background: white;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--text); font-size: 13px; padding: 7px 10px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .task-input:focus { outline: none; border-color: var(--purple); background: white; }
+  .task-date-input {
+    background: white; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text-muted); font-size: 12px;
+    padding: 7px 8px; width: 130px;
+  }
+  .task-date-input:focus { outline: none; border-color: var(--purple); }
+  .add-task-btn {
+    background: var(--purple); border: none; color: white;
+    border-radius: var(--radius-sm); padding: 7px 14px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    white-space: nowrap; font-family: 'DM Sans', sans-serif;
+  }
+  .add-task-btn:hover { background: var(--purple-dark); }
+  .empty-tasks { padding: 14px 16px; color: var(--text-faint); font-size: 13px; font-style: italic; }
+
+  /* Add list */
+  .add-list-card {
+    background: transparent; border: 1.5px dashed var(--border);
+    border-radius: var(--radius); display: flex; align-items: center;
+    justify-content: center; min-height: 100px; cursor: pointer;
+    color: var(--text-muted); font-size: 14px; gap: 8px;
+    transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+  }
+  .add-list-card:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-light); }
+
+
+  /* LIST COLOR DOTS */
+  .color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
 </style>
 </head>
 <body>
@@ -1003,13 +1192,25 @@
     </div>
   </div>
   </div>
-  <!-- ===== TAB: LISTS (placeholder — Session 2) ===== -->
+  <!-- ===== TAB: LISTS (merged from tasks.html — Session 2) ===== -->
   <div class="tab-panel" id="tab-lists" data-tab="lists">
-    <div class="tab-placeholder">
-      <div class="tab-placeholder-icon">📋</div>
-      <h2>Lists</h2>
-      <p>Notes &amp; tasks will be merged into this tab in Session&nbsp;2.</p>
-      <a class="tab-placeholder-link" href="tasks.html">Open the current Lists page ↗</a>
+    <div class="tabs">
+      <button class="tab-btn active" id="lists-subtab-shows" onclick="switchListsSubtab('shows')">Show Notes</button>
+      <button class="tab-btn" id="lists-subtab-tasks" onclick="switchListsSubtab('tasks')">Tasks</button>
+    </div>
+
+    <!-- SHOW NOTES SUB-TAB -->
+    <div id="lists-sub-shows" class="tab-content active">
+      <div id="shows-content">
+        <div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading shows...</div>
+      </div>
+    </div>
+
+    <!-- TASKS SUB-TAB -->
+    <div id="lists-sub-tasks" class="tab-content">
+      <div class="lists-grid" id="lists-grid">
+        <div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading tasks...</div>
+      </div>
     </div>
   </div>
   <!-- ===== TAB: INVENTORY (placeholder — Session 3) ===== -->
@@ -1037,6 +1238,18 @@
       <h2>Scripts</h2>
       <p>The scripts/cues page will be merged into this tab in Session&nbsp;5.</p>
       <a class="tab-placeholder-link" href="cues.html">Open the current Scripts page ↗</a>
+    </div>
+  </div>
+</div>
+
+<!-- Lists: list-name Modal (merged from tasks.html) -->
+<div class="modal-overlay" id="list-modal" style="display:none;">
+  <div class="modal">
+    <h3 id="list-modal-title">New List</h3>
+    <input type="text" id="list-modal-input" placeholder="List name..." />
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeListModal()">Cancel</button>
+      <button class="btn-confirm" id="list-modal-confirm" onclick="confirmListModal()">Create</button>
     </div>
   </div>
 </div>
@@ -1351,6 +1564,9 @@ function switchTab(tab) {
   // Reflect in the URL hash (no scroll jump) and scroll to top of content
   try { history.replaceState(null, '', '#' + tab); } catch(e) {}
   window.scrollTo({ top: 0, behavior: 'auto' });
+
+  // Per-tab lazy render hooks
+  if (tab === 'lists' && typeof renderListsTab === 'function') renderListsTab();
 }
 
 // On load, honor a #tab hash (e.g. deep link to #inventory)
@@ -2604,6 +2820,444 @@ function toast(msg) {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// LISTS TAB MODULE (merged from tasks.html — Session 2)
+// Reuses shell globals: lists, tasks, showNotes, SCRIPT_URL, jsonp, toast,
+// fetchAllData, MAINSTAGE, CHILDRENS, showStatus, formatDates, daysUntil.
+// ════════════════════════════════════════════════════════════════════════════
+const LIST_COLORS = ['#e94560','#f5a623','#2ecc71','#3498db','#9b59b6','#1abc9c','#e67e22','#e91e63'];
+let modalCallback = null;       // used by the Lists list-name modal
+let listsSubtab = 'shows';      // 'shows' | 'tasks' (Lists tab inner view)
+let listsRendered = false;      // lazy first-render guard
+
+// Called by the shell when the Lists tab is opened.
+function renderListsTab() {
+  ensureDefaultLists();
+  renderShows();
+  renderTasks();
+  listsRendered = true;
+}
+
+function switchListsSubtab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', ['shows','tasks'][i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('lists-sub-' + name).classList.add('active');
+}
+
+function renderShows() {
+  const container = document.getElementById('shows-content');
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Find current and next mainstage
+  const currentMain = MAINSTAGE.find(s => showStatus(s.start, s.end) === 'current');
+  const upcomingMain = MAINSTAGE.filter(s => showStatus(s.start, s.end) === 'upcoming');
+  const nextMain = upcomingMain[0] || null;
+  const restMain = upcomingMain.slice(1);
+  const pastMain = MAINSTAGE.filter(s => showStatus(s.start, s.end) === 'past');
+
+  // Find current children's
+  const currentKids = CHILDRENS.find(s => showStatus(s.start, s.end) === 'current');
+
+  let html = '';
+
+  // ── CURRENT MAINSTAGE ──
+  if (currentMain) {
+    const key = 'mainstage_' + currentMain.name.replace(/[^a-z0-9]/gi, '_');
+    const docUrl = showNotes[key];
+    const closing = daysLeft(currentMain.end);
+    const closingStr = closing === 0 ? 'Closes tonight!' : closing === 1 ? 'Closes tomorrow' : `${closing} days left`;
+    html += `
+    <div class="show-section">
+      <div class="section-label">Now Playing — Mainstage</div>
+      <div class="show-card-hero">
+        <div class="show-info">
+          <div class="show-name">${currentMain.name}</div>
+          <div class="show-dates">${formatDates(currentMain.start, currentMain.end)}</div>
+          <div class="show-countdown">🎭 ${closingStr}</div>
+        </div>
+        <span class="show-badge-now">Now Playing</span>
+        <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentMain.name}')" id="btn-${key}">
+          ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
+        </button>
+      </div>
+    </div>`;
+  }
+
+  // ── NEXT MAINSTAGE ──
+  if (nextMain) {
+    const key = 'mainstage_' + nextMain.name.replace(/[^a-z0-9]/gi, '_');
+    const docUrl = showNotes[key];
+    const opens = daysUntil(nextMain.start);
+    const opensStr = opens === 0 ? 'Opens today!' : opens === 1 ? 'Opens tomorrow' : `Opens in ${opens} days`;
+    html += `
+    <div class="show-section">
+      <div class="section-label">Up Next — Mainstage</div>
+      <div class="show-card-next">
+        <div class="show-info">
+          <div class="show-name">${nextMain.name}</div>
+          <div class="show-dates">${formatDates(nextMain.start, nextMain.end)}</div>
+          <div class="show-opens">📅 ${opensStr}</div>
+        </div>
+        <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextMain.name}')" id="btn-${key}">
+          ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
+        </button>
+      </div>
+    </div>`;
+  }
+
+  // ── ALL MAINSTAGE SHOWS (collapsible) ──
+  const allOtherMain = [...restMain, ...pastMain];
+  if (allOtherMain.length > 0) {
+    html += `
+    <div class="show-section">
+      <button class="all-shows-toggle" onclick="toggleAllShows(this)">
+        <span>All Mainstage Shows (${MAINSTAGE.length} total)</span>
+        <span class="chevron">▼</span>
+      </button>
+      <div class="all-shows-list">
+        ${MAINSTAGE.map(show => {
+          const key = 'mainstage_' + show.name.replace(/[^a-z0-9]/gi, '_');
+          const docUrl = showNotes[key];
+          const status = showStatus(show.start, show.end);
+          const badge = status === 'current' ? '🟢' : status === 'upcoming' ? '🔵' : '⚫';
+          return `
+          <div class="show-card-mini">
+            <div class="show-info">
+              <div class="show-name">${badge} ${show.name}</div>
+              <div class="show-dates">${formatDates(show.start, show.end)}</div>
+            </div>
+            <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${show.name}')" id="btn-${key}" style="padding:6px 10px;font-size:12px;">
+              ${docUrl ? '📄 Notes' : '+ Notes'}
+            </button>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // ── CURRENT CHILDREN'S THEATRE ──
+  if (currentKids) {
+    const key = 'childrens_' + currentKids.name.replace(/[^a-z0-9]/gi, '_');
+    const docUrl = showNotes[key];
+    const closing = daysLeft(currentKids.end);
+    const closingStr = closing === 0 ? 'Closes tonight!' : closing === 1 ? 'Closes tomorrow' : `${closing} days left`;
+    html += `
+    <div class="show-section">
+      <div class="section-label">Now Playing — Children's Theatre</div>
+      <div class="show-card-hero" style="border-color: var(--accent2);">
+        <div class="show-info">
+          <div class="show-name">${currentKids.name}</div>
+          <div class="show-dates">${formatDates(currentKids.start, currentKids.end)}</div>
+          <div class="show-countdown" style="color:var(--accent2);">🎪 ${closingStr}</div>
+        </div>
+        <span class="show-badge-now" style="background:var(--accent2);">Now Playing</span>
+        <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentKids.name}')" id="btn-${key}">
+          ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
+        </button>
+      </div>
+    </div>`;
+  } else {
+    // Show next children's if none current
+    const nextKids = CHILDRENS.find(s => showStatus(s.start, s.end) === 'upcoming');
+    if (nextKids) {
+      const key = 'childrens_' + nextKids.name.replace(/[^a-z0-9]/gi, '_');
+      const docUrl = showNotes[key];
+      const opens = daysUntil(nextKids.start);
+      html += `
+      <div class="show-section">
+        <div class="section-label">Up Next — Children's Theatre</div>
+        <div class="show-card-next">
+          <div class="show-info">
+            <div class="show-name">${nextKids.name}</div>
+            <div class="show-dates">${formatDates(nextKids.start, nextKids.end)}</div>
+            <div class="show-opens" style="color:var(--accent2);">📅 Opens in ${opens} days</div>
+          </div>
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextKids.name}')" id="btn-${key}">
+            ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
+          </button>
+        </div>
+      </div>`;
+    }
+  }
+
+  container.innerHTML = html || '<div style="color:var(--text-muted);padding:8px;">No current shows found.</div>';
+}
+
+function toggleAllShows(btn) {
+  btn.classList.toggle('open');
+  btn.nextElementSibling.classList.toggle('open');
+}
+
+async function handleNotes(key, showName) {
+  const docUrl = showNotes[key];
+  if (docUrl) {
+    window.open(docUrl, '_blank');
+    return;
+  }
+  const btn = document.getElementById('btn-' + key);
+  btn.innerHTML = '<span class="spinner"></span>Creating...';
+  btn.className = 'notes-btn loading';
+  btn.disabled = true;
+
+  // Use JSONP to bypass CORS (Apps Script supports callback param)
+  jsonp(
+    SCRIPT_URL + '?action=createDoc&showName=' + encodeURIComponent(showName) + '&key=' + encodeURIComponent(key),
+    function(data) {
+      if (data && data.url) {
+        showNotes[key] = data.url;
+        btn.innerHTML = '📄 Open Notes';
+        btn.className = 'notes-btn open';
+        btn.disabled = false;
+        btn.onclick = () => window.open(data.url, '_blank');
+        toast('Notes doc created for ' + showName);
+        sheetWrite('showNotes', key, data.url);
+      } else {
+        btn.innerHTML = '+ Create Notes';
+        btn.className = 'notes-btn create';
+        btn.disabled = false;
+        toast('Error: ' + (data && data.error ? data.error : 'Unknown error'));
+      }
+    },
+    function(err) {
+      btn.innerHTML = '+ Create Notes';
+      btn.className = 'notes-btn create';
+      btn.disabled = false;
+      toast('Error creating doc — check Apps Script');
+      console.error(err);
+    }
+  );
+}
+
+function daysLeft(dateStr) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateStr + 'T00:00:00');
+  return Math.round((d - today) / 86400000);
+}
+
+function ensureDefaultLists() {
+  const defaults = ['Building', 'Long Term Projects', 'Tech To-Do', 'Maintenance'];
+  defaults.forEach((name, i) => {
+    if (!lists.find(l => l.name === name)) {
+      lists.push({ name, color: LIST_COLORS[i % LIST_COLORS.length] });
+    }
+    if (!tasks[name]) tasks[name] = [];
+  });
+}
+
+async function saveData() {
+  // Update local cache immediately
+  try {
+    localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes }));
+  } catch(e) {}
+
+  const payload = JSON.stringify({ lists, tasks });
+
+  // Try POST first (works on most browsers)
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'saveTasks', lists, tasks }),
+    });
+  } catch(e) {
+    console.warn('POST save failed, trying JSONP fallback:', e.message);
+  }
+
+  // Also try JSONP GET fallback (works on phones where POST fetch gets
+  // intercepted by Google's account redirect)
+  try {
+    const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(payload))));
+    await new Promise((resolve, reject) => {
+      jsonp(SCRIPT_URL + '?action=saveTasksGet&data=' + encoded + '&_=' + Date.now(), resolve, reject);
+    });
+  } catch(e) {
+    console.warn('JSONP save fallback failed:', e.message);
+  }
+}
+
+async function sheetWrite(type, key, value) {
+  // Update local cache immediately so it survives page reload
+  try {
+    localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes }));
+  } catch(e) {}
+
+  // Save to sheet via POST
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'saveShowNote', key, value }),
+    });
+  } catch(e) {
+    // JSONP fallback
+    try {
+      jsonp(SCRIPT_URL + '?action=saveShowNote&key=' + encodeURIComponent(key) + '&value=' + encodeURIComponent(value) + '&_=' + Date.now(), () => {}, () => {});
+    } catch(e2) { console.warn('sheetWrite failed:', e2.message); }
+  }
+}
+
+function renderTasks() {
+  const grid = document.getElementById('lists-grid');
+  grid.innerHTML = lists.map((list, li) => renderListCard(list, li)).join('') +
+    `<div class="add-list-card" onclick="addList()">＋ New List</div>`;
+}
+
+function renderListCard(list, li) {
+  const items = tasks[list.name] || [];
+  const active = items.filter(t => !t.done);
+  const done = items.filter(t => t.done);
+  const allItems = [...active, ...done];
+  return `
+    <div class="task-list-card">
+      <div class="task-list-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="color-dot" style="background:${list.color}"></div>
+          <span class="task-list-title">${list.name}</span>
+        </div>
+        <div class="list-actions">
+          <span class="task-count">${active.length} left</span>
+          ${li > 0 ? `<button class="list-reorder-btn" onclick="reorderList(${li}, -1)" title="Move left">◀</button>` : ''}
+          ${li < lists.length - 1 ? `<button class="list-reorder-btn" onclick="reorderList(${li}, 1)" title="Move right">▶</button>` : ''}
+          <button class="list-delete-btn" onclick="deleteList(${li})" title="Delete list">×</button>
+        </div>
+      </div>
+      <div class="task-items">
+        ${allItems.length === 0 ? `<div class="empty-tasks">No tasks yet</div>` :
+          allItems.map(task => renderTaskItem(list.name, task)).join('')}
+      </div>
+      <div class="task-add-row">
+        <input class="task-input" type="text" placeholder="Add a task..." id="input-${list.name.replace(/\s/g,'_')}"
+          onkeydown="if(event.key==='Enter') addTask('${list.name}')" />
+        <input class="task-date-input" type="date" id="date-${list.name.replace(/\s/g,'_')}" />
+        <button class="add-task-btn" onclick="addTask('${list.name}')">Add</button>
+      </div>
+    </div>`;
+}
+
+function renderTaskItem(listName, task) {
+  const dueStr = task.due ? dueBadge(task.due) : '';
+  return `
+    <div class="task-item" id="task-${task.id}">
+      <input type="checkbox" class="task-checkbox" ${task.done ? 'checked' : ''}
+        onchange="toggleTask('${listName}', '${task.id}', this.checked)" />
+      <div class="task-body">
+        <div class="task-text ${task.done ? 'done' : ''}">${escHtml(task.text)}</div>
+        ${dueStr}
+      </div>
+      <button class="task-delete" onclick="deleteTask('${listName}', '${task.id}')">×</button>
+    </div>`;
+}
+
+function dueBadge(due) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(due + 'T00:00:00');
+  const diff = Math.round((d - today) / 86400000);
+  let cls = '', label = '';
+  if (diff < 0) { cls = 'overdue'; label = 'Overdue · ' + fmtDate(due); }
+  else if (diff === 0) { cls = 'soon'; label = 'Due today'; }
+  else if (diff <= 3) { cls = 'soon'; label = 'Due ' + fmtDate(due); }
+  else { label = 'Due ' + fmtDate(due); }
+  return `<div class="task-due ${cls}">${label}</div>`;
+}
+
+function fmtDate(iso) {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' });
+}
+
+function addTask(listName) {
+  const key = listName.replace(/\s/g,'_');
+  const input = document.getElementById('input-' + key);
+  const dateEl = document.getElementById('date-' + key);
+  const text = input.value.trim();
+  if (!text) return;
+  const task = {
+    id: Date.now().toString(),
+    text,
+    done: false,
+    due: dateEl.value || null,
+  };
+  if (!tasks[listName]) tasks[listName] = [];
+  tasks[listName].unshift(task);
+  input.value = '';
+  dateEl.value = '';
+  renderTasks();
+  saveData();
+}
+
+function toggleTask(listName, id, done) {
+  const task = tasks[listName]?.find(t => t.id === id);
+  if (task) { task.done = done; renderTasks(); saveData(); }
+}
+
+function deleteTask(listName, id) {
+  if (!tasks[listName]) return;
+  tasks[listName] = tasks[listName].filter(t => t.id !== id);
+  renderTasks();
+  saveData();
+}
+
+function addList() {
+  openListModal('New List', 'List name...', (name) => {
+    if (!name) return;
+    if (lists.find(l => l.name === name)) { toast('List already exists'); return; }
+    const color = LIST_COLORS[lists.length % LIST_COLORS.length];
+    lists.push({ name, color });
+    tasks[name] = [];
+    renderTasks();
+    saveData();
+  });
+}
+
+function reorderList(idx, dir) {
+  const j = idx + dir;
+  if (j < 0 || j >= lists.length) return;
+  const tmp = lists[idx];
+  lists[idx] = lists[j];
+  lists[j] = tmp;
+  renderTasks();
+  saveData();
+}
+
+function deleteList(idx) {
+  const name = lists[idx].name;
+  const taskCount = (tasks[name] || []).filter(t => !t.done).length;
+  const msg = taskCount > 0
+    ? 'Delete "' + name + '" and its ' + taskCount + ' task' + (taskCount > 1 ? 's' : '') + '?'
+    : 'Delete "' + name + '"?';
+  if (!confirm(msg)) return;
+  lists.splice(idx, 1);
+  delete tasks[name];
+  renderTasks();
+  saveData();
+  toast('List deleted');
+}
+
+function openListModal(title, placeholder, callback) {
+  document.getElementById('list-modal-title').textContent = title;
+  document.getElementById('list-modal-input').placeholder = placeholder;
+  document.getElementById('list-modal-input').value = '';
+  document.getElementById('list-modal').style.display = 'flex';
+  modalCallback = callback;
+  setTimeout(() => document.getElementById('list-modal-input').focus(), 50);
+}
+
+function closeListModal() {
+  document.getElementById('list-modal').style.display = 'none';
+  modalCallback = null;
+}
+
+function confirmListModal() {
+  const val = document.getElementById('list-modal-input').value.trim();
+  if (modalCallback) modalCallback(val);
+  closeListModal();
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 </script>
 </body>
 </html>
