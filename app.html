@@ -1472,6 +1472,41 @@
     .home-main-grid  { grid-template-columns: 1fr; }
   }
   /* ── END HOME REDESIGN CSS ──────────────────────────────────────────────── */
+
+  /* ── SHOPPING TAB ───────────────────────────────────────────────────────── */
+  .shop-tab-wrap { padding: 16px; max-width: 700px; }
+  .shop-tab-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .shop-tab-title { font-size: 18px; font-weight: 600; }
+
+  /* ── COLLAPSIBLE SIDEBAR ─────────────────────────────────────────────────── */
+  .sidebar-toggle-btn {
+    background: none; border: none; cursor: pointer;
+    color: rgba(255,255,255,0.45); font-size: 18px; padding: 4px 6px;
+    border-radius: 5px; line-height: 1; transition: color 0.15s;
+  }
+  .sidebar-toggle-btn:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.07); }
+
+  /* Collapsed state */
+  .sidebar.collapsed { width: 52px; }
+  .sidebar.collapsed .sidebar-header h2,
+  .sidebar.collapsed .sidebar-footer,
+  .sidebar.collapsed .sidebar-divider,
+  .sidebar.collapsed .sidebar-link span:not(.sl-icon) { display: none; }
+  .sidebar.collapsed .sidebar-header { padding: 14px 10px; justify-content: center; }
+  .sidebar.collapsed .sidebar-link { padding: 10px; justify-content: center; gap: 0; }
+  .sidebar.collapsed .sidebar-link .sl-icon { width: auto; font-size: 18px; opacity: 0.75; }
+  .sidebar.collapsed .sidebar-link.active .sl-icon { opacity: 1; }
+  .sidebar.collapsed .sidebar-nav { padding: 8px 6px; }
+
+  /* Shift app-main when collapsed */
+  .app-main { transition: margin-left 0.25s ease; }
+  .sidebar.collapsed ~ .app-main,
+  .app-shell:has(.sidebar.collapsed) .app-main { margin-left: 52px; }
+  @media (max-width: 768px) {
+    .sidebar.collapsed ~ .app-main,
+    .app-shell:has(.sidebar.collapsed) .app-main { margin-left: 0; }
+  }
+  /* ── END SIDEBAR / SHOPPING TAB CSS ────────────────────────────────────── */
 </style>
 </head>
 <body>
@@ -1517,7 +1552,10 @@
   <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <h2>MMT Dashboard</h2>
-      <button class="sidebar-close" onclick="toggleSidebar()" aria-label="Close menu">×</button>
+      <div style="display:flex;gap:4px;align-items:center;">
+        <button class="sidebar-toggle-btn" id="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="Collapse sidebar" aria-label="Collapse sidebar">‹</button>
+        <button class="sidebar-close" onclick="toggleSidebar()" aria-label="Close menu">×</button>
+      </div>
     </div>
     <nav class="sidebar-nav">
       <a class="sidebar-link active" href="#home" data-tab="home" onclick="switchTab('home');closeSidebarMobile();return false;"><span class="sl-icon">🏠</span> Home</a>
@@ -1526,7 +1564,7 @@
       <a class="sidebar-link" href="#backdrops" data-tab="backdrops" onclick="switchTab('backdrops');closeSidebarMobile();return false;"><span class="sl-icon">🎭</span> Backdrops</a>
       <a class="sidebar-link" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');closeSidebarMobile();return false;"><span class="sl-icon">🎬</span> Scripts</a>
       <div class="sidebar-divider"></div>
-      <a class="sidebar-link" href="#" onclick="switchTab('lists');closeSidebarMobile();return false;"><span class="sl-icon">🛒</span> Shopping</a>
+      <a class="sidebar-link" href="#shopping" data-tab="shopping" onclick="switchTab('shopping');closeSidebarMobile();return false;"><span class="sl-icon">🛒</span> Shopping</a>
       <a class="sidebar-link" href="#inventory" onclick="switchTab('inventory');if(typeof switchInvSubtab==='function')switchInvSubtab('paint');closeSidebarMobile();return false;"><span class="sl-icon">🎨</span> Paint</a>
       <a class="sidebar-link" href="#" onclick="switchTab('lists');switchListsSubtab('shows');closeSidebarMobile();return false;"><span class="sl-icon">📝</span> Show Notes</a>
     </nav>
@@ -1557,8 +1595,8 @@
     <div class="bottom-tabs">
       <a class="bottom-tab active" href="#home" data-tab="home" onclick="switchTab('home');return false;"><span class="bt-icon">🏠</span>Home</a>
       <a class="bottom-tab" href="#lists" data-tab="lists" onclick="switchTab('lists');return false;"><span class="bt-icon">📋</span>Lists</a>
+      <a class="bottom-tab" href="#shopping" data-tab="shopping" onclick="switchTab('shopping');return false;"><span class="bt-icon">🛒</span>Shop</a>
       <a class="bottom-tab" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');return false;"><span class="bt-icon">📦</span>Inventory</a>
-      <a class="bottom-tab" href="#backdrops" data-tab="backdrops" onclick="switchTab('backdrops');return false;"><span class="bt-icon">🎭</span>Backdrops</a>
       <a class="bottom-tab" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');return false;"><span class="bt-icon">🎬</span>Scripts</a>
     </div>
 
@@ -1978,6 +2016,24 @@
       <a class="tab-placeholder-link" href="cues.html">Open the current Scripts page ↗</a>
     </div>
   </div>
+
+  <!-- ===== TAB: SHOPPING ===== -->
+  <div class="tab-panel" id="tab-shopping" data-tab="shopping">
+    <div class="shop-tab-wrap">
+      <div class="shop-tab-header">
+        <div class="shop-tab-title">Shopping Lists</div>
+        <button class="shop-tab add-tab" onclick="addStore()" title="Add store" style="font-size:20px;border:none;background:none;cursor:pointer;color:var(--purple);padding:4px 8px;">＋</button>
+      </div>
+      <div class="shop-tabs" id="shop-tabs"></div>
+      <div class="shop-add-input">
+        <input type="text" id="shop-input" placeholder="Add an item..." />
+        <button onclick="addShopItem()">Add</button>
+      </div>
+      <div id="shop-items"></div>
+      <div class="shop-footer" id="shop-footer"></div>
+    </div>
+  </div>
+
 </div><!-- end .tab-panels -->
 </div><!-- end .app-main -->
 </div><!-- end .app-shell -->
@@ -2487,12 +2543,13 @@ function applyRoleVisibility() {
 }
 
 // ── TAB SWITCHING (unified app) ─────────────────────────────────────────────
-const TABS = ['home','lists','inventory','backdrops','scripts'];
+const TABS = ['home','lists','inventory','backdrops','scripts','shopping'];
 let currentTab = 'home';
 
 function switchTab(tab) {
   if (!TABS.includes(tab)) tab = 'home';
   currentTab = tab;
+  if (tab === 'shopping') { setTimeout(() => { try { renderShop(); } catch(e){} }, 50); }
 
   // Show the matching panel, hide the rest
   document.querySelectorAll('.tab-panel').forEach(p => {
@@ -3664,6 +3721,25 @@ function closeSidebarMobile() {
     document.getElementById('sidebar-overlay').classList.remove('open');
   }
 }
+function toggleSidebarCollapse() {
+  const sidebar = document.getElementById('sidebar');
+  const btn = document.getElementById('sidebar-collapse-btn');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  if (btn) btn.textContent = collapsed ? '›' : '‹';
+  // Persist preference
+  try { localStorage.setItem('mmt_sidebar_collapsed', collapsed ? '1' : '0'); } catch(e) {}
+}
+// Restore sidebar collapse state on load
+(function() {
+  try {
+    if (localStorage.getItem('mmt_sidebar_collapsed') === '1') {
+      const sidebar = document.getElementById('sidebar');
+      const btn = document.getElementById('sidebar-collapse-btn');
+      if (sidebar) { sidebar.classList.add('collapsed'); }
+      if (btn) btn.textContent = '›';
+    }
+  } catch(e) {}
+})();
 
 function openShowNotes() {
   // Find the current/first show's notes URL
