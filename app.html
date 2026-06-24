@@ -914,7 +914,9 @@
     border: none; background: none; font-size: 12px; cursor: pointer;
     color: var(--text-faint); padding: 2px 6px; border-radius: 4px;
     font-family: 'DM Sans', sans-serif;
+    display: none;
   }
+  .lists-grid.editing .list-reorder-btn { display: inline-block; }
   .list-reorder-btn:hover { color: var(--purple); background: var(--purple-light); }
   .list-delete-btn {
     border: none; background: none; font-size: 14px; cursor: pointer;
@@ -1444,6 +1446,7 @@
     <div class="tabs">
       <button class="tab-btn active" id="lists-subtab-shows" onclick="switchListsSubtab('shows')">Show Notes</button>
       <button class="tab-btn" id="lists-subtab-tasks" onclick="switchListsSubtab('tasks')">Tasks</button>
+      <button class="edit-links-btn td-only" id="lists-edit-btn" style="display:none;" onclick="toggleListsEdit()">Edit</button>
     </div>
 
     <!-- SHOW NOTES SUB-TAB -->
@@ -3566,11 +3569,22 @@ function renderListsTab() {
 }
 
 function switchListsSubtab(name) {
-  document.querySelectorAll('.tab-btn').forEach((b, i) => {
-    b.classList.toggle('active', ['shows','tasks'][i] === name);
-  });
-  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('lists-subtab-shows').classList.toggle('active', name === 'shows');
+  document.getElementById('lists-subtab-tasks').classList.toggle('active', name === 'tasks');
+  document.querySelectorAll('#tab-lists .tab-content').forEach(el => el.classList.remove('active'));
   document.getElementById('lists-sub-' + name).classList.add('active');
+  // Edit button (reorder mode) only applies to the Tasks view
+  const editBtn = document.getElementById('lists-edit-btn');
+  if (editBtn) editBtn.style.display = (name === 'tasks') ? '' : 'none';
+}
+
+// Toggle reorder-arrow visibility on the task lists (Edit / Done)
+function toggleListsEdit() {
+  const grid = document.getElementById('lists-grid');
+  const btn = document.getElementById('lists-edit-btn');
+  if (!grid) return;
+  const editing = grid.classList.toggle('editing');
+  if (btn) btn.textContent = editing ? 'Done' : 'Edit';
 }
 
 function renderShows() {

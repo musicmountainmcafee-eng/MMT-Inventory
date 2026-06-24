@@ -191,7 +191,9 @@
     border: none; background: none; font-size: 12px; cursor: pointer;
     color: var(--text-faint); padding: 2px 6px; border-radius: 4px;
     font-family: 'DM Sans', sans-serif;
+    display: none;
   }
+  .lists-grid.editing .list-reorder-btn { display: inline-block; }
   .list-reorder-btn:hover { color: var(--purple); background: var(--purple-light); }
   .list-delete-btn {
     border: none; background: none; font-size: 14px; cursor: pointer;
@@ -394,6 +396,7 @@
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('shows')">Show Notes</button>
     <button class="tab-btn" onclick="switchTab('tasks')">Tasks</button>
+    <button class="edit-links-btn" id="lists-edit-btn" style="display:none;" onclick="toggleListsEdit()">Edit</button>
   </div>
 
   <!-- SHOW NOTES TAB -->
@@ -556,6 +559,17 @@ function switchTab(name) {
   });
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
+  const editBtn = document.getElementById('lists-edit-btn');
+  if (editBtn) editBtn.style.display = (name === 'tasks') ? '' : 'none';
+}
+
+// Toggle reorder-arrow visibility on the task lists (Edit / Done)
+function toggleListsEdit() {
+  const grid = document.getElementById('lists-grid');
+  const btn = document.getElementById('lists-edit-btn');
+  if (!grid) return;
+  const editing = grid.classList.toggle('editing');
+  if (btn) btn.textContent = editing ? 'Done' : 'Edit';
 }
 
 function pinClear() {
