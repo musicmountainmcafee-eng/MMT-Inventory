@@ -100,23 +100,15 @@
   /* MAIN APP */
   #app { display: none; }
 
-  /* HEADER — matches staff.html gradient header */
-  .topbar {
-    background: linear-gradient(135deg, #1a1a2e 0%, #3C3489 60%, #185FA5 100%);
-    border-radius: var(--radius);
-    padding: 1.25rem 2rem;
-    margin: 1rem 1rem 1.5rem;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .topbar-left h1 { color: white; font-size: 1.4rem; font-weight: 600; }
-  .topbar-left p { color: rgba(255,255,255,0.6); font-size: 13px; margin-top: 2px; }
+  /* lock-btn kept for content-topbar */
   .lock-btn {
-    font-size: 13px; color: rgba(255,255,255,0.7); text-decoration: none;
-    padding: 6px 14px; border: 1px solid rgba(255,255,255,0.2);
+    font-size: 13px; color: rgba(255,255,255,0.7);
+    padding: 5px 12px; border: 1px solid rgba(255,255,255,0.2);
     border-radius: var(--radius-sm); background: none; cursor: pointer;
     font-family: 'DM Sans', sans-serif; transition: all 0.15s;
   }
   .lock-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+  .topbar { display: none; }  /* legacy; replaced by content-topbar */
 
   /* Role-based visibility */
   body.crew-role .td-only { display: none !important; }
@@ -126,19 +118,83 @@
   .hamburger { font-size: 22px; border: none; background: none; color: rgba(255,255,255,0.8); cursor: pointer; padding: 4px 8px; }
   .hamburger:hover { color: white; }
   @media (max-width: 768px) { .hamburger { display: none; } }
-  .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 80; display: none; }
+  /* ── PERSISTENT SIDEBAR ─────────────────────────────────────────────────── */
+  .app-shell { display: flex; min-height: 100vh; }
+  .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 80; display: none; }
   .sidebar-overlay.open { display: block; }
-  .sidebar { position: fixed; top: 0; left: -280px; bottom: 0; width: 260px; background: var(--surface); z-index: 81; transition: left 0.25s ease; box-shadow: 4px 0 24px rgba(0,0,0,0.2); display: flex; flex-direction: column; }
-  .sidebar.open { left: 0; }
-  .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .sidebar-header h2 { font-size: 16px; font-weight: 600; }
-  .sidebar-close { border: none; background: none; font-size: 20px; color: var(--text-muted); cursor: pointer; padding: 4px 8px; }
-  .sidebar-nav { flex: 1; padding: 12px; }
-  .sidebar-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: var(--radius-sm); text-decoration: none; color: var(--text); font-size: 15px; font-weight: 500; transition: background 0.15s; margin-bottom: 2px; }
-  .sidebar-link:hover { background: var(--bg); }
+
+  .sidebar {
+    width: 220px; flex-shrink: 0;
+    background: #16162a;
+    display: flex; flex-direction: column;
+    position: fixed; top: 0; bottom: 0; left: 0;
+    z-index: 81; transition: transform 0.25s ease;
+  }
+  /* Mobile: hidden by default, slides in */
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); }
+  }
+
+  .sidebar-header {
+    padding: 18px 16px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .sidebar-header h2 { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.9); letter-spacing: 0.01em; }
+  .sidebar-close {
+    border: none; background: none; color: rgba(255,255,255,0.4);
+    cursor: pointer; font-size: 18px; padding: 2px 6px; line-height: 1;
+    border-radius: 4px;
+  }
+  .sidebar-close:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.07); }
+
+  .sidebar-nav { flex: 1; padding: 8px 10px; overflow-y: auto; }
+  .sidebar-section-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(255,255,255,0.28); padding: 10px 8px 4px;
+  }
+  .sidebar-link {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 10px; border-radius: 7px;
+    text-decoration: none; color: rgba(255,255,255,0.65);
+    font-size: 13px; font-weight: 500; transition: all 0.15s;
+    margin-bottom: 1px;
+  }
+  .sidebar-link:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
   .sidebar-link.active { background: var(--purple); color: white; }
-  .sidebar-link .sl-icon { font-size: 20px; width: 28px; text-align: center; }
-  .sidebar-footer { padding: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-faint); }
+  .sidebar-link .sl-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; opacity: 0.85; }
+  .sidebar-link.active .sl-icon { opacity: 1; }
+  .sidebar-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 6px 10px; }
+  .sidebar-footer {
+    padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.07);
+    font-size: 11px; color: rgba(255,255,255,0.25);
+  }
+
+  /* Main content area shifts right on desktop */
+  .app-main {
+    flex: 1; min-width: 0; display: flex; flex-direction: column;
+    margin-left: 220px;
+    min-height: 100vh;
+  }
+  @media (max-width: 768px) {
+    .app-main { margin-left: 0; }
+  }
+
+  /* Slim content topbar */
+  .content-topbar {
+    background: linear-gradient(135deg, #1a1a2e 0%, #3C3489 60%, #185FA5 100%);
+    padding: 14px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+  }
+  .content-topbar-left { display: flex; align-items: center; gap: 10px; }
+  .content-topbar-left h1 { color: white; font-size: 15px; font-weight: 600; }
+  .content-topbar-left p { color: rgba(255,255,255,0.55); font-size: 12px; margin-top: 1px; }
+  .content-topbar-right { display: flex; align-items: center; gap: 6px; }
+
+  /* Tab panels live inside app-main */
+  .tab-panels { flex: 1; }
 
   /* BOTTOM TAB BAR (mobile) */
   .bottom-tabs { display: none; }
@@ -1452,52 +1508,62 @@
 
 <!-- MAIN APP -->
 <div id="app">
-  <div class="topbar">
-    <div class="topbar-left" style="display:flex;align-items:center;gap:12px;">
-      <button class="hamburger" onclick="toggleSidebar()" title="Menu">☰</button>
-      <div>
-        <h1>MMT Dashboard</h1>
-        <p>Music Mountain Theatre</p>
-      </div>
-    </div>
-    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-      <button class="theme-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">🌙</button>
-      <button class="lock-btn td-only" onclick="openSettings()">⚙</button>
-      <button class="lock-btn" id="refresh-btn" onclick="refreshData()">↻</button>
-      <button class="lock-btn" onclick="lock()">Lock</button>
-    </div>
-  </div>
+<div class="app-shell">
 
-  <!-- SIDEBAR -->
+  <!-- SIDEBAR OVERLAY (mobile only) -->
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+  <!-- PERSISTENT SIDEBAR -->
   <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <h2>MMT Dashboard</h2>
-      <button class="sidebar-close" onclick="toggleSidebar()">×</button>
+      <button class="sidebar-close" onclick="toggleSidebar()" aria-label="Close menu">×</button>
     </div>
     <nav class="sidebar-nav">
-      <a class="sidebar-link active" href="#home" data-tab="home" onclick="switchTab('home');toggleSidebar();return false;"><span class="sl-icon">🏠</span> Home</a>
-      <a class="sidebar-link" href="#lists" data-tab="lists" onclick="switchTab('lists');toggleSidebar();return false;"><span class="sl-icon">📋</span> Lists</a>
-      <a class="sidebar-link" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');toggleSidebar();return false;"><span class="sl-icon">📦</span> Inventory</a>
-      <a class="sidebar-link" href="#backdrops" data-tab="backdrops" onclick="switchTab('backdrops');toggleSidebar();return false;"><span class="sl-icon">🎭</span> Backdrops</a>
-      <a class="sidebar-link" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');toggleSidebar();return false;"><span class="sl-icon">🎬</span> Scripts</a>
-      <div style="border-top:1px solid var(--border);margin:10px 16px;"></div>
-      <a class="sidebar-link" href="#" onclick="scrollToSection('sec-shopping');toggleSidebar();return false;"><span class="sl-icon">🛒</span> Shopping</a>
-      <a class="sidebar-link" href="#inventory" onclick="switchTab('inventory');if(typeof switchInvSubtab==='function')switchInvSubtab('paint');toggleSidebar();return false;"><span class="sl-icon">🎨</span> Paint</a>
-      <a class="sidebar-link" href="#" onclick="openShowNotes();toggleSidebar();return false;"><span class="sl-icon">📝</span> Show Notes</a>
+      <a class="sidebar-link active" href="#home" data-tab="home" onclick="switchTab('home');closeSidebarMobile();return false;"><span class="sl-icon">🏠</span> Home</a>
+      <a class="sidebar-link" href="#lists" data-tab="lists" onclick="switchTab('lists');closeSidebarMobile();return false;"><span class="sl-icon">📋</span> Lists</a>
+      <a class="sidebar-link" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');closeSidebarMobile();return false;"><span class="sl-icon">📦</span> Inventory</a>
+      <a class="sidebar-link" href="#backdrops" data-tab="backdrops" onclick="switchTab('backdrops');closeSidebarMobile();return false;"><span class="sl-icon">🎭</span> Backdrops</a>
+      <a class="sidebar-link" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');closeSidebarMobile();return false;"><span class="sl-icon">🎬</span> Scripts</a>
+      <div class="sidebar-divider"></div>
+      <a class="sidebar-link" href="#" onclick="switchTab('lists');closeSidebarMobile();return false;"><span class="sl-icon">🛒</span> Shopping</a>
+      <a class="sidebar-link" href="#inventory" onclick="switchTab('inventory');if(typeof switchInvSubtab==='function')switchInvSubtab('paint');closeSidebarMobile();return false;"><span class="sl-icon">🎨</span> Paint</a>
+      <a class="sidebar-link" href="#" onclick="switchTab('lists');switchListsSubtab('shows');closeSidebarMobile();return false;"><span class="sl-icon">📝</span> Show Notes</a>
     </nav>
     <div class="sidebar-footer">Music Mountain Theatre</div>
   </div>
 
-  <!-- BOTTOM TAB BAR (mobile) -->
-  <div class="bottom-tabs">
-    <a class="bottom-tab active" href="#home" data-tab="home" onclick="switchTab('home');return false;"><span class="bt-icon">🏠</span>Home</a>
-    <a class="bottom-tab" href="#lists" data-tab="lists" onclick="switchTab('lists');return false;"><span class="bt-icon">📋</span>Lists</a>
-    <a class="bottom-tab" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');return false;"><span class="bt-icon">📦</span>Inventory</a>
-    <a class="bottom-tab" href="#backdrops" data-tab="backdrops" onclick="switchTab('backdrops');return false;"><span class="bt-icon">🎭</span>Backdrops</a>
-    <a class="bottom-tab" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');return false;"><span class="bt-icon">🎬</span>Scripts</a>
-  </div>
-  </div>
+  <!-- MAIN CONTENT -->
+  <div class="app-main" id="app-main">
+
+    <!-- Slim gradient topbar -->
+    <div class="content-topbar">
+      <div class="content-topbar-left">
+        <button class="hamburger" onclick="toggleSidebar()" title="Menu" style="display:none;" id="mobile-hamburger">☰</button>
+        <div>
+          <h1>MMT Dashboard</h1>
+          <p>Music Mountain Theatre</p>
+        </div>
+      </div>
+      <div class="content-topbar-right">
+        <button class="theme-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">🌙</button>
+        <button class="lock-btn td-only" onclick="openSettings()">⚙</button>
+        <button class="lock-btn" id="refresh-btn" onclick="refreshData()">↻</button>
+        <button class="lock-btn" onclick="lock()">Lock</button>
+      </div>
+    </div>
+
+    <!-- BOTTOM TAB BAR (mobile) -->
+    <div class="bottom-tabs">
+      <a class="bottom-tab active" href="#home" data-tab="home" onclick="switchTab('home');return false;"><span class="bt-icon">🏠</span>Home</a>
+      <a class="bottom-tab" href="#lists" data-tab="lists" onclick="switchTab('lists');return false;"><span class="bt-icon">📋</span>Lists</a>
+      <a class="bottom-tab" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');return false;"><span class="bt-icon">📦</span>Inventory</a>
+      <a class="bottom-tab" href="#backdrops" data-tab="backdrops" onclick="switchTab('backdrops');return false;"><span class="bt-icon">🎭</span>Backdrops</a>
+      <a class="bottom-tab" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');return false;"><span class="bt-icon">🎬</span>Scripts</a>
+    </div>
+
+    <!-- TAB PANELS -->
+    <div class="tab-panels">
 
 
   <!-- ===== TAB: HOME ===== -->
@@ -1912,7 +1978,10 @@
       <a class="tab-placeholder-link" href="cues.html">Open the current Scripts page ↗</a>
     </div>
   </div>
-</div>
+</div><!-- end .tab-panels -->
+</div><!-- end .app-main -->
+</div><!-- end .app-shell -->
+</div><!-- end #app -->
 
 <!-- Inventory: action + edit modals (merged from staff.html) -->
 <!-- CHECK IN/OUT MODAL -->
@@ -3583,8 +3652,17 @@ loadStoredShows();
 
 // ── SIDEBAR NAV ──────────────────────────────────────────────────────────────
 function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
-  document.getElementById('sidebar-overlay').classList.toggle('open');
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile) {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebar-overlay').classList.toggle('open');
+  }
+}
+function closeSidebarMobile() {
+  if (window.innerWidth <= 768) {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('open');
+  }
 }
 
 function openShowNotes() {
