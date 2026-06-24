@@ -843,6 +843,10 @@
       <a class="sidebar-link" href="staff.html"><span class="sl-icon">📦</span> Inventory</a>
       <a class="sidebar-link" href="drops.html"><span class="sl-icon">🎭</span> Backdrops</a>
       <a class="sidebar-link" href="cues.html"><span class="sl-icon">🎬</span> Scripts</a>
+      <div style="border-top:1px solid var(--border);margin:10px 16px;"></div>
+      <a class="sidebar-link" href="#" onclick="scrollToSection('sec-shopping');toggleSidebar();return false;"><span class="sl-icon">🛒</span> Shopping</a>
+      <a class="sidebar-link" href="staff.html#paint"><span class="sl-icon">🎨</span> Paint</a>
+      <a class="sidebar-link" href="#" onclick="openShowNotes();toggleSidebar();return false;"><span class="sl-icon">📝</span> Show Notes</a>
     </nav>
     <div class="sidebar-footer">Music Mountain Theatre</div>
   </div>
@@ -1251,6 +1255,10 @@ function applyRoleVisibility() {
     subtitle.textContent = userRole === 'crew' 
       ? 'Logged in as ' + userName
       : 'Music Mountain Theatre';
+  }
+  // Handle URL hash navigation
+  if (window.location.hash === '#shopping') {
+    setTimeout(() => scrollToSection('sec-shopping'), 300);
   }
 }
 
@@ -2240,6 +2248,27 @@ loadStoredShows();
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+
+function openShowNotes() {
+  // Find the current/first show's notes URL
+  const shows = [...(JSON.parse(localStorage.getItem('mmt_shows_ms') || '[]')), ...(JSON.parse(localStorage.getItem('mmt_shows_ct') || '[]'))];
+  const now = new Date();
+  const current = shows.find(s => {
+    const start = new Date(s.startDate);
+    const end = new Date(s.endDate);
+    return now >= start && now <= end;
+  });
+  if (current && current.notesUrl) {
+    window.open(current.notesUrl, '_blank');
+  } else if (showNotes) {
+    // Try to find any note URL from showNotes
+    const urls = Object.values(showNotes).filter(u => u);
+    if (urls.length > 0) window.open(urls[0], '_blank');
+    else toast('No show notes found. Create notes from the Lists page.');
+  } else {
+    toast('No show notes found. Create notes from the Lists page.');
+  }
 }
 
 // ── DARK MODE ───────────────────────────────────────────────────────────────
