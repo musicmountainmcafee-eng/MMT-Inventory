@@ -1701,6 +1701,39 @@
     #scripts-editor .tool-btn { width: 34px; height: 34px; font-size: 15px; }
   }
   /* ── END SCRIPTS TAB CSS ────────────────────────────────────────────────── */
+  /* Script loading progress overlay */
+  #script-loading-overlay {
+    position: fixed; inset: 0; z-index: 600;
+    background: rgba(20,20,35,0.72); backdrop-filter: blur(3px);
+    display: none; align-items: center; justify-content: center;
+    font-family: 'DM Sans', sans-serif;
+  }
+  #script-loading-overlay.open { display: flex; }
+  #script-loading-overlay .slo-card {
+    background: #232340; color: #e4e4ec;
+    border-radius: 14px; padding: 28px 32px; width: 90%; max-width: 380px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.4); text-align: center;
+  }
+  #script-loading-overlay .slo-title { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+  #script-loading-overlay .slo-sub { font-size: 13px; color: #9494ae; margin-bottom: 18px; min-height: 16px; }
+  #script-loading-overlay .slo-bar-track {
+    width: 100%; height: 8px; border-radius: 99px;
+    background: rgba(255,255,255,0.12); overflow: hidden; position: relative;
+  }
+  #script-loading-overlay .slo-bar-fill {
+    height: 100%; width: 0%; border-radius: 99px;
+    background: var(--purple); transition: width 0.2s ease;
+  }
+  /* Indeterminate mode: animated sweep when we can't measure real progress */
+  #script-loading-overlay .slo-bar-fill.indeterminate {
+    width: 40% !important; transition: none;
+    animation: slo-sweep 1.1s ease-in-out infinite;
+  }
+  @keyframes slo-sweep {
+    0%   { transform: translateX(-120%); }
+    100% { transform: translateX(320%); }
+  }
+  #script-loading-overlay .slo-pct { font-size: 13px; color: #9494ae; margin-top: 10px; min-height: 16px; }
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
@@ -2318,6 +2351,16 @@
 
 
 <!-- Scripts: full-screen cue editor (merged from cues.html — Session 5) -->
+<!-- Scripts: loading progress overlay -->
+<div id="script-loading-overlay">
+  <div class="slo-card">
+    <div class="slo-title" id="slo-title">Loading script…</div>
+    <div class="slo-sub" id="slo-sub"></div>
+    <div class="slo-bar-track"><div class="slo-bar-fill" id="slo-bar-fill"></div></div>
+    <div class="slo-pct" id="slo-pct"></div>
+  </div>
+</div>
+
 <div id="scripts-editor">
   <div class="cue-topbar">
     <div class="cue-topbar-left">
@@ -6502,6 +6545,63 @@ let undoStack = {};
 
 
 
+// ── SCRIPT LOADING PROGRESS OVERLAY ──────────────────────────────────────────
+function sloShow(title, sub) {
+  const ov = document.getElementById('script-loading-overlay');
+  if (!ov) return;
+  document.getElementById('slo-title').textContent = title || 'Loading…';
+  document.getElementById('slo-sub').textContent = sub || '';
+  document.getElementById('slo-pct').textContent = '';
+  sloIndeterminate(true);
+  ov.classList.add('open');
+}
+function sloHide() {
+  const ov = document.getElementById('script-loading-overlay');
+  if (ov) ov.classList.remove('open');
+}
+function sloSub(text) {
+  const el = document.getElementById('slo-sub');
+  if (el) el.textContent = text || '';
+}
+function sloIndeterminate(on) {
+  const fill = document.getElementById('slo-bar-fill');
+  const pct = document.getElementById('slo-pct');
+  if (!fill) return;
+  if (on) {
+    fill.classList.add('indeterminate');
+    if (pct) pct.textContent = '';
+  } else {
+    fill.classList.remove('indeterminate');
+  }
+}
+function sloProgress(fraction, label) {
+  const fill = document.getElementById('slo-bar-fill');
+  const pct = document.getElementById('slo-pct');
+  if (!fill) return;
+  fill.classList.remove('indeterminate');
+  const p = Math.max(0, Math.min(1, fraction));
+  fill.style.width = Math.round(p * 100) + '%';
+  if (pct) pct.textContent = label || (Math.round(p * 100) + '%');
+}
+// Decode base64 → Uint8Array in chunks, reporting progress (keeps UI responsive on big files)
+function base64ToBytesWithProgress(b64, onProgress) {
+  return new Promise(resolve => {
+    const bin = atob(b64);
+    const len = bin.length;
+    const arr = new Uint8Array(len);
+    const CHUNK = 200000;
+    let i = 0;
+    function step() {
+      const end = Math.min(i + CHUNK, len);
+      for (; i < end; i++) arr[i] = bin.charCodeAt(i);
+      if (onProgress) onProgress(i / len);
+      if (i < len) { setTimeout(step, 0); }
+      else resolve(arr);
+    }
+    step();
+  });
+}
+
 // Load script list from Drive on startup
 function loadScriptList() {
   jsonp(SCRIPT_URL + '?action=listScripts&_=' + Date.now(), d => {
@@ -6539,38 +6639,41 @@ function runDriveSearch() {
 
 // Copy a found Drive PDF into MMT Scripts (server-side), then open the copy
 function importAndOpen(fileId, name) {
-  toast('Importing ' + (name || 'script') + '…');
+  sloShow('Importing ' + (name || 'script'), 'Copying into your MMT Scripts folder…');
   jsonp(SCRIPT_URL + '?action=importScript&fileId=' + encodeURIComponent(fileId) + '&_=' + Date.now(), d => {
     if (d.success && d.fileId) {
-      toast(d.reused ? 'Opening your copy…' : 'Copied to MMT Scripts');
       loadFromDrive(d.fileId, d.name || name || 'Script');
     } else {
+      sloHide();
       toast(d.error || 'Import failed');
     }
-  }, () => { toast('Import request failed'); });
+  }, () => { sloHide(); toast('Import request failed'); });
 }
 
 // Import from a pasted Drive link (fallback for files search can't find)
 function importFromLink() {
   const link = (document.getElementById('drive-link-input').value || '').trim();
   if (!link) { toast('Paste a Drive link first'); return; }
-  toast('Importing from link…');
+  sloShow('Importing from link', 'Copying into your MMT Scripts folder…');
   jsonp(SCRIPT_URL + '?action=importScript&link=' + encodeURIComponent(link) + '&_=' + Date.now(), d => {
     if (d.success && d.fileId) {
-      toast(d.reused ? 'Opening your copy…' : 'Copied to MMT Scripts');
       loadFromDrive(d.fileId, d.name || 'Script');
     } else {
+      sloHide();
       toast(d.error || 'Could not open that link');
     }
-  }, () => { toast('Import request failed'); });
+  }, () => { sloHide(); toast('Import request failed'); });
 }
 
 // Upload PDF to Drive then open it
 async function uploadAndLoadPDF(file) {
   if (!file) return;
-  toast('Uploading to Drive...');
+  sloShow('Uploading ' + file.name.replace(/\.[^.]+$/, ''), 'Reading file…');
   const reader = new FileReader();
+  reader.onprogress = ev => { if (ev.lengthComputable) sloProgress((ev.loaded / ev.total) * 0.3, null); };
   reader.onload = async function(e) {
+    sloSub('Saving to Drive…');
+    sloIndeterminate(true);
     const base64 = btoa(String.fromCharCode(...new Uint8Array(e.target.result)));
     // Upload to Drive
     try {
@@ -6580,21 +6683,25 @@ async function uploadAndLoadPDF(file) {
       });
       const data = await res.json();
       if (data.success) {
-        toast('Saved to Drive');
         showId = data.fileId;
         document.getElementById('show-name').textContent = file.name.replace(/\.[^.]+$/, '');
-        // Load the PDF
+        sloSub('Rendering pages…');
         const pdfData = new Uint8Array(e.target.result);
-        pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
+        const task = pdfjsLib.getDocument({ data: pdfData });
+        if (task.onProgress !== undefined) { task.onProgress = p => { if (p && p.total) sloProgress(0.5 + (p.loaded / p.total) * 0.5, null); }; }
+        pdfDoc = await task.promise;
         totalPages = pdfDoc.numPages;
         currentPage = 1;
+        sloProgress(1, 'Done');
         loadShowData();
         openScriptsEditor();
         renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches();
-      } else { toast('Upload failed'); }
+        sloHide();
+      } else { sloHide(); toast('Upload failed'); }
     } catch(err) {
       // Fallback: load locally
-      toast('Drive upload failed, loading locally');
+      sloSub('Drive upload failed — loading locally…');
+      sloIndeterminate(true);
       showId = file.name.replace(/\.[^.]+$/, '').replace(/[^a-z0-9]/gi, '_');
       document.getElementById('show-name').textContent = file.name.replace(/\.[^.]+$/, '');
       const pdfData = new Uint8Array(e.target.result);
@@ -6603,6 +6710,7 @@ async function uploadAndLoadPDF(file) {
       loadShowData();
       openScriptsEditor();
       renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches();
+      sloHide();
     }
   };
   reader.readAsArrayBuffer(file);
@@ -6610,21 +6718,33 @@ async function uploadAndLoadPDF(file) {
 
 // Load PDF from Drive by file ID
 async function loadFromDrive(fileId, name) {
-  toast('Loading ' + name + '...');
+  sloShow('Opening ' + (name || 'script'), 'Fetching from Drive…');
   showId = fileId;
   document.getElementById('show-name').textContent = name;
   jsonp(SCRIPT_URL + '?action=loadScript&fileId=' + fileId + '&_=' + Date.now(), async d => {
     if (d.success && d.data) {
-      const bytes = atob(d.data);
-      const arr = new Uint8Array(bytes.length);
-      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-      pdfDoc = await pdfjsLib.getDocument({ data: arr }).promise;
-      totalPages = pdfDoc.numPages; currentPage = 1;
-      loadShowData();
-      openScriptsEditor();
-      renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches();
-    } else { toast('Failed to load script'); }
-  }, () => { toast('Failed to load script'); });
+      try {
+        sloSub('Decoding…');
+        sloProgress(0, '0%');
+        const arr = await base64ToBytesWithProgress(d.data, f => sloProgress(f * 0.5, Math.round(f * 50) + '%'));
+        sloSub('Rendering pages…');
+        const task = pdfjsLib.getDocument({ data: arr });
+        if (task.onProgress !== undefined) {
+          task.onProgress = p => { if (p && p.total) sloProgress(0.5 + (p.loaded / p.total) * 0.5, null); };
+        }
+        pdfDoc = await task.promise;
+        totalPages = pdfDoc.numPages; currentPage = 1;
+        sloProgress(1, 'Done');
+        loadShowData();
+        openScriptsEditor();
+        renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches();
+        sloHide();
+      } catch (err) {
+        sloHide();
+        toast('Could not open this PDF');
+      }
+    } else { sloHide(); toast('Failed to load script'); }
+  }, () => { sloHide(); toast('Failed to load script'); });
 }
 
 async function renderPage() {
