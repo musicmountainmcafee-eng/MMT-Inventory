@@ -1601,6 +1601,21 @@
   #tab-scripts .upload-area .label { font-size: 14px; color: var(--text-muted); }
   #tab-scripts .scripts-saved { text-align: left; }
   #tab-scripts .scripts-saved h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-faint); margin-bottom: 8px; }
+  /* Drive search UI */
+  #tab-scripts .drive-search { text-align: left; margin-bottom: 24px; }
+  #tab-scripts .drive-search-row { display: flex; gap: 8px; }
+  #tab-scripts .drive-search-row input { flex: 1; padding: 11px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font-size: 15px; font-family: 'DM Sans', sans-serif; }
+  #tab-scripts .drive-search-row input:focus { outline: none; border-color: var(--purple); }
+  #tab-scripts .drive-search-row button { padding: 11px 20px; border: none; border-radius: var(--radius-sm); background: var(--purple); color: white; font-size: 15px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
+  #tab-scripts .drive-search-row button:hover { background: var(--purple-dark); }
+  #tab-scripts .drive-result, #tab-scripts .saved-script { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: var(--radius-sm); cursor: pointer; transition: background 0.1s; border: 1px solid transparent; gap: 12px; }
+  #tab-scripts .drive-result:hover, #tab-scripts .saved-script:hover { background: var(--bg); border-color: var(--border); }
+  #tab-scripts .dr-name, #tab-scripts .ss-name { font-weight: 500; font-size: 15px; }
+  #tab-scripts .dr-meta, #tab-scripts .ss-meta { font-size: 12px; color: var(--text-faint); white-space: nowrap; }
+  #tab-scripts .drive-search-results-list { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
+  #tab-scripts .scripts-fallback { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px; text-align: left; }
+  #tab-scripts .scripts-fallback summary { font-size: 13px; color: var(--text-muted); cursor: pointer; }
+  #tab-scripts .scripts-fallback summary:hover { color: var(--text); }
   #tab-scripts .saved-script { display: flex; align-items: center; justify-content: space-between; padding: 11px 12px; border-radius: var(--radius-sm); cursor: pointer; transition: background 0.1s; border: 1px solid transparent; }
   #tab-scripts .saved-script:hover { background: var(--bg); border-color: var(--border); }
   #tab-scripts .saved-script .ss-name { font-weight: 500; font-size: 14px; }
@@ -2197,16 +2212,42 @@
     <div class="scripts-picker">
       <div class="upload-card">
         <h2>Scripts</h2>
-        <p>Upload a new script or open a saved one</p>
-        <div class="upload-area" onclick="document.getElementById('pdf-input').click()">
-          <input type="file" id="pdf-input" accept="application/pdf" onchange="uploadAndLoadPDF(this.files[0])" />
-          <div class="icon">📄</div>
-          <div class="label">Tap to upload a new PDF script</div>
+        <p>Search your Drive to open a new script, or reopen a saved one below.</p>
+
+        <!-- SEARCH DRIVE (primary) -->
+        <div class="drive-search">
+          <div class="drive-search-row">
+            <input type="text" id="drive-search-input" placeholder="Search Drive for a script by name…"
+              onkeydown="if(event.key==='Enter')runDriveSearch()" />
+            <button onclick="runDriveSearch()">Search</button>
+          </div>
+          <div id="drive-search-results"></div>
         </div>
+
+        <!-- SAVED LIBRARY -->
         <div class="scripts-saved">
           <h4>Saved Scripts</h4>
           <div id="script-list" style="color:var(--text-faint);font-size:13px;">Loading...</div>
         </div>
+
+        <!-- FALLBACKS: paste link + upload -->
+        <div class="scripts-fallback">
+          <details>
+            <summary>Can't find it? Paste a Drive link or upload a file</summary>
+            <div style="margin-top:12px;">
+              <div class="drive-search-row">
+                <input type="text" id="drive-link-input" placeholder="Paste a Google Drive link…"
+                  onkeydown="if(event.key==='Enter')importFromLink()" />
+                <button onclick="importFromLink()">Open</button>
+              </div>
+              <div class="upload-area" style="margin-top:12px;padding:20px;" onclick="document.getElementById('pdf-input').click()">
+                <input type="file" id="pdf-input" accept="application/pdf" onchange="uploadAndLoadPDF(this.files[0])" />
+                <div class="label">Or upload a PDF from this device (small files)</div>
+              </div>
+            </div>
+          </details>
+        </div>
+
       </div>
     </div>
   </div>
@@ -6466,12 +6507,62 @@ function loadScriptList() {
   jsonp(SCRIPT_URL + '?action=listScripts&_=' + Date.now(), d => {
     if (d.success && d.scripts) {
       const el = document.getElementById('script-list');
-      if (!d.scripts.length) { el.innerHTML = '<div style="padding:8px;color:var(--text-faint);">No scripts saved yet. Upload one above.</div>'; return; }
+      if (!d.scripts.length) { el.innerHTML = '<div style="padding:8px;color:var(--text-faint);">No saved scripts yet. Search your Drive above to open one.</div>'; return; }
       el.innerHTML = d.scripts.map(s =>
         `<div class="saved-script" onclick="loadFromDrive('${s.id}','${s.name.replace(/'/g,"\\'")}')"><span class="ss-name">${s.name}</span><span class="ss-meta">${s.date}</span></div>`
       ).join('');
     }
   }, () => { document.getElementById('script-list').innerHTML = '<div style="color:var(--text-faint);">Could not load scripts.</div>'; });
+}
+
+// Search the whole Drive (incl. shared files) for PDFs by name
+function runDriveSearch() {
+  const q = (document.getElementById('drive-search-input').value || '').trim();
+  const out = document.getElementById('drive-search-results');
+  if (!q) { out.innerHTML = ''; return; }
+  out.innerHTML = '<div style="padding:10px 4px;color:var(--text-faint);font-size:13px;">Searching Drive…</div>';
+  jsonp(SCRIPT_URL + '?action=searchDrive&q=' + encodeURIComponent(q) + '&_=' + Date.now(), d => {
+    if (!d.success) { out.innerHTML = '<div style="padding:10px 4px;color:var(--red);font-size:13px;">' + esc(d.error || 'Search failed') + '</div>'; return; }
+    if (!d.results || !d.results.length) {
+      out.innerHTML = '<div style="padding:10px 4px;color:var(--text-faint);font-size:13px;">No PDFs found matching "' + esc(q) + '". Try fewer words, or paste a Drive link below.</div>';
+      return;
+    }
+    out.innerHTML = '<div class="drive-search-results-list">' + d.results.map(r => {
+      const meta = [r.folder, r.owner, r.date].filter(Boolean).join(' · ');
+      return `<div class="drive-result" onclick="importAndOpen('${r.id}','${(r.name||'').replace(/'/g,"\\'")}')">
+        <span class="dr-name">${esc(r.name)}</span>
+        <span class="dr-meta">${esc(meta)}</span>
+      </div>`;
+    }).join('') + '</div>';
+  }, () => { out.innerHTML = '<div style="padding:10px 4px;color:var(--red);font-size:13px;">Search request failed.</div>'; });
+}
+
+// Copy a found Drive PDF into MMT Scripts (server-side), then open the copy
+function importAndOpen(fileId, name) {
+  toast('Importing ' + (name || 'script') + '…');
+  jsonp(SCRIPT_URL + '?action=importScript&fileId=' + encodeURIComponent(fileId) + '&_=' + Date.now(), d => {
+    if (d.success && d.fileId) {
+      toast(d.reused ? 'Opening your copy…' : 'Copied to MMT Scripts');
+      loadFromDrive(d.fileId, d.name || name || 'Script');
+    } else {
+      toast(d.error || 'Import failed');
+    }
+  }, () => { toast('Import request failed'); });
+}
+
+// Import from a pasted Drive link (fallback for files search can't find)
+function importFromLink() {
+  const link = (document.getElementById('drive-link-input').value || '').trim();
+  if (!link) { toast('Paste a Drive link first'); return; }
+  toast('Importing from link…');
+  jsonp(SCRIPT_URL + '?action=importScript&link=' + encodeURIComponent(link) + '&_=' + Date.now(), d => {
+    if (d.success && d.fileId) {
+      toast(d.reused ? 'Opening your copy…' : 'Copied to MMT Scripts');
+      loadFromDrive(d.fileId, d.name || 'Script');
+    } else {
+      toast(d.error || 'Could not open that link');
+    }
+  }, () => { toast('Import request failed'); });
 }
 
 // Upload PDF to Drive then open it
