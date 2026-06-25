@@ -1498,6 +1498,21 @@
   .sidebar.collapsed .sidebar-link.active .sl-icon { opacity: 1; }
   .sidebar.collapsed .sidebar-nav { padding: 8px 6px; }
 
+  /* Cleaning overdue badge */
+  .cleaning-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 20px; padding: 0 6px; margin-left: auto;
+    background: #e74c3c; color: #fff; font-size: 12px; font-weight: 700;
+    border-radius: 99px; flex-shrink: 0;
+  }
+  /* When collapsed, show the badge as a small dot on the icon */
+  .sidebar.collapsed .sidebar-link .cleaning-badge {
+    display: block !important; position: absolute; top: 6px; right: 8px;
+    min-width: 8px; width: 8px; height: 8px; padding: 0; margin: 0;
+    font-size: 0; color: transparent;
+  }
+  .sidebar.collapsed .sidebar-link { position: relative; }
+
   /* Shift app-main when collapsed */
   .app-main { transition: margin-left 0.25s ease; }
   .sidebar.collapsed ~ .app-main,
@@ -1701,6 +1716,50 @@
     #scripts-editor .tool-btn { width: 34px; height: 34px; font-size: 15px; }
   }
   /* ── END SCRIPTS TAB CSS ────────────────────────────────────────────────── */
+  /* ── CLEANING TAB ───────────────────────────────────────────────────────── */
+  .cleaning-wrap { padding: 20px; max-width: 860px; }
+  .cleaning-header { margin-bottom: 18px; }
+  .cleaning-header h2 { font-size: 22px; font-weight: 600; margin-bottom: 14px; }
+  .cleaning-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+  .cleaning-subtab { font-size: 14px; padding: 9px 16px; border: none; background: none; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; font-family: 'DM Sans', sans-serif; font-weight: 500; }
+  .cleaning-subtab.active { color: var(--text); border-bottom-color: var(--purple); }
+  .cl-add-row { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .cl-add-row input, .cl-add-row select { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 14px; font-family: 'DM Sans', sans-serif; }
+  .cl-add-row input { flex: 1; min-width: 140px; }
+  .cl-add-row input:focus, .cl-add-row select:focus { outline: none; border-color: var(--purple); }
+  .cl-add-row button { padding: 10px 20px; border: none; border-radius: var(--radius-sm); background: var(--purple); color: white; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
+  .cl-add-row button:hover { background: var(--purple-dark); }
+
+  /* Scheduled item cards */
+  .cl-item { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); margin-bottom: 10px; }
+  .cl-item-status { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .cl-item-status.overdue { background: #e74c3c; }
+  .cl-item-status.soon { background: #f5a623; }
+  .cl-item-status.ok { background: #3B6D11; }
+  .cl-item-info { flex: 1; min-width: 0; }
+  .cl-item-name { font-size: 16px; font-weight: 600; color: var(--text); }
+  .cl-item-meta { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+  .cl-item-due { font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .cl-item-due.overdue { color: #c0392b; }
+  .cl-item-due.soon { color: #b9770e; }
+  .cl-item-due.ok { color: var(--text-muted); }
+  .cl-item-btns { display: flex; gap: 6px; flex-shrink: 0; }
+  .cl-log-btn { padding: 7px 14px; border: none; border-radius: var(--radius-sm); background: var(--purple); color: white; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
+  .cl-log-btn:hover { background: var(--purple-dark); }
+  .cl-del-btn { padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text-faint); font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .cl-del-btn:hover { color: #e74c3c; border-color: #e74c3c; }
+
+  /* Log entries */
+  .cl-log-entry { display: flex; gap: 14px; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); margin-bottom: 8px; align-items: flex-start; }
+  .cl-log-date { font-size: 12px; color: var(--text-faint); font-family: 'DM Mono', monospace; white-space: nowrap; padding-top: 2px; min-width: 84px; }
+  .cl-log-body { flex: 1; min-width: 0; }
+  .cl-log-what { font-size: 15px; font-weight: 600; color: var(--text); }
+  .cl-log-detail { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+  .cl-empty { text-align: center; padding: 40px 20px; color: var(--text-faint); font-size: 15px; }
+  @media (max-width: 640px) {
+    .cl-add-row input, .cl-add-row select, .cl-add-row button { width: 100%; max-width: none; }
+  }
+  /* ── END CLEANING TAB CSS ───────────────────────────────────────────────── */
   /* Script loading progress overlay */
   #script-loading-overlay {
     position: fixed; inset: 0; z-index: 600;
@@ -1798,6 +1857,7 @@
       <a class="sidebar-link" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');closeSidebarMobile();return false;"><span class="sl-icon">🎬</span> Scripts</a>
       <div class="sidebar-divider"></div>
       <a class="sidebar-link" href="#shopping" data-tab="shopping" onclick="switchTab('shopping');closeSidebarMobile();return false;"><span class="sl-icon">🛒</span> Shopping</a>
+      <a class="sidebar-link" href="#cleaning" data-tab="cleaning" onclick="switchTab('cleaning');closeSidebarMobile();return false;"><span class="sl-icon">🧽</span> Cleaning<span class="cleaning-badge" id="cleaning-badge" style="display:none;"></span></a>
       <a class="sidebar-link" href="#inventory" onclick="switchTab('inventory');if(typeof switchInvSubtab==='function')switchInvSubtab('paint');closeSidebarMobile();return false;"><span class="sl-icon">🎨</span> Paint</a>
       <a class="sidebar-link" href="#" onclick="switchTab('lists');switchListsSubtab('shows');closeSidebarMobile();return false;"><span class="sl-icon">📝</span> Show Notes</a>
     </nav>
@@ -2304,6 +2364,49 @@
       </div>
       <div id="shop-items"></div>
       <div class="shop-footer" id="shop-footer"></div>
+    </div>
+  </div>
+
+  <!-- ===== TAB: CLEANING ===== -->
+  <div class="tab-panel" id="tab-cleaning" data-tab="cleaning">
+    <div class="cleaning-wrap">
+      <div class="cleaning-header">
+        <h2>Cleaning</h2>
+        <div class="cleaning-tabs">
+          <button class="cleaning-subtab active" id="cl-subtab-items" onclick="switchCleaningSub('items')">Scheduled Items</button>
+          <button class="cleaning-subtab" id="cl-subtab-log" onclick="switchCleaningSub('log')">Log</button>
+        </div>
+      </div>
+
+      <!-- SCHEDULED ITEMS -->
+      <div id="cl-view-items" class="cleaning-view">
+        <div class="cl-add-row">
+          <input type="text" id="cl-item-name" placeholder="Item / area to clean (e.g. Costume steamer)" />
+          <input type="text" id="cl-item-area" placeholder="Location" style="max-width:150px;" />
+          <select id="cl-item-interval">
+            <option value="7">Weekly</option>
+            <option value="14">Every 2 weeks</option>
+            <option value="30" selected>Monthly</option>
+            <option value="90">Quarterly</option>
+            <option value="180">Twice a year</option>
+            <option value="365">Yearly</option>
+          </select>
+          <button onclick="addCleaningItem()">Add</button>
+        </div>
+        <div id="cl-items-list"></div>
+      </div>
+
+      <!-- LOG -->
+      <div id="cl-view-log" class="cleaning-view" style="display:none;">
+        <div class="cl-add-row">
+          <input type="text" id="cl-log-item" placeholder="What was cleaned" />
+          <input type="text" id="cl-log-area" placeholder="Area" style="max-width:130px;" />
+          <input type="text" id="cl-log-who" placeholder="Who" style="max-width:110px;" />
+          <input type="text" id="cl-log-notes" placeholder="Notes / condition" />
+          <button onclick="addCleaningLogEntry()">Log it</button>
+        </div>
+        <div id="cl-log-list"></div>
+      </div>
     </div>
   </div>
 
@@ -2956,6 +3059,8 @@ function initApp() {
   renderShop();
   applyZoom();
   initNavSpy();
+  // Load cleaning data in the background so the overdue badge shows right away
+  try { loadCleaning(); _cleaningLoaded = true; } catch(e) {}
   // Enter key to submit quick-add task
   const qa = document.getElementById('qa-text');
   if (qa) qa.addEventListener('keydown', e => { if (e.key === 'Enter') quickAddTask(); });
@@ -2981,7 +3086,7 @@ function applyRoleVisibility() {
 }
 
 // ── TAB SWITCHING (unified app) ─────────────────────────────────────────────
-const TABS = ['home','lists','inventory','backdrops','scripts','shopping'];
+const TABS = ['home','lists','inventory','backdrops','scripts','shopping','cleaning'];
 let currentTab = 'home';
 
 function switchTab(tab) {
@@ -3008,6 +3113,7 @@ function switchTab(tab) {
   if (tab === 'inventory' && typeof renderInventoryTab === 'function') renderInventoryTab();
   if (tab === 'backdrops' && typeof ensureDropsLoaded === 'function') ensureDropsLoaded();
   if (tab === 'scripts' && typeof ensureScriptsLoaded === 'function') ensureScriptsLoaded();
+  if (tab === 'cleaning' && typeof ensureCleaningLoaded === 'function') ensureCleaningLoaded();
 }
 
 // On load, honor a #tab hash (e.g. deep link to #inventory)
@@ -3792,6 +3898,203 @@ function removeStore() {
 
 // Init shopping lists
 loadShopData();
+
+// ── CLEANING LOG ─────────────────────────────────────────────────────────────
+let cleaningItems = [];   // { id, name, area, intervalDays, lastCleaned }
+let cleaningLog = [];     // { id, item, area, who, notes, date }
+let cleaningSub = 'items';
+let _cleaningLoaded = false;
+
+function ensureCleaningLoaded() {
+  if (_cleaningLoaded) { renderCleaning(); return; }
+  _cleaningLoaded = true;
+  loadCleaning();
+}
+
+function loadCleaning() {
+  // Cached first
+  try {
+    const c = JSON.parse(localStorage.getItem('mmt_cleaning') || 'null');
+    if (c) { cleaningItems = c.items || []; cleaningLog = c.log || []; renderCleaning(); updateCleaningBadge(); }
+  } catch(e) {}
+  jsonp(SCRIPT_URL + '?action=getCleaning&_=' + Date.now(), d => {
+    if (d.success) {
+      cleaningItems = d.items || [];
+      cleaningLog = d.log || [];
+      try { localStorage.setItem('mmt_cleaning', JSON.stringify({ items: cleaningItems, log: cleaningLog })); } catch(e) {}
+      renderCleaning();
+      updateCleaningBadge();
+    }
+  }, () => {});
+}
+
+function saveCleaning() {
+  try { localStorage.setItem('mmt_cleaning', JSON.stringify({ items: cleaningItems, log: cleaningLog })); } catch(e) {}
+  updateCleaningBadge();
+  fetch(SCRIPT_URL, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'saveCleaning', items: cleaningItems, log: cleaningLog })
+  }).catch(() => {});
+}
+
+// Compute status for a scheduled item: 'overdue' | 'soon' | 'ok' + days remaining
+function cleaningStatus(item) {
+  if (!item.lastCleaned) return { status: 'overdue', days: null, label: 'Never cleaned' };
+  const last = new Date(item.lastCleaned + 'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dueDate = new Date(last); dueDate.setDate(dueDate.getDate() + (parseInt(item.intervalDays) || 30));
+  const daysLeft = Math.round((dueDate - today) / 86400000);
+  if (daysLeft < 0)  return { status: 'overdue', days: daysLeft, label: Math.abs(daysLeft) + 'd overdue' };
+  if (daysLeft <= 3) return { status: 'soon', days: daysLeft, label: daysLeft === 0 ? 'Due today' : 'Due in ' + daysLeft + 'd' };
+  return { status: 'ok', days: daysLeft, label: 'Due in ' + daysLeft + 'd' };
+}
+
+function countCleaningOverdue() {
+  return cleaningItems.filter(it => cleaningStatus(it).status === 'overdue').length;
+}
+
+function updateCleaningBadge() {
+  const badge = document.getElementById('cleaning-badge');
+  if (!badge) return;
+  const n = countCleaningOverdue();
+  if (n > 0) { badge.textContent = n; badge.style.display = ''; }
+  else { badge.style.display = 'none'; }
+}
+
+function switchCleaningSub(which) {
+  cleaningSub = which;
+  document.getElementById('cl-subtab-items').classList.toggle('active', which === 'items');
+  document.getElementById('cl-subtab-log').classList.toggle('active', which === 'log');
+  document.getElementById('cl-view-items').style.display = which === 'items' ? '' : 'none';
+  document.getElementById('cl-view-log').style.display = which === 'log' ? '' : 'none';
+}
+
+function renderCleaning() {
+  renderCleaningItems();
+  renderCleaningLog();
+}
+
+function renderCleaningItems() {
+  const el = document.getElementById('cl-items-list');
+  if (!el) return;
+  if (!cleaningItems.length) {
+    el.innerHTML = '<div class="cl-empty">No scheduled items yet. Add something above to start tracking when it needs cleaning.</div>';
+    return;
+  }
+  // Sort: overdue first, then soonest due
+  const sorted = [...cleaningItems].sort((a, b) => {
+    const sa = cleaningStatus(a), sb = cleaningStatus(b);
+    const rank = s => s.status === 'overdue' ? 0 : s.status === 'soon' ? 1 : 2;
+    if (rank(sa) !== rank(sb)) return rank(sa) - rank(sb);
+    return (sa.days ?? -9999) - (sb.days ?? -9999);
+  });
+  el.innerHTML = sorted.map(it => {
+    const s = cleaningStatus(it);
+    const intervalLabel = { 7:'Weekly',14:'Every 2 weeks',30:'Monthly',90:'Quarterly',180:'Twice a year',365:'Yearly' }[it.intervalDays] || ('Every ' + it.intervalDays + 'd');
+    const meta = [it.area, intervalLabel, it.lastCleaned ? ('Last: ' + fmtCleanDate(it.lastCleaned)) : null].filter(Boolean).join(' · ');
+    return `<div class="cl-item">
+      <div class="cl-item-status ${s.status}"></div>
+      <div class="cl-item-info">
+        <div class="cl-item-name">${esc(it.name)}</div>
+        <div class="cl-item-meta">${esc(meta)}</div>
+      </div>
+      <div class="cl-item-due ${s.status}">${esc(s.label)}</div>
+      <div class="cl-item-btns">
+        <button class="cl-log-btn" onclick="logCleaningForItem('${it.id}')">Log clean</button>
+        <button class="cl-del-btn" onclick="deleteCleaningItem('${it.id}')">×</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCleaningLog() {
+  const el = document.getElementById('cl-log-list');
+  if (!el) return;
+  if (!cleaningLog.length) {
+    el.innerHTML = '<div class="cl-empty">No cleaning logged yet.</div>';
+    return;
+  }
+  const sorted = [...cleaningLog].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  el.innerHTML = sorted.map(e => {
+    const detail = [e.area, e.who ? ('by ' + e.who) : null, e.notes].filter(Boolean).join(' · ');
+    return `<div class="cl-log-entry">
+      <div class="cl-log-date">${esc(fmtCleanDate(e.date))}</div>
+      <div class="cl-log-body">
+        <div class="cl-log-what">${esc(e.item)}</div>
+        ${detail ? `<div class="cl-log-detail">${esc(detail)}</div>` : ''}
+      </div>
+      <button class="cl-del-btn" onclick="deleteCleaningLog('${e.id}')">×</button>
+    </div>`;
+  }).join('');
+}
+
+function fmtCleanDate(d) {
+  if (!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function todayISO() {
+  const t = new Date();
+  return t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+}
+
+function addCleaningItem() {
+  const name = document.getElementById('cl-item-name').value.trim();
+  if (!name) { toast('Enter an item name'); return; }
+  const area = document.getElementById('cl-item-area').value.trim();
+  const interval = parseInt(document.getElementById('cl-item-interval').value) || 30;
+  cleaningItems.push({ id: 'ci_' + Date.now(), name, area, intervalDays: interval, lastCleaned: '' });
+  document.getElementById('cl-item-name').value = '';
+  document.getElementById('cl-item-area').value = '';
+  renderCleaningItems();
+  saveCleaning();
+  toast('Item added');
+}
+
+function deleteCleaningItem(id) {
+  if (!confirm('Remove this scheduled item? (Past log entries are kept.)')) return;
+  cleaningItems = cleaningItems.filter(it => it.id !== id);
+  renderCleaningItems();
+  saveCleaning();
+}
+
+// "Log clean" on a scheduled item: stamps today, resets its clock, adds a log entry
+function logCleaningForItem(id) {
+  const it = cleaningItems.find(x => x.id === id);
+  if (!it) return;
+  const who = prompt('Who cleaned it? (optional)') || '';
+  it.lastCleaned = todayISO();
+  cleaningLog.push({ id: 'cl_' + Date.now(), item: it.name, area: it.area || '', who: who.trim(), notes: '', date: todayISO() });
+  renderCleaning();
+  saveCleaning();
+  toast(it.name + ' logged as cleaned');
+}
+
+function addCleaningLogEntry() {
+  const item = document.getElementById('cl-log-item').value.trim();
+  if (!item) { toast('Enter what was cleaned'); return; }
+  const area = document.getElementById('cl-log-area').value.trim();
+  const who = document.getElementById('cl-log-who').value.trim();
+  const notes = document.getElementById('cl-log-notes').value.trim();
+  cleaningLog.push({ id: 'cl_' + Date.now(), item, area, who, notes, date: todayISO() });
+  // If a scheduled item matches by name, reset its clock too
+  const match = cleaningItems.find(it => it.name.toLowerCase() === item.toLowerCase());
+  if (match) match.lastCleaned = todayISO();
+  document.getElementById('cl-log-item').value = '';
+  document.getElementById('cl-log-area').value = '';
+  document.getElementById('cl-log-who').value = '';
+  document.getElementById('cl-log-notes').value = '';
+  renderCleaning();
+  saveCleaning();
+  toast('Logged');
+}
+
+function deleteCleaningLog(id) {
+  cleaningLog = cleaningLog.filter(e => e.id !== id);
+  renderCleaningLog();
+  saveCleaning();
+}
 
 // ── QUICK SCRATCHPAD ────────────────────────────────────────────────────────
 function initScratchpad() {
