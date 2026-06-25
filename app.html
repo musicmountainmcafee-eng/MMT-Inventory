@@ -1654,7 +1654,17 @@
   #scripts-editor .top-btn.primary:hover { background: var(--purple-dark); }
 
   #scripts-editor .cue-main { display: flex; flex: 1; overflow: hidden; }
-  #scripts-editor .tool-sidebar { width: 52px; background: var(--cue-surface); border-right: 1px solid var(--cue-border); display: flex; flex-direction: column; align-items: center; padding: 10px 0; gap: 4px; flex-shrink: 0; }
+  #scripts-editor .tool-sidebar { width: 70px; background: var(--cue-surface); border-right: 1px solid var(--cue-border); display: flex; flex-direction: column; align-items: center; padding: 10px 0; gap: 4px; flex-shrink: 0; }
+  #scripts-editor #type-quick { width: 100%; padding: 0 6px; }
+  #scripts-editor .cue-type-quick-btn {
+    width: 100%; min-height: 30px; padding: 5px 4px; margin-bottom: 4px;
+    font-size: 11px; font-weight: 700; line-height: 1.1;
+    border: 2px solid; border-radius: 5px; background: transparent;
+    cursor: pointer; font-family: 'DM Sans', sans-serif;
+    white-space: normal; word-break: break-word; text-align: center;
+    transition: all 0.1s;
+  }
+  #scripts-editor .cue-type-quick-btn:hover { filter: brightness(1.15); }
   #scripts-editor .tool-btn { width: 40px; height: 40px; border: none; border-radius: var(--cue-radius-sm); background: none; color: var(--cue-text-muted); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
   #scripts-editor .tool-btn:hover { background: var(--cue-surface2); color: var(--cue-text); }
   #scripts-editor .tool-btn.active { background: var(--purple); color: white; }
@@ -2485,8 +2495,8 @@
   <div class="cue-main">
     <!-- TOOL SIDEBAR -->
     <div class="tool-sidebar">
-      <button class="tool-btn active" id="tool-pen" onclick="setTool('pen')" title="Pen">✏️</button>
-      <button class="tool-btn" id="tool-cue" onclick="setTool('cue')" title="Place Cue">🔵</button>
+      <button class="tool-btn" id="tool-pen" onclick="setTool('pen')" title="Pen">✏️</button>
+      <button class="tool-btn active" id="tool-cue" onclick="setTool('cue')" title="Place Cue">🔵</button>
       <button class="tool-btn" id="tool-eraser" onclick="setTool('eraser')" title="Eraser">🧹</button>
       <div class="tool-divider"></div>
       <button class="tool-btn" onclick="undo()" title="Undo">↩</button>
@@ -6849,7 +6859,7 @@ if (typeof pdfjsLib !== 'undefined') { pdfjsLib.GlobalWorkerOptions.workerSrc = 
 
 // ── STATE ────────────────────────────────────────────────────────────────────
 let pdfDoc = null, currentPage = 1, totalPages = 0;
-let currentTool = 'pen';
+let currentTool = 'cue';
 let penColor = '#e74c3c';
 let penSize = 2;
 let isDrawing = false;
@@ -7046,10 +7056,20 @@ async function uploadAndLoadPDF(file) {
 }
 
 // Load PDF from Drive by file ID
-async function loadFromDrive(fileId, name) {
-  sloShow('Opening ' + (name || 'script'), 'Fetching from Drive…');
+async function loadFromDrive(fileId, name, _attempt) {
+  _attempt = _attempt || 1;
+  sloShow('Opening ' + (name || 'script'), _attempt > 1 ? 'Retrying…' : 'Fetching from Drive…');
   showId = fileId;
   document.getElementById('show-name').textContent = name;
+  const retry = (reason) => {
+    if (_attempt < 2) {
+      // Silent auto-retry once — the first call after waking often misses
+      setTimeout(() => loadFromDrive(fileId, name, _attempt + 1), 600);
+    } else {
+      sloHide();
+      toast('Failed to load script — tap to try again');
+    }
+  };
   jsonp(SCRIPT_URL + '?action=loadScript&fileId=' + fileId + '&_=' + Date.now(), async d => {
     if (d.success && d.data) {
       try {
@@ -7069,11 +7089,10 @@ async function loadFromDrive(fileId, name) {
         renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches();
         sloHide();
       } catch (err) {
-        sloHide();
-        toast('Could not open this PDF');
+        retry('parse');
       }
-    } else { sloHide(); toast('Failed to load script'); }
-  }, () => { sloHide(); toast('Failed to load script'); });
+    } else { retry('no-data'); }
+  }, () => { retry('network'); });
 }
 
 async function renderPage() {
@@ -7550,7 +7569,7 @@ function setTool(tool) {
 function renderColorSwatches() {
   const selType = document.getElementById('cue-type-sel').value;
   document.getElementById('type-quick').innerHTML = cueTypes.map(t =>
-    `<button class="tool-btn" style="font-size:10px;font-weight:700;width:40px;height:28px;border:2px solid ${t.id===selType?'white':t.color};background:${t.id===selType?t.color:'transparent'};color:${t.id===selType?'white':t.color};border-radius:4px;padding:0;" onclick="quickSetType('${t.id}')" title="${t.name}">${t.name}</button>`
+    `<button class="cue-type-quick-btn" style="border-color:${t.color};${t.id===selType?`background:${t.color};color:#fff;`:`color:${t.color};`}" onclick="quickSetType('${t.id}')" title="${t.name}">${esc(t.name)}</button>`
   ).join('');
 }
 
@@ -7942,6 +7961,13 @@ function openScriptsEditor() {
   const ed = document.getElementById('scripts-editor');
   if (ed) ed.classList.add('open');
   renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches();
+  // Default to the cue tool with the first cue type selected
+  setTool('cue');
+  if (cueTypes.length) {
+    const sel = document.getElementById('cue-type-sel');
+    if (sel && !sel.value) sel.value = cueTypes[0].id;
+    renderColorSwatches();
+  }
 }
 function closeScriptsEditor() {
   const ed = document.getElementById('scripts-editor');
