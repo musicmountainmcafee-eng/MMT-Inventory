@@ -2623,7 +2623,6 @@
       <button class="tool-btn" id="tool-eraser" onclick="setTool('eraser')" title="Eraser">🧹</button>
       <div class="tool-divider"></div>
       <button class="tool-btn" onclick="undo()" title="Undo">↩</button>
-      <button class="tool-btn" onclick="clearPage()" title="Clear Page">🗑</button>
       <div class="tool-divider"></div>
       <div id="type-quick" style="display:flex;flex-direction:column;gap:3px;align-items:center;"></div>
       <div class="tool-divider"></div>
@@ -3003,7 +3002,7 @@
 
   </div>
 </div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">build 2026.06.25-wizard</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">build 2026.06.26-0258</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -7616,8 +7615,13 @@ drawCanvas.addEventListener('pointerup', e => {
       const notes = document.getElementById('cue-desc').value.trim();
       const cueId = Date.now().toString();
 
-      const labelX = drawCanvas.width - 60;
-      const labelY = rect.y + rect.h;
+      // Position the label in the right margin, vertically level with the marker
+      // center so the leader line runs straight across (no downward angle).
+      const ctxM = drawCanvas.getContext('2d');
+      ctxM.font = 'bold 11px "DM Sans", sans-serif';
+      const labelW = ctxM.measureText(num).width;
+      const labelX = drawCanvas.width - labelW - 28; // keep long labels (e.g. SPOT OUT 2) on-page
+      const labelY = rect.y + rect.h / 2;            // level with marker center → horizontal line
 
       cues.push({ id: cueId, type: typeId, number: num, action, cueLine, notes, description: notes, page: currentPage });
 
@@ -7791,9 +7795,9 @@ function drawAnnotation(ctx, a) {
         ctx.lineWidth = 2;
         ctx.strokeRect(r.x, r.y, r.w, r.h);
 
-        // Connecting line from rectangle bottom-right to label (solid)
+        // Connecting line from rectangle right-center to label (solid, horizontal)
         const lineStartX = r.x + r.w;
-        const lineStartY = r.y + r.h;
+        const lineStartY = r.y + r.h / 2;
         ctx.beginPath();
         ctx.moveTo(lineStartX, lineStartY);
         ctx.lineTo(a.labelX, a.labelY);
@@ -7865,7 +7869,30 @@ function setTool(tool) {
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
   const el = document.getElementById('tool-' + tool);
   if (el) el.classList.add('active');
-  drawCanvas.style.cursor = tool === 'cue' ? 'cell' : tool === 'eraser' ? 'grab' : 'crosshair';
+  updateToolCursor();
+}
+
+// Builds a clear cursor for the current tool. For the cue tool, a crosshair-with-ring
+// in the selected cue's color so you can see you're about to drop that cue.
+function updateToolCursor() {
+  if (currentTool === 'cue') {
+    let color = '#534AB7';
+    const sel = document.getElementById('cue-type-sel');
+    if (sel) { const t = cueTypes.find(x => x.id === sel.value); if (t) color = t.color; }
+    const c = color.replace('#', '%23');
+    const svg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">'
+      + '<line x1="14" y1="2" x2="14" y2="10" stroke="' + c + '" stroke-width="2"/>'
+      + '<line x1="14" y1="18" x2="14" y2="26" stroke="' + c + '" stroke-width="2"/>'
+      + '<line x1="2" y1="14" x2="10" y2="14" stroke="' + c + '" stroke-width="2"/>'
+      + '<line x1="18" y1="14" x2="26" y2="14" stroke="' + c + '" stroke-width="2"/>'
+      + '<circle cx="14" cy="14" r="5" fill="' + c + '" fill-opacity="0.25" stroke="' + c + '" stroke-width="2"/>'
+      + '</svg>';
+    drawCanvas.style.cursor = 'url(\'' + svg + '\') 14 14, crosshair';
+  } else if (currentTool === 'eraser') {
+    drawCanvas.style.cursor = 'cell';
+  } else {
+    drawCanvas.style.cursor = 'crosshair';
+  }
 }
 
 function renderColorSwatches() {
@@ -7881,6 +7908,7 @@ function quickSetType(id) {
   if (type) penColor = type.color;
   renderColorSwatches();
   setTool('cue');
+  updateToolCursor();
 }
 
 // ── CUE TYPES ────────────────────────────────────────────────────────────────
