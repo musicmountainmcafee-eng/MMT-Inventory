@@ -1731,7 +1731,7 @@
     position: absolute; display: none; pointer-events: none; z-index: 30;
     font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700;
     color: #fff; padding: 3px 8px; border-radius: 5px; white-space: nowrap;
-    transform: translate(14px, 14px);
+    transform: translate(calc(-100% - 14px), calc(-100% - 14px));
   }
 
   #scripts-editor .cue-panel { width: 300px; background: var(--cue-surface); border-left: 1px solid var(--cue-border); display: flex; flex-direction: column; flex-shrink: 0; }
@@ -1742,6 +1742,8 @@
   #scripts-editor .cue-table th { text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--cue-text-faint); padding: 6px 8px; border-bottom: 1px solid var(--cue-border); position: sticky; top: 0; background: var(--cue-surface); }
   #scripts-editor .cue-table td { padding: 7px 8px; border-bottom: 1px solid var(--cue-border2); vertical-align: top; cursor: pointer; }
   #scripts-editor .cue-table tr:hover td { background: var(--cue-surface2); }
+  #scripts-editor .cue-table tr.cue-selected td { background: rgba(83,74,183,0.35); }
+  #scripts-editor .cue-table tr.cue-selected td:first-child { box-shadow: inset 3px 0 0 var(--purple); }
   #scripts-editor .cue-table .ct-type { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; color: white; white-space: nowrap; }
   #scripts-editor .cue-table .ct-num { font-family: 'DM Mono', monospace; font-weight: 600; font-size: 12px; white-space: nowrap; }
   #scripts-editor .cue-table .ct-action { color: var(--cue-text); }
@@ -3009,7 +3011,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">build 2026.06.25-2310</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">build 2026.06.26-0952</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -7192,6 +7194,8 @@ let cues = [];
 // Annotations per page: { [page]: [ {type:'stroke', points:[], color, size} | {type:'cue', x, y, cueId} ] }
 let annotations = {};
 let undoStack = {};
+let selectedCueId = null;  // currently highlighted cue (for Delete key)
+let editingCueId = null;   // cue open in the edit modal
 
 
 
@@ -7714,25 +7718,36 @@ function cueHitTest(pos) {
   return null;
 }
 
-// Open a cue's info: make sure the panel is showing, highlight the row, open the edit modal.
+// Click a cue on the PAGE → just highlight it in the sidebar (no edit menu).
 function openCueInfo(cueId) {
-  const panel = document.getElementById('cue-panel');
-  if (panel && !panel.classList.contains('open') && window.innerWidth <= 768) {
-    panel.classList.add('open'); // reveal panel on mobile
-  }
-  highlightCueRow(cueId);
-  editCue(cueId);
+  selectCue(cueId);
 }
 
-// Briefly highlight a cue's row in the right-side list and scroll it into view.
+// Select/highlight a cue: marks it as the active cue (for the Delete key) and
+// persistently highlights its row in the cue sheet.
+function selectCue(cueId) {
+  selectedCueId = cueId;
+  const panel = document.getElementById('cue-panel');
+  if (panel && !panel.classList.contains('open') && window.innerWidth <= 768) {
+    panel.classList.add('open');
+  }
+  // Clear previous highlights, set the new one
+  document.querySelectorAll('.cue-table tr.cue-selected').forEach(r => r.classList.remove('cue-selected'));
+  const row = document.querySelector('.cue-table tr[data-cue-id="' + cueId + '"]');
+  if (row) {
+    row.classList.add('cue-selected');
+    if (row.scrollIntoView) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  // Flash the marker on the page so you can see which one is selected
+  const a = (annotations[currentPage] || []).find(x => x.type === 'cue' && x.cueId === cueId);
+  if (a && typeof flashCueMarker === 'function') flashCueMarker(a);
+}
+
+// Brief flash highlight of a row (used when jumping pages).
 function highlightCueRow(cueId) {
   const row = document.querySelector('.cue-table tr[data-cue-id="' + cueId + '"]');
   if (row) {
-    row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    row.style.transition = 'background 0.2s';
-    const prev = row.style.background;
-    row.style.background = 'rgba(83,74,183,0.35)';
-    setTimeout(() => { row.style.background = prev; }, 1200);
+    if (row.scrollIntoView) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 }
 
@@ -7887,7 +7902,6 @@ function undo() {
 }
 
 function clearPage() {
-  if (!confirm('Clear all annotations on this page?')) return;
   annotations[currentPage] = [];
   redrawAnnotations();
   saveShowData();
@@ -8042,7 +8056,7 @@ function renderCueList() {
       const t = cueTypes.find(t => t.id === c.type);
       const color = t ? t.color : '#999';
       const typeName = t ? t.name : c.type;
-      return `<tr data-cue-id="${c.id}" onclick="jumpToCue('${c.id}')">
+      return `<tr data-cue-id="${c.id}" onclick="jumpToCue('${c.id}')" ondblclick="editCue('${c.id}')">
         <td><span class="ct-type" style="background:${color}">${typeName}</span></td>
         <td class="ct-num">${c.number || ''}</td>
         <td class="ct-action">${c.action || ''}</td>
@@ -8052,6 +8066,11 @@ function renderCueList() {
       </tr>`;
     }).join('')}</tbody>
   </table>`;
+  // Re-apply persistent selection highlight after rebuild
+  if (selectedCueId) {
+    const row = el.querySelector('.cue-table tr[data-cue-id="' + selectedCueId + '"]');
+    if (row) row.classList.add('cue-selected');
+  }
 }
 
 // Click a cue in the panel → flip to its page and scroll the script to its marker.
@@ -8081,7 +8100,7 @@ function jumpToCue(id) {
         flashCueMarker(a);
       }
     }
-    editCue(id);
+    selectCue(id);
   };
   if (c.page !== currentPage) {
     savePageAnnotations();
@@ -8154,13 +8173,15 @@ function saveCueEdit() {
   toast('Cue updated');
 }
 
-function deleteCue() {
-  if (!confirm('Delete this cue?')) return;
-  cues = cues.filter(c => c.id !== editingCueId);
+function deleteCue(id) {
+  const target = id || editingCueId || selectedCueId;
+  if (!target) return;
+  cues = cues.filter(c => c.id !== target);
   // Remove annotation
   Object.keys(annotations).forEach(page => {
-    annotations[page] = (annotations[page] || []).filter(a => a.cueId !== editingCueId);
+    annotations[page] = (annotations[page] || []).filter(a => a.cueId !== target);
   });
+  if (selectedCueId === target) selectedCueId = null;
   closeCueEdit();
   renderCueList();
   redrawAnnotations();
@@ -8301,6 +8322,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'p') setTool('pen');
   if (e.key === 'c') setTool('cue');
   if (e.key === 'e') setTool('eraser');
+  if (e.key === 'Delete' && selectedCueId) { e.preventDefault(); deleteCue(selectedCueId); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
 });
 
