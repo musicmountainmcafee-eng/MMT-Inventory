@@ -7163,6 +7163,22 @@ let cueTypes = [
   { id: 'spot', name: 'SPOT', color: '#f1c40f' },
   { id: 'spot_out', name: 'SPOT OUT', color: '#e67e22' },
 ];
+const DEFAULT_CUE_TYPES = [
+  { id: 'lx', name: 'LX', color: '#e74c3c' },
+  { id: 'sfx', name: 'SFX', color: '#3498db' },
+  { id: 'fly', name: 'FLY', color: '#2ecc71' },
+  { id: 'spot', name: 'SPOT', color: '#f1c40f' },
+  { id: 'spot_out', name: 'SPOT OUT', color: '#e67e22' },
+];
+// Merge saved types with defaults so newly-added default types (e.g. SPOT OUT)
+// appear on scripts saved before they existed, without losing the user's own types.
+function mergeCueTypes(saved) {
+  const result = Array.isArray(saved) ? saved.slice() : [];
+  DEFAULT_CUE_TYPES.forEach(def => {
+    if (!result.some(t => t.id === def.id)) result.push(def);
+  });
+  return result;
+}
 
 // Cues: { id, type, number, description, page }
 let cues = [];
@@ -8148,7 +8164,7 @@ function loadShowData() {
   try {
     const saved = JSON.parse(localStorage.getItem('mmt_cues_' + showId) || 'null');
     if (saved) {
-      if (saved.cueTypes) cueTypes = saved.cueTypes;
+      if (saved.cueTypes) cueTypes = mergeCueTypes(saved.cueTypes);
       if (saved.cues) cues = saved.cues;
       if (saved.annotations) annotations = saved.annotations;
     }
@@ -8156,7 +8172,7 @@ function loadShowData() {
   // Then fetch from Sheet
   jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(showId) + '&_=' + Date.now(), d => {
     if (d.success && d.cueData) {
-      if (d.cueData.cueTypes) cueTypes = d.cueData.cueTypes;
+      if (d.cueData.cueTypes) cueTypes = mergeCueTypes(d.cueData.cueTypes);
       if (d.cueData.cues) cues = d.cueData.cues;
       if (d.cueData.annotations) annotations = d.cueData.annotations;
       try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(d.cueData)); } catch(e) {}
