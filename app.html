@@ -3003,7 +3003,7 @@
 
   </div>
 </div>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">v2026.06.21-1</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">build 2026.06.25-wizard</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -6967,6 +6967,7 @@ async function syncDrops() {
 
 // ── BACKDROP IMPORT WIZARD ───────────────────────────────────────────────────
 let iwSheetDrops = [];   // text rows read from the sheet
+let iwFolderErr = '';    // why the folder came back empty (if it did)
 let iwFolderPhotos = []; // photos available to pick
 let iwIndex = 0;         // current drop being reviewed
 let iwApproved = [];     // drops the user approved (with chosen photo)
@@ -7018,7 +7019,13 @@ function startImport() {
   }, () => { sheetErr = 'Could not reach the sheet.'; gotSheet = true; checkReady(); });
 
   jsonp(SCRIPT_URL + '?action=listFolderPhotos&folder=' + encodeURIComponent(folderLink) + '&_=' + Date.now(), d => {
-    if (d.success) { iwFolderPhotos = d.photos || []; }
+    if (d.success) {
+      iwFolderPhotos = d.photos || [];
+      if (!iwFolderPhotos.length) {
+        folderErr = 'Folder "' + (d.folderName || '?') + '" opened, but found ' + (d.totalFiles || 0) + ' files and 0 images' + (d.nonImage ? ' (' + d.nonImage + ' non-image files)' : '') + '. Check you pasted the photo folder link, and that it contains image files directly.';
+        iwFolderErr = folderErr;
+      } else { iwFolderErr = ''; }
+    }
     else { folderErr = d.error || ''; iwFolderPhotos = []; }
     gotFolder = true; checkReady();
   }, () => { folderErr = 'Could not reach the folder.'; iwFolderPhotos = []; gotFolder = true; checkReady(); });
@@ -7055,7 +7062,7 @@ function renderWizardPhotos() {
   const grid = document.getElementById('iw-photo-grid');
   const q = (document.getElementById('iw-photo-search').value || '').toLowerCase();
   if (!iwFolderPhotos.length) {
-    grid.innerHTML = '<div class="iw-photo-none">No folder photos available. You can approve with no photo and add one later.</div>';
+    grid.innerHTML = '<div class="iw-photo-none">' + esc(iwFolderErr || 'No folder photos available. You can approve with no photo and add one later.') + '</div>';
     return;
   }
   const matches = q ? iwFolderPhotos.filter(p => p.name.toLowerCase().includes(q)) : iwFolderPhotos;
