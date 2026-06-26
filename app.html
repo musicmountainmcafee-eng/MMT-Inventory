@@ -7702,11 +7702,7 @@ function highlightCueRow(cueId) {
   }
 }
 
-function redrawAnnotations() {
-  const ctx = drawCanvas.getContext('2d');
-  ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-  const anns = annotations[currentPage] || [];
-  anns.forEach(a => {
+function drawAnnotation(ctx, a) {
     if (a.type === 'stroke') {
       ctx.beginPath();
       if (a.color === 'erase') {
@@ -7740,15 +7736,13 @@ function redrawAnnotations() {
         ctx.fillStyle = a.color + '25';
         ctx.fill();
 
-        // Connecting line from oval bottom-right to label
+        // Connecting line from oval CENTER to label (solid)
         ctx.beginPath();
-        ctx.moveTo(r.x + r.w, r.y + r.h);
+        ctx.moveTo(cx, cy);
         ctx.lineTo(a.labelX, a.labelY);
         ctx.strokeStyle = a.color;
         ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 3]);
         ctx.stroke();
-        ctx.setLineDash([]);
 
         // Label
         ctx.font = 'bold 11px "DM Sans", sans-serif';
@@ -7772,13 +7766,11 @@ function redrawAnnotations() {
         ctx.fillStyle = a.color + '25';
         ctx.fill();
         ctx.beginPath();
-        ctx.moveTo(a.cx + (a.radius || 24), a.cy);
+        ctx.moveTo(a.cx, a.cy);
         ctx.lineTo(a.labelX, a.labelY);
         ctx.strokeStyle = a.color;
         ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 3]);
         ctx.stroke();
-        ctx.setLineDash([]);
         ctx.font = 'bold 11px "DM Sans", sans-serif';
         const tw2 = ctx.measureText(a.label).width;
         ctx.fillStyle = a.color;
@@ -7799,7 +7791,7 @@ function redrawAnnotations() {
         ctx.lineWidth = 2;
         ctx.strokeRect(r.x, r.y, r.w, r.h);
 
-        // Connecting line from rectangle bottom-right to label
+        // Connecting line from rectangle bottom-right to label (solid)
         const lineStartX = r.x + r.w;
         const lineStartY = r.y + r.h;
         ctx.beginPath();
@@ -7807,9 +7799,7 @@ function redrawAnnotations() {
         ctx.lineTo(a.labelX, a.labelY);
         ctx.strokeStyle = a.color;
         ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 3]);
         ctx.stroke();
-        ctx.setLineDash([]);
 
         // Label background
         ctx.font = 'bold 11px "DM Sans", sans-serif';
@@ -7845,7 +7835,13 @@ function redrawAnnotations() {
         ctx.fillText(a.label || '?', a.x, a.y);
       }
     }
-  });
+}
+
+function redrawAnnotations() {
+  const ctx = drawCanvas.getContext('2d');
+  ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  const anns = annotations[currentPage] || [];
+  anns.forEach(a => drawAnnotation(ctx, a));
 }
 
 function undo() {
@@ -8225,23 +8221,9 @@ async function exportAnnotatedPDF() {
     const ctx = tmpCanvas.getContext('2d');
     await page.render({ canvasContext: ctx, viewport }).promise;
 
-    // Draw annotations on top
+    // Draw annotations on top — same renderer as the screen so the PDF matches exactly
     const anns = annotations[p] || [];
-    anns.forEach(a => {
-      if (a.type === 'stroke' && a.color !== 'erase') {
-        ctx.beginPath(); ctx.strokeStyle = a.color; ctx.lineWidth = a.size;
-        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        a.points.forEach((pt, i) => { if (i === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y); });
-        ctx.stroke();
-      } else if (a.type === 'cue') {
-        ctx.beginPath(); ctx.arc(a.x, a.y, 14, 0, Math.PI*2);
-        ctx.fillStyle = a.color; ctx.fill();
-        ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
-        ctx.fillStyle = 'white'; ctx.font = 'bold 9px sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(a.label || '?', a.x, a.y);
-      }
-    });
+    anns.forEach(a => drawAnnotation(ctx, a));
     pdf.addImage(tmpCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, viewport.width, viewport.height);
   }
   pdf.save((showId || 'annotated-script') + '.pdf');
