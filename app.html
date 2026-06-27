@@ -3011,7 +3011,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">build 2026.06.26-0952</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">build 2026.06.26-1000</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -7453,36 +7453,54 @@ function getPos(e) {
 let cueRect = null;
 let draggingCue = null; // index of annotation being dragged
 let dragStartPos = null; // track start for tap detection
+let dragMode = null;     // 'label' | 'marker'
+let dragOffset = null;   // offset from grab point to marker origin
+let dragMoved = false;   // did the pointer move enough to count as a drag
 
 drawCanvas.addEventListener('pointerdown', e => {
   e.preventDefault();
   const pos = getPos(e);
 
-  // Tool-agnostic: tapping a cue marker/label opens its info in the panel.
-  // (Only short-circuits for non-cue tools; cue tool keeps its drag-to-move behavior.)
-  if (currentTool !== 'cue') {
-    const hitId = cueHitTest(pos);
-    if (hitId) { openCueInfo(hitId); return; }
+  // Tool-agnostic: clicking a cue marker/label selects it (works in every tool).
+  // In cue mode we still allow dragging, decided on pointermove/up.
+  const anns = annotations[currentPage] || [];
+
+  // First: did we grab a LABEL?
+  for (let i = anns.length - 1; i >= 0; i--) {
+    const a = anns[i];
+    if (a.type === 'cue' && a.labelX !== undefined) {
+      const ctx = drawCanvas.getContext('2d');
+      ctx.font = 'bold 11px "DM Sans", sans-serif';
+      const tw = ctx.measureText(a.label || '').width + 12;
+      if (pos.x >= a.labelX - 6 && pos.x <= a.labelX + tw && pos.y >= a.labelY - 12 && pos.y <= a.labelY + 12) {
+        draggingCue = i; dragMode = 'label'; dragMoved = false;
+        dragStartPos = { x: pos.x, y: pos.y };
+        dragOffset = { x: pos.x - a.labelX, y: pos.y - a.labelY };
+        drawCanvas.setPointerCapture(e.pointerId);
+        return;
+      }
+    }
+  }
+
+  // Next: did we grab a MARKER (box/oval/circle)?
+  const hitId = cueHitTest(pos);
+  if (hitId) {
+    const i = anns.findIndex(a => a.type === 'cue' && a.cueId === hitId);
+    if (i >= 0) {
+      const a = anns[i];
+      draggingCue = i; dragMode = 'marker'; dragMoved = false;
+      dragStartPos = { x: pos.x, y: pos.y };
+      // offset from pointer to marker origin so it doesn't jump
+      if (a.rect) dragOffset = { x: pos.x - a.rect.x, y: pos.y - a.rect.y };
+      else if (a.cx !== undefined) dragOffset = { x: pos.x - a.cx, y: pos.y - a.cy };
+      else if (a.x !== undefined) dragOffset = { x: pos.x - a.x, y: pos.y - a.y };
+      else dragOffset = { x: 0, y: 0 };
+      drawCanvas.setPointerCapture(e.pointerId);
+      return;
+    }
   }
 
   if (currentTool === 'cue') {
-    // Check if clicking on an existing cue label to drag it
-    const anns = annotations[currentPage] || [];
-    for (let i = anns.length - 1; i >= 0; i--) {
-      const a = anns[i];
-      if (a.type === 'cue' && a.labelX !== undefined) {
-        const ctx = drawCanvas.getContext('2d');
-        ctx.font = 'bold 11px "DM Sans", sans-serif';
-        const tw = ctx.measureText(a.label).width + 12;
-        if (pos.x >= a.labelX - 6 && pos.x <= a.labelX + tw && pos.y >= a.labelY - 12 && pos.y <= a.labelY + 12) {
-          draggingCue = i;
-          dragStartPos = { x: a.labelX, y: a.labelY };
-          drawCanvas.setPointerCapture(e.pointerId);
-          return;
-        }
-      }
-    }
-
     const typeId = document.getElementById('cue-type-sel').value;
     const type = cueTypes.find(t => t.id === typeId);
     const isSpot = type && type.name.toLowerCase().includes('spot');
@@ -7533,10 +7551,23 @@ drawCanvas.addEventListener('pointermove', e => {
     }
   }
 
-  // Dragging a cue label
+  // Dragging a cue (label or marker)
   if (draggingCue !== null) {
     const a = (annotations[currentPage] || [])[draggingCue];
-    if (a) { a.labelX = pos.x; a.labelY = pos.y; redrawAnnotations(); }
+    if (a) {
+      const ddx = pos.x - dragStartPos.x, ddy = pos.y - dragStartPos.y;
+      if (Math.abs(ddx) > 3 || Math.abs(ddy) > 3) dragMoved = true;
+      if (dragMode === 'label') {
+        a.labelX = pos.x - dragOffset.x;
+        a.labelY = pos.y - dragOffset.y;
+      } else if (dragMode === 'marker') {
+        // Move the marker shape; label stays put so the line restretches to follow.
+        if (a.rect) { a.rect.x = pos.x - dragOffset.x; a.rect.y = pos.y - dragOffset.y; }
+        if (a.cx !== undefined) { a.cx = pos.x - dragOffset.x; a.cy = pos.y - dragOffset.y; }
+        if (a.x !== undefined && !a.rect) { a.x = pos.x - dragOffset.x; a.y = pos.y - dragOffset.y; }
+      }
+      redrawAnnotations();
+    }
     return;
   }
 
@@ -7598,19 +7629,17 @@ drawCanvas.addEventListener('pointerleave', () => {
 });
 
 drawCanvas.addEventListener('pointerup', e => {
-  // Finish dragging label (or tap to edit)
+  // Finish dragging a cue (label or marker)
   if (draggingCue !== null) {
     const a = (annotations[currentPage] || [])[draggingCue];
-    if (a && a.cueId) {
-      // Check if it was a tap (barely moved) — open edit
-      const dx = Math.abs(dragStartPos.x - a.labelX);
-      const dy = Math.abs(dragStartPos.y - a.labelY);
-      if (dx < 4 && dy < 4) {
-        editCue(a.cueId);
-      }
+    if (a && a.cueId && !dragMoved) {
+      // It was a click, not a drag → select it (for the Delete key)
+      selectCue(a.cueId);
     }
     draggingCue = null;
     dragStartPos = null;
+    dragMode = null;
+    dragOffset = null;
     redrawAnnotations();
     saveShowData();
     return;
@@ -7785,9 +7814,9 @@ function drawAnnotation(ctx, a) {
         ctx.fillStyle = a.color + '25';
         ctx.fill();
 
-        // Connecting line from oval BOTTOM to label (solid, horizontal)
+        // Connecting line from oval bottom to the label (stays glued to the oval)
         ctx.beginPath();
-        ctx.moveTo(cx, a.labelY);
+        ctx.moveTo(cx, cy + ry);
         ctx.lineTo(a.labelX, a.labelY);
         ctx.strokeStyle = a.color;
         ctx.lineWidth = 1.5;
@@ -7815,7 +7844,7 @@ function drawAnnotation(ctx, a) {
         ctx.fillStyle = a.color + '25';
         ctx.fill();
         ctx.beginPath();
-        ctx.moveTo(a.cx, a.labelY);
+        ctx.moveTo(a.cx, a.cy + (a.radius || 24));
         ctx.lineTo(a.labelX, a.labelY);
         ctx.strokeStyle = a.color;
         ctx.lineWidth = 1.5;
@@ -7840,9 +7869,9 @@ function drawAnnotation(ctx, a) {
         ctx.lineWidth = 2;
         ctx.strokeRect(r.x, r.y, r.w, r.h);
 
-        // Connecting line from rectangle bottom to label (solid, horizontal)
+        // Connecting line from rectangle bottom-right to the label (stays glued to the box)
         const lineStartX = r.x + r.w;
-        const lineStartY = a.labelY;
+        const lineStartY = r.y + r.h;
         ctx.beginPath();
         ctx.moveTo(lineStartX, lineStartY);
         ctx.lineTo(a.labelX, a.labelY);
