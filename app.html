@@ -3011,7 +3011,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">build 2026.06.26-1000</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.26 v2</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -8345,13 +8345,14 @@ async function exportAnnotatedPDF() {
 document.addEventListener('keydown', e => {
   const ed = document.getElementById('scripts-editor');
   if (!ed || !ed.classList.contains('open')) return;  // only in editor
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  const tn = (e.target.tagName || '').toUpperCase();
+  if (tn === 'INPUT' || tn === 'TEXTAREA' || tn === 'SELECT' || e.target.isContentEditable) return;
   if (e.key === 'ArrowLeft') prevPage();
   if (e.key === 'ArrowRight') nextPage();
   if (e.key === 'p') setTool('pen');
   if (e.key === 'c') setTool('cue');
   if (e.key === 'e') setTool('eraser');
-  if (e.key === 'Delete' && selectedCueId) { e.preventDefault(); deleteCue(selectedCueId); }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCueId) { e.preventDefault(); deleteCue(selectedCueId); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
 });
 
