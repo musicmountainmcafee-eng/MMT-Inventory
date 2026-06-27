@@ -3013,7 +3013,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.26 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.26 v4</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -7696,14 +7696,12 @@ drawCanvas.addEventListener('pointerup', e => {
         color: type.color, label: num
       });
 
-      document.getElementById('cue-num').value = '';
-      document.getElementById('cue-action').value = '';
-      document.getElementById('cue-line').value = '';
-      document.getElementById('cue-desc').value = '';
       redrawAnnotations();
       renderCueList();
       saveShowData();
-      toast(num + ' placed — drag label to reposition');
+      // Auto-highlight the new cue, load it into the panel, and focus the Cue # field
+      selectCue(cueId, true);
+      toast(num + ' placed — type its number');
     }
     cueRect = null;
     return;
@@ -7756,7 +7754,7 @@ function openCueInfo(cueId) {
 
 // Select/highlight a cue: marks it as the active cue (for the Delete key) and
 // persistently highlights its row in the cue sheet.
-function selectCue(cueId) {
+function selectCue(cueId, focusNum) {
   selectedCueId = cueId;
   const panel = document.getElementById('cue-panel');
   if (panel && !panel.classList.contains('open') && window.innerWidth <= 768) {
@@ -7773,7 +7771,7 @@ function selectCue(cueId) {
   const a = (annotations[currentPage] || []).find(x => x.type === 'cue' && x.cueId === cueId);
   if (a && typeof flashCueMarker === 'function') flashCueMarker(a);
   // Load this cue into the entry panel for inline editing
-  loadCueIntoForm(cueId);
+  loadCueIntoForm(cueId, focusNum);
 }
 
 // Brief flash highlight of a row (used when jumping pages).
@@ -8240,13 +8238,13 @@ function addCue() {
   renderCueList();
   saveShowData();
   // Auto-highlight the new cue and load it into the panel for editing
-  selectCue(newId);
+  selectCue(newId, true);
   toast('Cue added to page ' + currentPage);
 }
 
 // The form doubles as an inline editor for the highlighted cue.
 // When a cue is selected, fields show its values and edits auto-save.
-function loadCueIntoForm(cueId) {
+function loadCueIntoForm(cueId, focusNum) {
   const c = cues.find(x => x.id === cueId);
   const modeEl = document.getElementById('cue-form-mode');
   const btn = document.getElementById('cue-form-btn');
@@ -8260,6 +8258,10 @@ function loadCueIntoForm(cueId) {
   if (modeEl) modeEl.textContent = 'Editing ' + (c.number || 'cue') + ' — saves automatically';
   if (btn) btn.style.display = 'none';      // no "add" button while editing
   if (newBtn) newBtn.style.display = 'block';
+  if (focusNum) {
+    const ni = document.getElementById('cue-num');
+    if (ni) { ni.focus(); ni.select(); }   // ready to type/overtype the cue number
+  }
 }
 
 function clearCueForm() {
