@@ -1864,6 +1864,7 @@
   .ct-swatch.selected { border-color: white; box-shadow: 0 0 0 2px var(--purple); }
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -3013,7 +3014,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.26 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.26 v5</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -8370,49 +8371,126 @@ function goHome() {
 
 // ── EXPORT ───────────────────────────────────────────────────────────────────
 function exportCueSheet() {
-  const sorted = [...cues].sort((a, b) => a.page - b.page || (a.number||'').localeCompare(b.number||''));
+  const sorted = [...cues].sort((a, b) => (a.page - b.page) || (a.number || '').localeCompare(b.number || '', undefined, { numeric: true }));
   if (!sorted.length) { toast('No cues to export'); return; }
   const showName = document.getElementById('show-name').textContent || 'Untitled';
-  let csv = 'CUE SHEET: ' + showName + '\n';
-  csv += 'Exported: ' + new Date().toLocaleDateString() + '\n';
-  csv += '\n';
-  csv += 'Type,Cue #,Action,Cue Line,Notes,Page\n';
-  sorted.forEach(c => {
-    const t = cueTypes.find(t => t.id === c.type);
-    csv += `"${t ? t.name : ''}","${c.number || ''}","${(c.action || '').replace(/"/g, '""')}","${(c.cueLine || '').replace(/"/g, '""')}","${(c.notes || c.description || '').replace(/"/g, '""')}",${c.page}\n`;
+  const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[m]));
+
+  // Group by page
+  const byPage = {};
+  sorted.forEach(c => { (byPage[c.page] = byPage[c.page] || []).push(c); });
+  const pages = Object.keys(byPage).map(Number).sort((a, b) => a - b);
+
+  // Type legend
+  const usedTypes = [...new Set(sorted.map(c => c.type))].map(id => cueTypes.find(t => t.id === id)).filter(Boolean);
+  const legend = usedTypes.map(t => `<span class="chip" style="background:${t.color}">${esc(t.name)}</span>`).join('');
+
+  let rows = '';
+  pages.forEach(pg => {
+    rows += `<tr class="pagerow"><td colspan="5">Page ${pg}</td></tr>`;
+    byPage[pg].forEach(c => {
+      const t = cueTypes.find(x => x.id === c.type);
+      const color = t ? t.color : '#999';
+      const tn = t ? t.name : (c.type || '');
+      rows += `<tr>
+        <td class="num"><span class="tag" style="background:${color}">${esc(tn)}</span> <b>${esc(c.number)}</b></td>
+        <td>${esc(c.action)}</td>
+        <td class="line">${esc(c.cueLine)}</td>
+        <td>${esc(c.notes || c.description)}</td>
+      </tr>`;
+    });
   });
-  csv += '\n';
-  csv += 'Total cues: ' + sorted.length + '\n';
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = showName.replace(/[^a-z0-9]/gi, '_') + '_cue_sheet.csv'; a.click();
-  toast('Cue sheet exported');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(showName)} — Cue Sheet</title>
+<style>
+  @page { margin: 0.6in; }
+  body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; color: #1a1a1a; margin: 32px; }
+  .head { border-bottom: 3px solid #534AB7; padding-bottom: 14px; margin-bottom: 18px; }
+  .head h1 { margin: 0 0 4px; font-size: 24px; }
+  .head .meta { color: #666; font-size: 13px; }
+  .legend { margin: 12px 0 20px; }
+  .chip, .tag { display: inline-block; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 99px; margin-right: 4px; letter-spacing: .02em; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #888; border-bottom: 2px solid #ddd; padding: 8px 10px; }
+  td { padding: 9px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+  td.num { white-space: nowrap; }
+  td.line { font-style: italic; color: #555; }
+  tr.pagerow td { background: #f3f2fb; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #534AB7; padding: 7px 10px; border-bottom: none; }
+  .foot { margin-top: 22px; color: #999; font-size: 12px; }
+  @media print { body { margin: 0; } .noprint { display: none; } }
+  .btn { display:inline-block; background:#534AB7; color:#fff; border:none; padding:9px 18px; border-radius:7px; font-size:14px; font-weight:600; cursor:pointer; margin-bottom:18px; }
+</style></head>
+<body>
+  <button class="btn noprint" onclick="window.print()">Print / Save as PDF</button>
+  <div class="head">
+    <h1>${esc(showName)} — Cue Sheet</h1>
+    <div class="meta">${sorted.length} cues · Exported ${today}</div>
+  </div>
+  <div class="legend">${legend}</div>
+  <table>
+    <thead><tr><th>Cue</th><th>Action</th><th>Cue Line</th><th>Notes</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="foot">Music Mountain Theatre · ${sorted.length} cues total</div>
+</body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = showName.replace(/[^a-z0-9]/gi, '_') + '_cue_sheet.html';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast('Cue sheet exported — open it and Print to PDF');
 }
 
 async function exportAnnotatedPDF() {
-  toast('Preparing export...');
-  // For each page, merge PDF canvas + annotation canvas
-  const { jsPDF } = await import('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.es.min.js');
-  const firstPage = await pdfDoc.getPage(1);
-  const vp = firstPage.getViewport({ scale: 1.5 });
-  const pdf = new jsPDF({ orientation: vp.width > vp.height ? 'l' : 'p', unit: 'px', format: [vp.width, vp.height] });
-
-  for (let p = 1; p <= totalPages; p++) {
-    if (p > 1) pdf.addPage([vp.width, vp.height], vp.width > vp.height ? 'l' : 'p');
-    const page = await pdfDoc.getPage(p);
-    const viewport = page.getViewport({ scale: 1.5 });
-    const tmpCanvas = document.createElement('canvas');
-    tmpCanvas.width = viewport.width; tmpCanvas.height = viewport.height;
-    const ctx = tmpCanvas.getContext('2d');
-    await page.render({ canvasContext: ctx, viewport }).promise;
-
-    // Draw annotations on top — same renderer as the screen so the PDF matches exactly
-    const anns = annotations[p] || [];
-    anns.forEach(a => drawAnnotation(ctx, a));
-    pdf.addImage(tmpCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, viewport.width, viewport.height);
+  if (!pdfDoc) { toast('Open a script first'); return; }
+  // Resolve jsPDF (loaded via <script> as window.jspdf.jsPDF; fall back to dynamic import)
+  let jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF) || null;
+  if (!jsPDFCtor) {
+    try {
+      const mod = await import('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.es.min.js');
+      jsPDFCtor = mod.jsPDF;
+    } catch (err) {
+      toast('Could not load PDF library — check your connection');
+      return;
+    }
   }
-  pdf.save((showId || 'annotated-script') + '.pdf');
-  toast('PDF exported');
+  try {
+    sloShow('Exporting PDF', 'Preparing ' + totalPages + ' pages…');
+    sloProgress(0, '0%');
+    const firstPage = await pdfDoc.getPage(1);
+    const vp = firstPage.getViewport({ scale: 1.5 });
+    const pdf = new jsPDFCtor({ orientation: vp.width > vp.height ? 'l' : 'p', unit: 'px', format: [vp.width, vp.height] });
+
+    for (let p = 1; p <= totalPages; p++) {
+      sloSub('Rendering page ' + p + ' of ' + totalPages + '…');
+      if (p > 1) pdf.addPage([vp.width, vp.height], vp.width > vp.height ? 'l' : 'p');
+      const page = await pdfDoc.getPage(p);
+      const viewport = page.getViewport({ scale: 1.5 });
+      const tmpCanvas = document.createElement('canvas');
+      tmpCanvas.width = viewport.width; tmpCanvas.height = viewport.height;
+      const ctx = tmpCanvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      // Same renderer as the screen so the PDF matches exactly
+      const anns = annotations[p] || [];
+      anns.forEach(a => drawAnnotation(ctx, a));
+      pdf.addImage(tmpCanvas.toDataURL('image/jpeg', 0.85), 'JPEG', 0, 0, viewport.width, viewport.height);
+      sloProgress(p / totalPages, Math.round((p / totalPages) * 100) + '%');
+      // Let the UI breathe between pages
+      await new Promise(r => setTimeout(r, 0));
+    }
+    sloSub('Saving file…');
+    const name = (document.getElementById('show-name').textContent || showId || 'annotated-script').replace(/[^a-z0-9]/gi, '_');
+    pdf.save(name + '_marked.pdf');
+    sloHide();
+    toast('PDF exported');
+  } catch (err) {
+    sloHide();
+    toast('PDF export failed: ' + (err && err.message ? err.message : 'unknown error'));
+  }
 }
 
 // Keyboard shortcuts
