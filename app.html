@@ -2659,15 +2659,14 @@
         <span style="font-size:12px;color:var(--cue-text-faint);" id="cue-count">0 cues</span>
       </div>
       <div class="cue-list" id="cue-list" style="overflow-x:auto;"></div>
-      <div class="cue-add">
-        <div id="cue-form-mode" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--cue-text-faint);margin-bottom:8px;">Add a cue</div>
-        <select id="cue-type-sel" oninput="onCueFormInput()"></select>
-        <input type="text" id="cue-num" placeholder="Cue # (e.g. LX 1)" oninput="onCueFormInput()" />
-        <input type="text" id="cue-action" placeholder="Action (e.g. Fade to blue)" oninput="onCueFormInput()" />
-        <input type="text" id="cue-line" placeholder="Cue line (trigger text)" oninput="onCueFormInput()" />
-        <input type="text" id="cue-desc" placeholder="Notes (optional)" oninput="onCueFormInput()" />
-        <button id="cue-form-btn" onclick="cueFormAction()">+ Add Cue to Page</button>
-        <button id="cue-form-new" onclick="clearCueSelection()" style="display:none;margin-top:6px;background:none;border:1px solid var(--cue-border);color:var(--cue-text-muted);">+ New cue instead</button>
+      <div class="cue-add" id="cue-edit-panel">
+        <div id="cue-form-mode" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--cue-text-faint);margin-bottom:8px;">Select a cue to edit</div>
+        <select id="cue-type-sel" oninput="onCueFormInput()" disabled></select>
+        <input type="text" id="cue-num" placeholder="Cue #" oninput="onCueFormInput()" disabled />
+        <input type="text" id="cue-action" placeholder="Action (e.g. Fade to blue)" oninput="onCueFormInput()" disabled />
+        <input type="text" id="cue-line" placeholder="Cue line (trigger text)" oninput="onCueFormInput()" disabled />
+        <input type="text" id="cue-desc" placeholder="Notes (optional)" oninput="onCueFormInput()" disabled />
+        <div id="cue-edit-hint" style="font-size:12px;color:var(--cue-text-faint);line-height:1.4;">Draw a cue on the script (pick a type, then drag), then select it here to fill in details.</div>
       </div>
       <div class="type-manager">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -3014,7 +3013,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.26 v5</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.27 v1</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -3512,7 +3511,10 @@ function renderHomeShowCards() {
       <div class="home-show-dates">${esc(dates)}</div>
       <div class="home-show-foot">
         <span class="home-show-countdown">${esc(countdown)}</span>
-        <button class="home-show-btn" onclick="${btnAction}">${btnLabel}</button>
+        <div style="display:flex;gap:6px;">
+          <button class="home-show-btn" onclick="openScriptForShow('${show.name.replace(/'/g, "\\'")}')">Open script →</button>
+          <button class="home-show-btn" onclick="${btnAction}">${btnLabel}</button>
+        </div>
       </div>
     </div>`;
   }
@@ -7261,9 +7263,11 @@ function base64ToBytesWithProgress(b64, onProgress) {
 }
 
 // Load script list from Drive on startup
+let _savedScripts = [];  // cached for show→script matching
 function loadScriptList() {
   jsonp(SCRIPT_URL + '?action=listScripts&_=' + Date.now(), d => {
     if (d.success && d.scripts) {
+      _savedScripts = d.scripts;
       const el = document.getElementById('script-list');
       if (!d.scripts.length) { el.innerHTML = '<div style="padding:8px;color:var(--text-faint);">No saved scripts yet. Search your Drive above to open one.</div>'; return; }
       el.innerHTML = d.scripts.map(s =>
@@ -7271,6 +7275,31 @@ function loadScriptList() {
       ).join('');
     }
   }, () => { document.getElementById('script-list').innerHTML = '<div style="color:var(--text-faint);">Could not load scripts.</div>'; });
+}
+
+// From a home show card: open that show's script directly if we can match it by name,
+// otherwise land on the Scripts tab so the user can pick/search.
+function openScriptForShow(showName) {
+  switchTab('scripts');
+  const go = () => {
+    const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const target = norm(showName);
+    // Best match: exact, then contains either direction
+    let match = _savedScripts.find(s => norm(s.name) === target)
+      || _savedScripts.find(s => norm(s.name).includes(target) && target.length > 2)
+      || _savedScripts.find(s => target.includes(norm(s.name)) && norm(s.name).length > 2);
+    if (match) {
+      loadFromDrive(match.id, match.name);
+    } else {
+      // No match — prefill the Drive search box with the show name to help
+      const box = document.getElementById('drive-search-input');
+      if (box) { box.value = showName; }
+      toast('No saved script named "' + showName + '" — search your Drive');
+    }
+  };
+  // Ensure the script list is loaded first
+  if (_savedScripts.length) { go(); }
+  else { ensureScriptsLoaded(); setTimeout(go, 900); }
 }
 
 // Search the whole Drive (incl. shared files) for PDFs by name
@@ -8226,39 +8255,22 @@ function closeCueEdit() {
   editingCueId = null;
 }
 
-function addCue() {
-  const typeId = document.getElementById('cue-type-sel').value;
-  const num = document.getElementById('cue-num').value.trim();
-  const action = document.getElementById('cue-action').value.trim();
-  const cueLine = document.getElementById('cue-line').value.trim();
-  const notes = document.getElementById('cue-desc').value.trim();
-  if (!typeId) { toast('Select a type'); return; }
-  const type = cueTypes.find(t => t.id === typeId);
-  const newId = Date.now().toString();
-  cues.push({ id: newId, type: typeId, number: num || (type.name + ' ' + (cues.filter(c=>c.type===typeId).length+1)), action, cueLine, notes, description: notes, page: currentPage });
-  renderCueList();
-  saveShowData();
-  // Auto-highlight the new cue and load it into the panel for editing
-  selectCue(newId, true);
-  toast('Cue added to page ' + currentPage);
-}
-
 // The form doubles as an inline editor for the highlighted cue.
 // When a cue is selected, fields show its values and edits auto-save.
 function loadCueIntoForm(cueId, focusNum) {
   const c = cues.find(x => x.id === cueId);
   const modeEl = document.getElementById('cue-form-mode');
-  const btn = document.getElementById('cue-form-btn');
-  const newBtn = document.getElementById('cue-form-new');
+  const hint = document.getElementById('cue-edit-hint');
+  const fields = ['cue-type-sel', 'cue-num', 'cue-action', 'cue-line', 'cue-desc'];
   if (!c) { clearCueForm(); return; }
   document.getElementById('cue-type-sel').value = c.type || '';
   document.getElementById('cue-num').value = c.number || '';
   document.getElementById('cue-action').value = c.action || '';
   document.getElementById('cue-line').value = c.cueLine || '';
   document.getElementById('cue-desc').value = c.notes || c.description || '';
+  fields.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = false; });
   if (modeEl) modeEl.textContent = 'Editing ' + (c.number || 'cue') + ' — saves automatically';
-  if (btn) btn.style.display = 'none';      // no "add" button while editing
-  if (newBtn) newBtn.style.display = 'block';
+  if (hint) hint.style.display = 'none';
   if (focusNum) {
     const ni = document.getElementById('cue-num');
     if (ni) { ni.focus(); ni.select(); }   // ready to type/overtype the cue number
@@ -8266,24 +8278,23 @@ function loadCueIntoForm(cueId, focusNum) {
 }
 
 function clearCueForm() {
-  document.getElementById('cue-num').value = '';
-  document.getElementById('cue-action').value = '';
-  document.getElementById('cue-line').value = '';
-  document.getElementById('cue-desc').value = '';
+  const fields = ['cue-num', 'cue-action', 'cue-line', 'cue-desc'];
+  fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  // Disable all (edit-only — cues must be drawn on the page first)
+  ['cue-type-sel', 'cue-num', 'cue-action', 'cue-line', 'cue-desc'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.disabled = true;
+  });
   const modeEl = document.getElementById('cue-form-mode');
-  const btn = document.getElementById('cue-form-btn');
-  const newBtn = document.getElementById('cue-form-new');
-  if (modeEl) modeEl.textContent = 'Add a cue';
-  if (btn) btn.style.display = 'block';
-  if (newBtn) newBtn.style.display = 'none';
+  const hint = document.getElementById('cue-edit-hint');
+  if (modeEl) modeEl.textContent = 'Select a cue to edit';
+  if (hint) hint.style.display = 'block';
 }
 
-// Deselect → return the panel to "add new cue" mode
+// Deselect → empty, disabled panel
 function clearCueSelection() {
   selectedCueId = null;
   document.querySelectorAll('.cue-table tr.cue-selected').forEach(r => r.classList.remove('cue-selected'));
   clearCueForm();
-  document.getElementById('cue-num').focus();
 }
 
 // Called on every keystroke in the form
@@ -8308,12 +8319,6 @@ function onCueFormInput() {
   renderCueList();
   redrawAnnotations();
   saveShowData();
-}
-
-// The form button: in add-mode it adds; (in edit-mode it's hidden)
-function cueFormAction() {
-  if (selectedCueId) return; // editing — button hidden anyway
-  addCue();
 }
 
 function goToPage(p) { if (p !== currentPage) { savePageAnnotations(); currentPage = p; renderPage(); } }
@@ -8521,6 +8526,7 @@ function openScriptsEditor() {
     if (sel && !sel.value) sel.value = cueTypes[0].id;
     renderColorSwatches();
   }
+  if (typeof clearCueForm === 'function') clearCueForm();  // edit panel starts disabled
 }
 function closeScriptsEditor() {
   const ed = document.getElementById('scripts-editor');
