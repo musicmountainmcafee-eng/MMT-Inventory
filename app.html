@@ -2659,12 +2659,14 @@
       </div>
       <div class="cue-list" id="cue-list" style="overflow-x:auto;"></div>
       <div class="cue-add">
-        <select id="cue-type-sel"></select>
-        <input type="text" id="cue-num" placeholder="Cue # (e.g. LX 1)" />
-        <input type="text" id="cue-action" placeholder="Action (e.g. Fade to blue)" />
-        <input type="text" id="cue-line" placeholder="Cue line (trigger text)" />
-        <input type="text" id="cue-desc" placeholder="Notes (optional)" />
-        <button onclick="addCue()">+ Add Cue to Page</button>
+        <div id="cue-form-mode" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--cue-text-faint);margin-bottom:8px;">Add a cue</div>
+        <select id="cue-type-sel" oninput="onCueFormInput()"></select>
+        <input type="text" id="cue-num" placeholder="Cue # (e.g. LX 1)" oninput="onCueFormInput()" />
+        <input type="text" id="cue-action" placeholder="Action (e.g. Fade to blue)" oninput="onCueFormInput()" />
+        <input type="text" id="cue-line" placeholder="Cue line (trigger text)" oninput="onCueFormInput()" />
+        <input type="text" id="cue-desc" placeholder="Notes (optional)" oninput="onCueFormInput()" />
+        <button id="cue-form-btn" onclick="cueFormAction()">+ Add Cue to Page</button>
+        <button id="cue-form-new" onclick="clearCueSelection()" style="display:none;margin-top:6px;background:none;border:1px solid var(--cue-border);color:var(--cue-text-muted);">+ New cue instead</button>
       </div>
       <div class="type-manager">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -3011,7 +3013,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.26 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.26 v3</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -7770,6 +7772,8 @@ function selectCue(cueId) {
   // Flash the marker on the page so you can see which one is selected
   const a = (annotations[currentPage] || []).find(x => x.type === 'cue' && x.cueId === cueId);
   if (a && typeof flashCueMarker === 'function') flashCueMarker(a);
+  // Load this cue into the entry panel for inline editing
+  loadCueIntoForm(cueId);
 }
 
 // Brief flash highlight of a row (used when jumping pages).
@@ -8210,7 +8214,7 @@ function deleteCue(id) {
   Object.keys(annotations).forEach(page => {
     annotations[page] = (annotations[page] || []).filter(a => a.cueId !== target);
   });
-  if (selectedCueId === target) selectedCueId = null;
+  if (selectedCueId === target) { selectedCueId = null; if (typeof clearCueForm === 'function') clearCueForm(); }
   closeCueEdit();
   renderCueList();
   redrawAnnotations();
@@ -8231,14 +8235,82 @@ function addCue() {
   const notes = document.getElementById('cue-desc').value.trim();
   if (!typeId) { toast('Select a type'); return; }
   const type = cueTypes.find(t => t.id === typeId);
-  cues.push({ id: Date.now().toString(), type: typeId, number: num || (type.name + ' ' + (cues.filter(c=>c.type===typeId).length+1)), action, cueLine, notes, description: notes, page: currentPage });
+  const newId = Date.now().toString();
+  cues.push({ id: newId, type: typeId, number: num || (type.name + ' ' + (cues.filter(c=>c.type===typeId).length+1)), action, cueLine, notes, description: notes, page: currentPage });
+  renderCueList();
+  saveShowData();
+  // Auto-highlight the new cue and load it into the panel for editing
+  selectCue(newId);
+  toast('Cue added to page ' + currentPage);
+}
+
+// The form doubles as an inline editor for the highlighted cue.
+// When a cue is selected, fields show its values and edits auto-save.
+function loadCueIntoForm(cueId) {
+  const c = cues.find(x => x.id === cueId);
+  const modeEl = document.getElementById('cue-form-mode');
+  const btn = document.getElementById('cue-form-btn');
+  const newBtn = document.getElementById('cue-form-new');
+  if (!c) { clearCueForm(); return; }
+  document.getElementById('cue-type-sel').value = c.type || '';
+  document.getElementById('cue-num').value = c.number || '';
+  document.getElementById('cue-action').value = c.action || '';
+  document.getElementById('cue-line').value = c.cueLine || '';
+  document.getElementById('cue-desc').value = c.notes || c.description || '';
+  if (modeEl) modeEl.textContent = 'Editing ' + (c.number || 'cue') + ' — saves automatically';
+  if (btn) btn.style.display = 'none';      // no "add" button while editing
+  if (newBtn) newBtn.style.display = 'block';
+}
+
+function clearCueForm() {
   document.getElementById('cue-num').value = '';
   document.getElementById('cue-action').value = '';
   document.getElementById('cue-line').value = '';
   document.getElementById('cue-desc').value = '';
+  const modeEl = document.getElementById('cue-form-mode');
+  const btn = document.getElementById('cue-form-btn');
+  const newBtn = document.getElementById('cue-form-new');
+  if (modeEl) modeEl.textContent = 'Add a cue';
+  if (btn) btn.style.display = 'block';
+  if (newBtn) newBtn.style.display = 'none';
+}
+
+// Deselect → return the panel to "add new cue" mode
+function clearCueSelection() {
+  selectedCueId = null;
+  document.querySelectorAll('.cue-table tr.cue-selected').forEach(r => r.classList.remove('cue-selected'));
+  clearCueForm();
+  document.getElementById('cue-num').focus();
+}
+
+// Called on every keystroke in the form
+function onCueFormInput() {
+  if (!selectedCueId) return; // adding new — nothing to live-save
+  const c = cues.find(x => x.id === selectedCueId);
+  if (!c) return;
+  c.type = document.getElementById('cue-type-sel').value;
+  c.number = document.getElementById('cue-num').value;
+  c.action = document.getElementById('cue-action').value;
+  c.cueLine = document.getElementById('cue-line').value;
+  c.notes = document.getElementById('cue-desc').value;
+  c.description = c.notes;
+  // Update the marker label + color on the page to match
+  const t = cueTypes.find(x => x.id === c.type);
+  Object.keys(annotations).forEach(pg => {
+    (annotations[pg] || []).forEach(a => {
+      if (a.cueId === c.id) { a.label = c.number; if (t) a.color = t.color; }
+    });
+  });
+  // Light refresh: update the sidebar row + redraw, keep selection highlight
   renderCueList();
+  redrawAnnotations();
   saveShowData();
-  toast('Cue added to page ' + currentPage);
+}
+
+// The form button: in add-mode it adds; (in edit-mode it's hidden)
+function cueFormAction() {
+  if (selectedCueId) return; // editing — button hidden anyway
+  addCue();
 }
 
 function goToPage(p) { if (p !== currentPage) { savePageAnnotations(); currentPage = p; renderPage(); } }
