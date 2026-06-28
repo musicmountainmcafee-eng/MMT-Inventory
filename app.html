@@ -181,27 +181,7 @@
     .app-main { margin-left: 0; }
   }
 
-  /* ── MOBILE WIDTH GUARD: stop content from running off the right edge ── */
-  @media (max-width: 768px) {
-    html, body { max-width: 100%; overflow-x: hidden; }
-    *, *::before, *::after { box-sizing: border-box; }
-    .app-shell, .app-main, .tab-panels, .tab-panel { max-width: 100vw; min-width: 0; }
-    .app-main { width: 100%; box-sizing: border-box; }
-    /* Home layout: reduce padding and force everything to fit the viewport */
-    .home-redesign { padding: 14px; width: 100%; max-width: 100%; }
-    .home-card { padding: 16px 14px; width: 100%; max-width: 100%; }
-    .home-main-grid, .home-right-col, .home-show-grid { width: 100%; max-width: 100%; }
-    /* Any wide rows wrap instead of overflowing */
-    .tab-panel * { max-width: 100%; }
-    .content-topbar { padding: 12px 14px; flex-wrap: wrap; }
-    .content-topbar-right { flex-wrap: wrap; justify-content: flex-end; }
-    .home-show-foot { flex-wrap: wrap; gap: 8px; }
-    .home-show-foot > div { flex-wrap: wrap; }
-    /* Let the long left text shrink so the right-side value (11d late, 9 items) stays on screen */
-    .home-task-name, .home-store-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .home-task-when, .home-store-ct { flex-shrink: 0; }
-    .home-store-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  }
+  /* (mobile width guard moved to end of stylesheet so it overrides base rules) */
 
   /* Slim content topbar */
   .content-topbar {
@@ -1866,6 +1846,26 @@
   .ct-swatch { width: 100%; aspect-ratio: 1; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.1s; }
   .ct-swatch:hover { transform: scale(1.12); }
   .ct-swatch.selected { border-color: white; box-shadow: 0 0 0 2px var(--purple); }
+
+  /* ══ MOBILE WIDTH GUARD (placed last so it overrides earlier base rules) ══ */
+  @media (max-width: 768px) {
+    html, body { max-width: 100%; overflow-x: hidden; }
+    *, *::before, *::after { box-sizing: border-box; }
+    .app-shell, .app-main, .tab-panels, .tab-panel { max-width: 100%; min-width: 0; }
+    .app-main { width: 100%; margin-left: 0; }
+    .home-redesign { padding: 12px; width: 100%; max-width: 100%; }
+    .home-card { padding: 16px 14px; width: 100%; max-width: 100%; min-width: 0; }
+    .home-main-grid, .home-right-col, .home-show-grid { width: 100%; max-width: 100%; grid-template-columns: 1fr; }
+    .home-main-grid > *, .home-show-grid > *, .home-right-col > * { min-width: 0; max-width: 100%; }
+    .tab-panel * { max-width: 100%; }
+    .content-topbar { padding: 12px 14px; flex-wrap: wrap; }
+    .content-topbar-right { flex-wrap: wrap; justify-content: flex-end; }
+    .home-show-foot { flex-wrap: wrap; gap: 8px; }
+    .home-show-foot > div { flex-wrap: wrap; }
+    .home-task-row, .home-store-row { min-width: 0; }
+    .home-task-name, .home-store-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .home-task-when, .home-store-ct { flex-shrink: 0; }
+  }
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -3008,7 +3008,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.28 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.28 v4</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
