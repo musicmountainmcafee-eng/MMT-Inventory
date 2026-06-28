@@ -1,5 +1,5 @@
 // Bump this version whenever the cached app changes so old caches are purged.
-const CACHE_NAME = 'mmt-cache-v2';
+const CACHE_NAME = 'mmt-cache-v3';
 const CACHE_URLS = [
   '/MMT-Inventory/app.html',
   '/MMT-Inventory/icon-192.png',
@@ -13,6 +13,11 @@ self.addEventListener('install', event => {
     caches.open(CACHE_NAME).then(cache => cache.addAll(CACHE_URLS))
   );
   self.skipWaiting();
+});
+
+// Allow the page to tell a waiting SW to activate immediately
+self.addEventListener('message', event => {
+  if (event.data === 'skipWaiting') self.skipWaiting();
 });
 
 // Activate — clean ALL old caches (this purges the old dashboard cache)
