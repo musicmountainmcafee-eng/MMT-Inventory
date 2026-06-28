@@ -115,9 +115,9 @@
   body.crew-role .crew-badge { display: inline-block; }
   .crew-badge { display: none; font-size: 10px; background: var(--purple); color: white; padding: 2px 6px; border-radius: 8px; margin-left: 6px; }
   .collapsed { display: none; }
-  .hamburger { font-size: 22px; border: none; background: none; color: rgba(255,255,255,0.8); cursor: pointer; padding: 4px 8px; }
+  .hamburger { font-size: 22px; border: none; background: none; color: rgba(255,255,255,0.8); cursor: pointer; padding: 4px 8px; display: none; }
   .hamburger:hover { color: white; }
-  @media (max-width: 768px) { .hamburger { display: none; } }
+  @media (max-width: 768px) { .hamburger, #mobile-hamburger { display: inline-block !important; } }
   /* ── PERSISTENT SIDEBAR ─────────────────────────────────────────────────── */
   .app-shell { display: flex; min-height: 100vh; }
   .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 80; display: none; }
@@ -181,6 +181,19 @@
     .app-main { margin-left: 0; }
   }
 
+  /* ── MOBILE WIDTH GUARD: stop content from running off the right edge ── */
+  @media (max-width: 768px) {
+    html, body { max-width: 100%; overflow-x: hidden; }
+    .app-shell, .app-main, .tab-panels, .tab-panel { max-width: 100vw; min-width: 0; }
+    .app-main { width: 100%; box-sizing: border-box; }
+    /* Any wide rows (task entry, shopping rows, show cards) wrap instead of overflowing */
+    .tab-panel * { max-width: 100%; }
+    .content-topbar { padding: 12px 14px; flex-wrap: wrap; }
+    .content-topbar-right { flex-wrap: wrap; justify-content: flex-end; }
+    .home-show-foot { flex-wrap: wrap; gap: 8px; }
+    .home-show-foot > div { flex-wrap: wrap; }
+  }
+
   /* Slim content topbar */
   .content-topbar {
     background: linear-gradient(135deg, #1a1a2e 0%, #3C3489 60%, #185FA5 100%);
@@ -196,24 +209,6 @@
   /* Tab panels live inside app-main */
   .tab-panels { flex: 1; }
 
-  /* BOTTOM TAB BAR (mobile) */
-  .bottom-tabs { display: none; }
-  @media (max-width: 768px) {
-    .bottom-tabs {
-      display: flex; position: fixed; bottom: 0; left: 0; right: 0;
-      background: var(--surface); border-top: 1px solid var(--border);
-      z-index: 60; padding: 4px 0 env(safe-area-inset-bottom, 4px);
-    }
-    .bottom-tab {
-      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
-      padding: 8px 4px; text-decoration: none; color: var(--text-faint);
-      font-size: 10px; font-weight: 500; border: none; background: none; cursor: pointer;
-      font-family: 'DM Sans', sans-serif;
-    }
-    .bottom-tab.active { color: var(--purple); }
-    .bottom-tab .bt-icon { font-size: 20px; }
-    body { padding-bottom: 64px; }
-  }
   .nav-bar {
     display: flex; gap: 0; overflow-x: auto; background: var(--surface);
     border-bottom: 1px solid var(--border); padding: 0 1rem;
@@ -1935,7 +1930,7 @@
     <!-- Slim gradient topbar -->
     <div class="content-topbar">
       <div class="content-topbar-left">
-        <button class="hamburger" onclick="toggleSidebar()" title="Menu" style="display:none;" id="mobile-hamburger">☰</button>
+        <button class="hamburger" onclick="toggleSidebar()" title="Menu" id="mobile-hamburger">☰</button>
         <div>
           <h1>MMT Dashboard</h1>
           <p>Music Mountain Theatre</p>
@@ -1947,15 +1942,6 @@
         <button class="lock-btn" id="refresh-btn" onclick="refreshData()">↻</button>
         <button class="lock-btn" onclick="lock()">Lock</button>
       </div>
-    </div>
-
-    <!-- BOTTOM TAB BAR (mobile) -->
-    <div class="bottom-tabs">
-      <a class="bottom-tab active" href="#home" data-tab="home" onclick="switchTab('home');return false;"><span class="bt-icon">🏠</span>Home</a>
-      <a class="bottom-tab" href="#lists" data-tab="lists" onclick="switchTab('lists');return false;"><span class="bt-icon">📋</span>Lists</a>
-      <a class="bottom-tab" href="#shopping" data-tab="shopping" onclick="switchTab('shopping');return false;"><span class="bt-icon">🛒</span>Shop</a>
-      <a class="bottom-tab" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');return false;"><span class="bt-icon">📦</span>Inventory</a>
-      <a class="bottom-tab" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');return false;"><span class="bt-icon">🎬</span>Scripts</a>
     </div>
 
     <!-- TAB PANELS -->
@@ -3013,7 +2999,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.27 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.28 v1</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -7502,7 +7488,7 @@ drawCanvas.addEventListener('pointerdown', e => {
     const a = anns[i];
     if (a.type === 'cue' && a.labelX !== undefined) {
       const ctx = drawCanvas.getContext('2d');
-      ctx.font = 'bold 11px "DM Sans", sans-serif';
+      ctx.font = 'bold 14px "DM Sans", sans-serif';
       const tw = ctx.measureText(a.label || '').width + 12;
       if (pos.x >= a.labelX - 6 && pos.x <= a.labelX + tw && pos.y >= a.labelY - 12 && pos.y <= a.labelY + 12) {
         draggingCue = i; dragMode = 'label'; dragMoved = false;
@@ -7713,7 +7699,7 @@ drawCanvas.addEventListener('pointerup', e => {
       // Position the label in the right margin, vertically level with the marker
       // center so the leader line runs straight across (no downward angle).
       const ctxM = drawCanvas.getContext('2d');
-      ctxM.font = 'bold 11px "DM Sans", sans-serif';
+      ctxM.font = 'bold 14px "DM Sans", sans-serif';
       const labelW = ctxM.measureText(num).width;
       const labelX = drawCanvas.width - labelW - 28; // keep long labels (e.g. SPOT OUT 2) on-page
       const labelY = rect.y + rect.h;                // level with marker BOTTOM → horizontal line from bottom
@@ -7729,9 +7715,12 @@ drawCanvas.addEventListener('pointerup', e => {
       redrawAnnotations();
       renderCueList();
       saveShowData();
-      // Auto-highlight the new cue, load it into the panel, and focus the Cue # field
+      // Clear any stale field text from the previously-edited cue, then load the
+      // brand-new (blank) cue into the editor so nothing leaks across.
+      selectedCueId = null;
+      ['cue-num','cue-action','cue-line','cue-desc'].forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
       selectCue(cueId, true);
-      toast(num + ' placed — type its number');
+      toast(num + ' placed — add its details on the right');
     }
     cueRect = null;
     return;
@@ -7753,7 +7742,7 @@ drawCanvas.addEventListener('pointerup', e => {
 function cueHitTest(pos) {
   const anns = annotations[currentPage] || [];
   const ctx = drawCanvas.getContext('2d');
-  ctx.font = 'bold 11px "DM Sans", sans-serif';
+  ctx.font = 'bold 14px "DM Sans", sans-serif';
   for (let i = anns.length - 1; i >= 0; i--) {
     const a = anns[i];
     if (a.type !== 'cue' || !a.cueId) continue;
@@ -7855,7 +7844,7 @@ function drawAnnotation(ctx, a) {
         ctx.stroke();
 
         // Label
-        ctx.font = 'bold 11px "DM Sans", sans-serif';
+        ctx.font = 'bold 14px "DM Sans", sans-serif';
         const tw = ctx.measureText(a.label).width;
         const px = 6, py = 4;
         ctx.fillStyle = a.color;
@@ -7881,7 +7870,7 @@ function drawAnnotation(ctx, a) {
         ctx.strokeStyle = a.color;
         ctx.lineWidth = 1.5;
         ctx.stroke();
-        ctx.font = 'bold 11px "DM Sans", sans-serif';
+        ctx.font = 'bold 14px "DM Sans", sans-serif';
         const tw2 = ctx.measureText(a.label).width;
         ctx.fillStyle = a.color;
         ctx.beginPath();
@@ -7912,7 +7901,7 @@ function drawAnnotation(ctx, a) {
         ctx.stroke();
 
         // Label background
-        ctx.font = 'bold 11px "DM Sans", sans-serif';
+        ctx.font = 'bold 14px "DM Sans", sans-serif';
         const textW = ctx.measureText(a.label).width;
         const padX = 6, padY = 4;
         const bgX = a.labelX - padX;
