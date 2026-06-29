@@ -1992,7 +1992,7 @@
         <div class="home-card">
           <div class="home-card-hdr">
             <span class="home-card-lbl">Shopping</span>
-            <a class="home-card-lnk" href="#" onclick="switchTab('lists');return false;">See lists →</a>
+            <a class="home-card-lnk" href="#" onclick="switchTab('shopping');return false;">See lists →</a>
           </div>
           <div id="home-shop-body"><span class="spinner"></span></div>
         </div>
@@ -3008,7 +3008,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.28 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.29 v1</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -3598,10 +3598,16 @@ function renderHomeShopSummary() {
     return;
   }
   el.innerHTML = stores.map(s => `
-    <div class="home-store-row">
+    <div class="home-store-row" onclick="openStore('${esc(s.name).replace(/'/g, "\\'")}')" style="cursor:pointer;">
       <div class="home-store-name">${esc(s.name)}</div>
       <span class="home-store-ct">${s.count} item${s.count !== 1 ? 's' : ''}</span>
     </div>`).join('');
+}
+
+// From the home shopping summary → open the shopping tab on that store's list.
+function openStore(name) {
+  switchTab('shopping');
+  setTimeout(() => { if (typeof switchStore === 'function') switchStore(name); }, 150);
 }
 
 // ── END HOME REDESIGN FUNCTIONS ──────────────────────────────────────────────
