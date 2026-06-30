@@ -3010,7 +3010,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.29 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.29 v3</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -7064,13 +7064,15 @@ function startImport() {
     if (d.success) {
       iwFolderPhotos = d.photos || [];
       if (!iwFolderPhotos.length) {
-        folderErr = 'Folder "' + (d.folderName || '?') + '" opened, but found ' + (d.totalFiles || 0) + ' files and 0 images' + (d.nonImage ? ' (' + d.nonImage + ' non-image files)' : '') + '. Check you pasted the photo folder link, and that it contains image files directly.';
-        iwFolderErr = folderErr;
+        iwFolderErr = 'Folder "' + (d.folderName || '?') + '" opened, but found ' + (d.totalFiles || 0) + ' files and 0 images' + (d.nonImage ? ' (' + d.nonImage + ' non-image files)' : '') + '. Make sure the folder contains image files directly (not subfolders or shortcuts).';
       } else { iwFolderErr = ''; }
+    } else {
+      iwFolderPhotos = [];
+      iwFolderErr = d.error || 'The folder could not be read. Check the link and that it is shared "Anyone with the link".';
     }
-    else { folderErr = d.error || ''; iwFolderPhotos = []; }
+    folderErr = iwFolderErr;
     gotFolder = true; checkReady();
-  }, () => { folderErr = 'Could not reach the folder.'; iwFolderPhotos = []; gotFolder = true; checkReady(); });
+  }, () => { iwFolderErr = 'Could not reach the server to read the folder.'; folderErr = iwFolderErr; iwFolderPhotos = []; gotFolder = true; checkReady(); });
 }
 
 function renderWizardDrop() {
