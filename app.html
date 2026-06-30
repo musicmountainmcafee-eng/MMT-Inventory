@@ -1856,6 +1856,20 @@
   #tab-sidework .sw-sub { color: var(--text-muted); font-size: 14px; margin: 0; }
   #tab-sidework .sw-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; }
   #tab-sidework .sw-card-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--purple); margin-bottom: 14px; }
+  #tab-sidework .sw-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  #tab-sidework .sw-card-top .sw-card-label { margin-bottom: 0; }
+  #tab-sidework .sw-edit-btn { background: var(--bg); border: 1px solid var(--border); color: var(--text-muted); border-radius: var(--radius-sm); padding: 5px 14px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  #tab-sidework .sw-edit-btn:hover { border-color: var(--purple); color: var(--purple); }
+  #tab-sidework .sw-view-name { font-size: 26px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  #tab-sidework .sw-view-meta { display: flex; gap: 14px; align-items: baseline; margin-bottom: 18px; flex-wrap: wrap; }
+  #tab-sidework .sw-view-date { font-size: 14px; color: var(--text-muted); }
+  #tab-sidework .sw-view-countdown { font-size: 14px; font-weight: 700; color: var(--purple); }
+  #tab-sidework .sw-view-links { display: flex; gap: 10px; flex-wrap: wrap; }
+  #tab-sidework .sw-view-link { background: var(--purple); color: #fff; border: none; border-radius: var(--radius-sm); padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; text-decoration: none; display: inline-block; }
+  #tab-sidework .sw-view-link.empty { background: var(--bg); border: 1px solid var(--border); color: var(--text-faint); cursor: default; }
+  #tab-sidework .sw-edit-actions { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+  #tab-sidework .sw-save-btn { background: var(--purple); color: #fff; border: none; border-radius: var(--radius-sm); padding: 9px 22px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  #tab-sidework .sw-cancel-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: var(--radius-sm); padding: 9px 18px; font-size: 14px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
   #tab-sidework .sw-input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 10px 12px; font-size: 14px; font-family: 'DM Sans', sans-serif; box-sizing: border-box; }
   #tab-sidework .sw-input:focus { outline: none; border-color: var(--purple); }
   #tab-sidework .sw-prod-name { font-size: 18px; font-weight: 600; margin-bottom: 14px; }
@@ -2546,15 +2560,31 @@
         <h2 class="sw-title">Side Work Notes</h2>
         <p class="sw-sub">Your separate workspace — kept apart from MMT.</p>
       </div>
-      <div class="sw-card" id="sw-next-prod">
-        <div class="sw-card-label">Next Production</div>
-        <input type="text" id="sw-prod-name" class="sw-input sw-prod-name" placeholder="Production name" oninput="saveSideWork()" />
+
+      <!-- VIEW CARD (default) -->
+      <div class="sw-card" id="sw-view-card">
+        <div class="sw-card-top">
+          <div class="sw-card-label">Next Production</div>
+          <button class="sw-edit-btn" onclick="editSideWork()">Edit</button>
+        </div>
+        <div class="sw-view-name" id="sw-view-name">No production set</div>
+        <div class="sw-view-meta">
+          <span id="sw-view-date" class="sw-view-date"></span>
+          <span id="sw-view-countdown" class="sw-view-countdown"></span>
+        </div>
+        <div class="sw-view-links" id="sw-view-links"></div>
+      </div>
+
+      <!-- EDIT FORM (hidden until Edit) -->
+      <div class="sw-card" id="sw-edit-card" style="display:none;">
+        <div class="sw-card-label">Edit Production</div>
+        <input type="text" id="sw-prod-name" class="sw-input sw-prod-name" placeholder="Production name" />
         <div class="sw-row">
           <div class="sw-field">
             <label class="sw-flabel">Opening date</label>
-            <input type="date" id="sw-prod-date" class="sw-input" oninput="saveSideWork()" />
+            <input type="date" id="sw-prod-date" class="sw-input" oninput="updateSideCountdown()" />
           </div>
-          <div class="sw-field" id="sw-countdown-wrap">
+          <div class="sw-field">
             <label class="sw-flabel">Countdown</label>
             <div id="sw-countdown" class="sw-countdown">—</div>
           </div>
@@ -2562,20 +2592,18 @@
         <div class="sw-links">
           <div class="sw-field">
             <label class="sw-flabel">Notes link</label>
-            <div class="sw-link-row">
-              <input type="text" id="sw-notes-link" class="sw-input" placeholder="Paste a Google Doc / notes link" oninput="saveSideWork()" />
-              <button class="sw-open-btn" onclick="openSideLink('notes')">Open →</button>
-            </div>
+            <input type="text" id="sw-notes-link" class="sw-input" placeholder="Paste a Google Doc / notes link" />
           </div>
           <div class="sw-field">
             <label class="sw-flabel">Script link</label>
-            <div class="sw-link-row">
-              <input type="text" id="sw-script-link" class="sw-input" placeholder="Paste a script link" oninput="saveSideWork()" />
-              <button class="sw-open-btn" onclick="openSideLink('script')">Open →</button>
-            </div>
+            <input type="text" id="sw-script-link" class="sw-input" placeholder="Paste a script link" />
           </div>
         </div>
-        <div class="sw-saved" id="sw-saved-indicator"></div>
+        <div class="sw-edit-actions">
+          <button class="sw-save-btn" onclick="saveSideWork()">Save</button>
+          <button class="sw-cancel-btn" onclick="cancelSideWork()">Cancel</button>
+          <span class="sw-saved" id="sw-saved-indicator"></span>
+        </div>
       </div>
     </div>
   </div>
@@ -3165,7 +3193,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.30 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.30 v3</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -3430,26 +3458,70 @@ function ensureSideWorkLoaded() {
 
 function renderSideWork() {
   if (!_sideWork) _sideWork = {};
-  const set = (id, v) => { const el = document.getElementById(id); if (el && el.value !== (v||'')) el.value = v || ''; };
-  set('sw-prod-name', _sideWork.name);
-  set('sw-prod-date', _sideWork.date);
-  set('sw-notes-link', _sideWork.notesLink);
-  set('sw-script-link', _sideWork.scriptLink);
-  updateSideCountdown();
+  // Populate the read-only view card
+  const nameEl = document.getElementById('sw-view-name');
+  const dateEl = document.getElementById('sw-view-date');
+  const cdEl = document.getElementById('sw-view-countdown');
+  const linksEl = document.getElementById('sw-view-links');
+  if (nameEl) nameEl.textContent = _sideWork.name || 'No production set';
+  if (dateEl) {
+    if (_sideWork.date) {
+      const d = new Date(_sideWork.date + 'T00:00:00');
+      dateEl.textContent = 'Opens ' + d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    } else dateEl.textContent = '';
+  }
+  if (cdEl) cdEl.textContent = _sideWork.date ? sideCountdownText(_sideWork.date) : '';
+  if (linksEl) {
+    let html = '';
+    if (_sideWork.notesLink) html += '<a class="sw-view-link" href="' + sideFullUrl(_sideWork.notesLink) + '" target="_blank">Open notes →</a>';
+    else html += '<span class="sw-view-link empty">No notes link</span>';
+    if (_sideWork.scriptLink) html += '<a class="sw-view-link" href="' + sideFullUrl(_sideWork.scriptLink) + '" target="_blank">Open script →</a>';
+    else html += '<span class="sw-view-link empty">No script link</span>';
+    linksEl.innerHTML = html;
+  }
+  // Make sure we're showing the view card, not the editor
+  const vc = document.getElementById('sw-view-card');
+  const ec = document.getElementById('sw-edit-card');
+  if (vc) vc.style.display = '';
+  if (ec) ec.style.display = 'none';
+}
+
+function sideFullUrl(url) {
+  let full = (url || '').trim();
+  if (full && !/^https?:\/\//i.test(full)) full = 'https://' + full;
+  return full;
+}
+
+function sideCountdownText(dateStr) {
+  const open = new Date(dateStr + 'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days = Math.round((open - today) / 86400000);
+  if (days > 1) return 'Opens in ' + days + ' days';
+  if (days === 1) return 'Opens tomorrow';
+  if (days === 0) return 'Opens today';
+  return Math.abs(days) + ' days ago';
 }
 
 function updateSideCountdown() {
   const el = document.getElementById('sw-countdown');
   if (!el) return;
   const dateStr = (document.getElementById('sw-prod-date') || {}).value;
-  if (!dateStr) { el.textContent = '—'; return; }
-  const open = new Date(dateStr + 'T00:00:00');
-  const today = new Date(); today.setHours(0,0,0,0);
-  const days = Math.round((open - today) / 86400000);
-  if (days > 1) el.textContent = 'Opens in ' + days + ' days';
-  else if (days === 1) el.textContent = 'Opens tomorrow';
-  else if (days === 0) el.textContent = 'Opens today';
-  else el.textContent = Math.abs(days) + ' days ago';
+  el.textContent = dateStr ? sideCountdownText(dateStr) : '—';
+}
+
+// Flip to edit mode, loading current values into the form
+function editSideWork() {
+  document.getElementById('sw-prod-name').value = _sideWork.name || '';
+  document.getElementById('sw-prod-date').value = _sideWork.date || '';
+  document.getElementById('sw-notes-link').value = _sideWork.notesLink || '';
+  document.getElementById('sw-script-link').value = _sideWork.scriptLink || '';
+  updateSideCountdown();
+  document.getElementById('sw-view-card').style.display = 'none';
+  document.getElementById('sw-edit-card').style.display = '';
+}
+
+function cancelSideWork() {
+  renderSideWork(); // discard edits, show view card
 }
 
 function saveSideWork() {
@@ -3459,28 +3531,15 @@ function saveSideWork() {
     notesLink: (document.getElementById('sw-notes-link')||{}).value || '',
     scriptLink: (document.getElementById('sw-script-link')||{}).value || ''
   };
-  updateSideCountdown();
   const ind = document.getElementById('sw-saved-indicator');
   if (ind) ind.textContent = 'Saving…';
-  clearTimeout(_swSaveTimer);
-  _swSaveTimer = setTimeout(() => {
-    fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({ action:'saveKV', key:'sidework', value:_sideWork }) })
-      .then(() => { if (ind) ind.textContent = 'Saved ✓'; setTimeout(() => { if (ind) ind.textContent = ''; }, 1500); })
-      .catch(() => {
-        jsonp(SCRIPT_URL + '?action=saveKV&key=sidework&value=' + encodeURIComponent(JSON.stringify(_sideWork)) + '&_=' + Date.now(),
-          () => { if (ind) ind.textContent = 'Saved ✓'; setTimeout(() => { if (ind) ind.textContent = ''; }, 1500); },
-          () => { if (ind) ind.textContent = 'Save failed'; });
-      });
-  }, 600);
-}
-
-function openSideLink(which) {
-  const id = which === 'notes' ? 'sw-notes-link' : 'sw-script-link';
-  const url = (document.getElementById(id) || {}).value;
-  if (!url) { toast('No ' + which + ' link set'); return; }
-  let full = url.trim();
-  if (!/^https?:\/\//i.test(full)) full = 'https://' + full;
-  window.open(full, '_blank');
+  fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({ action:'saveKV', key:'sidework', value:_sideWork }) })
+    .then(() => { if (ind) ind.textContent = 'Saved ✓'; renderSideWork(); })
+    .catch(() => {
+      jsonp(SCRIPT_URL + '?action=saveKV&key=sidework&value=' + encodeURIComponent(JSON.stringify(_sideWork)) + '&_=' + Date.now(),
+        () => { if (ind) ind.textContent = 'Saved ✓'; renderSideWork(); },
+        () => { if (ind) ind.textContent = 'Save failed'; });
+    });
 }
 
 // ── REFERENCE PHOTOS ─────────────────────────────────────────────────────────
