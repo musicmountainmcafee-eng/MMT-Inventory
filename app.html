@@ -3010,7 +3010,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.29 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.29 v4</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -4837,10 +4837,10 @@ function withTimeout(promise, ms, label) {
   });
 }
 
-function jsonp(url, onSuccess, onError) {
+function jsonp(url, onSuccess, onError, timeoutMs) {
   const cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
   const script = document.createElement('script');
-  const timeout = setTimeout(() => { cleanup(); onError && onError('Timeout'); }, 15000);
+  const timeout = setTimeout(() => { cleanup(); onError && onError('Timeout'); }, timeoutMs || 15000);
   window[cbName] = function(data) { cleanup(); onSuccess(data); };
   function cleanup() {
     clearTimeout(timeout);
@@ -7072,7 +7072,7 @@ function startImport() {
     }
     folderErr = iwFolderErr;
     gotFolder = true; checkReady();
-  }, () => { iwFolderErr = 'Could not reach the server to read the folder.'; folderErr = iwFolderErr; iwFolderPhotos = []; gotFolder = true; checkReady(); });
+  }, () => { iwFolderErr = 'Could not reach the server to read the folder.'; folderErr = iwFolderErr; iwFolderPhotos = []; gotFolder = true; checkReady(); }, 60000);
 }
 
 function renderWizardDrop() {
