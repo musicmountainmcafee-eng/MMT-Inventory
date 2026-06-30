@@ -1870,6 +1870,48 @@
   #tab-sidework .sw-saved { font-size: 12px; color: var(--text-faint); margin-top: 14px; height: 16px; }
   @media (max-width: 768px) { #tab-sidework .sw-row { flex-direction: column; } #tab-sidework .sw-link-row { flex-direction: column; } #tab-sidework .sw-open-btn { padding: 9px; } }
 
+  /* ── REFERENCE PHOTOS ── */
+  #tab-reference .ref-wrap { max-width: 1000px; margin: 0 auto; padding: 8px 4px 40px; }
+  #tab-reference .ref-head { margin-bottom: 18px; }
+  #tab-reference .ref-title { font-size: 24px; font-weight: 700; margin: 0 0 4px; }
+  #tab-reference .ref-sub { color: var(--text-muted); font-size: 14px; margin: 0; }
+  #tab-reference .ref-add { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+  #tab-reference .ref-fields { display: flex; flex-direction: column; gap: 10px; }
+  #tab-reference .ref-input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 10px 12px; font-size: 14px; font-family: 'DM Sans', sans-serif; box-sizing: border-box; }
+  #tab-reference .ref-input:focus { outline: none; border-color: var(--purple); }
+  #tab-reference .ref-notes { resize: vertical; min-height: 60px; }
+  #tab-reference .ref-drop { border: 2px dashed var(--border); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; cursor: pointer; min-height: 180px; transition: border-color 0.15s, background 0.15s; overflow: hidden; position: relative; }
+  #tab-reference .ref-drop:hover, #tab-reference .ref-drop.dragover { border-color: var(--purple); background: rgba(83,74,183,0.06); }
+  #tab-reference .ref-drop-inner { text-align: center; color: var(--text-muted); padding: 16px; }
+  #tab-reference .ref-drop-icon { font-size: 34px; margin-bottom: 8px; }
+  #tab-reference .ref-drop-main { font-size: 15px; font-weight: 600; color: var(--text); }
+  #tab-reference .ref-drop-sub { font-size: 12px; margin-top: 2px; }
+  #tab-reference .ref-preview { width: 100%; height: 100%; }
+  #tab-reference .ref-preview img { width: 100%; height: 100%; max-height: 260px; object-fit: contain; }
+  #tab-reference .ref-add-actions { display: flex; align-items: center; gap: 12px; margin: 14px 0 24px; }
+  #tab-reference .ref-save-btn { background: var(--purple); color: #fff; border: none; border-radius: var(--radius-sm); padding: 10px 22px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  #tab-reference .ref-save-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  #tab-reference .ref-save-status { font-size: 13px; color: var(--text-faint); }
+  #tab-reference .ref-toolbar { display: flex; gap: 10px; margin-bottom: 16px; }
+  #tab-reference .ref-search { flex: 1; }
+  #tab-reference .ref-filter { max-width: 200px; }
+  #tab-reference .ref-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  #tab-reference .ref-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+  #tab-reference .ref-item-img { width: 100%; aspect-ratio: 4/3; object-fit: cover; background: #000; cursor: pointer; display: block; }
+  #tab-reference .ref-item-body { padding: 10px 12px; }
+  #tab-reference .ref-item-show { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--purple); }
+  #tab-reference .ref-item-piece { font-size: 14px; font-weight: 600; color: var(--text); margin: 2px 0; }
+  #tab-reference .ref-item-meta { font-size: 12px; color: var(--text-muted); }
+  #tab-reference .ref-item-del { font-size: 11px; color: var(--text-faint); cursor: pointer; margin-top: 6px; display: inline-block; }
+  #tab-reference .ref-item-del:hover { color: var(--cue-red, #e74c3c); }
+  #tab-reference .ref-empty { grid-column: 1/-1; text-align: center; color: var(--text-faint); padding: 40px; font-size: 14px; }
+  @media (max-width: 768px) { #tab-reference .ref-add { grid-template-columns: 1fr; } #tab-reference .ref-toolbar { flex-direction: column; } #tab-reference .ref-filter { max-width: none; } }
+  /* Lightbox */
+  #ref-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; }
+  #ref-lightbox.open { display: flex; }
+  #ref-lightbox img { max-width: 95%; max-height: 90%; object-fit: contain; border-radius: 8px; }
+  #ref-lightbox .ref-lb-close { position: absolute; top: 16px; right: 20px; font-size: 30px; color: #fff; cursor: pointer; }
+
   /* ══ MOBILE WIDTH GUARD (placed last so it overrides earlier base rules) ══ */
   @media (max-width: 768px) {
     html, body { max-width: 100%; overflow-x: hidden; }
@@ -1947,6 +1989,7 @@
       <a class="sidebar-link" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');closeSidebarMobile();return false;"><span class="sl-icon">📦</span> Inventory</a>
       <a class="sidebar-link" href="#backdrops" data-tab="backdrops" onclick="switchTab('backdrops');closeSidebarMobile();return false;"><span class="sl-icon">🎭</span> Backdrops</a>
       <a class="sidebar-link" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');closeSidebarMobile();return false;"><span class="sl-icon">🎬</span> Scripts</a>
+      <a class="sidebar-link" href="#reference" data-tab="reference" onclick="switchTab('reference');closeSidebarMobile();return false;"><span class="sl-icon">📸</span> Reference</a>
       <div class="sidebar-divider"></div>
       <a class="sidebar-link" href="#shopping" data-tab="shopping" onclick="switchTab('shopping');closeSidebarMobile();return false;"><span class="sl-icon">🛒</span> Shopping</a>
       <a class="sidebar-link" href="#cleaning" data-tab="cleaning" onclick="switchTab('cleaning');closeSidebarMobile();return false;"><span class="sl-icon">🧽</span> Cleaning<span class="cleaning-badge" id="cleaning-badge" style="display:none;"></span></a>
@@ -2537,9 +2580,57 @@
     </div>
   </div>
 
+  <!-- REFERENCE PHOTOS -->
+  <div class="tab-panel" id="tab-reference" data-tab="reference">
+    <div class="ref-wrap">
+      <div class="ref-head">
+        <h2 class="ref-title">Reference Photos</h2>
+        <p class="ref-sub">Snap or upload a photo, tag it, and find it later by show or piece.</p>
+      </div>
+
+      <!-- Capture / add zone -->
+      <div class="ref-add" id="ref-add-zone">
+        <div class="ref-fields">
+          <input type="text" id="ref-f-show" class="ref-input" placeholder="Show (e.g. Urinetown)" list="ref-show-list" />
+          <datalist id="ref-show-list"></datalist>
+          <input type="text" id="ref-f-piece" class="ref-input" placeholder="Piece / thing (e.g. Officer Lockstock baton)" />
+          <input type="text" id="ref-f-category" class="ref-input" placeholder="Category (props, set, costume…)" list="ref-cat-list" />
+          <datalist id="ref-cat-list"></datalist>
+          <textarea id="ref-f-notes" class="ref-input ref-notes" placeholder="Any other info to remember…"></textarea>
+        </div>
+        <div class="ref-drop" id="ref-drop">
+          <input type="file" id="ref-file" accept="image/*" capture="environment" style="display:none;" onchange="onRefFileChosen(event)" />
+          <div class="ref-drop-inner" id="ref-drop-inner">
+            <div class="ref-drop-icon">📸</div>
+            <div class="ref-drop-main">Tap to take / choose a photo</div>
+            <div class="ref-drop-sub">or drag an image here</div>
+          </div>
+          <div class="ref-preview" id="ref-preview" style="display:none;"></div>
+        </div>
+      </div>
+      <div class="ref-add-actions">
+        <button class="ref-save-btn" id="ref-save-btn" onclick="saveRefPhoto()" disabled>Save photo</button>
+        <span class="ref-save-status" id="ref-save-status"></span>
+      </div>
+
+      <!-- Search + filter -->
+      <div class="ref-toolbar">
+        <input type="text" id="ref-search" class="ref-input ref-search" placeholder="🔍 Search show, piece, notes…" oninput="renderRefGallery()" />
+        <select id="ref-filter-show" class="ref-input ref-filter" onchange="renderRefGallery()">
+          <option value="">All shows</option>
+        </select>
+      </div>
+
+      <!-- Gallery -->
+      <div class="ref-gallery" id="ref-gallery"></div>
+    </div>
+  </div>
+
 </div><!-- end .tab-panels -->
 </div><!-- end .app-main -->
 </div><!-- end .app-shell -->
+
+<div id="ref-lightbox" onclick="closeRefLightbox()"><span class="ref-lb-close">×</span><img id="ref-lb-img" src="" alt="reference" referrerpolicy="no-referrer" /></div>
 </div><!-- end #app -->
 
 <!-- Backdrops: Add/Edit Modal (merged from drops.html — Session 4) -->
@@ -3074,7 +3165,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.30 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.30 v2</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -3290,7 +3381,7 @@ function applyRoleVisibility() {
 }
 
 // ── TAB SWITCHING (unified app) ─────────────────────────────────────────────
-const TABS = ['home','lists','inventory','backdrops','scripts','shopping','cleaning','sidework'];
+const TABS = ['home','lists','inventory','backdrops','scripts','reference','shopping','cleaning','sidework'];
 let currentTab = 'home';
 
 function switchTab(tab) {
@@ -3319,6 +3410,7 @@ function switchTab(tab) {
   if (tab === 'scripts' && typeof ensureScriptsLoaded === 'function') ensureScriptsLoaded();
   if (tab === 'cleaning' && typeof ensureCleaningLoaded === 'function') ensureCleaningLoaded();
   if (tab === 'sidework' && typeof ensureSideWorkLoaded === 'function') ensureSideWorkLoaded();
+  if (tab === 'reference' && typeof ensureReferenceLoaded === 'function') ensureReferenceLoaded();
 }
 
 // On load, honor a #tab hash (e.g. deep link to #inventory)
@@ -3389,6 +3481,163 @@ function openSideLink(which) {
   let full = url.trim();
   if (!/^https?:\/\//i.test(full)) full = 'https://' + full;
   window.open(full, '_blank');
+}
+
+// ── REFERENCE PHOTOS ─────────────────────────────────────────────────────────
+let _refPhotos = [];          // [{id, show, piece, category, notes, url, thumb, ts}]
+let _refLoaded = false;
+let _refPendingFile = null;   // base64 of the photo being added
+
+function ensureReferenceLoaded() {
+  if (_refLoaded) { renderRefGallery(); refreshRefDatalists(); return; }
+  jsonp(SCRIPT_URL + '?action=getKV&key=refphotos&_=' + Date.now(), d => {
+    _refPhotos = (d && Array.isArray(d.value)) ? d.value : [];
+    _refLoaded = true;
+    setupRefDropzone();
+    renderRefGallery();
+    refreshRefDatalists();
+  }, () => { _refPhotos = []; _refLoaded = true; setupRefDropzone(); renderRefGallery(); refreshRefDatalists(); });
+}
+
+function setupRefDropzone() {
+  const drop = document.getElementById('ref-drop');
+  if (!drop || drop._wired) return;
+  drop._wired = true;
+  drop.addEventListener('click', () => document.getElementById('ref-file').click());
+  ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('dragover'); }));
+  ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('dragover'); }));
+  drop.addEventListener('drop', e => {
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) readRefFile(f);
+  });
+}
+
+function onRefFileChosen(e) {
+  const f = e.target.files && e.target.files[0];
+  if (f) readRefFile(f);
+}
+
+function readRefFile(file) {
+  if (!file.type.startsWith('image/')) { toast('Please choose an image'); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    _refPendingFile = { base64: reader.result.split(',')[1], mimeType: file.type, fileName: file.name || 'ref.jpg' };
+    const prev = document.getElementById('ref-preview');
+    const inner = document.getElementById('ref-drop-inner');
+    prev.innerHTML = '<img src="' + reader.result + '" alt="preview" />';
+    prev.style.display = 'block';
+    inner.style.display = 'none';
+    document.getElementById('ref-save-btn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveRefPhoto() {
+  if (!_refPendingFile) { toast('Take or choose a photo first'); return; }
+  const show = (document.getElementById('ref-f-show')||{}).value.trim();
+  const piece = (document.getElementById('ref-f-piece')||{}).value.trim();
+  const category = (document.getElementById('ref-f-category')||{}).value.trim();
+  const notes = (document.getElementById('ref-f-notes')||{}).value.trim();
+  const status = document.getElementById('ref-save-status');
+  const btn = document.getElementById('ref-save-btn');
+  btn.disabled = true;
+  status.textContent = 'Uploading photo…';
+
+  fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'},
+    body: JSON.stringify({ action:'uploadRefPhoto', base64:_refPendingFile.base64, mimeType:_refPendingFile.mimeType, fileName:_refPendingFile.fileName }) })
+    .then(r => r.json())
+    .then(res => {
+      if (!res.success) throw new Error(res.error || 'upload failed');
+      const item = { id: Date.now().toString(), show, piece, category, notes, url: res.url, thumb: res.thumb || res.url, ts: Date.now() };
+      _refPhotos.unshift(item);
+      persistRefPhotos();
+      status.textContent = 'Saved ✓';
+      resetRefForm();
+      renderRefGallery();
+      refreshRefDatalists();
+      setTimeout(() => { status.textContent = ''; }, 1800);
+    })
+    .catch(err => { status.textContent = 'Save failed: ' + err.message; btn.disabled = false; });
+}
+
+function persistRefPhotos() {
+  fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'},
+    body: JSON.stringify({ action:'saveKV', key:'refphotos', value:_refPhotos }) }).catch(() => {});
+}
+
+function resetRefForm() {
+  _refPendingFile = null;
+  ['ref-f-show','ref-f-piece','ref-f-category','ref-f-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('ref-preview').style.display = 'none';
+  document.getElementById('ref-preview').innerHTML = '';
+  document.getElementById('ref-drop-inner').style.display = 'block';
+  const fileEl = document.getElementById('ref-file'); if (fileEl) fileEl.value = '';
+  document.getElementById('ref-save-btn').disabled = true;
+}
+
+function refreshRefDatalists() {
+  const shows = [...new Set(_refPhotos.map(p => p.show).filter(Boolean))].sort();
+  const cats = [...new Set(_refPhotos.map(p => p.category).filter(Boolean))].sort();
+  const sl = document.getElementById('ref-show-list');
+  const cl = document.getElementById('ref-cat-list');
+  if (sl) sl.innerHTML = shows.map(s => '<option value="' + esc(s) + '">').join('');
+  if (cl) cl.innerHTML = cats.map(c => '<option value="' + esc(c) + '">').join('');
+  // Populate the filter dropdown
+  const filter = document.getElementById('ref-filter-show');
+  if (filter) {
+    const cur = filter.value;
+    filter.innerHTML = '<option value="">All shows</option>' + shows.map(s => '<option value="' + esc(s) + '">' + esc(s) + '</option>').join('');
+    filter.value = cur;
+  }
+}
+
+function renderRefGallery() {
+  const gal = document.getElementById('ref-gallery');
+  if (!gal) return;
+  const q = ((document.getElementById('ref-search')||{}).value || '').toLowerCase().trim();
+  const showFilter = (document.getElementById('ref-filter-show')||{}).value || '';
+  let items = _refPhotos.slice();
+  if (showFilter) items = items.filter(p => p.show === showFilter);
+  if (q) items = items.filter(p =>
+    [p.show, p.piece, p.category, p.notes].filter(Boolean).join(' ').toLowerCase().includes(q)
+  );
+  if (!items.length) {
+    gal.innerHTML = '<div class="ref-empty">' + (_refPhotos.length ? 'No photos match your search.' : 'No reference photos yet. Add one above.') + '</div>';
+    return;
+  }
+  gal.innerHTML = items.map(p => `
+    <div class="ref-item">
+      <img class="ref-item-img" src="${esc(p.thumb || p.url)}" referrerpolicy="no-referrer" loading="lazy" onclick="openRefLightbox('${esc(p.url).replace(/'/g,"\\'")}')" onerror="this.style.opacity=0.3" />
+      <div class="ref-item-body">
+        ${p.show ? `<div class="ref-item-show">${esc(p.show)}</div>` : ''}
+        ${p.piece ? `<div class="ref-item-piece">${esc(p.piece)}</div>` : ''}
+        ${(p.category || p.notes) ? `<div class="ref-item-meta">${esc([p.category, p.notes].filter(Boolean).join(' · '))}</div>` : ''}
+        <span class="ref-item-del" onclick="deleteRefPhoto('${p.id}')">Delete</span>
+      </div>
+    </div>`).join('');
+}
+
+function deleteRefPhoto(id) {
+  _refPhotos = _refPhotos.filter(p => p.id !== id);
+  persistRefPhotos();
+  renderRefGallery();
+  refreshRefDatalists();
+}
+
+function openRefLightbox(url) {
+  const lb = document.getElementById('ref-lightbox');
+  document.getElementById('ref-lb-img').src = url;
+  lb.classList.add('open');
+}
+function closeRefLightbox() {
+  document.getElementById('ref-lightbox').classList.remove('open');
+}
+
+// Get reference photos for a specific show (used by show sections)
+function getRefPhotosForShow(showName) {
+  const norm = s => (s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const t = norm(showName);
+  return _refPhotos.filter(p => norm(p.show) === t || (t && norm(p.show).includes(t)));
 }
 
 function initTabFromHash() {
