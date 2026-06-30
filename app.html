@@ -3010,7 +3010,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.29 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.29 v5</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -7087,16 +7087,58 @@ function renderWizardDrop() {
   document.getElementById('iw-f-size').value = d.size || '';
   document.getElementById('iw-f-notes').value = d.notes || '';
   iwCurrentPhoto = d._photo || '';
+  // Auto-match a photo by filename if none chosen yet
+  if (!iwCurrentPhoto) {
+    const match = autoMatchPhoto(d.name);
+    if (match) { iwCurrentPhoto = match.url; d._autoMatched = true; }
+  }
   document.getElementById('iw-photo-search').value = '';
   document.getElementById('iw-back-btn').style.display = iwIndex > 0 ? '' : 'none';
   renderWizardSelectedPhoto();
   renderWizardPhotos();
 }
 
+// Normalize a name/filename for fuzzy matching: drop extension, sizes (40x18),
+// punctuation, and common filler so "Annie Orphanage 40x18.JPG" ~ "Annie Orphanage".
+function _normMatch(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/\.[a-z0-9]+$/i, '')          // file extension
+    .replace(/\d+\s*x\s*\d+/g, ' ')        // sizes like 40x18, 11x13
+    .replace(/\b(mini|dp|drop|backdrop|scenic|lightbox|copy of)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Return the best-matching folder photo for a drop name, or null if no good match.
+function autoMatchPhoto(dropName) {
+  const target = _normMatch(dropName);
+  if (!target || target.length < 3 || !iwFolderPhotos.length) return null;
+  const tWords = target.split(' ').filter(w => w.length > 1);
+  let best = null, bestScore = 0;
+  iwFolderPhotos.forEach(p => {
+    const pn = _normMatch(p.name);
+    let score = 0;
+    if (pn === target) score = 100;                                 // exact
+    else if (pn.includes(target) || target.includes(pn)) score = 80; // contains
+    else {
+      // word overlap
+      const pWords = pn.split(' ').filter(w => w.length > 1);
+      const common = tWords.filter(w => pWords.includes(w)).length;
+      if (common) score = (common / Math.max(tWords.length, 1)) * 70;
+    }
+    if (score > bestScore) { bestScore = score; best = p; }
+  });
+  return bestScore >= 50 ? best : null; // only confident matches
+}
+
 function renderWizardSelectedPhoto() {
   const el = document.getElementById('iw-selected-photo');
+  const d = iwSheetDrops[iwIndex];
   if (iwCurrentPhoto) {
-    el.innerHTML = '<img src="' + iwCurrentPhoto + '" alt="selected" />';
+    const autoBadge = (d && d._autoMatched) ? '<div style="position:absolute;top:6px;left:6px;background:var(--purple);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;">AUTO-MATCHED ✓ verify</div>' : '';
+    el.innerHTML = '<div style="position:relative;">' + autoBadge + '<img src="' + iwCurrentPhoto + '" alt="selected" referrerpolicy="no-referrer" /></div>';
   } else {
     el.innerHTML = '<div class="iw-no-photo">No photo selected</div>';
   }
@@ -7118,6 +7160,8 @@ function renderWizardPhotos() {
 
 function pickWizardPhoto(url) {
   iwCurrentPhoto = (iwCurrentPhoto === url) ? '' : url; // toggle off if same
+  const d = iwSheetDrops[iwIndex];
+  if (d) d._autoMatched = false; // user made a deliberate choice
   renderWizardSelectedPhoto();
   renderWizardPhotos();
 }
