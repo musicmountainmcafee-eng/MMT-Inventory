@@ -1,5 +1,5 @@
 // Bump this version whenever the cached app changes so old caches are purged.
-const CACHE_NAME = 'mmt-cache-v3';
+const CACHE_NAME = 'mmt-cache-v4';
 const CACHE_URLS = [
   '/MMT-Inventory/app.html',
   '/MMT-Inventory/icon-192.png',
@@ -30,15 +30,24 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch — network first, fall back to cache (so the newest app.html always wins)
+// Fetch — network first, bypassing the browser HTTP cache for app files
+// (GitHub Pages sets a ~10-min cache header; without this the "network" fetch
+//  returns the stale cached file and updates never appear).
 self.addEventListener('fetch', event => {
   // Skip non-GET and API calls
   if (event.request.method !== 'GET') return;
   if (event.request.url.includes('script.google.com')) return;
   if (event.request.url.includes('api.')) return;
 
+  const url = event.request.url;
+  const isAppFile = event.request.mode === 'navigate' ||
+                    url.includes('app.html') ||
+                    url.includes('/MMT-Inventory/');
+
+  const fetchOpts = isAppFile ? { cache: 'reload' } : {};
+
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, fetchOpts)
       .then(response => {
         if (response.ok) {
           const clone = response.clone();
