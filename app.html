@@ -1921,10 +1921,28 @@
   #tab-reference .ref-empty { grid-column: 1/-1; text-align: center; color: var(--text-faint); padding: 40px; font-size: 14px; }
   @media (max-width: 768px) { #tab-reference .ref-add { grid-template-columns: 1fr; } #tab-reference .ref-toolbar { flex-direction: column; } #tab-reference .ref-filter { max-width: none; } }
   /* Lightbox */
-  #ref-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; }
-  #ref-lightbox.open { display: flex; }
-  #ref-lightbox img { max-width: 95%; max-height: 90%; object-fit: contain; border-radius: 8px; }
-  #ref-lightbox .ref-lb-close { position: absolute; top: 16px; right: 20px; font-size: 30px; color: #fff; cursor: pointer; }
+  /* Reference detail modal */
+  .ref-detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; }
+  .ref-detail-overlay.open { display: flex; }
+  .ref-detail-box { background: var(--surface); border-radius: var(--radius); max-width: 720px; width: 100%; max-height: 90vh; overflow-y: auto; position: relative; }
+  .ref-detail-close { position: absolute; top: 10px; right: 14px; font-size: 28px; color: #fff; cursor: pointer; z-index: 2; text-shadow: 0 1px 4px rgba(0,0,0,0.6); }
+  .ref-detail-img-wrap { background: #000; border-radius: var(--radius) var(--radius) 0 0; display: flex; align-items: center; justify-content: center; max-height: 50vh; overflow: hidden; }
+  .ref-detail-img-wrap img { max-width: 100%; max-height: 50vh; object-fit: contain; }
+  .ref-detail-info { padding: 20px 22px 24px; }
+  .ref-detail-info .rd-show { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--purple); }
+  .ref-detail-info .rd-piece { font-size: 20px; font-weight: 700; color: var(--text); margin: 4px 0 2px; }
+  .ref-detail-info .rd-row { display: flex; margin: 10px 0; font-size: 14px; }
+  .ref-detail-info .rd-label { width: 90px; color: var(--text-faint); flex-shrink: 0; }
+  .ref-detail-info .rd-val { color: var(--text); }
+  .ref-detail-info .rd-input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 9px 11px; font-size: 14px; font-family: 'DM Sans', sans-serif; box-sizing: border-box; margin-bottom: 10px; }
+  .ref-detail-info .rd-input:focus { outline: none; border-color: var(--purple); }
+  .ref-detail-actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .rd-btn { border: none; border-radius: var(--radius-sm); padding: 9px 18px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .rd-btn-edit { background: var(--purple); color: #fff; }
+  .rd-btn-save { background: var(--purple); color: #fff; }
+  .rd-btn-cancel { background: none; border: 1px solid var(--border); color: var(--text-muted); }
+  .rd-btn-delete { background: none; border: 1px solid var(--cue-red, #e74c3c); color: var(--cue-red, #e74c3c); margin-left: auto; }
+  .rd-btn-delete:hover { background: var(--cue-red, #e74c3c); color: #fff; }
 
   /* ══ MOBILE WIDTH GUARD (placed last so it overrides earlier base rules) ══ */
   @media (max-width: 768px) {
@@ -2658,7 +2676,13 @@
 </div><!-- end .app-main -->
 </div><!-- end .app-shell -->
 
-<div id="ref-lightbox" onclick="closeRefLightbox()"><span class="ref-lb-close">×</span><img id="ref-lb-img" src="" alt="reference" referrerpolicy="no-referrer" /></div>
+<div id="ref-detail" class="ref-detail-overlay" onclick="if(event.target===this)closeRefDetail()">
+  <div class="ref-detail-box">
+    <span class="ref-detail-close" onclick="closeRefDetail()">×</span>
+    <div class="ref-detail-img-wrap"><img id="ref-detail-img" src="" alt="reference" referrerpolicy="no-referrer" /></div>
+    <div class="ref-detail-info" id="ref-detail-info"></div>
+  </div>
+</div>
 </div><!-- end #app -->
 
 <!-- Backdrops: Add/Edit Modal (merged from drops.html — Session 4) -->
@@ -3193,7 +3217,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">6.30 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.2 v1</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -3666,12 +3690,12 @@ function renderRefGallery() {
   }
   gal.innerHTML = items.map(p => `
     <div class="ref-item">
-      <img class="ref-item-img" src="${esc(p.thumb || p.url)}" referrerpolicy="no-referrer" loading="lazy" onclick="openRefLightbox('${esc(p.url).replace(/'/g,"\\'")}')" onerror="this.style.opacity=0.3" />
+      <img class="ref-item-img" src="${esc(p.thumb || p.url)}" referrerpolicy="no-referrer" loading="lazy" onclick="openRefDetail('${p.id}')" onerror="this.style.opacity=0.3" />
       <div class="ref-item-body">
         ${p.show ? `<div class="ref-item-show">${esc(p.show)}</div>` : ''}
         ${p.piece ? `<div class="ref-item-piece">${esc(p.piece)}</div>` : ''}
         ${(p.category || p.notes) ? `<div class="ref-item-meta">${esc([p.category, p.notes].filter(Boolean).join(' · '))}</div>` : ''}
-        <span class="ref-item-del" onclick="deleteRefPhoto('${p.id}')">Delete</span>
+        <span class="ref-item-del" onclick="openRefDetail('${p.id}')">View details →</span>
       </div>
     </div>`).join('');
 }
@@ -3683,13 +3707,73 @@ function deleteRefPhoto(id) {
   refreshRefDatalists();
 }
 
-function openRefLightbox(url) {
-  const lb = document.getElementById('ref-lightbox');
-  document.getElementById('ref-lb-img').src = url;
-  lb.classList.add('open');
+let _refDetailId = null;
+
+function openRefDetail(id) {
+  const p = _refPhotos.find(x => x.id === id);
+  if (!p) return;
+  _refDetailId = id;
+  document.getElementById('ref-detail-img').src = p.url || p.thumb || '';
+  renderRefDetailView(p);
+  document.getElementById('ref-detail').classList.add('open');
 }
-function closeRefLightbox() {
-  document.getElementById('ref-lightbox').classList.remove('open');
+
+function renderRefDetailView(p) {
+  const info = document.getElementById('ref-detail-info');
+  const row = (label, val) => val ? `<div class="rd-row"><div class="rd-label">${label}</div><div class="rd-val">${esc(val)}</div></div>` : '';
+  info.innerHTML = `
+    ${p.show ? `<div class="rd-show">${esc(p.show)}</div>` : ''}
+    <div class="rd-piece">${esc(p.piece || 'Untitled')}</div>
+    ${row('Category', p.category)}
+    ${row('Notes', p.notes)}
+    <div class="ref-detail-actions">
+      <button class="rd-btn rd-btn-edit" onclick="editRefDetail()">Edit</button>
+      <button class="rd-btn rd-btn-delete" onclick="deleteRefDetail()">Delete</button>
+    </div>`;
+}
+
+function editRefDetail() {
+  const p = _refPhotos.find(x => x.id === _refDetailId);
+  if (!p) return;
+  const info = document.getElementById('ref-detail-info');
+  info.innerHTML = `
+    <label class="rd-label" style="width:auto;display:block;margin-bottom:4px;">Show</label>
+    <input class="rd-input" id="rd-edit-show" value="${esc(p.show || '')}" list="ref-show-list" />
+    <label class="rd-label" style="width:auto;display:block;margin-bottom:4px;">Piece / thing</label>
+    <input class="rd-input" id="rd-edit-piece" value="${esc(p.piece || '')}" />
+    <label class="rd-label" style="width:auto;display:block;margin-bottom:4px;">Category</label>
+    <input class="rd-input" id="rd-edit-category" value="${esc(p.category || '')}" list="ref-cat-list" />
+    <label class="rd-label" style="width:auto;display:block;margin-bottom:4px;">Notes</label>
+    <textarea class="rd-input" id="rd-edit-notes" style="min-height:70px;resize:vertical;">${esc(p.notes || '')}</textarea>
+    <div class="ref-detail-actions">
+      <button class="rd-btn rd-btn-save" onclick="saveRefDetail()">Save</button>
+      <button class="rd-btn rd-btn-cancel" onclick="openRefDetail('${p.id}')">Cancel</button>
+      <button class="rd-btn rd-btn-delete" onclick="deleteRefDetail()">Delete</button>
+    </div>`;
+}
+
+function saveRefDetail() {
+  const p = _refPhotos.find(x => x.id === _refDetailId);
+  if (!p) return;
+  p.show = (document.getElementById('rd-edit-show')||{}).value.trim();
+  p.piece = (document.getElementById('rd-edit-piece')||{}).value.trim();
+  p.category = (document.getElementById('rd-edit-category')||{}).value.trim();
+  p.notes = (document.getElementById('rd-edit-notes')||{}).value.trim();
+  persistRefPhotos();
+  renderRefDetailView(p);
+  renderRefGallery();
+  refreshRefDatalists();
+}
+
+function deleteRefDetail() {
+  if (!_refDetailId) return;
+  deleteRefPhoto(_refDetailId);
+  closeRefDetail();
+}
+
+function closeRefDetail() {
+  document.getElementById('ref-detail').classList.remove('open');
+  _refDetailId = null;
 }
 
 // Get reference photos for a specific show (used by show sections)
