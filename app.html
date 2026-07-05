@@ -933,6 +933,12 @@
   .notes-btn.open:hover { background: var(--purple); color: white; }
   .notes-btn.create { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
   .notes-btn.create:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-light); }
+  .notes-relink-btn {
+    padding: 8px 10px; border-radius: var(--radius-sm); font-size: 14px;
+    cursor: pointer; border: 1px solid var(--border); background: var(--bg); color: var(--text-faint);
+    flex-shrink: 0; margin-left: 6px; font-family: 'DM Sans', sans-serif; line-height: 1;
+  }
+  .notes-relink-btn:hover { border-color: var(--purple); color: var(--purple); }
   .notes-btn.loading { background: var(--bg); color: var(--text-faint); border: 1px solid var(--border); cursor: default; }
 
   /* TASKS TAB */
@@ -3237,7 +3243,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.5 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.5 v2</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -5668,6 +5674,7 @@ function renderShows() {
         <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentMain.name}')" id="btn-${key}">
           ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
         </button>
+        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentMain.name}')" title="Point this at a different doc">↻</button>` : ''}
       </div>
     </div>`;
   }
@@ -5690,6 +5697,7 @@ function renderShows() {
         <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextMain.name}')" id="btn-${key}">
           ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
         </button>
+        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextMain.name}')" title="Point this at a different doc">↻</button>` : ''}
       </div>
     </div>`;
   }
@@ -5718,6 +5726,7 @@ function renderShows() {
             <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${show.name}')" id="btn-${key}" style="padding:6px 10px;font-size:12px;">
               ${docUrl ? '📄 Notes' : '+ Notes'}
             </button>
+        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${show.name}')" title="Point this at a different doc">↻</button>` : ''}
           </div>`;
         }).join('')}
       </div>
@@ -5743,6 +5752,7 @@ function renderShows() {
         <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentKids.name}')" id="btn-${key}">
           ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
         </button>
+        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentKids.name}')" title="Point this at a different doc">↻</button>` : ''}
       </div>
     </div>`;
   } else {
@@ -5764,6 +5774,7 @@ function renderShows() {
           <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextKids.name}')" id="btn-${key}">
             ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
           </button>
+        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextKids.name}')" title="Point this at a different doc">↻</button>` : ''}
         </div>
       </div>`;
     }
@@ -5775,6 +5786,21 @@ function renderShows() {
 function toggleAllShows(btn) {
   btn.classList.toggle('open');
   btn.nextElementSibling.classList.toggle('open');
+}
+
+// Point a show's "Open notes" button at a different doc (paste a new link).
+async function changeShowNotesLink(key, showName) {
+  const current = showNotes[key] || '';
+  const next = window.prompt('Paste the link to the doc you want "' + showName + '" notes to open:', current);
+  if (next === null) return; // cancelled
+  const url = next.trim();
+  if (!url) { toast('No link entered'); return; }
+  showNotes[key] = url;
+  await sheetWrite('showNotes', key, url);
+  toast('Notes link updated for ' + showName);
+  // Refresh whatever is currently on screen so the button reflects the change
+  if (typeof renderHomeShowCards === 'function') renderHomeShowCards();
+  if (typeof renderShows === 'function') renderShows();
 }
 
 async function handleNotes(key, showName) {
