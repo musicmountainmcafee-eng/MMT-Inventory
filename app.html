@@ -939,6 +939,28 @@
     flex-shrink: 0; margin-left: 6px; font-family: 'DM Sans', sans-serif; line-height: 1;
   }
   .notes-relink-btn:hover { border-color: var(--purple); color: var(--purple); }
+
+  /* ── Edit Notes Link modal ── */
+  .ne-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1500; display: none; }
+  .ne-overlay.open { display: block; }
+  .ne-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 1501; display: none;
+    background: var(--surface); border-radius: var(--radius); width: 92%; max-width: 400px; box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+  .ne-modal.open { display: block; }
+  .ne-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 15px; }
+  .ne-close { cursor: pointer; font-size: 22px; color: var(--text-faint); line-height: 1; }
+  .ne-close:hover { color: var(--text); }
+  .ne-body { padding: 18px; }
+  .ne-label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .ne-input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 9px 11px; font-size: 14px; font-family: 'DM Sans', sans-serif; box-sizing: border-box; margin-bottom: 10px; }
+  .ne-input:focus { outline: none; border-color: var(--purple); }
+  .ne-btn { width: 100%; border: none; border-radius: var(--radius-sm); padding: 10px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .ne-btn-primary { background: var(--purple); color: #fff; }
+  .ne-btn-secondary { background: var(--bg); border: 1px solid var(--border); color: var(--text); }
+  .ne-btn-secondary:hover { border-color: var(--purple); color: var(--purple); }
+  .ne-divider { display: flex; align-items: center; text-align: center; color: var(--text-faint); font-size: 12px; margin: 14px 0; }
+  .ne-divider::before, .ne-divider::after { content: ''; flex: 1; border-bottom: 1px solid var(--border); }
+  .ne-divider span { padding: 0 10px; }
+  .ne-status { font-size: 12px; color: var(--text-muted); margin-top: 10px; min-height: 16px; }
   .notes-btn.loading { background: var(--bg); color: var(--text-faint); border: 1px solid var(--border); cursor: default; }
 
   /* TASKS TAB */
@@ -3180,6 +3202,22 @@
 <div class="toast" id="toast"></div>
 
 <!-- Settings Panel -->
+<div class="ne-overlay" id="ne-overlay" onclick="closeNotesEditModal()"></div>
+<div class="ne-modal" id="ne-modal">
+  <div class="ne-header">
+    <span id="ne-title">Show Notes</span>
+    <span class="ne-close" onclick="closeNotesEditModal()">×</span>
+  </div>
+  <div class="ne-body">
+    <label class="ne-label">Paste a link to an existing doc</label>
+    <input type="text" id="ne-link-input" class="ne-input" placeholder="https://docs.google.com/document/d/…" />
+    <button class="ne-btn ne-btn-primary" onclick="saveNotesEditLink()">Use this link</button>
+    <div class="ne-divider"><span>or</span></div>
+    <button class="ne-btn ne-btn-secondary" onclick="createFreshNotesDoc()" id="ne-create-btn">Create a new doc from template</button>
+    <div class="ne-status" id="ne-status"></div>
+  </div>
+</div>
+
 <div class="settings-overlay" id="settings-overlay" onclick="closeSettings()"></div>
 <div class="settings-panel" id="settings-panel">
   <div class="settings-header">
@@ -3243,7 +3281,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.5 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.5 v3</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -5674,7 +5712,7 @@ function renderShows() {
         <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentMain.name}')" id="btn-${key}">
           ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
         </button>
-        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentMain.name}')" title="Point this at a different doc">↻</button>` : ''}
+        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentMain.name}')" title="Edit notes link">Edit</button>` : ''}
       </div>
     </div>`;
   }
@@ -5697,7 +5735,7 @@ function renderShows() {
         <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextMain.name}')" id="btn-${key}">
           ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
         </button>
-        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextMain.name}')" title="Point this at a different doc">↻</button>` : ''}
+        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextMain.name}')" title="Edit notes link">Edit</button>` : ''}
       </div>
     </div>`;
   }
@@ -5726,7 +5764,7 @@ function renderShows() {
             <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${show.name}')" id="btn-${key}" style="padding:6px 10px;font-size:12px;">
               ${docUrl ? '📄 Notes' : '+ Notes'}
             </button>
-        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${show.name}')" title="Point this at a different doc">↻</button>` : ''}
+        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${show.name}')" title="Edit notes link">Edit</button>` : ''}
           </div>`;
         }).join('')}
       </div>
@@ -5752,7 +5790,7 @@ function renderShows() {
         <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentKids.name}')" id="btn-${key}">
           ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
         </button>
-        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentKids.name}')" title="Point this at a different doc">↻</button>` : ''}
+        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentKids.name}')" title="Edit notes link">Edit</button>` : ''}
       </div>
     </div>`;
   } else {
@@ -5774,7 +5812,7 @@ function renderShows() {
           <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextKids.name}')" id="btn-${key}">
             ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
           </button>
-        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextKids.name}')" title="Point this at a different doc">↻</button>` : ''}
+        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextKids.name}')" title="Edit notes link">Edit</button>` : ''}
         </div>
       </div>`;
     }
@@ -5789,18 +5827,60 @@ function toggleAllShows(btn) {
 }
 
 // Point a show's "Open notes" button at a different doc (paste a new link).
-async function changeShowNotesLink(key, showName) {
-  const current = showNotes[key] || '';
-  const next = window.prompt('Paste the link to the doc you want "' + showName + '" notes to open:', current);
-  if (next === null) return; // cancelled
-  const url = next.trim();
-  if (!url) { toast('No link entered'); return; }
-  showNotes[key] = url;
-  await sheetWrite('showNotes', key, url);
-  toast('Notes link updated for ' + showName);
-  // Refresh whatever is currently on screen so the button reflects the change
+// ── Edit Notes Link modal (paste a link, or generate a fresh doc from the template) ──
+let _neKey = null, _neShowName = null;
+
+function changeShowNotesLink(key, showName) {
+  _neKey = key; _neShowName = showName;
+  document.getElementById('ne-title').textContent = showName + ' — Notes';
+  document.getElementById('ne-link-input').value = showNotes[key] || '';
+  document.getElementById('ne-status').textContent = '';
+  document.getElementById('ne-overlay').classList.add('open');
+  document.getElementById('ne-modal').classList.add('open');
+}
+
+function closeNotesEditModal() {
+  document.getElementById('ne-overlay').classList.remove('open');
+  document.getElementById('ne-modal').classList.remove('open');
+  _neKey = null; _neShowName = null;
+}
+
+async function saveNotesEditLink() {
+  const url = (document.getElementById('ne-link-input') || {}).value.trim();
+  if (!url) { toast('Paste a link first'); return; }
+  const status = document.getElementById('ne-status');
+  status.textContent = 'Saving…';
+  showNotes[_neKey] = url;
+  await sheetWrite('showNotes', _neKey, url);
+  status.textContent = 'Saved ✓';
+  toast('Notes link updated for ' + _neShowName);
   if (typeof renderHomeShowCards === 'function') renderHomeShowCards();
   if (typeof renderShows === 'function') renderShows();
+  setTimeout(closeNotesEditModal, 500);
+}
+
+async function createFreshNotesDoc() {
+  const btn = document.getElementById('ne-create-btn');
+  const status = document.getElementById('ne-status');
+  btn.disabled = true;
+  status.textContent = 'Creating doc from template…';
+  jsonp(
+    SCRIPT_URL + '?action=createDoc&showName=' + encodeURIComponent(_neShowName) + '&key=' + encodeURIComponent(_neKey) + '&force=1',
+    function(data) {
+      btn.disabled = false;
+      if (data && data.url) {
+        showNotes[_neKey] = data.url;
+        status.textContent = 'Created ✓';
+        toast('New notes doc created for ' + _neShowName);
+        if (typeof renderHomeShowCards === 'function') renderHomeShowCards();
+        if (typeof renderShows === 'function') renderShows();
+        setTimeout(closeNotesEditModal, 500);
+      } else {
+        status.textContent = 'Error: ' + (data && data.error ? data.error : 'Unknown error');
+      }
+    },
+    function() { btn.disabled = false; status.textContent = 'Error creating doc — check Apps Script'; }
+  );
 }
 
 async function handleNotes(key, showName) {
