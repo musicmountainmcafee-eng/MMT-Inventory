@@ -1339,6 +1339,7 @@
     letter-spacing: 0.04em; padding: 3px 11px; border-radius: 999px; margin-bottom: 10px;
   }
   .home-show-badge.now-b { background: #C0DD97; color: #27500A; }
+  .home-show-badge.tech-b { background: #F5D98C; color: #6B4C0A; }
   .home-show-badge.next-b { background: #CECBF6; color: #3C3489; }
   .home-show-name { font-size: 22px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
   .home-show-dates { font-size: 15px; color: var(--text-muted); margin-bottom: 16px; }
@@ -3288,7 +3289,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.6 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.6 v2</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -4037,12 +4038,29 @@ async function refreshData() {
 }
 
 // ── DATE HELPERS ─────────────────────────────────────────────────────────────
+// Tech starts the Monday of the week that falls 4 days before opening.
+function techStartDate(startDateStr) {
+  const opening = new Date(startDateStr + 'T00:00:00');
+  const fourBefore = new Date(opening);
+  fourBefore.setDate(fourBefore.getDate() - 4);
+  // Walk back to the Monday of that week (Mon=1 ... Sun=0)
+  const dow = fourBefore.getDay();
+  const daysSinceMonday = (dow === 0) ? 6 : dow - 1;
+  const monday = new Date(fourBefore);
+  monday.setDate(monday.getDate() - daysSinceMonday);
+  return monday;
+}
+
 function showStatus(start, end) {
   const today = new Date(); today.setHours(0,0,0,0);
   const s = new Date(start + 'T00:00:00');
   const e = new Date(end + 'T00:00:00');
   if (today >= s && today <= e) return 'current';
-  if (today < s) return 'upcoming';
+  if (today < s) {
+    const tech = techStartDate(start);
+    if (today >= tech) return 'tech';
+    return 'upcoming';
+  }
   return 'past';
 }
 function formatDates(start, end) {
@@ -4205,29 +4223,51 @@ function renderHomeShowCards() {
   const el = document.getElementById('home-show-grid');
   if (!el) return;
 
-  const curMain  = MAINSTAGE.find(s => showStatus(s.start, s.end) === 'current');
-  const nextMain = MAINSTAGE.filter(s => showStatus(s.start, s.end) === 'upcoming')[0];
+  // Sort Mainstage shows by start date so we can find "the next one up" reliably.
+  const sorted = MAINSTAGE.slice().sort((a, b) => new Date(a.start) - new Date(b.start));
+  const curMain  = sorted.find(s => showStatus(s.start, s.end) === 'current');
+  const techMain = sorted.find(s => showStatus(s.start, s.end) === 'tech');
+  const upcoming = sorted.filter(s => showStatus(s.start, s.end) === 'upcoming');
 
-  function card(show, isCurrent) {
-    const badge   = isCurrent ? 'Now playing — Mainstage' : 'Up next — Mainstage';
-    const badgeCls = isCurrent ? 'now-b' : 'next-b';
-    const dates   = formatDates(show.start, show.end);
-    let countdown, btnLabel, btnAction;
-    if (isCurrent) {
+  // LEFT card: whichever show is actually happening right now — playing or in tech.
+  // If nothing is current/in-tech, but the previous show has already closed,
+  // treat the very next upcoming show as "In Tech" anyway.
+  let leftShow = curMain || techMain || null;
+  let leftState = curMain ? 'current' : (techMain ? 'tech' : null);
+  if (!leftShow && upcoming.length) {
+    leftShow = upcoming[0];
+    leftState = 'tech';
+  }
+
+  // RIGHT card: the next show after whichever one is on the left.
+  let rightShow = null;
+  if (leftShow) {
+    rightShow = sorted.find(s => s !== leftShow && new Date(s.start) > new Date(leftShow.start)) || null;
+  } else if (upcoming.length > 1) {
+    rightShow = upcoming[1];
+  }
+
+  function card(show, state) {
+    // state: 'current' | 'tech' | 'upcoming'
+    const badge = state === 'current' ? 'Now Playing — Mainstage'
+                : state === 'tech'    ? 'In Tech — Mainstage'
+                : 'Up Next — Mainstage';
+    const badgeCls = state === 'current' ? 'now-b' : state === 'tech' ? 'tech-b' : 'next-b';
+    const dates = formatDates(show.start, show.end);
+    const key = 'mainstage_' + show.name.replace(/[^a-z0-9]/gi, '_');
+    const url = showNotes[key];
+    const btnLabel  = url ? 'Open notes →' : 'Create notes →';
+    const btnAction = `handleNotes('${key}', '${show.name.replace(/'/g, "\'")}')`;
+
+    let countdown;
+    if (state === 'current') {
       const left = daysUntil(show.end);
       countdown = left === 0 ? 'Closes tonight' : left + ' day' + (left !== 1 ? 's' : '') + ' left';
-      const key = 'mainstage_' + show.name.replace(/[^a-z0-9]/gi, '_');
-      const url = showNotes[key];
-      btnLabel  = url ? 'Open notes →' : 'Create notes →';
-      btnAction = `handleNotes('${key}', '${show.name.replace(/'/g, "\'")}')`;
     } else {
       const until = daysUntil(show.start);
-      countdown = until === 0 ? 'Opens tonight' : 'Opens in ' + until + ' day' + (until !== 1 ? 's' : '');
-      const key = 'mainstage_' + show.name.replace(/[^a-z0-9]/gi, '_');
-      const url = showNotes[key];
-      btnLabel  = url ? 'Open notes →' : 'Create notes →';
-      btnAction = `handleNotes('${key}', '${show.name.replace(/'/g, "\'")}')`;
+      countdown = until === 0 ? 'Opens tonight' : until < 0 ? 'Opening night has passed' : 'Opens in ' + until + ' day' + (until !== 1 ? 's' : '');
     }
+
     return `<div class="home-show-card">
       <span class="home-show-badge ${badgeCls}">${esc(badge)}</span>
       <div class="home-show-name">${esc(show.name)}</div>
@@ -4243,14 +4283,9 @@ function renderHomeShowCards() {
   }
 
   let html = '';
-  // Always show exactly 2 cards
-  const nowShow  = curMain  || null;
-  const nextShow = nextMain || null;
-
-  if (nowShow)  html += card(nowShow, true);
-  else if (nextShow) html += card(nextShow, false); // no current — show next as first card
-  if (nextShow && nowShow) html += card(nextShow, false);
-  else if (!nowShow && !nextShow) html = '<div class="home-show-card" style="grid-column:1/-1;color:var(--text-faint);font-size:13px;">No upcoming shows configured.</div>';
+  if (leftShow)  html += card(leftShow, leftState);
+  if (rightShow) html += card(rightShow, 'upcoming');
+  if (!leftShow && !rightShow) html = '<div class="home-show-card" style="grid-column:1/-1;color:var(--text-faint);font-size:13px;">No upcoming shows configured.</div>';
 
   el.innerHTML = html;
 }
@@ -4363,9 +4398,9 @@ function renderNowNext() {
   const el = document.getElementById('np-content');
   if (!el) return;
   const curMain = MAINSTAGE.find(s => showStatus(s.start, s.end) === 'current');
-  const nextMain = MAINSTAGE.filter(s => showStatus(s.start, s.end) === 'upcoming')[0];
+  const nextMain = MAINSTAGE.filter(s => ['upcoming','tech'].includes(showStatus(s.start, s.end)))[0];
   const curKids = CHILDRENS.find(s => showStatus(s.start, s.end) === 'current');
-  const nextKids = CHILDRENS.filter(s => showStatus(s.start, s.end) === 'upcoming')[0];
+  const nextKids = CHILDRENS.filter(s => ['upcoming','tech'].includes(showStatus(s.start, s.end)))[0];
 
   let html = '';
 
@@ -5428,7 +5463,7 @@ function renderStats() {
   });
 
   // Next opening night (Mainstage only)
-  const allUpcoming = MAINSTAGE.filter(s => showStatus(s.start, s.end) === 'upcoming')
+  const allUpcoming = MAINSTAGE.filter(s => ['upcoming','tech'].includes(showStatus(s.start, s.end)))
     .sort((a, b) => a.start.localeCompare(b.start));
   const nextOpening = allUpcoming[0];
   const daysToOpen = nextOpening ? daysUntil(nextOpening.start) : null;
@@ -5690,7 +5725,7 @@ function renderShows() {
 
   // Find current and next mainstage
   const currentMain = MAINSTAGE.find(s => showStatus(s.start, s.end) === 'current');
-  const upcomingMain = MAINSTAGE.filter(s => showStatus(s.start, s.end) === 'upcoming');
+  const upcomingMain = MAINSTAGE.filter(s => ['upcoming','tech'].includes(showStatus(s.start, s.end)));
   const nextMain = upcomingMain[0] || null;
   const restMain = upcomingMain.slice(1);
   const pastMain = MAINSTAGE.filter(s => showStatus(s.start, s.end) === 'past');
@@ -5810,7 +5845,7 @@ function renderShows() {
     </div>`;
   } else {
     // Show next children's if none current
-    const nextKids = CHILDRENS.find(s => showStatus(s.start, s.end) === 'upcoming');
+    const nextKids = CHILDRENS.find(s => ['upcoming','tech'].includes(showStatus(s.start, s.end)));
     if (nextKids) {
       const key = 'childrens_' + nextKids.name.replace(/[^a-z0-9]/gi, '_');
       const docUrl = showNotes[key];
