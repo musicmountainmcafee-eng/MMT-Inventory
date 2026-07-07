@@ -901,6 +901,10 @@
   .show-card-next .show-name { font-weight: 600; font-size: 16px; }
   .show-card-next .show-dates { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
   .show-card-next .show-opens { font-size: 12px; color: var(--purple); margin-top: 3px; font-weight: 600; }
+  .show-card-next .show-actions, .show-card-current .show-actions, .show-card-hero .show-actions {
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  }
+  .show-card-next .show-actions .notes-relink-btn, .show-card-current .show-actions .notes-relink-btn, .show-card-hero .show-actions .notes-relink-btn { margin-left: 0; }
 
   /* ALL SHOWS COLLAPSIBLE */
   .all-shows-toggle {
@@ -922,6 +926,8 @@
   }
   .show-card-mini .show-name { font-size: 14px; font-weight: 500; }
   .show-card-mini .show-dates { font-size: 11px; color: var(--text-faint); margin-top: 1px; }
+  .show-card-mini .show-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .show-card-mini .show-actions .notes-relink-btn { margin-left: 0; }
 
   /* NOTES BUTTONS */
   .notes-btn {
@@ -3281,7 +3287,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.5 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.5 v4</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -5709,10 +5715,12 @@ function renderShows() {
           <div class="show-countdown">🎭 ${closingStr}</div>
         </div>
         <span class="show-badge-now">Now Playing</span>
-        <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentMain.name}')" id="btn-${key}">
-          ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
-        </button>
-        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentMain.name}')" title="Edit notes link">Edit</button>` : ''}
+        <div class="show-actions">
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentMain.name}')" id="btn-${key}">
+            ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
+          </button>
+          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentMain.name}')" title="Edit notes link">Edit</button>` : ''}
+        </div>
       </div>
     </div>`;
   }
@@ -5732,10 +5740,12 @@ function renderShows() {
           <div class="show-dates">${formatDates(nextMain.start, nextMain.end)}</div>
           <div class="show-opens">📅 ${opensStr}</div>
         </div>
-        <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextMain.name}')" id="btn-${key}">
-          ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
-        </button>
-        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextMain.name}')" title="Edit notes link">Edit</button>` : ''}
+        <div class="show-actions">
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextMain.name}')" id="btn-${key}">
+            ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
+          </button>
+          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextMain.name}')" title="Edit notes link">Edit</button>` : ''}
+        </div>
       </div>
     </div>`;
   }
@@ -5761,10 +5771,12 @@ function renderShows() {
               <div class="show-name">${badge} ${show.name}</div>
               <div class="show-dates">${formatDates(show.start, show.end)}</div>
             </div>
-            <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${show.name}')" id="btn-${key}" style="padding:6px 10px;font-size:12px;">
-              ${docUrl ? '📄 Notes' : '+ Notes'}
-            </button>
-        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${show.name}')" title="Edit notes link">Edit</button>` : ''}
+            <div class="show-actions">
+              <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${show.name}')" id="btn-${key}" style="padding:6px 10px;font-size:12px;">
+                ${docUrl ? '📄 Notes' : '+ Notes'}
+              </button>
+              ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${show.name}')" title="Edit notes link">Edit</button>` : ''}
+            </div>
           </div>`;
         }).join('')}
       </div>
@@ -5787,10 +5799,12 @@ function renderShows() {
           <div class="show-countdown" style="color:var(--accent2);">🎪 ${closingStr}</div>
         </div>
         <span class="show-badge-now" style="background:var(--accent2);">Now Playing</span>
-        <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentKids.name}')" id="btn-${key}">
-          ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
-        </button>
-        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentKids.name}')" title="Edit notes link">Edit</button>` : ''}
+        <div class="show-actions">
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentKids.name}')" id="btn-${key}">
+            ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
+          </button>
+          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentKids.name}')" title="Edit notes link">Edit</button>` : ''}
+        </div>
       </div>
     </div>`;
   } else {
@@ -5809,10 +5823,12 @@ function renderShows() {
             <div class="show-dates">${formatDates(nextKids.start, nextKids.end)}</div>
             <div class="show-opens" style="color:var(--accent2);">📅 Opens in ${opens} days</div>
           </div>
-          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextKids.name}')" id="btn-${key}">
-            ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
-          </button>
-        ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextKids.name}')" title="Edit notes link">Edit</button>` : ''}
+          <div class="show-actions">
+            <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextKids.name}')" id="btn-${key}">
+              ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
+            </button>
+            ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextKids.name}')" title="Edit notes link">Edit</button>` : ''}
+          </div>
         </div>
       </div>`;
     }
