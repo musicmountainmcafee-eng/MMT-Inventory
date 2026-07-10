@@ -9388,7 +9388,9 @@ async function exportCueSheet() {
   const sorted = [...cues].sort((a, b) => (a.page - b.page) || (a.number || '').localeCompare(b.number || '', undefined, { numeric: true }));
   if (!sorted.length) { toast('No cues to export'); return; }
   const showName = document.getElementById('show-name').textContent || 'Untitled';
-  const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const now = new Date();
+  const exportedStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    + ' at ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
   // Resolve jsPDF the same way the marked-script export does.
   let jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF) || null;
@@ -9399,6 +9401,40 @@ async function exportCueSheet() {
     } catch (err) { toast('Could not load PDF library'); return; }
   }
   if (!jsPDFCtor) { toast('Could not load PDF library'); return; }
+
+  toast('Building cue sheet PDF…');
+
+  // Preload every cue's line-crop image (Drive URL or local data URL) into a
+  // data URL jsPDF can embed, and grab its natural size so we can size the
+  // thumbnail without distorting it. Cues with no crop are skipped.
+  function loadImageAsDataUrl(src) {
+    return new Promise(resolve => {
+      if (!src) { resolve(null); return; }
+      if (src.startsWith('data:')) {
+        const img = new Image();
+        img.onload = () => resolve({ dataUrl: src, w: img.naturalWidth, h: img.naturalHeight });
+        img.onerror = () => resolve(null);
+        img.src = src;
+        return;
+      }
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const c = document.createElement('canvas');
+          c.width = img.naturalWidth; c.height = img.naturalHeight;
+          c.getContext('2d').drawImage(img, 0, 0);
+          resolve({ dataUrl: c.toDataURL('image/jpeg', 0.9), w: img.naturalWidth, h: img.naturalHeight });
+        } catch (err) { resolve(null); } // CORS-blocked — skip the image, keep the cue
+      };
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  }
+  const cropCache = {};
+  await Promise.all(sorted.filter(c => c.lineCrop).map(async c => {
+    cropCache[c.id] = await loadImageAsDataUrl(c.lineCrop);
+  }));
 
   // Group by page
   const byPage = {};
@@ -9416,12 +9452,13 @@ async function exportCueSheet() {
   const pageH = doc.internal.pageSize.getHeight();
   const marginX = 44, marginTop = 50, marginBottom = 46;
   const purple = [83, 74, 183];
+  const thumbMaxW = 140, thumbMaxH = 40; // cropped script-line photo, capped so rows stay compact
 
   // Column layout
   const colCue    = { x: marginX,       w: 78 };
-  const colAction = { x: marginX + 84,  w: 148 };
-  const colLine   = { x: marginX + 238, w: 150 };
-  const colNotes  = { x: marginX + 394, w: pageW - marginX - (marginX + 394) };
+  const colAction = { x: marginX + 84,  w: 130 };
+  const colLine   = { x: marginX + 220, w: thumbMaxW + 10 };
+  const colNotes  = { x: marginX + 220 + thumbMaxW + 20, w: pageW - marginX - (marginX + 220 + thumbMaxW + 20) };
 
   let y = marginTop;
 
@@ -9434,7 +9471,7 @@ async function exportCueSheet() {
       doc.line(marginX, y, pageW - marginX, y);
       y += 16;
       doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(120,120,120);
-      doc.text(sorted.length + ' cues  ·  Exported ' + today, marginX, y);
+      doc.text(sorted.length + ' cues  ·  Exported ' + exportedStr, marginX, y);
       y += 18;
       // Legend chips
       let lx = marginX;
@@ -9490,9 +9527,19 @@ async function exportCueSheet() {
       const tn = t ? t.name : (c.type || '');
 
       const actionLines = wrap(c.action, colAction.w - 4, 9.5);
-      const lineLines = wrap(c.cueLine, colLine.w - 4, 9.5);
       const notesLines = wrap(c.notes || c.description, colNotes.w - 4, 9.5);
-      const rowH = Math.max(1, actionLines.length, lineLines.length, notesLines.length) * 12 + 8;
+      const crop = cropCache[c.id];
+
+      // Size the crop thumbnail to fit within the column, preserving aspect ratio.
+      let thumbW = 0, thumbH = 0;
+      if (crop) {
+        const scale = Math.min(thumbMaxW / crop.w, thumbMaxH / crop.h, 1);
+        thumbW = crop.w * scale; thumbH = crop.h * scale;
+      }
+      const lineLines = (!crop && c.cueLine) ? wrap(c.cueLine, colLine.w - 4, 9.5) : [];
+
+      const textRowH = Math.max(1, actionLines.length, lineLines.length, notesLines.length) * 12 + 8;
+      const rowH = Math.max(textRowH, thumbH + 8);
 
       ensureRoom(rowH);
       const rowTop = y - 9;
@@ -9508,8 +9555,15 @@ async function exportCueSheet() {
 
       doc.setFont('helvetica', 'normal'); doc.setTextColor(30,30,30); doc.setFontSize(9.5);
       doc.text(actionLines, colAction.x, y);
-      doc.setFont('helvetica', 'italic'); doc.setTextColor(90,90,90);
-      doc.text(lineLines, colLine.x, y);
+
+      if (crop) {
+        try { doc.addImage(crop.dataUrl, 'JPEG', colLine.x, rowTop + 1, thumbW, thumbH); }
+        catch (err) { /* corrupt image data — skip it, row still has everything else */ }
+      } else if (lineLines.length) {
+        doc.setFont('helvetica', 'italic'); doc.setTextColor(90,90,90);
+        doc.text(lineLines, colLine.x, y);
+      }
+
       doc.setFont('helvetica', 'normal'); doc.setTextColor(60,60,60);
       doc.text(notesLines, colNotes.x, y);
 
