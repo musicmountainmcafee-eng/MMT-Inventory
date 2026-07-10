@@ -3290,7 +3290,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.9 v6</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.10 v1</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -8194,6 +8194,30 @@ function base64ToBytesWithProgress(b64, onProgress) {
   });
 }
 
+// Fast base64 ENCODER for uploads. The old approach —
+// btoa(String.fromCharCode(...new Uint8Array(buf))) — spreads every byte as a
+// function argument, which is slow on big files and can blow the call stack /
+// crash on scripts over a few MB. This walks the bytes in chunks instead.
+function bytesToBase64WithProgress(arrayBuffer, onProgress) {
+  return new Promise(resolve => {
+    const bytes = new Uint8Array(arrayBuffer);
+    const len = bytes.length;
+    const CHUNK = 32768; // build the binary string in manageable pieces
+    let binary = '';
+    let i = 0;
+    function step() {
+      const end = Math.min(i + CHUNK, len);
+      let s = '';
+      for (; i < end; i++) s += String.fromCharCode(bytes[i]);
+      binary += s;
+      if (onProgress) onProgress(i / len);
+      if (i < len) { setTimeout(step, 0); }
+      else resolve(btoa(binary));
+    }
+    step();
+  });
+}
+
 // Load script list from Drive on startup
 let _savedScripts = [];  // cached for show→script matching
 function loadScriptList() {
@@ -8292,8 +8316,9 @@ async function uploadAndLoadPDF(file) {
   reader.onprogress = ev => { if (ev.lengthComputable) sloProgress((ev.loaded / ev.total) * 0.3, null); };
   reader.onload = async function(e) {
     sloSub('Saving to Drive…');
+    sloIndeterminate(false);
+    const base64 = await bytesToBase64WithProgress(e.target.result, p => sloProgress(0.3 + p * 0.2, null));
     sloIndeterminate(true);
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(e.target.result)));
     // Upload to Drive
     try {
       const res = await fetch(SCRIPT_URL, {
@@ -8303,6 +8328,7 @@ async function uploadAndLoadPDF(file) {
       const data = await res.json();
       if (data.success) {
         showId = data.fileId;
+        putCachedPdf(data.fileId, new Uint8Array(e.target.result)); // cache for instant reopen
         document.getElementById('show-name').textContent = file.name.replace(/\.[^.]+$/, '');
         sloSub('Rendering pages…');
         const pdfData = new Uint8Array(e.target.result);
@@ -8335,9 +8361,71 @@ async function uploadAndLoadPDF(file) {
   reader.readAsArrayBuffer(file);
 }
 
+// ── PDF CACHE (IndexedDB) ────────────────────────────────────────────────────
+// Scripts are large (10MB+), so we cache the decoded bytes in IndexedDB — which
+// holds far more than localStorage's ~5MB — keyed by Drive fileId. Reopening the
+// same script then skips the whole Drive fetch + decode and renders instantly.
+const _PDF_DB = 'mmt_pdf_cache', _PDF_STORE = 'pdfs';
+function _openPdfDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(_PDF_DB, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(_PDF_STORE); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function getCachedPdf(fileId) {
+  try {
+    const db = await _openPdfDb();
+    return await new Promise(resolve => {
+      const tx = db.transaction(_PDF_STORE, 'readonly');
+      const r = tx.objectStore(_PDF_STORE).get(fileId);
+      r.onsuccess = () => resolve(r.result || null);
+      r.onerror = () => resolve(null);
+    });
+  } catch (e) { return null; }
+}
+async function putCachedPdf(fileId, bytes) {
+  try {
+    const db = await _openPdfDb();
+    await new Promise(resolve => {
+      const tx = db.transaction(_PDF_STORE, 'readwrite');
+      // Store a copy of the raw buffer (Uint8Array survives structured clone)
+      tx.objectStore(_PDF_STORE).put(bytes, fileId);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch (e) { /* cache write failing is non-fatal */ }
+}
+
 // Load PDF from Drive by file ID
 async function loadFromDrive(fileId, name, _attempt) {
   _attempt = _attempt || 1;
+
+  // Cache hit → render immediately, skip the slow Drive fetch + base64 decode.
+  if (_attempt === 1) {
+    const cached = await getCachedPdf(fileId);
+    if (cached) {
+      try {
+        sloShow('Opening ' + (name || 'script'), 'Loading from cache…');
+        showId = fileId;
+        document.getElementById('show-name').textContent = name;
+        const bytes = cached instanceof Uint8Array ? cached : new Uint8Array(cached);
+        // pdf.js consumes (detaches) the buffer, so hand it a fresh copy and
+        // keep the cache intact for next time.
+        pdfDoc = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
+        totalPages = pdfDoc.numPages; currentPage = 1;
+        loadShowData();
+        openScriptsEditor();
+        renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches();
+        sloHide();
+        return;
+      } catch (err) {
+        // Cache was corrupt somehow — fall through to a normal Drive load.
+      }
+    }
+  }
+
   sloShow('Opening ' + (name || 'script'), _attempt > 1 ? 'Retrying…' : 'Fetching from Drive…');
   showId = fileId;
   document.getElementById('show-name').textContent = name;
@@ -8356,8 +8444,9 @@ async function loadFromDrive(fileId, name, _attempt) {
         sloSub('Decoding…');
         sloProgress(0, '0%');
         const arr = await base64ToBytesWithProgress(d.data, f => sloProgress(f * 0.5, Math.round(f * 50) + '%'));
+        putCachedPdf(fileId, arr); // cache for next time (fire and forget)
         sloSub('Rendering pages…');
-        const task = pdfjsLib.getDocument({ data: arr });
+        const task = pdfjsLib.getDocument({ data: arr.slice() });
         if (task.onProgress !== undefined) {
           task.onProgress = p => { if (p && p.total) sloProgress(0.5 + (p.loaded / p.total) * 0.5, null); };
         }
