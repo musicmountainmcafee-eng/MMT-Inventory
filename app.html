@@ -3290,7 +3290,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.9 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.9 v4</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9570,8 +9570,18 @@ async function exportCueSheet() {
       doc.text(actionLines, colAction.x, y);
 
       if (crop) {
-        try { doc.addImage(crop.dataUrl, 'JPEG', colLine.x, rowTop + 1, thumbW, thumbH); }
-        catch (err) { /* corrupt image data — skip it, row still has everything else */ }
+        // Use the crop's ACTUAL format (Drive's thumbnail endpoint commonly
+        // returns PNG regardless of the source file — hardcoding 'JPEG' here
+        // silently failed to render for any crop that came back as PNG).
+        const fmt = /^data:image\/png/i.test(crop.dataUrl) ? 'PNG' : 'JPEG';
+        try {
+          doc.addImage(crop.dataUrl, fmt, colLine.x, rowTop + 1, thumbW, thumbH);
+        } catch (err) {
+          // Format guess was wrong (or jsPDF is picky about this variant) —
+          // try the other format once before giving up on this image.
+          try { doc.addImage(crop.dataUrl, fmt === 'PNG' ? 'JPEG' : 'PNG', colLine.x, rowTop + 1, thumbW, thumbH); }
+          catch (err2) { /* still no good — skip the image, row still has everything else */ }
+        }
       } else if (lineLines.length) {
         doc.setFont('helvetica', 'italic'); doc.setTextColor(90,90,90);
         doc.text(lineLines, colLine.x, y);
