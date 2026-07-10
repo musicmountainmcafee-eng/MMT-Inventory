@@ -3290,7 +3290,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.9 v5</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.9 v6</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9457,7 +9457,7 @@ async function exportCueSheet() {
   const pageH = doc.internal.pageSize.getHeight();
   const marginX = 44, marginTop = 50, marginBottom = 46;
   const purple = [83, 74, 183];
-  const thumbMaxW = 140, thumbMaxH = 40; // cropped script-line photo, capped so rows stay compact
+  const thumbMaxW = 120, thumbMaxH = 28; // cropped script-line photo, capped tight so rows stay compact
 
   // Column layout
   const colCue    = { x: marginX,       w: 78 };
@@ -9535,11 +9535,18 @@ async function exportCueSheet() {
       const notesLines = wrap(c.notes || c.description, colNotes.w - 4, 9.5);
       const crop = cropCache[c.id];
 
-      // Size the crop thumbnail to fit within the column, preserving aspect ratio.
+      // Size the crop thumbnail to fit within the column, preserving aspect
+      // ratio. Guard against missing/zero natural dimensions (which would make
+      // the scale calc blow up and draw the image at full size, overflowing).
       let thumbW = 0, thumbH = 0;
       if (crop) {
-        const scale = Math.min(thumbMaxW / crop.w, thumbMaxH / crop.h, 1);
-        thumbW = crop.w * scale; thumbH = crop.h * scale;
+        const cw = crop.w > 0 ? crop.w : thumbMaxW;
+        const ch = crop.h > 0 ? crop.h : thumbMaxH;
+        const scale = Math.min(thumbMaxW / cw, thumbMaxH / ch, 1);
+        thumbW = cw * scale; thumbH = ch * scale;
+        // Hard ceiling — never exceed the caps no matter what.
+        if (thumbW > thumbMaxW) thumbW = thumbMaxW;
+        if (thumbH > thumbMaxH) thumbH = thumbMaxH;
       }
       const lineLines = (!crop && c.cueLine) ? wrap(c.cueLine, colLine.w - 4, 9.5) : [];
 
