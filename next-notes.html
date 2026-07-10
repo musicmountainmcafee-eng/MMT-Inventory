@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Next Show Notes</title>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTmV4dCBTaG93IE5vdGVzIiwic2hvcnRfbmFtZSI6Ik5vdGVzIiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMwZjEyMTgiLCJ0aGVtZV9jb2xvciI6IiMwZjEyMTgifQ==">
+<style>
+  :root{
+    --bg:#0f1218; --card:#171b23; --border:#262c38;
+    --text:#eef1f6; --muted:#8891a1; --accent:#4f8cff;
+    --good:#33c076; --warn:#e8a53c; --bad:#e0546b;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh; padding:20px;
+  }
+  .card{
+    width:100%; max-width:380px; background:var(--card);
+    border:1px solid var(--border); border-radius:16px;
+    padding:28px 24px; text-align:center;
+  }
+  h1{font-size:19px; margin:0 0 4px;}
+  p.sub{color:var(--muted); font-size:13px; margin:0 0 22px;}
+
+  #pin-dots{display:flex; justify-content:center; gap:12px; margin:18px 0;}
+  .dot{width:14px; height:14px; border-radius:50%; border:2px solid var(--border); transition:.15s;}
+  .dot.filled{background:var(--accent); border-color:var(--accent);}
+  #pin-pad{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; max-width:260px; margin:0 auto;}
+  #pin-pad button{
+    padding:16px 0; font-size:19px; border-radius:12px; border:1px solid var(--border);
+    background:#1d222c; color:var(--text); cursor:pointer;
+  }
+  #pin-pad button:active{background:var(--accent);}
+  #pin-error{color:var(--bad); font-size:13px; min-height:18px; margin-top:10px;}
+
+  #result{display:none;}
+  .show-name{font-size:21px; font-weight:600; margin:6px 0 2px;}
+  .status-pill{
+    display:inline-block; font-size:12px; padding:4px 10px; border-radius:999px;
+    margin:8px 0 20px; background:#20262f; color:var(--muted);
+  }
+  .status-pill.live{background:rgba(51,192,118,.15); color:var(--good);}
+  .status-pill.soon{background:rgba(232,165,60,.15); color:var(--warn);}
+  #open-btn{
+    display:block; width:100%; padding:16px; border:none; border-radius:12px;
+    background:var(--accent); color:#fff; font-size:16px; font-weight:600;
+    cursor:pointer; margin-top:4px;
+  }
+  #open-btn:active{opacity:.85;}
+  .refresh-link{display:block; margin-top:16px; color:var(--muted); font-size:13px; text-decoration:none;}
+</style>
+</head>
+<body>
+
+<div class="card" id="pin-screen">
+  <h1>Next Show Notes</h1>
+  <p class="sub">Enter PIN</p>
+  <div id="pin-dots">
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+  </div>
+  <div id="pin-pad">
+    <button onclick="pinPress('1')">1</button>
+    <button onclick="pinPress('2')">2</button>
+    <button onclick="pinPress('3')">3</button>
+    <button onclick="pinPress('4')">4</button>
+    <button onclick="pinPress('5')">5</button>
+    <button onclick="pinPress('6')">6</button>
+    <button onclick="pinPress('7')">7</button>
+    <button onclick="pinPress('8')">8</button>
+    <button onclick="pinPress('9')">9</button>
+    <button></button>
+    <button onclick="pinPress('0')">0</button>
+    <button onclick="pinBackspace()">⌫</button>
+  </div>
+  <div id="pin-error"></div>
+</div>
+
+<div class="card" id="result">
+  <p class="sub" style="margin-bottom:2px;">Next up</p>
+  <div class="show-name" id="show-name">—</div>
+  <div class="status-pill" id="status-pill">—</div>
+  <button id="open-btn" onclick="openNotes()">Open Show Notes</button>
+  <a href="#" class="refresh-link" onclick="location.reload(); return false;">↻ Refresh</a>
+</div>
+
+<script>
+const CORRECT_PIN = '1483';
+let pinEntry = '';
+let targetUrl = null;
+
+function updatePinDots(){
+  document.querySelectorAll('.dot').forEach((d,i)=>{
+    d.classList.toggle('filled', i < pinEntry.length);
+  });
+}
+function pinPress(n){
+  if(pinEntry.length >= 4) return;
+  pinEntry += n;
+  updatePinDots();
+  if(pinEntry.length === 4) setTimeout(checkPin, 120);
+}
+function pinBackspace(){
+  pinEntry = pinEntry.slice(0,-1);
+  updatePinDots();
+}
+function checkPin(){
+  if(pinEntry === CORRECT_PIN){
+    document.getElementById('pin-screen').style.display = 'none';
+    findNextShow();
+  } else {
+    document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
+    pinEntry = '';
+    updatePinDots();
+    setTimeout(()=>{ document.getElementById('pin-error').textContent=''; }, 2000);
+  }
+}
+
+function findNextShow(){
+  const result = document.getElementById('result');
+  result.style.display = 'block';
+
+  let shows = [];
+  try {
+    const ms = JSON.parse(localStorage.getItem('mmt_shows_ms') || '[]');
+    const ct = JSON.parse(localStorage.getItem('mmt_shows_ct') || '[]');
+    shows = [...ms, ...ct];
+  } catch(e){ shows = []; }
+
+  const now = new Date();
+
+  const running = shows.find(s => {
+    const start = new Date(s.startDate), end = new Date(s.endDate);
+    return now >= start && now <= end;
+  });
+
+  let chosen = running;
+  let isLive = !!running;
+
+  if(!chosen){
+    const upcoming = shows
+      .filter(s => new Date(s.startDate) > now)
+      .sort((a,b) => new Date(a.startDate) - new Date(b.startDate));
+    chosen = upcoming[0];
+  }
+
+  if(!chosen || !chosen.notesUrl){
+    document.getElementById('show-name').textContent = 'No notes found';
+    document.getElementById('status-pill').textContent = 'Check dashboard';
+    document.getElementById('open-btn').style.display = 'none';
+    return;
+  }
+
+  targetUrl = chosen.notesUrl;
+  document.getElementById('show-name').textContent = chosen.name || chosen.title || 'Untitled show';
+
+  const pill = document.getElementById('status-pill');
+  if(isLive){
+    pill.textContent = 'Running now';
+    pill.className = 'status-pill live';
+  } else {
+    const days = Math.ceil((new Date(chosen.startDate) - now) / 86400000);
+    pill.textContent = days <= 0 ? 'Opens today' : `Opens in ${days} day${days===1?'':'s'}`;
+    pill.className = 'status-pill soon';
+  }
+
+  // One-click: jump straight to the notes doc automatically
+  window.location.href = targetUrl;
+}
+
+function openNotes(){
+  if(targetUrl) window.location.href = targetUrl;
+}
+</script>
+</body>
+</html>
