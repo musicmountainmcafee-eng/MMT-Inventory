@@ -3290,7 +3290,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.9 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.9 v2</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -8375,29 +8375,25 @@ async function loadFromDrive(fileId, name, _attempt) {
   }, () => { retry('network'); });
 }
 
-// Crop a small strip of the rendered script page around a cue box, so the
-// actual line is visible at a glance — no OCR, no delay, just a picture.
-// Returns a local data URL INSTANTLY (for zero-lag display); the caller is
-// responsible for kicking off the background upload so it syncs across devices.
+// Crop the script image to exactly what's inside the drawn cue box — no
+// OCR, no delay, just a picture of that spot. A few px of breathing room
+// only, so the marker itself isn't clipped at the pixel edge.
 function cropScriptLine(rect) {
   const pdfCanvas = document.getElementById('pdf-canvas');
   if (!pdfCanvas) return '';
   try {
-    // Grab a horizontal band centered on the box: a bit taller than the box
-    // itself (to catch the full line of text) and reaching well to both
-    // margins (dialogue lines run wider than the small cue marker).
-    const padY = Math.max(rect.h * 0.6, 14);
-    const cropX = Math.max(0, rect.x - 40);
-    const cropY = Math.max(0, rect.y - padY);
-    const cropW = Math.min(pdfCanvas.width - cropX, rect.w + 400);
-    const cropH = Math.min(pdfCanvas.height - cropY, rect.h + padY * 2);
+    const pad = 4;
+    const cropX = Math.max(0, rect.x - pad);
+    const cropY = Math.max(0, rect.y - pad);
+    const cropW = Math.min(pdfCanvas.width - cropX, rect.w + pad * 2);
+    const cropH = Math.min(pdfCanvas.height - cropY, rect.h + pad * 2);
     if (cropW <= 0 || cropH <= 0) return '';
 
     const off = document.createElement('canvas');
     off.width = cropW;
     off.height = cropH;
     off.getContext('2d').drawImage(pdfCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-    return off.toDataURL('image/jpeg', 0.85); // jpeg + modest quality keeps it small
+    return off.toDataURL('image/jpeg', 0.9); // jpeg + high quality — image is tiny now anyway
   } catch (err) {
     return ''; // never let a crop failure block placing the cue
   }
@@ -9388,79 +9384,153 @@ function goHome() {
 }
 
 // ── EXPORT ───────────────────────────────────────────────────────────────────
-function exportCueSheet() {
+async function exportCueSheet() {
   const sorted = [...cues].sort((a, b) => (a.page - b.page) || (a.number || '').localeCompare(b.number || '', undefined, { numeric: true }));
   if (!sorted.length) { toast('No cues to export'); return; }
   const showName = document.getElementById('show-name').textContent || 'Untitled';
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[m]));
+  // Resolve jsPDF the same way the marked-script export does.
+  let jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || (window.jsPDF) || null;
+  if (!jsPDFCtor) {
+    try {
+      const mod = await import('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.es.min.js');
+      jsPDFCtor = mod.jsPDF;
+    } catch (err) { toast('Could not load PDF library'); return; }
+  }
+  if (!jsPDFCtor) { toast('Could not load PDF library'); return; }
 
   // Group by page
   const byPage = {};
   sorted.forEach(c => { (byPage[c.page] = byPage[c.page] || []).push(c); });
   const pages = Object.keys(byPage).map(Number).sort((a, b) => a - b);
-
-  // Type legend
   const usedTypes = [...new Set(sorted.map(c => c.type))].map(id => cueTypes.find(t => t.id === id)).filter(Boolean);
-  const legend = usedTypes.map(t => `<span class="chip" style="background:${t.color}">${esc(t.name)}</span>`).join('');
 
-  let rows = '';
+  const hexToRgb = hex => {
+    const h = (hex || '#999999').replace('#', '');
+    return [parseInt(h.slice(0,2),16) || 153, parseInt(h.slice(2,4),16) || 153, parseInt(h.slice(4,6),16) || 153];
+  };
+
+  const doc = new jsPDFCtor({ orientation: 'p', unit: 'pt', format: 'letter' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const marginX = 44, marginTop = 50, marginBottom = 46;
+  const purple = [83, 74, 183];
+
+  // Column layout
+  const colCue    = { x: marginX,       w: 78 };
+  const colAction = { x: marginX + 84,  w: 148 };
+  const colLine   = { x: marginX + 238, w: 150 };
+  const colNotes  = { x: marginX + 394, w: pageW - marginX - (marginX + 394) };
+
+  let y = marginTop;
+
+  function drawHeader(isFirstPage) {
+    if (isFirstPage) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(19); doc.setTextColor(20,20,20);
+      doc.text(showName + ' — Cue Sheet', marginX, y);
+      y += 18;
+      doc.setDrawColor(...purple); doc.setLineWidth(2);
+      doc.line(marginX, y, pageW - marginX, y);
+      y += 16;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(120,120,120);
+      doc.text(sorted.length + ' cues  ·  Exported ' + today, marginX, y);
+      y += 18;
+      // Legend chips
+      let lx = marginX;
+      usedTypes.forEach(t => {
+        const w = doc.getTextWidth(t.name) + 16;
+        doc.setFillColor(...hexToRgb(t.color));
+        doc.roundedRect(lx, y - 10, w, 16, 8, 8, 'F');
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(255,255,255);
+        doc.text(t.name, lx + w/2, y, { align: 'center', baseline: 'middle' });
+        lx += w + 6;
+      });
+      y += 22;
+    }
+    // Column headers (repeated on every page)
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(140,140,140);
+    doc.text('CUE', colCue.x, y);
+    doc.text('ACTION', colAction.x, y);
+    doc.text('CUE LINE', colLine.x, y);
+    doc.text('NOTES', colNotes.x, y);
+    y += 6;
+    doc.setDrawColor(210,210,210); doc.setLineWidth(1);
+    doc.line(marginX, y, pageW - marginX, y);
+    y += 14;
+  }
+
+  function ensureRoom(rowH) {
+    if (y + rowH > pageH - marginBottom) {
+      doc.addPage();
+      y = marginTop;
+      drawHeader(false);
+    }
+  }
+
+  function wrap(text, width, size) {
+    doc.setFontSize(size);
+    return doc.splitTextToSize(String(text || ''), width);
+  }
+
+  drawHeader(true);
+
   pages.forEach(pg => {
-    rows += `<tr class="pagerow"><td colspan="5">Page ${pg}</td></tr>`;
+    // Page-group divider
+    ensureRoom(22);
+    doc.setFillColor(243, 242, 251);
+    doc.rect(marginX, y - 11, pageW - marginX * 2, 18, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...purple);
+    doc.text('SCRIPT PAGE ' + pg, marginX + 6, y);
+    y += 20;
+
     byPage[pg].forEach(c => {
       const t = cueTypes.find(x => x.id === c.type);
-      const color = t ? t.color : '#999';
+      const color = t ? t.color : '#999999';
       const tn = t ? t.name : (c.type || '');
-      rows += `<tr>
-        <td class="num"><span class="tag" style="background:${color}">${esc(tn)}</span> <b>${esc(c.number)}</b></td>
-        <td>${esc(c.action)}</td>
-        <td class="line">${esc(c.cueLine)}</td>
-        <td>${esc(c.notes || c.description)}</td>
-      </tr>`;
+
+      const actionLines = wrap(c.action, colAction.w - 4, 9.5);
+      const lineLines = wrap(c.cueLine, colLine.w - 4, 9.5);
+      const notesLines = wrap(c.notes || c.description, colNotes.w - 4, 9.5);
+      const rowH = Math.max(1, actionLines.length, lineLines.length, notesLines.length) * 12 + 8;
+
+      ensureRoom(rowH);
+      const rowTop = y - 9;
+
+      // Type chip + cue number
+      const chipW = doc.getTextWidth(tn) * 0.6 + 12;
+      doc.setFillColor(...hexToRgb(color));
+      doc.roundedRect(colCue.x, rowTop, Math.min(chipW, colCue.w), 12, 6, 6, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(255,255,255);
+      doc.text(tn, colCue.x + Math.min(chipW, colCue.w)/2, rowTop + 8.5, { align: 'center' });
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(20,20,20);
+      doc.text(String(c.number || ''), colCue.x, rowTop + 24);
+
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(30,30,30); doc.setFontSize(9.5);
+      doc.text(actionLines, colAction.x, y);
+      doc.setFont('helvetica', 'italic'); doc.setTextColor(90,90,90);
+      doc.text(lineLines, colLine.x, y);
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(60,60,60);
+      doc.text(notesLines, colNotes.x, y);
+
+      y += rowH;
+      doc.setDrawColor(235,235,235); doc.setLineWidth(0.5);
+      doc.line(marginX, y - 4, pageW - marginX, y - 4);
     });
+    y += 6;
   });
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(showName)} — Cue Sheet</title>
-<style>
-  @page { margin: 0.6in; }
-  body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; color: #1a1a1a; margin: 32px; }
-  .head { border-bottom: 3px solid #534AB7; padding-bottom: 14px; margin-bottom: 18px; }
-  .head h1 { margin: 0 0 4px; font-size: 24px; }
-  .head .meta { color: #666; font-size: 13px; }
-  .legend { margin: 12px 0 20px; }
-  .chip, .tag { display: inline-block; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 99px; margin-right: 4px; letter-spacing: .02em; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #888; border-bottom: 2px solid #ddd; padding: 8px 10px; }
-  td { padding: 9px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
-  td.num { white-space: nowrap; }
-  td.line { font-style: italic; color: #555; }
-  tr.pagerow td { background: #f3f2fb; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #534AB7; padding: 7px 10px; border-bottom: none; }
-  .foot { margin-top: 22px; color: #999; font-size: 12px; }
-  @media print { body { margin: 0; } .noprint { display: none; } }
-  .btn { display:inline-block; background:#534AB7; color:#fff; border:none; padding:9px 18px; border-radius:7px; font-size:14px; font-weight:600; cursor:pointer; margin-bottom:18px; }
-</style></head>
-<body>
-  <button class="btn noprint" onclick="window.print()">Print / Save as PDF</button>
-  <div class="head">
-    <h1>${esc(showName)} — Cue Sheet</h1>
-    <div class="meta">${sorted.length} cues · Exported ${today}</div>
-  </div>
-  <div class="legend">${legend}</div>
-  <table>
-    <thead><tr><th>Cue</th><th>Action</th><th>Cue Line</th><th>Notes</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>
-  <div class="foot">Music Mountain Theatre · ${sorted.length} cues total</div>
-</body></html>`;
+  // Footer with page numbers
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(160,160,160);
+    doc.text('Music Mountain Theatre', marginX, pageH - 22);
+    doc.text('Page ' + i + ' of ' + pageCount, pageW - marginX, pageH - 22, { align: 'right' });
+  }
 
-  const blob = new Blob([html], { type: 'text/html' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = showName.replace(/[^a-z0-9]/gi, '_') + '_cue_sheet.html';
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  toast('Cue sheet exported — open it and Print to PDF');
+  doc.save(showName.replace(/[^a-z0-9]/gi, '_') + '_cue_sheet.pdf');
+  toast('Cue sheet PDF downloaded');
 }
 
 async function exportAnnotatedPDF() {
