@@ -3290,7 +3290,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.9 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.9 v3</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9407,6 +9407,13 @@ async function exportCueSheet() {
   // Preload every cue's line-crop image (Drive URL or local data URL) into a
   // data URL jsPDF can embed, and grab its natural size so we can size the
   // thumbnail without distorting it. Cues with no crop are skipped.
+  //
+  // NOTE: remote (Drive-hosted) crops are fetched as raw bytes rather than
+  // drawn through an <img>+canvas — Drive's thumbnail endpoint doesn't send
+  // reliable CORS headers, which silently taints the canvas and blocks
+  // reading the pixels back out (the image still *displays* fine in the
+  // editor, since that's just an <img src>, but export needs the actual
+  // bytes). fetch() sidesteps that entirely.
   function loadImageAsDataUrl(src) {
     return new Promise(resolve => {
       if (!src) { resolve(null); return; }
@@ -9417,18 +9424,24 @@ async function exportCueSheet() {
         img.src = src;
         return;
       }
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        try {
-          const c = document.createElement('canvas');
-          c.width = img.naturalWidth; c.height = img.naturalHeight;
-          c.getContext('2d').drawImage(img, 0, 0);
-          resolve({ dataUrl: c.toDataURL('image/jpeg', 0.9), w: img.naturalWidth, h: img.naturalHeight });
-        } catch (err) { resolve(null); } // CORS-blocked — skip the image, keep the cue
-      };
-      img.onerror = () => resolve(null);
-      img.src = src;
+      fetch(src)
+        .then(r => { if (!r.ok) throw new Error('fetch failed'); return r.blob(); })
+        .then(blob => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result;
+            // Need natural dimensions for aspect-ratio sizing in the PDF —
+            // loading the data: URL into an <img> for this is safe (no CORS
+            // issue once it's already a local data URL).
+            const img = new Image();
+            img.onload = () => resolve({ dataUrl, w: img.naturalWidth, h: img.naturalHeight });
+            img.onerror = () => resolve(null);
+            img.src = dataUrl;
+          };
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(blob);
+        })
+        .catch(() => resolve(null)); // network/permission failure — skip the image, keep the cue
     });
   }
   const cropCache = {};
