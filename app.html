@@ -2916,6 +2916,7 @@
         <select id="cue-type-sel" oninput="onCueFormInput()" disabled></select>
         <input type="text" id="cue-num" placeholder="Cue #" oninput="onCueFormInput()" disabled />
         <input type="text" id="cue-action" placeholder="Action (e.g. Fade to blue)" oninput="onCueFormInput()" disabled />
+        <img id="cue-line-crop" style="display:none;width:100%;border:1px solid var(--cue-border, #ddd);border-radius:6px;margin-bottom:6px;" alt="Script line" />
         <input type="text" id="cue-line" placeholder="Cue line (trigger text)" oninput="onCueFormInput()" disabled />
         <input type="text" id="cue-desc" placeholder="Notes (optional)" oninput="onCueFormInput()" disabled />
         <div id="cue-edit-hint" style="font-size:12px;color:var(--cue-text-faint);line-height:1.4;">Draw a cue on the script (pick a type, then drag), then select it here to fill in details.</div>
@@ -3289,7 +3290,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.6 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.9 v1</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -8374,6 +8375,61 @@ async function loadFromDrive(fileId, name, _attempt) {
   }, () => { retry('network'); });
 }
 
+// Crop a small strip of the rendered script page around a cue box, so the
+// actual line is visible at a glance — no OCR, no delay, just a picture.
+// Returns a local data URL INSTANTLY (for zero-lag display); the caller is
+// responsible for kicking off the background upload so it syncs across devices.
+function cropScriptLine(rect) {
+  const pdfCanvas = document.getElementById('pdf-canvas');
+  if (!pdfCanvas) return '';
+  try {
+    // Grab a horizontal band centered on the box: a bit taller than the box
+    // itself (to catch the full line of text) and reaching well to both
+    // margins (dialogue lines run wider than the small cue marker).
+    const padY = Math.max(rect.h * 0.6, 14);
+    const cropX = Math.max(0, rect.x - 40);
+    const cropY = Math.max(0, rect.y - padY);
+    const cropW = Math.min(pdfCanvas.width - cropX, rect.w + 400);
+    const cropH = Math.min(pdfCanvas.height - cropY, rect.h + padY * 2);
+    if (cropW <= 0 || cropH <= 0) return '';
+
+    const off = document.createElement('canvas');
+    off.width = cropW;
+    off.height = cropH;
+    off.getContext('2d').drawImage(pdfCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+    return off.toDataURL('image/jpeg', 0.85); // jpeg + modest quality keeps it small
+  } catch (err) {
+    return ''; // never let a crop failure block placing the cue
+  }
+}
+
+// Upload a cue's local line-crop to Drive in the background, then swap the
+// cue's lineCrop from a (device-only) data URL to a synced Drive URL. This is
+// what makes crops show up on every device — the base64 image never touches
+// the Sheet directly, only the small resulting link does.
+function syncCueLineCrop(cueId, dataUrl) {
+  if (!dataUrl || !dataUrl.startsWith('data:')) return;
+  const base64 = dataUrl.split(',')[1];
+  const mimeType = (dataUrl.match(/^data:([^;]+);/) || [,'image/jpeg'])[1];
+  fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'},
+    body: JSON.stringify({ action:'uploadRefPhoto', base64, mimeType, fileName: 'cue-line-' + cueId + '.jpg' }) })
+    .then(r => r.json())
+    .then(res => {
+      if (!res.success || !res.url) return;
+      const c = cues.find(x => x.id === cueId);
+      if (c) {
+        c.lineCrop = res.url; // swap local data URL -> synced Drive URL
+        saveShowData();
+        // Refresh the crop preview if this cue happens to still be open in the editor
+        if (selectedCueId === cueId) {
+          const img = document.getElementById('cue-line-crop');
+          if (img) img.src = res.url;
+        }
+      }
+    })
+    .catch(() => {}); // sync failure is silent — the local crop still works on this device
+}
+
 async function renderPage() {
   const page = await pdfDoc.getPage(currentPage);
   // Use lower scale on phones to save memory
@@ -8641,6 +8697,10 @@ drawCanvas.addEventListener('pointerup', e => {
       const notes = '';
       const cueId = Date.now().toString();
 
+      // Instantly crop the script image under the box (zero delay — no OCR, no
+      // network) so the actual line is visible even though it's not typed text.
+      const lineCrop = cropScriptLine(rect);
+
       // Position the label in the right margin, vertically level with the marker
       // center so the leader line runs straight across (no downward angle).
       const ctxM = drawCanvas.getContext('2d');
@@ -8649,7 +8709,7 @@ drawCanvas.addEventListener('pointerup', e => {
       const labelX = drawCanvas.width - labelW - 28; // keep long labels (e.g. SPOT OUT 2) on-page
       const labelY = rect.y + rect.h;                // level with marker BOTTOM → horizontal line from bottom
 
-      cues.push({ id: cueId, type: typeId, number: num, action, cueLine, notes, description: notes, page: currentPage });
+      cues.push({ id: cueId, type: typeId, number: num, action, cueLine, notes, description: notes, page: currentPage, lineCrop });
 
       if (!annotations[currentPage]) annotations[currentPage] = [];
       annotations[currentPage].push({
@@ -8660,6 +8720,9 @@ drawCanvas.addEventListener('pointerup', e => {
       redrawAnnotations();
       renderCueList();
       saveShowData();
+      // Sync the crop to Drive in the background — placing the cue itself
+      // never waits on this, it's fire-and-forget.
+      if (lineCrop) syncCueLineCrop(cueId, lineCrop);
       // Clear any stale field text from the previously-edited cue, then load the
       // brand-new (blank) cue into the editor so nothing leaks across.
       selectedCueId = null;
@@ -9054,7 +9117,7 @@ function renderCueList() {
         <td><span class="ct-type" style="background:${color}">${typeName}</span></td>
         <td class="ct-num">${c.number || ''}</td>
         <td class="ct-action">${c.action || ''}</td>
-        <td class="ct-line">${c.cueLine || ''}</td>
+        <td class="ct-line">${c.cueLine ? c.cueLine : (c.lineCrop ? '<span style="opacity:0.5;" title="Script line captured as image">📷 line</span>' : '')}</td>
         <td class="ct-notes">${c.notes || c.description || ''}</td>
         <td>${c.page}</td>
       </tr>`;
@@ -9201,6 +9264,11 @@ function loadCueIntoForm(cueId, focusNum) {
   document.getElementById('cue-action').value = c.action || '';
   document.getElementById('cue-line').value = c.cueLine || '';
   document.getElementById('cue-desc').value = c.notes || c.description || '';
+  const cropImg = document.getElementById('cue-line-crop');
+  if (cropImg) {
+    if (c.lineCrop) { cropImg.src = c.lineCrop; cropImg.style.display = ''; }
+    else { cropImg.style.display = 'none'; cropImg.src = ''; }
+  }
   fields.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = false; });
   if (modeEl) modeEl.textContent = 'Editing ' + (c.number || 'cue') + ' — saves automatically';
   if (hint) hint.style.display = 'none';
@@ -9213,6 +9281,8 @@ function loadCueIntoForm(cueId, focusNum) {
 function clearCueForm() {
   const fields = ['cue-num', 'cue-action', 'cue-line', 'cue-desc'];
   fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const cropImg = document.getElementById('cue-line-crop');
+  if (cropImg) { cropImg.style.display = 'none'; cropImg.src = ''; }
   // Disable all (edit-only — cues must be drawn on the page first)
   ['cue-type-sel', 'cue-num', 'cue-action', 'cue-line', 'cue-desc'].forEach(id => {
     const el = document.getElementById(id); if (el) el.disabled = true;
@@ -9268,13 +9338,23 @@ function savePageAnnotations() { /* annotations are saved per-stroke already */ 
 function saveShowData() {
   if (!showId) return;
   const data = { cueTypes, cues, annotations };
-  // Save locally for instant access
+  // Save locally for instant access — keeps local data-URL crops too, so this
+  // device sees them right away even before the background upload finishes.
   try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(data)); } catch(e) {}
-  // Sync to Sheet (debounced)
+  // Sync to Sheet (debounced). Local (not-yet-uploaded) crop images are huge
+  // data: URLs — never send those to the Sheet; only synced Drive links go.
+  // The still-local crop finishes its own background upload and re-saves once done.
   clearTimeout(saveShowData._t);
   saveShowData._t = setTimeout(() => {
+    const syncCues = cues.map(c => {
+      if (c.lineCrop && c.lineCrop.startsWith('data:')) {
+        const { lineCrop, ...rest } = c;
+        return rest; // omit until the Drive upload lands
+      }
+      return c;
+    });
     fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({ action:'saveCueData', scriptId: showId, cueData: data })
+      body: JSON.stringify({ action:'saveCueData', scriptId: showId, cueData: { ...data, cues: syncCues } })
     }).catch(() => {});
   }, 2000);
 }
