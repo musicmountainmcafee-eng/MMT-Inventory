@@ -3891,15 +3891,44 @@ function dtNormalize(v) {
   };
 }
 
+// The cache and the server are written together by saveDayTracker(), so the
+// server copy is authoritative — except for a save still in flight when the
+// page reloads. _dtDirty tracks that window; while a write is pending we keep
+// the local copy, otherwise the server wins. Unioning the two instead would
+// resurrect tasks deleted on another device, since "absent from the server" is
+// indistinguishable from "deleted elsewhere".
+var _dtDirty = false;
+
 function ensureDayTrackerLoaded() {
   try { _dtView = localStorage.getItem('mmt_dt_view') || 'grid'; } catch(e) {}
   if (_dtLoaded) { renderDayTracker(); return; }
+
+  // Paint from cache immediately so the board is usable before the network
+  // answers. Rollover + recurring must run here too, otherwise the first paint
+  // shows an empty/stale day until the server replies.
+  let painted = false;
   try {
     const cached = JSON.parse(localStorage.getItem('mmt_daytracker') || 'null');
-    if (cached) { _dt = dtNormalize(cached); renderDayTracker(); }
+    if (cached) {
+      _dt = dtNormalize(cached);
+      _dtWatchDay = todayISO();
+      dtRollover();
+      dtSeedRecurring();
+      renderDayTracker();
+      try { renderHomeDayCard(); } catch(e) {}
+      painted = true;
+    }
   } catch(e) {}
+
   jsonp(SCRIPT_URL + '?action=getKV&key=daytracker&_=' + Date.now(), d => {
-    if (d && d.value && typeof d.value === 'object') _dt = dtNormalize(d.value);
+    // Server is authoritative — unless the user changed something locally while
+    // this request was in flight, in which case the local copy is newer.
+    if (!_dtDirty && d && d.value && typeof d.value === 'object') {
+      const fresh = dtNormalize(d.value);
+      const hasContent = Object.keys(fresh.days).length || fresh.recurring.length;
+      // Never let an empty response wipe out good cached work.
+      if (hasContent || !painted) _dt = fresh;
+    }
     _dtLoaded = true;
     _dtWatchDay = todayISO();
     dtRollover();
@@ -3907,6 +3936,7 @@ function ensureDayTrackerLoaded() {
     renderDayTracker();
     try { renderHomeDayCard(); } catch(e) {}
   }, () => {
+    // Offline / script blocked: keep whatever the cache gave us.
     _dtLoaded = true;
     _dtWatchDay = todayISO();
     dtRollover();
@@ -3942,7 +3972,7 @@ function dtRollover() {
   });
   _dt.lastRoll = today;
   dtPrune();
-  saveDayTracker();
+  saveDayTracker(false);
 }
 
 // Drop empty/stale day buckets so the KV blob stays small.
@@ -3975,7 +4005,7 @@ function dtSeedRecurring() {
       changed = true;
     });
   });
-  if (changed) saveDayTracker();
+  if (changed) saveDayTracker(false);
 }
 
 function setDtView(v) {
@@ -4185,7 +4215,11 @@ if (typeof window !== 'undefined' && window.addEventListener) {
   window.addEventListener('focus', dtCheckDayChange);
 }
 
-function saveDayTracker() {
+// isUserEdit=false for saves triggered by rollover/seeding during the cached
+// first paint. Those are derived state, not user intent, and must not block the
+// incoming server data from replacing the cache.
+function saveDayTracker(isUserEdit) {
+  if (isUserEdit !== false) _dtDirty = true;
   try { localStorage.setItem('mmt_daytracker', JSON.stringify(_dt)); } catch(e) {}
   fetch(SCRIPT_URL, {
     method: 'POST', headers: { 'Content-Type': 'text/plain' },
