@@ -4161,7 +4161,8 @@ function deleteRecurring(id) {
 
 // The dashboard often stays open overnight. Without this, the board keeps
 // showing yesterday after midnight and new tasks get filed under the old date.
-// Checks on a timer and whenever the tab regains focus/visibility.
+// No polling timer — rollover runs on page load, and this re-checks whenever
+// the tab regains focus (switching back to Chrome, waking the screen, etc).
 // `var` — assigned by ensureDayTrackerLoaded() above, which runs before this
 // line executes; `let` would throw a temporal-dead-zone error.
 var _dtWatchDay = null;
@@ -4177,7 +4178,6 @@ function dtCheckDayChange() {
   try { renderDayTracker(); } catch(e) {}
   try { renderHomeDayCard(); } catch(e) {}
 }
-setInterval(dtCheckDayChange, 60000);
 if (typeof document !== 'undefined' && document.addEventListener) {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) dtCheckDayChange(); });
 }
