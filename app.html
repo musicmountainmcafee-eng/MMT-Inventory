@@ -3856,8 +3856,11 @@ function saveSideWork() {
 // before this line executes. `var` hoists as undefined; `let` would throw a TDZ error.
 var _dt = { days: {}, recurring: [], lastRoll: null };
 var _dtLoaded = false;
-let _dtView = 'grid';
-let _dtOffset = 0;                  // single-day view: 0 = today
+// All Day Tracker state uses `var`, not `let`. loadData() renders the Home
+// "Today" card before this point in the file executes, and `let` would throw a
+// temporal-dead-zone error on any of these.
+var _dtView = 'grid';
+var _dtOffset = 0;                  // single-day view: 0 = today
 const DT_SPAN = 7;                  // days shown from today forward
 const DT_DAYNAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
@@ -3898,10 +3901,18 @@ function dtNormalize(v) {
 // resurrect tasks deleted on another device, since "absent from the server" is
 // indistinguishable from "deleted elsewhere".
 var _dtDirty = false;
+// In-flight guard: Home's card and the tab both call ensureDayTrackerLoaded().
+var _dtLoading = false;
 
 function ensureDayTrackerLoaded() {
+  // May be invoked from Home before this file's `var` assignments have run.
+  if (!_dt || typeof _dt !== 'object') _dt = { days: {}, recurring: [], lastRoll: null };
+  if (!_dtView) _dtView = 'grid';
   try { _dtView = localStorage.getItem('mmt_dt_view') || 'grid'; } catch(e) {}
   if (_dtLoaded) { renderDayTracker(); return; }
+  // Home and the tab can both ask to load; only fetch once.
+  if (_dtLoading) { renderDayTracker(); return; }
+  _dtLoading = true;
 
   // Paint from cache immediately so the board is usable before the network
   // answers. Rollover + recurring must run here too, otherwise the first paint
@@ -3930,6 +3941,7 @@ function ensureDayTrackerLoaded() {
       if (hasContent || !painted) _dt = fresh;
     }
     _dtLoaded = true;
+    _dtLoading = false;
     _dtWatchDay = todayISO();
     dtRollover();
     dtSeedRecurring();
@@ -3938,6 +3950,7 @@ function ensureDayTrackerLoaded() {
   }, () => {
     // Offline / script blocked: keep whatever the cache gave us.
     _dtLoaded = true;
+    _dtLoading = false;
     _dtWatchDay = todayISO();
     dtRollover();
     dtSeedRecurring();
@@ -4816,20 +4829,15 @@ function renderHomeDayCard() {
   if (!el) return;
   const today = todayISO();
 
-  // loadData() fires renderWidgets() before the Day Tracker's `let _dt` is
-  // initialized further down the file, so touching _dt here would throw a
-  // temporal-dead-zone error. Bail out quietly; ensureDayTrackerLoaded()
-  // re-renders this card once its state exists.
-  if (typeof _dt === 'undefined') { el.innerHTML = '<span class="spinner"></span>'; return; }
+  // `var _dt` is hoisted but its assignment runs later in the file, so during
+  // loadData()'s early renderWidgets() call it is still `undefined`. Initialize
+  // it here rather than bailing out, so the card can never get stuck spinning.
+  if (!_dt || typeof _dt !== 'object') _dt = { days: {}, recurring: [], lastRoll: null };
 
-  // Pull from cache first so Home paints instantly, then sync in the background.
-  if (!_dtLoaded) {
-    try {
-      const cached = JSON.parse(localStorage.getItem('mmt_daytracker') || 'null');
-      if (cached) _dt = cached;
-    } catch(e) {}
-    ensureDayTrackerLoaded();
-  }
+  // Kick off the load if it hasn't happened yet. This must run even when the
+  // Day Tracker tab was never opened, otherwise Home paints a spinner that
+  // nothing ever replaces.
+  if (!_dtLoaded && typeof ensureDayTrackerLoaded === 'function') ensureDayTrackerLoaded();
 
   const items = (_dt.days && _dt.days[today]) ? _dt.days[today] : [];
   const active = items.filter(t => !t.done);
