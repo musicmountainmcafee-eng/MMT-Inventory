@@ -3880,24 +3880,35 @@ function dtDayName(iso) {
   return DT_DAYNAMES[new Date(iso + 'T00:00:00').getDay()];
 }
 
+// Guarantees the shape of the state object. Cached/legacy/partial payloads may
+// be missing `days` or `recurring`, which would crash render + rollover.
+function dtNormalize(v) {
+  const o = (v && typeof v === 'object') ? v : {};
+  return {
+    days: (o.days && typeof o.days === 'object') ? o.days : {},
+    recurring: Array.isArray(o.recurring) ? o.recurring : [],
+    lastRoll: o.lastRoll || null
+  };
+}
+
 function ensureDayTrackerLoaded() {
   try { _dtView = localStorage.getItem('mmt_dt_view') || 'grid'; } catch(e) {}
   if (_dtLoaded) { renderDayTracker(); return; }
   try {
     const cached = JSON.parse(localStorage.getItem('mmt_daytracker') || 'null');
-    if (cached) { _dt = cached; renderDayTracker(); }
+    if (cached) { _dt = dtNormalize(cached); renderDayTracker(); }
   } catch(e) {}
   jsonp(SCRIPT_URL + '?action=getKV&key=daytracker&_=' + Date.now(), d => {
-    if (d && d.value && typeof d.value === 'object') {
-      _dt = { days: d.value.days || {}, recurring: d.value.recurring || [], lastRoll: d.value.lastRoll || null };
-    }
+    if (d && d.value && typeof d.value === 'object') _dt = dtNormalize(d.value);
     _dtLoaded = true;
+    _dtWatchDay = todayISO();
     dtRollover();
     dtSeedRecurring();
     renderDayTracker();
     try { renderHomeDayCard(); } catch(e) {}
   }, () => {
     _dtLoaded = true;
+    _dtWatchDay = todayISO();
     dtRollover();
     dtSeedRecurring();
     renderDayTracker();
@@ -3908,6 +3919,7 @@ function ensureDayTrackerLoaded() {
 // Carry unfinished past tasks onto today, flagged as carried over.
 function dtRollover() {
   const today = todayISO();
+  if (!_dt.days || typeof _dt.days !== 'object') _dt.days = {};
   if (_dt.lastRoll === today) { dtPrune(); return; }
   if (!_dt.days[today]) _dt.days[today] = [];
   // Snapshot past keys first (oldest → newest) so we don't mutate while iterating.
@@ -3936,6 +3948,7 @@ function dtRollover() {
 // Drop empty/stale day buckets so the KV blob stays small.
 function dtPrune() {
   const today = todayISO();
+  if (!_dt.days) { _dt.days = {}; return; }
   Object.keys(_dt.days).forEach(iso => {
     if (iso === today) return;                       // today's bucket always stays
     if (iso < today) delete _dt.days[iso];           // past is rolled over already
@@ -3945,6 +3958,8 @@ function dtPrune() {
 
 // Materialize recurring tasks onto any visible day that doesn't have them yet.
 function dtSeedRecurring() {
+  if (!_dt.days || typeof _dt.days !== 'object') _dt.days = {};
+  if (!Array.isArray(_dt.recurring)) _dt.recurring = [];
   let changed = false;
   dtDates().forEach(iso => {
     const dow = new Date(iso + 'T00:00:00').getDay();
@@ -3986,6 +4001,7 @@ function renderDayTracker() {
   board.className = 'dt-board view-' + _dtView;
   wrap.className = 'dt-board-wrap view-' + _dtView;
 
+  if (!_dt.days || typeof _dt.days !== 'object') _dt.days = {};
   let dates = dtDates();
   if (_dtView === 'single') {
     const iso = dates[_dtOffset];
@@ -4053,6 +4069,7 @@ function dtAdd(iso) {
   if (!input) return;
   const text = input.value.trim();
   if (!text) return;
+  if (!_dt.days) _dt.days = {};
   if (!_dt.days[iso]) _dt.days[iso] = [];
   _dt.days[iso].push({
     id: 'dt' + Date.now() + Math.random().toString(36).slice(2,7),
@@ -4068,7 +4085,7 @@ function dtAdd(iso) {
 }
 
 function dtToggle(iso, id, done) {
-  const t = (_dt.days[iso] || []).find(x => x.id === id);
+  const t = ((_dt.days && _dt.days[iso]) || []).find(x => x.id === id);
   if (!t) return;
   t.done = done;
   renderDayTracker();
@@ -4076,7 +4093,7 @@ function dtToggle(iso, id, done) {
 }
 
 function dtDelete(iso, id) {
-  if (!_dt.days[iso]) return;
+  if (!_dt.days || !_dt.days[iso]) return;
   _dt.days[iso] = _dt.days[iso].filter(x => x.id !== id);
   renderDayTracker();
   saveDayTracker();
@@ -4118,6 +4135,7 @@ function addRecurring() {
   const days = Array.from(document.querySelectorAll('.dt-rec-day:checked')).map(c => parseInt(c.value, 10));
   if (!text) { toast('Enter a task'); return; }
   if (!days.length) { toast('Pick at least one day'); return; }
+  if (!Array.isArray(_dt.recurring)) _dt.recurring = [];
   _dt.recurring.push({ id: 'r' + Date.now(), text, days });
   input.value = '';
   document.querySelectorAll('.dt-rec-day').forEach(c => c.checked = false);
@@ -4133,12 +4151,38 @@ function deleteRecurring(id) {
   if (r && !confirm('Delete recurring task "' + r.text + '"?')) return;
   _dt.recurring = (_dt.recurring || []).filter(x => x.id !== id);
   // Remove its un-done future instances; leave completed history alone.
-  Object.keys(_dt.days).forEach(iso => {
+  Object.keys(_dt.days || {}).forEach(iso => {
     _dt.days[iso] = _dt.days[iso].filter(t => !(t.recurId === id && !t.done));
   });
   renderRecurList();
   renderDayTracker();
   saveDayTracker();
+}
+
+// The dashboard often stays open overnight. Without this, the board keeps
+// showing yesterday after midnight and new tasks get filed under the old date.
+// Checks on a timer and whenever the tab regains focus/visibility.
+// `var` — assigned by ensureDayTrackerLoaded() above, which runs before this
+// line executes; `let` would throw a temporal-dead-zone error.
+var _dtWatchDay = null;
+function dtCheckDayChange() {
+  if (!_dtLoaded) return;
+  const today = todayISO();
+  if (_dtWatchDay === null) { _dtWatchDay = today; return; }
+  if (_dtWatchDay === today) return;
+  _dtWatchDay = today;
+  _dtOffset = 0;                 // snap the pager back to the new "today"
+  dtRollover();
+  dtSeedRecurring();
+  try { renderDayTracker(); } catch(e) {}
+  try { renderHomeDayCard(); } catch(e) {}
+}
+setInterval(dtCheckDayChange, 60000);
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) dtCheckDayChange(); });
+}
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('focus', dtCheckDayChange);
 }
 
 function saveDayTracker() {
@@ -4806,7 +4850,7 @@ function homeDayAdd() {
 
 function homeDayToggle(id, done) {
   const today = todayISO();
-  const t = (_dt.days[today] || []).find(x => x.id === id);
+  const t = ((_dt.days && _dt.days[today]) || []).find(x => x.id === id);
   if (!t) return;
   t.done = done;
   renderHomeDayCard();
