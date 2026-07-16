@@ -1126,12 +1126,12 @@
   .dt-check {
     width:22px; height:22px; border-radius:5px; flex-shrink:0; margin-top:1px;
     border:1.5px solid var(--border); cursor:pointer; appearance:none;
-    background:#fff; transition:all 0.15s;
+    background-color:#fff; transition:all 0.15s;
   }
   .dt-check:checked {
-    background:var(--purple); border-color:var(--purple);
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M2 6l3 3 5-5'/%3E%3C/svg%3E");
-    background-repeat:no-repeat; background-position:center;
+    background-color:var(--purple); border-color:var(--purple);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' d='M3 7.3l2.8 2.8L11 4.6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:center; background-size:14px 14px;
   }
   .dt-item-body { flex:1; min-width:0; }
   .dt-item-text { font-size:16px; line-height:1.35; word-break:break-word; font-weight:500; }
@@ -1160,7 +1160,11 @@
     border-radius:var(--radius-sm); color:var(--text); font-size:15px; padding:10px 12px;
     font-family:'DM Sans', sans-serif;
   }
-  [data-theme="dark"] .dt-add-input, [data-theme="dark"] .dt-check { background:var(--bg); }
+  /* Dark mode: only restyle the UNCHECKED box. Using the `background`
+     shorthand (or an unscoped selector) here would out-specify
+     .dt-check:checked and wipe out the checkmark image. */
+  [data-theme="dark"] .dt-add-input { background:var(--bg); }
+  [data-theme="dark"] .dt-check:not(:checked) { background-color:var(--bg); }
   .dt-add-input:focus { outline:none; border-color:var(--purple); }
   .dt-add-btn {
     background:var(--purple); border:none; color:#fff; border-radius:var(--radius-sm);
