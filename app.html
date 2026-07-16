@@ -2851,7 +2851,7 @@
       <h3 style="margin:0 0 4px;font-size:18px;">Recurring Tasks</h3>
       <p style="margin:0 0 12px;font-size:12px;color:var(--text-muted);">These appear automatically on the days you pick.</p>
       <div class="dt-rec-list" id="dt-rec-list"></div>
-      <input type="text" id="dt-rec-input" class="dt-add-input" style="width:100%;box-sizing:border-box;" placeholder="New recurring task…" />
+      <input type="text" id="dt-rec-input" class="dt-add-input" style="width:100%;box-sizing:border-box;" placeholder="New recurring task…" onkeydown="if(event.key==='Enter') addRecurring()" />
       <div class="dt-daypick" id="dt-rec-daypick"></div>
       <div style="display:flex;gap:8px;">
         <button class="dt-add-btn" onclick="addRecurring()">Add</button>
@@ -4041,6 +4041,10 @@ function dtAdd(iso) {
   });
   input.value = '';
   renderDayTracker();
+  // The re-render replaces the input node, so re-grab it and restore focus
+  // to allow rapid back-to-back entry.
+  const fresh = document.getElementById('dt-in-' + iso);
+  if (fresh) { fresh.value = ''; fresh.focus(); }
   saveDayTracker();
 }
 
@@ -4102,6 +4106,7 @@ function addRecurring() {
   renderRecurList();
   renderDayTracker();
   saveDayTracker();
+  input.focus();
   toast('Recurring task added');
 }
 function deleteRecurring(id) {
