@@ -1056,6 +1056,77 @@
   .add-task-btn:hover { background: var(--purple-dark); }
   .empty-tasks { padding: 14px 16px; color: var(--text-faint); font-size: 13px; font-style: italic; }
 
+  /* ══ GLOBAL SEARCH ═══════════════════════════════════════════════════════ */
+  .gs-overlay {
+    display: none; position: fixed; inset: 0; z-index: 4000;
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(2px);
+    align-items: flex-start; justify-content: center; padding: 8vh 16px 16px;
+  }
+  .gs-overlay.open { display: flex; }
+  .gs-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; width: 100%; max-width: 720px;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.28);
+    display: flex; flex-direction: column; max-height: 76vh; overflow: hidden;
+  }
+  .gs-inputrow { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .gs-icon { font-size: 17px; opacity: 0.6; }
+  .gs-input {
+    flex: 1; border: none; background: none; outline: none;
+    color: var(--text); font-size: 18px; font-family: 'DM Sans', sans-serif;
+  }
+  .gs-input::placeholder { color: var(--text-faint); }
+  .gs-close {
+    border: none; background: none; color: var(--text-faint);
+    font-size: 24px; cursor: pointer; line-height: 1; padding: 0 4px;
+  }
+  .gs-close:hover { color: var(--text); }
+  .gs-filters { display: flex; gap: 6px; padding: 10px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .gs-chip {
+    border: 1px solid var(--border); background: var(--bg); color: var(--text-muted);
+    border-radius: 99px; padding: 4px 11px; font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: 'DM Sans', sans-serif;
+  }
+  .gs-chip.active { background: var(--purple); color: #fff; border-color: var(--purple); }
+  .gs-results { overflow-y: auto; padding: 6px 0 10px; }
+  .gs-group-hdr {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-faint); padding: 12px 16px 5px;
+  }
+  .gs-row {
+    display: flex; align-items: center; gap: 11px; padding: 9px 16px; cursor: pointer;
+    border-left: 3px solid transparent;
+  }
+  .gs-row:hover, .gs-row.sel { background: var(--purple-light); border-left-color: var(--purple); }
+  [data-theme="dark"] .gs-row:hover, [data-theme="dark"] .gs-row.sel { background: rgba(83,74,183,0.22); }
+  .gs-thumb {
+    width: 34px; height: 34px; border-radius: 6px; object-fit: cover;
+    background: var(--bg); flex-shrink: 0; border: 1px solid var(--border);
+  }
+  .gs-emoji {
+    width: 34px; height: 34px; border-radius: 6px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg); border: 1px solid var(--border); font-size: 16px;
+  }
+  .gs-txt { flex: 1; min-width: 0; }
+  .gs-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gs-sub { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gs-title mark, .gs-sub mark { background: rgba(245,166,35,0.35); color: inherit; border-radius: 2px; padding: 0 1px; }
+  .gs-badge {
+    font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 99px;
+    background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); flex-shrink: 0;
+  }
+  .gs-hint, .gs-none { padding: 26px 16px; text-align: center; color: var(--text-faint); font-size: 14px; }
+  .gs-foot {
+    border-top: 1px solid var(--border); padding: 8px 16px;
+    font-size: 11px; color: var(--text-faint); display: flex; gap: 14px;
+  }
+  @media (max-width: 640px) {
+    .gs-overlay { padding: 4vh 8px 8px; }
+    .gs-panel { max-height: 88vh; }
+    .gs-input { font-size: 16px; }
+  }
+
   /* ══ DAY TRACKER ══════════════════════════════════════════════════════════ */
   .dt-wrap { padding: 0 14px 40px; }
   .dt-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
@@ -2246,6 +2317,7 @@
         </div>
       </div>
       <div class="content-topbar-right">
+        <button class="lock-btn" id="gs-open-btn" onclick="openGlobalSearch()" title="Search everything (/)">🔍</button>
         <button class="theme-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">🌙</button>
         <button class="lock-btn td-only" onclick="openSettings()">⚙</button>
         <button class="lock-btn" id="refresh-btn" onclick="refreshData()">↻</button>
@@ -2828,6 +2900,22 @@
           <button class="sw-cancel-btn" onclick="cancelSideWork()">Cancel</button>
           <span class="sw-saved" id="sw-saved-indicator"></span>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== GLOBAL SEARCH ===== -->
+  <div class="gs-overlay" id="gs-overlay" onclick="if(event.target===this)closeGlobalSearch()">
+    <div class="gs-panel" role="dialog" aria-label="Search everything">
+      <div class="gs-inputrow">
+        <span class="gs-icon">🔍</span>
+        <input type="text" id="gs-input" class="gs-input" placeholder="Search inventory, drops, tasks, notes, photos…"
+          autocomplete="off" oninput="runGlobalSearch()" onkeydown="gsKeys(event)" />
+        <button class="gs-close" onclick="closeGlobalSearch()" title="Close (Esc)">×</button>
+      </div>
+      <div class="gs-filters" id="gs-filters"></div>
+      <div class="gs-results" id="gs-results">
+        <div class="gs-hint">Start typing to search across the whole dashboard.</div>
       </div>
     </div>
   </div>
@@ -3847,6 +3935,239 @@ function saveSideWork() {
         () => { if (ind) ind.textContent = 'Saved ✓'; renderSideWork(); },
         () => { if (ind) ind.textContent = 'Save failed'; });
     });
+}
+
+// ── GLOBAL SEARCH ────────────────────────────────────────────────────────────
+// One box across inventory, drops, tasks, day tracker, notes, shopping, photos.
+// Sources are lazy-loaded elsewhere in the app, so opening search warms them.
+var _gsFilter = 'all';
+var _gsSel = 0;
+var _gsHits = [];
+
+const GS_SOURCES = [
+  { key:'inventory', label:'Set Pieces', emoji:'📦' },
+  { key:'drops',     label:'Drops',      emoji:'🎭' },
+  { key:'tasks',     label:'To Do',      emoji:'📋' },
+  { key:'day',       label:'Day Tracker',emoji:'🗓️' },
+  { key:'shopping',  label:'Shopping',   emoji:'🛒' },
+  { key:'photos',    label:'Photos',     emoji:'📸' },
+  { key:'notes',     label:'Shows',      emoji:'📝' },
+];
+
+function openGlobalSearch() {
+  const ov = document.getElementById('gs-overlay');
+  if (!ov) return;
+  ov.classList.add('open');
+  // Warm the lazy sources so results aren't silently incomplete.
+  try {
+    if (typeof loadInventoryData === 'function' && !inventoryLoaded) {
+      inventoryLoaded = true;      // matches renderInventoryTab()'s guard
+      loadInventoryData();
+    }
+  } catch(e) {}
+  try { if (typeof ensureDropsLoaded === 'function') ensureDropsLoaded(); } catch(e) {}
+  try { if (typeof ensureReferenceLoaded === 'function') ensureReferenceLoaded(); } catch(e) {}
+  try { if (typeof ensureDayTrackerLoaded === 'function' && !_dtLoaded) ensureDayTrackerLoaded(); } catch(e) {}
+  renderGsFilters();
+  const inp = document.getElementById('gs-input');
+  if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 30); }
+  _gsHits = []; _gsSel = 0;
+  const res = document.getElementById('gs-results');
+  if (res) res.innerHTML = '<div class="gs-hint">Start typing to search across the whole dashboard.</div>';
+}
+
+function closeGlobalSearch() {
+  const ov = document.getElementById('gs-overlay');
+  if (ov) ov.classList.remove('open');
+}
+
+function renderGsFilters() {
+  const el = document.getElementById('gs-filters');
+  if (!el) return;
+  el.innerHTML = [{key:'all',label:'All'}].concat(GS_SOURCES).map(s =>
+    `<button class="gs-chip ${_gsFilter===s.key?'active':''}" onclick="setGsFilter('${s.key}')">${s.label}</button>`
+  ).join('');
+}
+function setGsFilter(k) { _gsFilter = k; renderGsFilters(); runGlobalSearch(); }
+
+function gsEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+// Escape the query for use inside a RegExp.
+function gsRxEsc(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function gsMark(text, q) {
+  const t = gsEsc(text);
+  if (!q) return t;
+  try { return t.replace(new RegExp('(' + gsRxEsc(gsEsc(q)) + ')', 'ig'), '<mark>$1</mark>'); }
+  catch(e) { return t; }
+}
+
+// Collect every searchable record from live app state.
+function gsCollect() {
+  const out = [];
+  const push = (type, title, sub, action, thumb) =>
+    out.push({ type, title: title || '', sub: sub || '', action, thumb: thumb || '' });
+
+  // Inventory
+  try {
+    (allItems || []).forEach(i => push('inventory', i.name,
+      [i.category, i.location, i.assetId].filter(Boolean).join(' · '),
+      () => { switchTab('inventory'); const s = document.getElementById('search');
+              if (s) { s.value = i.name; if (typeof render === 'function') render(); } },
+      i.photo));
+  } catch(e) {}
+
+  // Drops
+  try {
+    (drops || []).forEach(d => push('drops', d.name || 'Unnamed',
+      [d.number, d.category, d.notes].filter(Boolean).join(' · '),
+      () => switchTab('backdrops')));
+  } catch(e) {}
+
+  // To Do tasks
+  try {
+    Object.keys(tasks || {}).forEach(listName => {
+      (tasks[listName] || []).forEach(t => push('tasks', t.text,
+        listName + (t.done ? ' · done' : '') + (t.due ? ' · due ' + t.due : ''),
+        () => switchTab('todo')));
+    });
+  } catch(e) {}
+
+  // Day Tracker
+  try {
+    Object.keys((_dt && _dt.days) || {}).forEach(iso => {
+      (_dt.days[iso] || []).forEach(t => push('day', t.text,
+        dtDayName(iso) + ' · ' + dtPretty(iso) + (t.done ? ' · done' : ''),
+        () => switchTab('daytracker')));
+    });
+    ((_dt && _dt.recurring) || []).forEach(r => push('day', r.text, 'Recurring',
+      () => switchTab('daytracker')));
+  } catch(e) {}
+
+  // Shopping
+  try {
+    Object.keys(shopData || {}).forEach(store => {
+      (shopData[store] || []).forEach(it => {
+        const txt = typeof it === 'string' ? it : (it.text || '');
+        push('shopping', txt, store + (it && it.done ? ' · done' : ''), () => switchTab('shopping'));
+      });
+    });
+  } catch(e) {}
+
+  // Reference photos
+  try {
+    (_refPhotos || []).forEach(p => push('photos', p.piece || p.show || 'Photo',
+      [p.show, p.category, p.notes].filter(Boolean).join(' · '),
+      () => switchTab('reference'), p.thumb || p.url));
+  } catch(e) {}
+
+  // Shows
+  try {
+    (MAINSTAGE || []).forEach(s => push('notes', s.name,
+      formatDates(s.start, s.end), () => switchTab('notes')));
+  } catch(e) {}
+
+  return out;
+}
+
+function runGlobalSearch() {
+  const q = (document.getElementById('gs-input') || {}).value || '';
+  const res = document.getElementById('gs-results');
+  if (!res) return;
+  const term = q.trim().toLowerCase();
+  if (!term) {
+    _gsHits = [];
+    res.innerHTML = '<div class="gs-hint">Start typing to search across the whole dashboard.</div>';
+    return;
+  }
+
+  const words = term.split(/\s+/).filter(Boolean);
+  let hits = gsCollect().filter(r => {
+    if (_gsFilter !== 'all' && r.type !== _gsFilter) return false;
+    const hay = (r.title + ' ' + r.sub).toLowerCase();
+    return words.every(w => hay.includes(w));   // all words must match
+  });
+
+  // Rank: title-start > title-contains > sub-only
+  hits.forEach(r => {
+    const t = r.title.toLowerCase();
+    r._score = t.startsWith(term) ? 0 : t.includes(term) ? 1 : 2;
+  });
+  hits.sort((a,b) => a._score - b._score || a.title.localeCompare(b.title));
+  hits = hits.slice(0, 60);
+  _gsHits = hits; _gsSel = 0;
+
+  if (!hits.length) {
+    res.innerHTML = '<div class="gs-none">No matches for “' + gsEsc(q) + '”</div>';
+    return;
+  }
+
+  let html = '', lastType = null;
+  hits.forEach((r, i) => {
+    if (r.type !== lastType) {
+      const src = GS_SOURCES.find(s => s.key === r.type);
+      html += '<div class="gs-group-hdr">' + gsEsc(src ? src.label : r.type) + '</div>';
+      lastType = r.type;
+    }
+    const src = GS_SOURCES.find(s => s.key === r.type);
+    const icon = r.thumb
+      ? `<img class="gs-thumb" src="${gsEsc(r.thumb)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'gs-emoji',textContent:'${src?src.emoji:'•'}'}))">`
+      : `<div class="gs-emoji">${src ? src.emoji : '•'}</div>`;
+    html += `<div class="gs-row ${i===0?'sel':''}" data-i="${i}" onclick="gsGo(${i})">
+      ${icon}
+      <div class="gs-txt">
+        <div class="gs-title">${gsMark(r.title, q.trim())}</div>
+        ${r.sub ? `<div class="gs-sub">${gsMark(r.sub, q.trim())}</div>` : ''}
+      </div>
+      <span class="gs-badge">${gsEsc(src ? src.label : r.type)}</span>
+    </div>`;
+  });
+  html += '<div class="gs-foot"><span>↑↓ navigate</span><span>↵ open</span><span>esc close</span></div>';
+  res.innerHTML = html;
+}
+
+function gsGo(i) {
+  const r = _gsHits[i];
+  if (!r) return;
+  closeGlobalSearch();
+  try { r.action(); } catch(e) { console.warn('search nav failed:', e); }
+}
+
+function gsKeys(e) {
+  if (e.key === 'Escape') { closeGlobalSearch(); return; }
+  if (!_gsHits.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    _gsSel = (e.key === 'ArrowDown')
+      ? Math.min(_gsHits.length - 1, _gsSel + 1)
+      : Math.max(0, _gsSel - 1);
+    document.querySelectorAll('.gs-row').forEach(el =>
+      el.classList.toggle('sel', +el.getAttribute('data-i') === _gsSel));
+    const cur = document.querySelector('.gs-row.sel');
+    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    gsGo(_gsSel);
+  }
+}
+
+// "/" opens search; Esc closes. Ignored while typing in a field.
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('keydown', e => {
+    const ov = document.getElementById('gs-overlay');
+    const open = ov && ov.classList.contains('open');
+    if (e.key === 'Escape' && open) { closeGlobalSearch(); return; }
+    if (open) return;
+    const t = e.target || {};
+    const tag = (t.tagName || '').toUpperCase();
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) return;
+    if (e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k')) {
+      e.preventDefault();
+      openGlobalSearch();
+    }
+  });
 }
 
 // ── DAY TRACKER ──────────────────────────────────────────────────────────────
