@@ -1460,13 +1460,13 @@
     padding: 22px; display: flex; flex-direction: column; gap: 18px;
   }
 
-  /* Show cards row */
+  /* Show cards — now stacked inside the right column */
   .home-show-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+    display: flex; flex-direction: column; gap: 18px;
   }
   .home-show-card {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 20px 22px;
+    border-radius: var(--radius); padding: 18px 20px;
     text-decoration: none; display: block; cursor: pointer;
     transition: border-color 0.15s;
   }
@@ -1478,10 +1478,10 @@
   .home-show-badge.now-b { background: #C0DD97; color: #27500A; }
   .home-show-badge.tech-b { background: #F5D98C; color: #6B4C0A; }
   .home-show-badge.next-b { background: #CECBF6; color: #3C3489; }
-  .home-show-name { font-size: 22px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-  .home-show-dates { font-size: 15px; color: var(--text-muted); margin-bottom: 16px; }
-  .home-show-foot { display: flex; justify-content: space-between; align-items: center; }
-  .home-show-countdown { font-size: 15px; font-weight: 500; color: var(--text-muted); }
+  .home-show-name { font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .home-show-dates { font-size: 14px; color: var(--text-muted); margin-bottom: 14px; }
+  .home-show-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .home-show-countdown { font-size: 14px; font-weight: 500; color: var(--text-muted); }
   .home-show-btn {
     font-size: 14px; font-weight: 500; padding: 8px 16px;
     border-radius: 6px; border: 1px solid var(--border);
@@ -1623,10 +1623,27 @@
   }
   .home-add-link:hover { border-color: var(--purple); color: var(--purple); }
 
+  /* Home "Today" card (Day Tracker mirror) */
+  .home-day-list { display: flex; flex-direction: column; }
+  .home-day-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 9px 0; border-bottom: 1px solid rgba(0,0,0,0.05);
+  }
+  [data-theme="dark"] .home-day-item { border-bottom-color: rgba(255,255,255,0.06); }
+  .home-day-item:last-child { border-bottom: none; }
+  .home-day-body-txt { flex: 1; min-width: 0; }
+  .home-day-text { font-size: 15px; line-height: 1.4; word-break: break-word; }
+  .home-day-text.done { text-decoration: line-through; color: var(--text-faint); }
+  .home-day-empty { color: var(--text-faint); font-size: 14px; font-style: italic; padding: 6px 0 2px; }
+
   /* Mobile responsive */
   @media (max-width: 640px) {
-    .home-show-grid  { grid-template-columns: 1fr; }
-    .home-main-grid  { grid-template-columns: 1fr; }
+    /* Single column: lead with the shows, then Today, then the rest.
+       `display:contents` drops the right column's own gap, so the flow gap
+       on .home-main-grid supplies the spacing instead. */
+    .home-main-grid  { display: flex; flex-direction: column; gap: 18px; }
+    .home-right-col  { display: contents; }
+    #home-show-grid  { order: -1; }
   }
   /* ── END HOME REDESIGN CSS ──────────────────────────────────────────────── */
 
@@ -2240,32 +2257,29 @@
   <div class="tab-panel active" id="tab-home" data-tab="home">
   <div class="home-redesign">
 
-    <!-- SECTION 1: SHOW CARDS -->
-    <div class="home-show-grid" id="home-show-grid">
-      <!-- Rendered by renderHomeShowCards() -->
-    </div>
-
-    <!-- SECTION 2: MAIN GRID -->
+    <!-- SECTION: MAIN GRID -->
     <div class="home-main-grid">
 
-      <!-- LEFT: Tasks -->
-      <div class="home-card" id="home-tasks-card">
+      <!-- LEFT: Day Tracker — today -->
+      <div class="home-card" id="home-day-card">
         <div class="home-card-hdr">
-          <span class="home-card-lbl">Tasks</span>
-          <a class="home-card-lnk" href="#" onclick="switchTab('todo');return false;">All lists →</a>
+          <span class="home-card-lbl">Today</span>
+          <a class="home-card-lnk" href="#" onclick="switchTab('daytracker');return false;">Full week →</a>
         </div>
-        <div id="home-tasks-body"><span class="spinner"></span></div>
+        <div id="home-day-body"><span class="spinner"></span></div>
         <div class="home-qa">
-          <input type="text" id="qa-text" placeholder="Add a task…" class="home-qa-input" onkeydown="if(event.key==='Enter')quickAddTask()" />
-          <select id="qa-list" class="home-qa-select"></select>
-          <input type="date" id="qa-due" class="home-qa-date" />
-          <input type="checkbox" id="qa-notify" title="Email me on due date" class="home-qa-check" />
-          <button class="home-qa-btn" onclick="quickAddTask()">Add</button>
+          <input type="text" id="home-day-input" placeholder="Add to today…" class="home-qa-input" onkeydown="if(event.key==='Enter')homeDayAdd()" />
+          <button class="home-qa-btn" onclick="homeDayAdd()">Add</button>
         </div>
       </div>
 
-      <!-- RIGHT: Shopping + Quick Links -->
+      <!-- RIGHT: Shows + Shopping + Quick Links -->
       <div class="home-right-col">
+
+        <!-- Current / upcoming shows -->
+        <div class="home-show-grid" id="home-show-grid">
+          <!-- Rendered by renderHomeShowCards() -->
+        </div>
 
         <!-- Shopping summary -->
         <div class="home-card">
@@ -3674,9 +3688,6 @@ function initApp() {
   initNavSpy();
   // Load cleaning data in the background so the overdue badge shows right away
   try { loadCleaning(); _cleaningLoaded = true; } catch(e) {}
-  // Enter key to submit quick-add task
-  const qa = document.getElementById('qa-text');
-  if (qa) qa.addEventListener('keydown', e => { if (e.key === 'Enter') quickAddTask(); });
   // Enter key to add shop item
   const si = document.getElementById('shop-input');
   if (si) si.addEventListener('keydown', e => { if (e.key === 'Enter') addShopItem(); });
@@ -3837,8 +3848,10 @@ function saveSideWork() {
 // ── DAY TRACKER ──────────────────────────────────────────────────────────────
 // Stored in one KV key: 'daytracker' = { days:{ 'YYYY-MM-DD':[item] }, recurring:[...], lastRoll:'YYYY-MM-DD' }
 // item = { id, text, done, origin:'YYYY-MM-DD', carried:false, recurId:null }
-let _dt = { days: {}, recurring: [], lastRoll: null };
-let _dtLoaded = false;
+// NOTE: `var` (not `let`) — loadData() calls renderWidgets() → renderHomeDayCard()
+// before this line executes. `var` hoists as undefined; `let` would throw a TDZ error.
+var _dt = { days: {}, recurring: [], lastRoll: null };
+var _dtLoaded = false;
 let _dtView = 'grid';
 let _dtOffset = 0;                  // single-day view: 0 = today
 const DT_SPAN = 7;                  // days shown from today forward
@@ -3878,11 +3891,13 @@ function ensureDayTrackerLoaded() {
     dtRollover();
     dtSeedRecurring();
     renderDayTracker();
+    try { renderHomeDayCard(); } catch(e) {}
   }, () => {
     _dtLoaded = true;
     dtRollover();
     dtSeedRecurring();
     renderDayTracker();
+    try { renderHomeDayCard(); } catch(e) {}
   });
 }
 
@@ -4496,7 +4511,7 @@ function scrollToSection(id) {
 }
 
 function initNavSpy() {
-  const sections = ['home-tasks-card','home-shop-body','sec-notes']; // updated for home redesign
+  const sections = ['home-day-card','home-shop-body','sec-notes']; // updated for home redesign
   const navLinks = document.querySelectorAll('.nav-link');
   if (!navLinks.length) return;
 
@@ -4706,11 +4721,92 @@ function confirmAddLink() {
 // ── WIDGETS ───────────────────────────────────────────────────────────────────
 function renderWidgets() {
   try { renderHomeShowCards(); } catch(e) { console.error('renderHomeShowCards:', e); }
-  try { renderHomeTasksCard(); } catch(e) { console.error('renderHomeTasksCard:', e); }
+  try { renderHomeDayCard(); } catch(e) { console.error('renderHomeDayCard:', e); }
   try { renderHomeShopSummary(); } catch(e) { console.error('renderHomeShopSummary:', e); }
   try { renderSeasonOverview(); } catch(e) { console.error('renderSeasonOverview:', e); }
   try { renderNotesAccess(); } catch(e) { console.error('renderNotesAccess:', e); }
-  try { populateQAList(); } catch(e) { console.error('populateQAList:', e); }
+}
+
+// ── HOME: TODAY CARD (Day Tracker) ──────────────────────────────────────────
+// Mirrors the Day Tracker's today column on the Home screen.
+function renderHomeDayCard() {
+  const el = document.getElementById('home-day-body');
+  if (!el) return;
+  const today = todayISO();
+
+  // loadData() fires renderWidgets() before the Day Tracker's `let _dt` is
+  // initialized further down the file, so touching _dt here would throw a
+  // temporal-dead-zone error. Bail out quietly; ensureDayTrackerLoaded()
+  // re-renders this card once its state exists.
+  if (typeof _dt === 'undefined') { el.innerHTML = '<span class="spinner"></span>'; return; }
+
+  // Pull from cache first so Home paints instantly, then sync in the background.
+  if (!_dtLoaded) {
+    try {
+      const cached = JSON.parse(localStorage.getItem('mmt_daytracker') || 'null');
+      if (cached) _dt = cached;
+    } catch(e) {}
+    ensureDayTrackerLoaded();
+  }
+
+  const items = (_dt.days && _dt.days[today]) ? _dt.days[today] : [];
+  const active = items.filter(t => !t.done);
+  const sorted = [...active, ...items.filter(t => t.done)];
+
+  if (!sorted.length) {
+    el.innerHTML = '<div class="home-day-empty">Nothing scheduled for today</div>';
+    return;
+  }
+
+  el.innerHTML = '<div class="home-day-list">' + sorted.map(t => {
+    const flags = [];
+    if (t.carried) {
+      let from = 'Yesterday';
+      if (t.origin && t.origin < today) {
+        from = (t.origin === dtAddDays(today, -1)) ? 'Yesterday' : dtPretty(t.origin);
+      }
+      flags.push(`<span class="dt-flag carry">↩ from ${from}</span>`);
+    }
+    if (t.recurId) flags.push('<span class="dt-flag recur">🔁</span>');
+    return `
+      <div class="home-day-item">
+        <input type="checkbox" class="dt-check" ${t.done ? 'checked' : ''}
+          onchange="homeDayToggle('${t.id}', this.checked)" />
+        <div class="home-day-body-txt">
+          <div class="home-day-text ${t.done ? 'done' : ''}">${escHtml(t.text)}</div>
+          ${flags.length ? '<div class="dt-tags">' + flags.join('') + '</div>' : ''}
+        </div>
+      </div>`;
+  }).join('') + '</div>';
+}
+
+function homeDayAdd() {
+  const input = document.getElementById('home-day-input');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  const today = todayISO();
+  if (!_dt.days) _dt.days = {};
+  if (!_dt.days[today]) _dt.days[today] = [];
+  _dt.days[today].push({
+    id: 'dt' + Date.now() + Math.random().toString(36).slice(2,7),
+    text, done: false, origin: today, carried: false, recurId: null
+  });
+  input.value = '';
+  renderHomeDayCard();
+  if (typeof renderDayTracker === 'function' && currentTab === 'daytracker') renderDayTracker();
+  saveDayTracker();
+  const fresh = document.getElementById('home-day-input');
+  if (fresh) { fresh.value = ''; fresh.focus(); }
+}
+
+function homeDayToggle(id, done) {
+  const today = todayISO();
+  const t = (_dt.days[today] || []).find(x => x.id === id);
+  if (!t) return;
+  t.done = done;
+  renderHomeDayCard();
+  saveDayTracker();
 }
 
 
@@ -4782,7 +4878,7 @@ function renderHomeShowCards() {
   let html = '';
   if (leftShow)  html += card(leftShow, leftState);
   if (rightShow) html += card(rightShow, 'upcoming');
-  if (!leftShow && !rightShow) html = '<div class="home-show-card" style="grid-column:1/-1;color:var(--text-faint);font-size:13px;">No upcoming shows configured.</div>';
+  if (!leftShow && !rightShow) html = '<div class="home-show-card" style="color:var(--text-faint);font-size:13px;">No upcoming shows configured.</div>';
 
   el.innerHTML = html;
 }
@@ -5997,10 +6093,15 @@ function populateQAList() {
 }
 
 async function quickAddTask() {
-  const text = document.getElementById('qa-text').value.trim();
-  const list = document.getElementById('qa-list').value;
-  const due = document.getElementById('qa-due').value || '';
-  const notify = document.getElementById('qa-notify').checked;
+  // The Home quick-add was replaced by the Day Tracker "Today" card, so these
+  // elements no longer exist on Home. Kept for any other caller; bail if absent.
+  const textEl = document.getElementById('qa-text');
+  const listEl = document.getElementById('qa-list');
+  if (!textEl || !listEl) return;
+  const text = textEl.value.trim();
+  const list = listEl.value;
+  const due = (document.getElementById('qa-due') || {}).value || '';
+  const notify = !!(document.getElementById('qa-notify') || {}).checked;
   if (!text) { toast('Enter a task'); return; }
   if (!list) { toast('No list selected'); return; }
 
