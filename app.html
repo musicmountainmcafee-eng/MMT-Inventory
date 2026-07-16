@@ -1056,6 +1056,74 @@
   .add-task-btn:hover { background: var(--purple-dark); }
   .empty-tasks { padding: 14px 16px; color: var(--text-faint); font-size: 13px; font-style: italic; }
 
+  /* ══ TV MODE ═════════════════════════════════════════════════════════════ */
+  .tv-overlay {
+    display: none; position: fixed; inset: 0; z-index: 5000;
+    background: var(--bg); color: var(--text);
+    padding: 3vh 3vw; overflow: hidden;
+    flex-direction: column; gap: 2.2vh;
+  }
+  .tv-overlay.open { display: flex; }
+  .tv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; }
+  .tv-date { font-size: clamp(22px, 2.6vw, 44px); font-weight: 800; letter-spacing: -0.02em; }
+  .tv-clock { font-size: clamp(22px, 2.6vw, 44px); font-weight: 800; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .tv-exit {
+    position: absolute; top: 12px; right: 14px; z-index: 2;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-muted);
+    border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; opacity: 0.25; transition: opacity 0.2s;
+  }
+  .tv-overlay:hover .tv-exit { opacity: 1; }
+
+  .tv-body { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 2.4vw; min-height: 0; }
+
+  .tv-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 2.2vh 1.8vw; display: flex; flex-direction: column; min-height: 0;
+  }
+  .tv-lbl {
+    font-size: clamp(11px, 1vw, 17px); font-weight: 800; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-faint); margin-bottom: 1.2vh;
+  }
+  /* Next show */
+  .tv-show-name { font-size: clamp(26px, 3.4vw, 60px); font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; }
+  .tv-show-dates { font-size: clamp(14px, 1.3vw, 24px); color: var(--text-muted); margin-top: 0.8vh; }
+  .tv-count {
+    margin-top: auto; font-size: clamp(46px, 7vw, 130px); font-weight: 800;
+    line-height: 1; letter-spacing: -0.04em; color: var(--purple);
+    font-variant-numeric: tabular-nums;
+  }
+  [data-theme="dark"] .tv-count { color: var(--purple-dark); }
+  .tv-count-lbl { font-size: clamp(13px, 1.2vw, 22px); color: var(--text-muted); font-weight: 600; margin-top: 0.4vh; }
+  .tv-tech { display: inline-block; margin-top: 1.2vh; font-size: clamp(12px, 1.05vw, 19px); font-weight: 700;
+    background: #F5D98C; color: #6B4C0A; padding: 4px 12px; border-radius: 99px; }
+
+  /* Today list */
+  .tv-list { overflow: hidden; display: flex; flex-direction: column; gap: 0.9vh; }
+  .tv-task { display: flex; align-items: flex-start; gap: 0.9vw; font-size: clamp(15px, 1.55vw, 30px); line-height: 1.3; }
+  .tv-box {
+    width: 1.5em; height: 1.5em; flex-shrink: 0; border-radius: 5px;
+    border: 2px solid var(--border); margin-top: 0.05em;
+  }
+  .tv-box.done { background: var(--purple); border-color: var(--purple); position: relative; }
+  .tv-box.done::after {
+    content: ''; position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round' d='M3 7.3l2.8 2.8L11 4.6'/%3E%3C/svg%3E") no-repeat center / 80%;
+  }
+  .tv-task-txt { flex: 1; min-width: 0; font-weight: 500; }
+  .tv-task.is-done .tv-task-txt { text-decoration: line-through; color: var(--text-faint); font-weight: 400; }
+  .tv-carry { font-size: 0.62em; font-weight: 800; background: rgba(230,126,34,0.16); color: #b45309;
+    padding: 1px 8px; border-radius: 99px; margin-left: 0.4em; white-space: nowrap; }
+  [data-theme="dark"] .tv-carry { background: rgba(230,126,34,0.22); color: #f0a35e; }
+  .tv-more { font-size: clamp(12px, 1.1vw, 20px); color: var(--text-faint); font-style: italic; margin-top: 0.4vh; }
+  .tv-empty { font-size: clamp(15px, 1.5vw, 28px); color: var(--text-faint); font-style: italic; margin: auto 0; }
+  .tv-progress { margin-top: auto; padding-top: 1.4vh; font-size: clamp(13px, 1.2vw, 22px); color: var(--text-muted); font-weight: 600; }
+
+  @media (max-width: 900px) {
+    .tv-body { grid-template-columns: 1fr; }
+    .tv-count { font-size: clamp(40px, 15vw, 90px); }
+  }
+
   /* ══ GLOBAL SEARCH ═══════════════════════════════════════════════════════ */
   .gs-overlay {
     display: none; position: fixed; inset: 0; z-index: 4000;
@@ -2318,6 +2386,7 @@
       </div>
       <div class="content-topbar-right">
         <button class="lock-btn" id="gs-open-btn" onclick="openGlobalSearch()" title="Search everything (/)">🔍</button>
+        <button class="lock-btn td-only" onclick="openTvMode()" title="Shop wall display">📺</button>
         <button class="theme-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">🌙</button>
         <button class="lock-btn td-only" onclick="openSettings()">⚙</button>
         <button class="lock-btn" id="refresh-btn" onclick="refreshData()">↻</button>
@@ -2900,6 +2969,26 @@
           <button class="sw-cancel-btn" onclick="cancelSideWork()">Cancel</button>
           <span class="sw-saved" id="sw-saved-indicator"></span>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TV MODE ===== -->
+  <div class="tv-overlay" id="tv-overlay">
+    <button class="tv-exit" onclick="closeTvMode()">Exit (Esc)</button>
+    <div class="tv-top">
+      <div class="tv-date" id="tv-date">—</div>
+      <div class="tv-clock" id="tv-clock">—</div>
+    </div>
+    <div class="tv-body">
+      <div class="tv-card" id="tv-show-card">
+        <div class="tv-lbl">Next Show</div>
+        <div id="tv-show-inner"></div>
+      </div>
+      <div class="tv-card">
+        <div class="tv-lbl">Today</div>
+        <div class="tv-list" id="tv-tasks"></div>
+        <div class="tv-progress" id="tv-progress"></div>
       </div>
     </div>
   </div>
@@ -3935,6 +4024,132 @@ function saveSideWork() {
         () => { if (ind) ind.textContent = 'Saved ✓'; renderSideWork(); },
         () => { if (ind) ind.textContent = 'Save failed'; });
     });
+}
+
+// ── TV MODE ──────────────────────────────────────────────────────────────────
+// Fullscreen shop-wall display: next show countdown + today's tasks.
+// Deliberately read-only — nothing here mutates state.
+var _tvTimer = null;
+
+function openTvMode() {
+  const ov = document.getElementById('tv-overlay');
+  if (!ov) return;
+  ov.classList.add('open');
+  try { if (typeof ensureDayTrackerLoaded === 'function' && !_dtLoaded) ensureDayTrackerLoaded(); } catch(e) {}
+  renderTvMode();
+  // Refresh once a minute: clock, countdown, and any task edits from a phone.
+  if (_tvTimer) clearInterval(_tvTimer);
+  _tvTimer = setInterval(() => {
+    if (typeof dtCheckDayChange === 'function') dtCheckDayChange();  // handle midnight
+    renderTvMode();
+  }, 60000);
+  try { if (ov.requestFullscreen) ov.requestFullscreen(); } catch(e) {}
+}
+
+function closeTvMode() {
+  const ov = document.getElementById('tv-overlay');
+  if (ov) ov.classList.remove('open');
+  if (_tvTimer) { clearInterval(_tvTimer); _tvTimer = null; }
+  try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen(); } catch(e) {}
+}
+
+// The next show to load in — i.e. the first one that hasn't opened yet.
+// A show already in tech still counts as "next": that's the live build clock.
+function tvNextShow() {
+  const today = todayISO();
+  const sorted = (MAINSTAGE || []).slice().sort((a, b) => new Date(a.start) - new Date(b.start));
+  return sorted.find(s => s.start > today) || null;
+}
+
+function renderTvMode() {
+  const ov = document.getElementById('tv-overlay');
+  if (!ov || !ov.classList.contains('open')) return;
+  const now = new Date();
+
+  const dEl = document.getElementById('tv-date');
+  if (dEl) dEl.textContent = now.toLocaleDateString('en-US',
+    { weekday:'long', month:'long', day:'numeric' });
+  const cEl = document.getElementById('tv-clock');
+  if (cEl) cEl.textContent = now.toLocaleTimeString('en-US',
+    { hour:'numeric', minute:'2-digit' });
+
+  // ── Next show
+  const inner = document.getElementById('tv-show-inner');
+  if (inner) {
+    const s = tvNextShow();
+    if (!s) {
+      inner.innerHTML = '<div class="tv-empty">No upcoming shows scheduled</div>';
+    } else {
+      const days = daysUntil(s.start);
+      const big = days === 0 ? 'TONIGHT' : days;
+      const lbl = days === 0 ? 'Opening night' : (days === 1 ? 'day until opening' : 'days until opening');
+      let tech = '';
+      try {
+        // techStartDate() returns a Date; daysUntil() expects a 'YYYY-MM-DD'
+        // string, so convert rather than passing the object (which yields NaN).
+        const t = techStartDate(s.start);
+        if (t && !isNaN(t.getTime())) {
+          const tIso = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+          const tDays = daysUntil(tIso);
+          tech = tDays > 0 ? `<span class="tv-tech">Tech starts in ${tDays} day${tDays!==1?'s':''}</span>`
+               : tDays === 0 ? `<span class="tv-tech">Tech starts today</span>`
+               : `<span class="tv-tech">In tech now</span>`;
+        }
+      } catch(e) {}
+      inner.innerHTML = `
+        <div class="tv-show-name">${escHtml(s.name)}</div>
+        <div class="tv-show-dates">${escHtml(formatDates(s.start, s.end))}</div>
+        ${tech}
+        <div class="tv-count">${big}</div>
+        <div class="tv-count-lbl">${lbl}</div>`;
+    }
+  }
+
+  // ── Today's tasks
+  const list = document.getElementById('tv-tasks');
+  const prog = document.getElementById('tv-progress');
+  if (!list) return;
+  const today = todayISO();
+  const items = ((_dt && _dt.days) ? _dt.days[today] : null) || [];
+  const active = items.filter(t => !t.done);
+  const done = items.filter(t => t.done);
+  const ordered = [...active, ...done];
+
+  if (!ordered.length) {
+    list.innerHTML = '<div class="tv-empty">Nothing scheduled for today</div>';
+    if (prog) prog.textContent = '';
+    return;
+  }
+
+  // Cap the list so it never overflows the screen.
+  const MAX = 11;
+  const shown = ordered.slice(0, MAX);
+  const extra = ordered.length - shown.length;
+
+  list.innerHTML = shown.map(t => {
+    let carry = '';
+    if (t.carried) {
+      let from = 'yesterday';
+      if (t.origin && t.origin < today) {
+        from = (t.origin === dtAddDays(today, -1)) ? 'yesterday' : dtPretty(t.origin);
+      }
+      carry = `<span class="tv-carry">↩ ${escHtml(from)}</span>`;
+    }
+    return `<div class="tv-task ${t.done ? 'is-done' : ''}">
+      <div class="tv-box ${t.done ? 'done' : ''}"></div>
+      <div class="tv-task-txt">${escHtml(t.text)}${carry}</div>
+    </div>`;
+  }).join('') + (extra > 0 ? `<div class="tv-more">+ ${extra} more…</div>` : '');
+
+  if (prog) prog.textContent = done.length + ' of ' + items.length + ' done';
+}
+
+// Esc exits TV mode.
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('keydown', e => {
+    const ov = document.getElementById('tv-overlay');
+    if (e.key === 'Escape' && ov && ov.classList.contains('open')) closeTvMode();
+  });
 }
 
 // ── GLOBAL SEARCH ────────────────────────────────────────────────────────────
