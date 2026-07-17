@@ -2043,7 +2043,15 @@
   #scripts-editor .page-nav button:hover { background: var(--cue-surface2); }
   #scripts-editor .page-nav span { font-size: 13px; color: var(--cue-text-muted); font-family: 'DM Mono', monospace; }
   #scripts-editor .canvas-wrap { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 20px; position: relative; }
-  #scripts-editor .canvas-container { position: relative; box-shadow: 0 4px 24px rgba(0,0,0,0.5); }
+  /* Zoom is applied as a CSS transform on the container, NOT by re-rendering the
+     PDF at a new scale. Annotations are stored in canvas pixel coords, so
+     changing the canvas resolution would move every saved cue box. Scaling
+     visually keeps those coords stable; getPos() already normalizes pointer
+     input through getBoundingClientRect, so placement stays accurate at any zoom. */
+  #scripts-editor .canvas-container { position: relative; box-shadow: 0 4px 24px rgba(0,0,0,0.5); transform-origin: top center; }
+  #scripts-editor .zoom-group { display: inline-flex; align-items: center; gap: 2px; margin-left: 14px; padding-left: 14px; border-left: 1px solid var(--cue-border); }
+  #scripts-editor .zoom-group #zoom-info { min-width: 44px; text-align: center; font-size: 11px; color: var(--cue-text-faint); cursor: pointer; font-variant-numeric: tabular-nums; }
+  #scripts-editor .zoom-group #zoom-info:hover { color: var(--purple); }
   #scripts-editor .canvas-container canvas { display: block; }
   #scripts-editor #draw-canvas { position: absolute; top: 0; left: 0; cursor: crosshair; touch-action: none; }
   #scripts-editor #cue-cursor-label {
@@ -2074,7 +2082,12 @@
   #scripts-editor .cue-table .ct-action { color: var(--cue-text); }
   #scripts-editor .cue-table .ct-line { color: var(--cue-text-muted); font-style: italic; font-size: 11px; }
   #scripts-editor .cue-table .ct-notes { color: var(--cue-text-faint); font-size: 11px; }
-  #scripts-editor .cue-add { padding: 12px 16px; border-top: 1px solid var(--cue-border); }
+  #scripts-editor .cue-add { padding: 12px 16px; border-top: 1px solid var(--cue-border); overflow-y: auto; flex-shrink: 0; }
+  /* Horizontal grip between the cue list and the entry form — drag up for a
+     bigger form, down for a longer list. */
+  #scripts-editor .row-resizer { height: 7px; margin-bottom: -1px; cursor: row-resize; flex-shrink: 0; background: transparent; position: relative; z-index: 5; }
+  #scripts-editor .row-resizer:hover, #scripts-editor .row-resizer.dragging { background: var(--purple); opacity: 0.55; }
+  #scripts-editor.resizing-row { cursor: row-resize; user-select: none; }
   #scripts-editor .cue-add input, #scripts-editor .cue-add select { width: 100%; padding: 7px 10px; border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm); background: var(--cue-surface2); color: var(--cue-text); font-size: 13px; font-family: 'DM Sans', sans-serif; margin-bottom: 6px; }
   #scripts-editor .cue-add input:focus, #scripts-editor .cue-add select:focus { outline: none; border-color: var(--purple); }
   #scripts-editor .cue-add button { width: 100%; padding: 8px; border: none; border-radius: var(--cue-radius-sm); background: var(--purple); color: white; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; }
@@ -3286,6 +3299,12 @@
         <button onclick="prevPage()">◀ Prev</button>
         <span id="page-info">Page 1 / 1</span>
         <button onclick="nextPage()">Next ▶</button>
+        <span class="zoom-group">
+          <button onclick="zoomOut()" title="Zoom out (−)">−</button>
+          <span id="zoom-info" onclick="zoomReset()" title="Click to reset to 100%">100%</span>
+          <button onclick="zoomIn()" title="Zoom in (+)">+</button>
+          <button onclick="zoomFit()" title="Fit page to window">Fit</button>
+        </span>
       </div>
       <div class="canvas-wrap" id="canvas-wrap">
         <div class="canvas-container" id="canvas-container">
@@ -3303,6 +3322,7 @@
         <span style="font-size:12px;color:var(--cue-text-faint);" id="cue-count">0 cues</span>
       </div>
       <div class="cue-list" id="cue-list" style="overflow-x:auto;"></div>
+      <div class="row-resizer" id="row-resizer" title="Drag to resize"></div>
       <div class="cue-add" id="cue-edit-panel">
         <div id="cue-form-mode" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--cue-text-faint);margin-bottom:8px;">Select a cue to edit</div>
         <select id="cue-type-sel" oninput="onCueFormInput()" disabled></select>
@@ -3686,7 +3706,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v8</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v9</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9824,6 +9844,76 @@ function syncCueLineCrop(cueId, dataUrl) {
     .catch(() => {}); // sync failure is silent — the local crop still works on this device
 }
 
+// ── ZOOM ─────────────────────────────────────────────────────────────────────
+// Visual zoom only — the PDF canvas keeps its fixed internal resolution and we
+// scale the container with a CSS transform. Re-rendering at a new scale would
+// change the canvas pixel dimensions, and every annotation (and every stored
+// crop rect) is expressed in those pixels — so saved cue boxes would drift.
+let zoomLevel = 1;
+const ZOOM_MIN = 0.35, ZOOM_MAX = 4;
+const ZOOM_STEPS = [0.35, 0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 2.5, 3, 4];
+
+function applyZoom(persist) {
+  const el = document.getElementById('canvas-container');
+  if (!el) return;
+  zoomLevel = Math.min(Math.max(zoomLevel, ZOOM_MIN), ZOOM_MAX);
+  el.style.transform = 'scale(' + zoomLevel + ')';
+  // A CSS transform doesn't affect layout, so the wrapper wouldn't scroll to
+  // reach a zoomed-in page. Reserve the scaled footprint via margins.
+  const w = el.offsetWidth, h = el.offsetHeight;
+  el.style.marginBottom = Math.round(h * (zoomLevel - 1)) + 'px';
+  const dx = Math.round(w * (zoomLevel - 1) / 2);
+  el.style.marginLeft = dx + 'px';
+  el.style.marginRight = dx + 'px';
+  const info = document.getElementById('zoom-info');
+  if (info) info.textContent = Math.round(zoomLevel * 100) + '%';
+  if (persist !== false) { try { localStorage.setItem('mmt_zoom', String(zoomLevel)); } catch (e) {} }
+}
+
+function zoomIn() {
+  zoomLevel = ZOOM_STEPS.find(z => z > zoomLevel + 0.001) || ZOOM_MAX;
+  applyZoom();
+}
+function zoomOut() {
+  const below = ZOOM_STEPS.filter(z => z < zoomLevel - 0.001);
+  zoomLevel = below.length ? below[below.length - 1] : ZOOM_MIN;
+  applyZoom();
+}
+function zoomReset() { zoomLevel = 1; applyZoom(); }
+
+// Fit the whole page in the visible area.
+function zoomFit() {
+  const wrap = document.getElementById('canvas-wrap');
+  const el = document.getElementById('canvas-container');
+  if (!wrap || !el || !el.offsetWidth) return;
+  const padding = 40;
+  const fitW = (wrap.clientWidth - padding) / el.offsetWidth;
+  const fitH = (wrap.clientHeight - padding) / el.offsetHeight;
+  zoomLevel = Math.min(fitW, fitH);
+  applyZoom();
+}
+
+function initZoom() {
+  try {
+    const saved = parseFloat(localStorage.getItem('mmt_zoom'));
+    if (saved && saved >= ZOOM_MIN && saved <= ZOOM_MAX) zoomLevel = saved;
+  } catch (e) {}
+  applyZoom(false);
+
+  const wrap = document.getElementById('canvas-wrap');
+  if (wrap && !wrap.dataset.zoomWired) {
+    wrap.dataset.zoomWired = '1';
+    // Ctrl/Cmd + wheel zooms, matching every other document viewer. Plain wheel
+    // still scrolls.
+    wrap.addEventListener('wheel', e => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      zoomLevel = Math.min(Math.max(zoomLevel * (e.deltaY < 0 ? 1.1 : 0.9), ZOOM_MIN), ZOOM_MAX);
+      applyZoom();
+    }, { passive: false });
+  }
+}
+
 async function renderPage() {
   const page = await pdfDoc.getPage(currentPage);
   // Use lower scale on phones to save memory
@@ -9843,6 +9933,9 @@ async function renderPage() {
 
   // Redraw annotations for this page
   redrawAnnotations();
+  // Canvas dimensions just changed, so the reserved scroll footprint has to be
+  // recomputed for the new page size.
+  applyZoom(false);
   document.getElementById('page-info').textContent = `Page ${currentPage} / ${totalPages}`;
 }
 
@@ -10884,6 +10977,72 @@ function initCuePanelResize() {
   handle.addEventListener('dblclick', () => setCuePanelWidth(300, true));
 }
 
+// Drag the grip above the cue entry form to trade space between the cue list
+// and the form. The list is flex:1 so it just absorbs whatever's left.
+const FORM_MIN_H = 90;
+
+function setCueFormHeight(px, persist) {
+  const form = document.getElementById('cue-edit-panel');
+  const panel = document.getElementById('cue-panel');
+  if (!form || !panel) return;
+  // Always leave a usable strip of cue list above the form.
+  const maxH = Math.max(FORM_MIN_H, panel.clientHeight - 160);
+  const h = Math.round(Math.min(Math.max(px, FORM_MIN_H), maxH));
+  form.style.height = h + 'px';
+  if (persist) { try { localStorage.setItem('mmt_cue_form_h', String(h)); } catch (e) {} }
+  return h;
+}
+
+function initCueFormResize() {
+  const form = document.getElementById('cue-edit-panel');
+  const handle = document.getElementById('row-resizer');
+  if (!form || !handle) return;
+
+  try {
+    const saved = parseInt(localStorage.getItem('mmt_cue_form_h'));
+    if (saved) setCueFormHeight(saved, false);
+  } catch (e) {}
+
+  if (handle.dataset.wired) return;
+  handle.dataset.wired = '1';
+
+  let dragging = false;
+  const editor = document.getElementById('scripts-editor');
+
+  handle.addEventListener('pointerdown', e => {
+    dragging = true;
+    handle.classList.add('dragging');
+    if (editor) editor.classList.add('resizing-row');
+    handle.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  handle.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    // Form is bottom-anchored: its height is the distance from the pointer down
+    // to the bottom of the panel.
+    const rect = form.getBoundingClientRect();
+    setCueFormHeight(rect.bottom - e.clientY, false);
+  });
+
+  const stop = e => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    if (editor) editor.classList.remove('resizing-row');
+    try { handle.releasePointerCapture(e.pointerId); } catch (err) {}
+    setCueFormHeight(form.getBoundingClientRect().height, true);
+  };
+  handle.addEventListener('pointerup', stop);
+  handle.addEventListener('pointercancel', stop);
+
+  // Double-click to clear the manual height and go back to sizing to content.
+  handle.addEventListener('dblclick', () => {
+    form.style.height = '';
+    try { localStorage.removeItem('mmt_cue_form_h'); } catch (e) {}
+  });
+}
+
 function toggleCuePanel() {
   const panel = document.getElementById('cue-panel');
   if (!panel) return;
@@ -11295,6 +11454,10 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft') prevPage();
   if (e.key === 'ArrowRight') nextPage();
   if (e.key === 'c') setTool('cue');
+  // Zoom: +/- and 0 to reset, mirroring standard viewer shortcuts.
+  if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomIn(); }
+  if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomOut(); }
+  if (e.key === '0') { e.preventDefault(); zoomReset(); }
   if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCueId) { e.preventDefault(); deleteCue(selectedCueId); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
 });
@@ -11306,6 +11469,8 @@ function openScriptsEditor() {
   if (ed) ed.classList.add('open');
   renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches();
   initCuePanelResize();
+  initCueFormResize();
+  initZoom();
   // Default to the cue tool with the first cue type selected
   setTool('cue');
   if (cueTypes.length) {
