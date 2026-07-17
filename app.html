@@ -3678,7 +3678,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v4</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9328,12 +9328,18 @@ let isDrawing = false;
 let showId = '';
 
 // Cue types: { id, name, color }
+// SCENE is a real type so it rides the existing plumbing (placing, dragging,
+// script-order sorting, delete). It isn't a cue though — at export it becomes
+// a divider row that the cues below it belong to. SCENE_TYPE_ID is the single
+// place that distinction is defined.
+const SCENE_TYPE_ID = 'scene';
 let cueTypes = [
   { id: 'lx', name: 'LX', color: '#e74c3c' },
   { id: 'sfx', name: 'SFX', color: '#3498db' },
   { id: 'fly', name: 'FLY', color: '#2ecc71' },
   { id: 'spot', name: 'SPOT', color: '#f1c40f' },
   { id: 'spot_out', name: 'SPOT OUT', color: '#e67e22' },
+  { id: 'scene', name: 'SCENE', color: '#8e44ad' },
 ];
 const DEFAULT_CUE_TYPES = [
   { id: 'lx', name: 'LX', color: '#e74c3c' },
@@ -9341,7 +9347,9 @@ const DEFAULT_CUE_TYPES = [
   { id: 'fly', name: 'FLY', color: '#2ecc71' },
   { id: 'spot', name: 'SPOT', color: '#f1c40f' },
   { id: 'spot_out', name: 'SPOT OUT', color: '#e67e22' },
+  { id: 'scene', name: 'SCENE', color: '#8e44ad' },
 ];
+const isSceneCue = c => c && c.type === SCENE_TYPE_ID;
 // Merge saved types with defaults so newly-added default types (e.g. SPOT OUT)
 // appear on scripts saved before they existed, without losing the user's own types.
 function mergeCueTypes(saved) {
@@ -10003,15 +10011,29 @@ drawCanvas.addEventListener('pointerup', e => {
         w, h
       };
 
-      // Always auto-number a freshly drawn cue (never inherit the editor's
-      // current field text — that belongs to the previously selected cue).
+      // Auto-number a freshly drawn cue. Never inherit the editor's current
+      // field text — that belongs to the previously selected cue.
+      //
+      // Counting cues (the old `filter(...).length + 1`) breaks two ways:
+      // delete LX 5 of 5 and the next new cue is LX 5 again, colliding with
+      // nothing but reusing a retired number; and after any manual renumber
+      // the count stops matching reality. Take the highest number actually in
+      // use and add one, so numbers only ever move forward.
       let num;
-      if (isSpot) {
-        const spotCues = cues.filter(c => c.type === typeId);
-        const lastNum = spotCues.length > 0 ? parseInt((spotCues[spotCues.length-1].number||'').replace(/\D/g,'') || '0') : 0;
-        num = type.name + ' ' + (lastNum === 1 ? 2 : 1);
+      if (typeId === SCENE_TYPE_ID) {
+        // Scenes are named, not numbered — "Scene 1", "Scene 2"... in the order
+        // they're placed. Rename in the editor to the real title ("The Witches
+        // Domain") and it'll head that block in the cue sheet.
+        const sceneCount = cues.filter(c => c.type === SCENE_TYPE_ID).length;
+        num = 'Scene ' + (sceneCount + 1);
+      } else if (isSpot) {
+        // Spots alternate 1/2 (two followspot ops) — pick whichever the most
+        // recent spot cue in SCRIPT ORDER wasn't, so they ping-pong down the page.
+        const spotCues = cuesInScriptOrder(cues.filter(c => c.type === typeId));
+        const last = spotCues.length ? parseInt((spotCues[spotCues.length-1].number || '').replace(/\D/g, '') || '0') : 0;
+        num = type.name + ' ' + (last === 1 ? 2 : 1);
       } else {
-        num = type.name + ' ' + (cues.filter(c=>c.type===typeId).length+1);
+        num = type.name + ' ' + (nextCueNumber(typeId, type.name));
       }
       // New cues start blank — details are filled in via the editor after placing.
       const action = '';
@@ -10421,6 +10443,20 @@ function deleteCueType(i) { ctEditingIdx = i; deleteCueTypeFromModal(); }
 function editTypeColor(i) { editCueTypeModal(i); }
 
 // ── CUE LIST ─────────────────────────────────────────────────────────────────
+// Next free number for a cue type: highest currently in use + 1. Parses the
+// digits out of the number string ("LX 12" -> 12) so it survives manual
+// renumbering and deletions — unlike counting, which reuses retired numbers.
+// Decimal inserts (LX 12.5) round down, so a 12.5 won't block 13.
+function nextCueNumber(typeId, typeName) {
+  const nums = cues
+    .filter(c => c.type === typeId)
+    .map(c => {
+      const m = String(c.number || '').match(/(\d+(?:\.\d+)?)/);
+      return m ? Math.floor(parseFloat(m[1])) : 0;
+    });
+  return (nums.length ? Math.max(...nums) : 0) + 1;
+}
+
 // A cue's true position in the show is where its box sits on the script page —
 // top to bottom, page one onward. NOT its number: numbers get edited, inserted
 // out of sequence, and don't reflect where the cue actually falls in the script.
@@ -10822,10 +10858,11 @@ async function exportCueSheet() {
   const MARGIN_BOTTOM = 46;
 
   const COLS = [
-    { key: 'number', label: 'CUE',      w: 62  },
-    { key: 'action', label: 'ACTION',   w: 96  },
+    // CUE holds chip + number + page ("LX 12   p.47"), so it needs real width.
+    { key: 'number', label: 'CUE',      w: 84  },
+    { key: 'action', label: 'ACTION',   w: 92  },
     { key: 'line',   label: 'CUE LINE', w: 186 },
-    { key: 'notes',  label: 'NOTES',    w: 180 },
+    { key: 'notes',  label: 'NOTES',    w: 162 },
   ];
   const X = []; { let x = M; for (const c of COLS) { X.push(x); x += c.w; } }
   const TABLE_W = COLS.reduce((s, c) => s + c.w, 0);
@@ -10878,22 +10915,28 @@ async function exportCueSheet() {
   drawTitle();
   drawHeader();
 
-  // Group into script pages, preserving the geometric order already computed.
-  const byPage = {};
-  sorted.forEach(c => { (byPage[c.page] = byPage[c.page] || []).push(c); });
-  const pageNums = Object.keys(byPage).map(Number).sort((a, b) => a - b);
-
-  pageNums.forEach(pg => {
+  // Cues are already in script order (page, then top-to-bottom). Walk them in
+  // that order and let SCENE markers divide the sheet: each scene marker draws
+  // a divider row, and every cue after it belongs to that scene until the next
+  // one. Script page is shown per-cue instead, next to the cue number.
+  function drawDivider(label) {
     const h = 15;
     ensureRoom(h + 20);
     doc.setFillColor(...tint(PURPLE, 0.86)); doc.rect(M, y, TABLE_W, h, 'F');
     doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...PURPLE);
-    doc.text('SCRIPT PAGE ' + pg, M + PAD, y + 10);
+    doc.text(String(label || '').toUpperCase(), M + PAD, y + 10);
     doc.setDrawColor(...GRID); doc.setLineWidth(0.5); doc.rect(M, y, TABLE_W, h);
     y += h;
     bandOn = false;
+  }
 
-    byPage[pg].forEach(c => {
+  // Anything before the first scene marker still needs a home, otherwise those
+  // cues would print with no heading at all.
+  if (sorted.length && !isSceneCue(sorted[0])) drawDivider('Top of Show');
+
+  {
+    sorted.forEach(c => {
+      if (isSceneCue(c)) { drawDivider(c.number || 'Scene'); return; }
       const t = cueTypes.find(x => x.id === c.type);
       const chipColor = t ? hexToRgb(t.color) : [153,153,153];
       const chipLabel = t ? t.name : (c.type || '');
@@ -10932,12 +10975,23 @@ async function exportCueSheet() {
       bandOn = !bandOn;
 
       // Cue column: type chip + number, both anchored to the row top.
+      // Chip is sized to its own text — a fixed 17pt box fits "LX" but not
+      // "SPOT OUT", which used to overrun and collide with the cue number.
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5);
+      const chipW = Math.min(doc.getTextWidth(chipLabel) + 7, 34);
       doc.setFillColor(...chipColor);
-      doc.roundedRect(X[0] + PAD, y + PAD, 17, 9, 4.5, 4.5, 'F');
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5); doc.setTextColor(255,255,255);
-      doc.text(chipLabel, X[0] + PAD + 8.5, y + PAD + 6.3, { align: 'center' });
+      doc.roundedRect(X[0] + PAD, y + PAD, chipW, 9, 4.5, 4.5, 'F');
+      doc.setTextColor(255,255,255);
+      doc.text(chipLabel, X[0] + PAD + chipW / 2, y + PAD + 6.3, { align: 'center' });
+      // Number sits after the chip; long type names get a narrower number slot
+      // rather than overlapping it.
       doc.setFont('helvetica', 'bold'); doc.setFontSize(FS); doc.setTextColor(20,20,20);
-      doc.text(cells.number, X[0] + PAD + 21, y + PAD + 7.5);
+      doc.text(cells.number, X[0] + PAD + chipW + 4, y + PAD + 7.5);
+      // Script page sits right of the cue number, greyed so it reads as
+      // metadata rather than part of the number. Scene dividers head the sheet
+      // now, so the page has to travel with each individual cue.
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(150,150,160);
+      doc.text('p.' + (c.page || '?'), X[0] + COLS[0].w - PAD, y + PAD + 7.5, { align: 'right' });
 
       doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
       doc.setTextColor(40,40,40);
@@ -10967,7 +11021,7 @@ async function exportCueSheet() {
 
       y += rowH;
     });
-  });
+  }
 
   // Footer with page numbers
   const pageCount = doc.internal.getNumberOfPages();
