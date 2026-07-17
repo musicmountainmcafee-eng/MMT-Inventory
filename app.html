@@ -3678,7 +3678,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.11 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.11 v3</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -10778,13 +10778,16 @@ async function exportCueSheet() {
   const pageH = doc.internal.pageSize.getHeight();
   const marginX = 44, marginTop = 50, marginBottom = 46;
   const purple = [83, 74, 183];
-  const thumbMaxW = 120, thumbMaxH = 28; // cropped script-line photo, capped tight so rows stay compact
+  // Cropped script-line photos are the whole point of this column, so give
+  // them real room. The old 120x28 cap scaled a full line of dialogue down to
+  // something unreadable, and crushed any multi-line crop into a smear.
+  const thumbMaxW = 200, thumbMaxH = 90;
 
-  // Column layout
+  // Column layout — Cue Line is sized to the thumbnail, Notes takes the rest.
   const colCue    = { x: marginX,       w: 78 };
-  const colAction = { x: marginX + 84,  w: 130 };
-  const colLine   = { x: marginX + 220, w: thumbMaxW + 10 };
-  const colNotes  = { x: marginX + 220 + thumbMaxW + 20, w: pageW - marginX - (marginX + 220 + thumbMaxW + 20) };
+  const colAction = { x: marginX + 84,  w: 104 };
+  const colLine   = { x: marginX + 194, w: thumbMaxW };
+  const colNotes  = { x: marginX + 194 + thumbMaxW + 12, w: pageW - marginX - (marginX + 194 + thumbMaxW + 12) };
 
   let y = marginTop;
 
@@ -10854,20 +10857,21 @@ async function exportCueSheet() {
 
       const actionLines = wrap(c.action, colAction.w - 4, 9.5);
       const notesLines = wrap(c.notes || c.description, colNotes.w - 4, 9.5);
-      const crop = cropCache[c.id];
+      const rawCrop = cropCache[c.id];
 
-      // Size the crop thumbnail to fit within the column, preserving aspect
-      // ratio. Guard against missing/zero natural dimensions (which would make
-      // the scale calc blow up and draw the image at full size, overflowing).
+      // Only trust a crop that reported real natural dimensions. Substituting
+      // the max-box dims when they're missing (the old behavior) forced jsPDF
+      // to stretch the image to a box that didn't match its true aspect ratio
+      // — that's what made wide crops bleed into the Notes column and tall
+      // multi-line crops get squashed flat. No dims => fall back to text.
+      const crop = (rawCrop && rawCrop.dataUrl && rawCrop.w > 0 && rawCrop.h > 0) ? rawCrop : null;
+
+      // Scale to fit the column box, preserving aspect ratio. Never upscale.
       let thumbW = 0, thumbH = 0;
       if (crop) {
-        const cw = crop.w > 0 ? crop.w : thumbMaxW;
-        const ch = crop.h > 0 ? crop.h : thumbMaxH;
-        const scale = Math.min(thumbMaxW / cw, thumbMaxH / ch, 1);
-        thumbW = cw * scale; thumbH = ch * scale;
-        // Hard ceiling — never exceed the caps no matter what.
-        if (thumbW > thumbMaxW) thumbW = thumbMaxW;
-        if (thumbH > thumbMaxH) thumbH = thumbMaxH;
+        const scale = Math.min(thumbMaxW / crop.w, thumbMaxH / crop.h, 1);
+        thumbW = crop.w * scale;
+        thumbH = crop.h * scale;
       }
       const lineLines = (!crop && c.cueLine) ? wrap(c.cueLine, colLine.w - 4, 9.5) : [];
 
