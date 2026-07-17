@@ -3678,7 +3678,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v3</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -10800,176 +10800,173 @@ async function exportCueSheet() {
     cropCache[c.id] = await loadImageAsDataUrl(c.lineCrop);
   }));
 
-  // Group by page
-  const byPage = {};
-  sorted.forEach(c => { (byPage[c.page] = byPage[c.page] || []).push(c); });
-  const pages = Object.keys(byPage).map(Number).sort((a, b) => a - b);
-  const usedTypes = [...new Set(sorted.map(c => c.type))].map(id => cueTypes.find(t => t.id === id)).filter(Boolean);
+  // ── Spreadsheet-style layout ───────────────────────────────────────────────
+  // Rebuilt from scratch. The old version drew content from two different
+  // origins (rowTop and y = rowTop+9) while only advancing one of them, so a
+  // row never reserved the height it actually occupied and tall crops leaked
+  // into the rows beneath. Here EVERY cell is measured from the row's top edge
+  // and rowH is the max of all cells + padding. One origin, no exceptions.
+  const doc = new jsPDFCtor({ orientation: 'p', unit: 'pt', format: 'letter' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+
+  const M = 44;                       // page margin
+  const PAD = 5;                      // cell padding
+  const LEAD = 11;                    // text line height
+  const FS = 8.5;                     // body font size
+  const MIN_ROW = 14;                 // shortest a row may be (before padding)
+  const BAND = [236, 236, 242];       // zebra: every other row
+  const GRID = [200, 200, 210];       // cell borders
+  const HEAD_BG = [232, 232, 240];
+  const PURPLE = [83, 74, 183];
+  const MARGIN_BOTTOM = 46;
+
+  const COLS = [
+    { key: 'number', label: 'CUE',      w: 62  },
+    { key: 'action', label: 'ACTION',   w: 96  },
+    { key: 'line',   label: 'CUE LINE', w: 186 },
+    { key: 'notes',  label: 'NOTES',    w: 180 },
+  ];
+  const X = []; { let x = M; for (const c of COLS) { X.push(x); x += c.w; } }
+  const TABLE_W = COLS.reduce((s, c) => s + c.w, 0);
+  // Crop thumbnails live inside the Cue Line cell, so they can never be wider
+  // than its inner width — that's what used to push images into Notes.
+  const THUMB_MAX_W = COLS[2].w - PAD * 2;
+  const THUMB_MAX_H = 84;
 
   const hexToRgb = hex => {
     const h = (hex || '#999999').replace('#', '');
     return [parseInt(h.slice(0,2),16) || 153, parseInt(h.slice(2,4),16) || 153, parseInt(h.slice(4,6),16) || 153];
   };
+  const tint = (rgb, amt) => rgb.map(v => Math.round(v + (255 - v) * amt));
 
-  const doc = new jsPDFCtor({ orientation: 'p', unit: 'pt', format: 'letter' });
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-  const marginX = 44, marginTop = 50, marginBottom = 46;
-  const purple = [83, 74, 183];
-  // Cropped script-line photos are the whole point of this column, so give
-  // them real room. The old 120x28 cap scaled a full line of dialogue down to
-  // something unreadable, and crushed any multi-line crop into a smear.
-  const thumbMaxW = 200, thumbMaxH = 90;
+  let y = 0;
+  let bandOn = false;
 
-  // Column layout — Cue Line is sized to the thumbnail, Notes takes the rest.
-  const colCue    = { x: marginX,       w: 78 };
-  const colAction = { x: marginX + 84,  w: 104 };
-  const colLine   = { x: marginX + 194, w: thumbMaxW };
-  const colNotes  = { x: marginX + 194 + thumbMaxW + 12, w: pageW - marginX - (marginX + 194 + thumbMaxW + 12) };
-
-  let y = marginTop;
-
-  function drawHeader(isFirstPage) {
-    if (isFirstPage) {
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(19); doc.setTextColor(20,20,20);
-      doc.text(showName + ' — Cue Sheet', marginX, y);
-      y += 18;
-      doc.setDrawColor(...purple); doc.setLineWidth(2);
-      doc.line(marginX, y, pageW - marginX, y);
-      y += 16;
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(120,120,120);
-      doc.text(sorted.length + ' cues  ·  Exported ' + exportedStr, marginX, y);
-      y += 18;
-      // Legend chips
-      let lx = marginX;
-      usedTypes.forEach(t => {
-        const w = doc.getTextWidth(t.name) + 16;
-        doc.setFillColor(...hexToRgb(t.color));
-        doc.roundedRect(lx, y - 10, w, 16, 8, 8, 'F');
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(255,255,255);
-        doc.text(t.name, lx + w/2, y, { align: 'center', baseline: 'middle' });
-        lx += w + 6;
-      });
-      y += 22;
-    }
-    // Column headers (repeated on every page)
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(140,140,140);
-    doc.text('CUE', colCue.x, y);
-    doc.text('ACTION', colAction.x, y);
-    doc.text('CUE LINE', colLine.x, y);
-    doc.text('NOTES', colNotes.x, y);
-    y += 6;
-    doc.setDrawColor(210,210,210); doc.setLineWidth(1);
-    doc.line(marginX, y, pageW - marginX, y);
-    y += 14;
+  function drawTitle() {
+    y = 54;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(20,20,20);
+    doc.text(showName + ' — Cue Sheet', M, y); y += 13;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(140,140,140);
+    doc.text('Exported ' + exportedStr, M, y); y += 16;
   }
-
+  function drawHeader() {
+    const h = 17;
+    doc.setFillColor(...HEAD_BG); doc.rect(M, y, TABLE_W, h, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(90,90,105);
+    COLS.forEach((c, i) => doc.text(c.label, X[i] + PAD, y + 11));
+    doc.setDrawColor(...GRID); doc.setLineWidth(0.5);
+    COLS.forEach((c, i) => doc.line(X[i], y, X[i], y + h));
+    doc.line(M + TABLE_W, y, M + TABLE_W, y + h);
+    doc.setDrawColor(140,140,155); doc.setLineWidth(0.9);
+    doc.line(M, y + h, M + TABLE_W, y + h);
+    y += h;
+  }
+  // Reserve room before drawing. Anything taller than a full page draws anyway
+  // (clipped) rather than looping forever on an empty page.
   function ensureRoom(rowH) {
-    if (y + rowH > pageH - marginBottom) {
+    if (y + rowH > pageH - MARGIN_BOTTOM && y > 90) {
       doc.addPage();
-      y = marginTop;
-      drawHeader(false);
+      drawTitle();
+      drawHeader();
+      bandOn = false;
+      return true;
     }
+    return false;
   }
 
-  function wrap(text, width, size) {
-    doc.setFontSize(size);
-    return doc.splitTextToSize(String(text || ''), width);
-  }
+  drawTitle();
+  drawHeader();
 
-  drawHeader(true);
+  // Group into script pages, preserving the geometric order already computed.
+  const byPage = {};
+  sorted.forEach(c => { (byPage[c.page] = byPage[c.page] || []).push(c); });
+  const pageNums = Object.keys(byPage).map(Number).sort((a, b) => a - b);
 
-  pages.forEach(pg => {
-    // Page-group divider
-    ensureRoom(22);
-    doc.setFillColor(243, 242, 251);
-    doc.rect(marginX, y - 11, pageW - marginX * 2, 18, 'F');
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...purple);
-    doc.text('SCRIPT PAGE ' + pg, marginX + 6, y);
-    y += 20;
+  pageNums.forEach(pg => {
+    const h = 15;
+    ensureRoom(h + 20);
+    doc.setFillColor(...tint(PURPLE, 0.86)); doc.rect(M, y, TABLE_W, h, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...PURPLE);
+    doc.text('SCRIPT PAGE ' + pg, M + PAD, y + 10);
+    doc.setDrawColor(...GRID); doc.setLineWidth(0.5); doc.rect(M, y, TABLE_W, h);
+    y += h;
+    bandOn = false;
 
     byPage[pg].forEach(c => {
       const t = cueTypes.find(x => x.id === c.type);
-      const color = t ? t.color : '#999999';
-      const tn = t ? t.name : (c.type || '');
+      const chipColor = t ? hexToRgb(t.color) : [153,153,153];
+      const chipLabel = t ? t.name : (c.type || '');
 
-      const actionLines = wrap(c.action, colAction.w - 4, 9.5);
-      const notesLines = wrap(c.notes || c.description, colNotes.w - 4, 9.5);
+      // Cue Line is TEXT FIRST — the typed line is the source of truth. The
+      // cropped script photo is only a fallback for cues that never got one
+      // typed in, which is why LX 61/63 still show as images.
       const rawCrop = cropCache[c.id];
-
-      // Only trust a crop that reported real natural dimensions. Substituting
-      // the max-box dims when they're missing (the old behavior) forced jsPDF
-      // to stretch the image to a box that didn't match its true aspect ratio
-      // — that's what made wide crops bleed into the Notes column and tall
-      // multi-line crops get squashed flat. No dims => fall back to text.
       const crop = (rawCrop && rawCrop.dataUrl && rawCrop.w > 0 && rawCrop.h > 0) ? rawCrop : null;
+      const useCrop = !c.cueLine && !!crop;
 
-      // Scale to fit the column box, preserving aspect ratio. Never upscale.
+      doc.setFontSize(FS);
+      const cells = {
+        number: [String(c.number || '')],
+        action: doc.splitTextToSize(String(c.action || ''), COLS[1].w - PAD * 2),
+        line:   useCrop ? [] : doc.splitTextToSize(String(c.cueLine || ''), COLS[2].w - PAD * 2),
+        notes:  doc.splitTextToSize(String(c.notes || c.description || ''), COLS[3].w - PAD * 2),
+      };
+
       let thumbW = 0, thumbH = 0;
-      if (crop) {
-        const scale = Math.min(thumbMaxW / crop.w, thumbMaxH / crop.h, 1);
-        thumbW = crop.w * scale;
-        thumbH = crop.h * scale;
+      if (useCrop) {
+        const s = Math.min(THUMB_MAX_W / crop.w, THUMB_MAX_H / crop.h, 1);
+        thumbW = crop.w * s; thumbH = crop.h * s;
       }
-      const lineLines = (!crop && c.cueLine) ? wrap(c.cueLine, colLine.w - 4, 9.5) : [];
 
-      // Row layout, all measured from rowTop (the row's true top edge).
-      //
-      // The old code mixed origins: content was drawn from both rowTop and y
-      // (= rowTop + 9), while rowH only advanced y — so the height never
-      // actually covered what the row occupied. Everything below is expressed
-      // as "distance from rowTop" so the row reserves exactly what it draws.
-      //
-      //   text baseline    : rowTop + 9  (first line), +12 per extra line
-      //   cue number base  : rowTop + 24, needs ~4pt descender room
-      //   crop image top   : rowTop + 1, extends thumbH down
-      const textLines = Math.max(1, actionLines.length, lineLines.length, notesLines.length);
-      const textBottom  = 9 + (textLines - 1) * 12 + 4;   // last baseline + descender
-      const cueColBottom = 24 + 4;                        // number baseline + descender
-      const thumbBottom  = thumbH ? (1 + thumbH) : 0;     // image top offset + its height
-      const rowH = Math.max(textBottom, cueColBottom, thumbBottom) + 8; // +8 breathing room
+      // Row height = tallest cell + padding. Text cells and the thumbnail are
+      // measured the same way, from the row top, so neither can overrun.
+      const textH = Math.max(
+        cells.action.length, cells.line.length, cells.notes.length, 1
+      ) * LEAD;
+      const rowH = Math.max(textH, thumbH, MIN_ROW) + PAD * 2;
 
       ensureRoom(rowH);
-      const rowTop = y - 9;
 
-      // Type chip + cue number
-      const chipW = doc.getTextWidth(tn) * 0.6 + 12;
-      doc.setFillColor(...hexToRgb(color));
-      doc.roundedRect(colCue.x, rowTop, Math.min(chipW, colCue.w), 12, 6, 6, 'F');
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(255,255,255);
-      doc.text(tn, colCue.x + Math.min(chipW, colCue.w)/2, rowTop + 8.5, { align: 'center' });
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(20,20,20);
-      doc.text(String(c.number || ''), colCue.x, rowTop + 24);
+      if (bandOn) { doc.setFillColor(...BAND); doc.rect(M, y, TABLE_W, rowH, 'F'); }
+      bandOn = !bandOn;
 
-      doc.setFont('helvetica', 'normal'); doc.setTextColor(30,30,30); doc.setFontSize(9.5);
-      doc.text(actionLines, colAction.x, y);
+      // Cue column: type chip + number, both anchored to the row top.
+      doc.setFillColor(...chipColor);
+      doc.roundedRect(X[0] + PAD, y + PAD, 17, 9, 4.5, 4.5, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5); doc.setTextColor(255,255,255);
+      doc.text(chipLabel, X[0] + PAD + 8.5, y + PAD + 6.3, { align: 'center' });
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(FS); doc.setTextColor(20,20,20);
+      doc.text(cells.number, X[0] + PAD + 21, y + PAD + 7.5);
 
-      if (crop) {
-        // Use the crop's ACTUAL format (Drive's thumbnail endpoint commonly
-        // returns PNG regardless of the source file — hardcoding 'JPEG' here
-        // silently failed to render for any crop that came back as PNG).
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
+      doc.setTextColor(40,40,40);
+      if (cells.action.length) doc.text(cells.action, X[1] + PAD, y + PAD + 7);
+
+      if (useCrop) {
         const fmt = /^data:image\/png/i.test(crop.dataUrl) ? 'PNG' : 'JPEG';
         try {
-          doc.addImage(crop.dataUrl, fmt, colLine.x, rowTop + 1, thumbW, thumbH);
+          doc.addImage(crop.dataUrl, fmt, X[2] + PAD, y + PAD, thumbW, thumbH);
         } catch (err) {
-          // Format guess was wrong (or jsPDF is picky about this variant) —
-          // try the other format once before giving up on this image.
-          try { doc.addImage(crop.dataUrl, fmt === 'PNG' ? 'JPEG' : 'PNG', colLine.x, rowTop + 1, thumbW, thumbH); }
-          catch (err2) { /* still no good — skip the image, row still has everything else */ }
+          try { doc.addImage(crop.dataUrl, fmt === 'PNG' ? 'JPEG' : 'PNG', X[2] + PAD, y + PAD, thumbW, thumbH); }
+          catch (err2) { /* unreadable image — leave the cell empty, row is intact */ }
         }
-      } else if (lineLines.length) {
-        doc.setFont('helvetica', 'italic'); doc.setTextColor(90,90,90);
-        doc.text(lineLines, colLine.x, y);
+      } else if (cells.line.length) {
+        doc.setTextColor(70,70,70);
+        doc.text(cells.line, X[2] + PAD, y + PAD + 7);
       }
 
-      doc.setFont('helvetica', 'normal'); doc.setTextColor(60,60,60);
-      doc.text(notesLines, colNotes.x, y);
+      doc.setTextColor(60,60,60);
+      if (cells.notes.length) doc.text(cells.notes, X[3] + PAD, y + PAD + 7);
+
+      // Cell borders last, so they sit on top of the band fill.
+      doc.setDrawColor(...GRID); doc.setLineWidth(0.4);
+      COLS.forEach((col, i) => doc.line(X[i], y, X[i], y + rowH));
+      doc.line(M + TABLE_W, y, M + TABLE_W, y + rowH);
+      doc.line(M, y + rowH, M + TABLE_W, y + rowH);
 
       y += rowH;
-      doc.setDrawColor(235,235,235); doc.setLineWidth(0.5);
-      doc.line(marginX, y - 4, pageW - marginX, y - 4);
     });
-    y += 6;
   });
 
   // Footer with page numbers
@@ -10977,8 +10974,8 @@ async function exportCueSheet() {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(160,160,160);
-    doc.text('Music Mountain Theatre', marginX, pageH - 22);
-    doc.text('Page ' + i + ' of ' + pageCount, pageW - marginX, pageH - 22, { align: 'right' });
+    doc.text('Music Mountain Theatre', M, pageH - 22);
+    doc.text('Page ' + i + ' of ' + pageCount, pageW - M, pageH - 22, { align: 'right' });
   }
 
   doc.save(showName.replace(/[^a-z0-9]/gi, '_') + '_cue_sheet.pdf');
