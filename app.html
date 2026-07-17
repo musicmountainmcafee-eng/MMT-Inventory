@@ -2042,7 +2042,10 @@
   #scripts-editor .page-nav button { padding: 4px 12px; border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm); background: none; color: var(--cue-text-muted); font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
   #scripts-editor .page-nav button:hover { background: var(--cue-surface2); }
   #scripts-editor .page-nav span { font-size: 13px; color: var(--cue-text-muted); font-family: 'DM Mono', monospace; }
-  #scripts-editor .canvas-wrap { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 20px; position: relative; }
+  /* overflow-x hidden + centered flex = the script is always horizontally
+     centered and never side-scrolls. Zoom is capped to the available width
+     (see maxFitZoom) so nothing is ever cut off by this. */
+  #scripts-editor .canvas-wrap { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; align-items: flex-start; justify-content: center; padding: 20px; position: relative; }
   /* Zoom is applied as a CSS transform on the container, NOT by re-rendering the
      PDF at a new scale. Annotations are stored in canvas pixel coords, so
      changing the canvas resolution would move every saved cue box. Scaling
@@ -2091,7 +2094,7 @@
   #scripts-editor .cue-add input, #scripts-editor .cue-add select { width: 100%; padding: 7px 10px; border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm); background: var(--cue-surface2); color: var(--cue-text); font-size: 13px; font-family: 'DM Sans', sans-serif; margin-bottom: 6px; }
   #scripts-editor .cue-add input:focus, #scripts-editor .cue-add select:focus { outline: none; border-color: var(--purple); }
   #scripts-editor .cue-add button { width: 100%; padding: 8px; border: none; border-radius: var(--cue-radius-sm); background: var(--purple); color: white; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; }
-  #scripts-editor .type-manager { padding: 12px 16px; border-top: 1px solid var(--cue-border); }
+  #scripts-editor .type-manager { padding: 12px 16px; border-top: 1px solid var(--cue-border); overflow-y: auto; flex-shrink: 0; }
   #scripts-editor .type-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 12px; }
   #scripts-editor .type-color { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; cursor: pointer; }
   #scripts-editor .type-label { flex: 1; }
@@ -3333,7 +3336,8 @@
         <input type="text" id="cue-desc" placeholder="Notes (optional)" oninput="onCueFormInput()" disabled />
         <div id="cue-edit-hint" style="font-size:12px;color:var(--cue-text-faint);line-height:1.4;">Draw a cue on the script (pick a type, then drag), then select it here to fill in details.</div>
       </div>
-      <div class="type-manager">
+      <div class="row-resizer" id="type-resizer" title="Drag to resize"></div>
+      <div class="type-manager" id="type-manager-el">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
           <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--cue-text-faint);">Cue Types</span>
           <button class="top-btn" style="font-size:11px;padding:3px 8px;" onclick="addCueType()">+ Type</button>
@@ -3706,7 +3710,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v9</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v10</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9853,33 +9857,61 @@ let zoomLevel = 1;
 const ZOOM_MIN = 0.35, ZOOM_MAX = 4;
 const ZOOM_STEPS = [0.35, 0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 2.5, 3, 4];
 
-function applyZoom(persist) {
+// The widest zoom that still fits the window, so the page never overflows
+// sideways. Zooming past this would require horizontal scrolling, which we
+// deliberately don't allow — the script stays centered at every zoom.
+function maxFitZoom() {
+  const wrap = document.getElementById('canvas-wrap');
   const el = document.getElementById('canvas-container');
+  if (!wrap || !el || !el.offsetWidth) return ZOOM_MAX;
+  return Math.max(ZOOM_MIN, (wrap.clientWidth - 40) / el.offsetWidth);
+}
+
+function applyScriptZoom(persist) {
+  const el = document.getElementById('canvas-container');
+  const wrap = document.getElementById('canvas-wrap');
   if (!el) return;
   zoomLevel = Math.min(Math.max(zoomLevel, ZOOM_MIN), ZOOM_MAX);
   el.style.transform = 'scale(' + zoomLevel + ')';
-  // A CSS transform doesn't affect layout, so the wrapper wouldn't scroll to
-  // reach a zoomed-in page. Reserve the scaled footprint via margins.
+
+  // A CSS transform doesn't affect layout, so reserve the extra footprint with
+  // margins or the wrapper won't scroll far enough to reach the page's edges.
   const w = el.offsetWidth, h = el.offsetHeight;
   el.style.marginBottom = Math.round(h * (zoomLevel - 1)) + 'px';
-  const dx = Math.round(w * (zoomLevel - 1) / 2);
-  el.style.marginLeft = dx + 'px';
-  el.style.marginRight = dx + 'px';
+
+  // Horizontal scrolling is OFF while the page fits — it stays centered, which
+  // is the normal case. It only turns on when you deliberately zoom past the
+  // fit width, since at that point the page physically cannot be seen otherwise.
+  const fits = zoomLevel <= maxFitZoom() + 0.001;
+  if (wrap) wrap.style.overflowX = fits ? 'hidden' : 'auto';
+  if (fits) {
+    el.style.marginLeft = '';
+    el.style.marginRight = '';
+  } else {
+    const dx = Math.round(w * (zoomLevel - 1) / 2);
+    el.style.marginLeft = dx + 'px';
+    el.style.marginRight = dx + 'px';
+  }
+
   const info = document.getElementById('zoom-info');
   if (info) info.textContent = Math.round(zoomLevel * 100) + '%';
   if (persist !== false) { try { localStorage.setItem('mmt_zoom', String(zoomLevel)); } catch (e) {} }
 }
 
 function zoomIn() {
-  zoomLevel = ZOOM_STEPS.find(z => z > zoomLevel + 0.001) || ZOOM_MAX;
-  applyZoom();
+  // The +/- buttons stay within the fit width, so normal zooming never turns on
+  // horizontal scroll. Ctrl/Cmd+scroll can still go past it deliberately.
+  const cap = Math.min(ZOOM_MAX, maxFitZoom());
+  const next = ZOOM_STEPS.find(z => z > zoomLevel + 0.001) || ZOOM_MAX;
+  zoomLevel = Math.min(next, Math.max(cap, zoomLevel));
+  applyScriptZoom();
 }
 function zoomOut() {
   const below = ZOOM_STEPS.filter(z => z < zoomLevel - 0.001);
   zoomLevel = below.length ? below[below.length - 1] : ZOOM_MIN;
-  applyZoom();
+  applyScriptZoom();
 }
-function zoomReset() { zoomLevel = 1; applyZoom(); }
+function zoomReset() { zoomLevel = 1; applyScriptZoom(); }
 
 // Fit the whole page in the visible area.
 function zoomFit() {
@@ -9890,7 +9922,7 @@ function zoomFit() {
   const fitW = (wrap.clientWidth - padding) / el.offsetWidth;
   const fitH = (wrap.clientHeight - padding) / el.offsetHeight;
   zoomLevel = Math.min(fitW, fitH);
-  applyZoom();
+  applyScriptZoom();
 }
 
 function initZoom() {
@@ -9898,7 +9930,7 @@ function initZoom() {
     const saved = parseFloat(localStorage.getItem('mmt_zoom'));
     if (saved && saved >= ZOOM_MIN && saved <= ZOOM_MAX) zoomLevel = saved;
   } catch (e) {}
-  applyZoom(false);
+  applyScriptZoom(false);
 
   const wrap = document.getElementById('canvas-wrap');
   if (wrap && !wrap.dataset.zoomWired) {
@@ -9909,8 +9941,11 @@ function initZoom() {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       zoomLevel = Math.min(Math.max(zoomLevel * (e.deltaY < 0 ? 1.1 : 0.9), ZOOM_MIN), ZOOM_MAX);
-      applyZoom();
+      applyScriptZoom();
     }, { passive: false });
+    // A narrower window shrinks the fit ceiling, so re-clamp rather than let
+    // the page overflow sideways.
+    window.addEventListener('resize', () => applyScriptZoom(false));
   }
 }
 
@@ -9935,7 +9970,7 @@ async function renderPage() {
   redrawAnnotations();
   // Canvas dimensions just changed, so the reserved scroll footprint has to be
   // recomputed for the new page size.
-  applyZoom(false);
+  applyScriptZoom(false);
   document.getElementById('page-info').textContent = `Page ${currentPage} / ${totalPages}`;
 }
 
@@ -10922,6 +10957,9 @@ function setCuePanelWidth(px, persist) {
   const roomForScript = editor ? Math.max(PANEL_MIN_W, editor.clientWidth - 360) : PANEL_MAX_W;
   const w = Math.round(Math.min(Math.max(px, PANEL_MIN_W), Math.min(PANEL_MAX_W, roomForScript)));
   panel.style.width = w + 'px';
+  // Narrowing the script area can leave the page wider than the window, which
+  // would force the sideways scroll we don't allow — so re-clamp the zoom.
+  if (typeof applyScriptZoom === 'function') applyScriptZoom(false);
   if (persist) { try { localStorage.setItem('mmt_cue_panel_w', String(w)); } catch (e) {} }
   return w;
 }
@@ -10977,33 +11015,38 @@ function initCuePanelResize() {
   handle.addEventListener('dblclick', () => setCuePanelWidth(300, true));
 }
 
-// Drag the grip above the cue entry form to trade space between the cue list
-// and the form. The list is flex:1 so it just absorbs whatever's left.
-const FORM_MIN_H = 90;
+// The cue panel is three stacked sections: the cue list (flex:1, absorbs the
+// slack), the entry form, and the cue types list. Each of the bottom two gets a
+// drag grip above it that sets its own height; the list just takes what's left.
+const SECTION_MIN_H = 60;
 
-function setCueFormHeight(px, persist) {
-  const form = document.getElementById('cue-edit-panel');
+function setSectionHeight(el, px, storageKey, persist) {
   const panel = document.getElementById('cue-panel');
-  if (!form || !panel) return;
-  // Always leave a usable strip of cue list above the form.
-  const maxH = Math.max(FORM_MIN_H, panel.clientHeight - 160);
-  const h = Math.round(Math.min(Math.max(px, FORM_MIN_H), maxH));
-  form.style.height = h + 'px';
-  if (persist) { try { localStorage.setItem('mmt_cue_form_h', String(h)); } catch (e) {} }
+  if (!el || !panel) return;
+  // Reserve room for the cue list plus whichever sibling section isn't being
+  // dragged, so a section can never swallow the panel.
+  const other = el.id === 'cue-edit-panel'
+    ? document.getElementById('type-manager-el')
+    : document.getElementById('cue-edit-panel');
+  const otherH = other ? other.getBoundingClientRect().height : 0;
+  const maxH = Math.max(SECTION_MIN_H, panel.clientHeight - otherH - 120);
+  const h = Math.round(Math.min(Math.max(px, SECTION_MIN_H), maxH));
+  el.style.height = h + 'px';
+  if (persist && storageKey) { try { localStorage.setItem(storageKey, String(h)); } catch (e) {} }
   return h;
 }
 
-function initCueFormResize() {
-  const form = document.getElementById('cue-edit-panel');
-  const handle = document.getElementById('row-resizer');
-  if (!form || !handle) return;
+function wireSectionResizer(handleId, targetId, storageKey) {
+  const handle = document.getElementById(handleId);
+  const target = document.getElementById(targetId);
+  if (!handle || !target) return;
 
   try {
-    const saved = parseInt(localStorage.getItem('mmt_cue_form_h'));
-    if (saved) setCueFormHeight(saved, false);
+    const saved = parseInt(localStorage.getItem(storageKey));
+    if (saved) setSectionHeight(target, saved, storageKey, false);
   } catch (e) {}
 
-  if (handle.dataset.wired) return;
+  if (handle.dataset.wired) return;  // openScriptsEditor can run more than once
   handle.dataset.wired = '1';
 
   let dragging = false;
@@ -11019,10 +11062,10 @@ function initCueFormResize() {
 
   handle.addEventListener('pointermove', e => {
     if (!dragging) return;
-    // Form is bottom-anchored: its height is the distance from the pointer down
-    // to the bottom of the panel.
-    const rect = form.getBoundingClientRect();
-    setCueFormHeight(rect.bottom - e.clientY, false);
+    // Sections are bottom-anchored, so height = pointer distance up from the
+    // section's bottom edge.
+    const rect = target.getBoundingClientRect();
+    setSectionHeight(target, rect.bottom - e.clientY, storageKey, false);
   });
 
   const stop = e => {
@@ -11031,16 +11074,21 @@ function initCueFormResize() {
     handle.classList.remove('dragging');
     if (editor) editor.classList.remove('resizing-row');
     try { handle.releasePointerCapture(e.pointerId); } catch (err) {}
-    setCueFormHeight(form.getBoundingClientRect().height, true);
+    setSectionHeight(target, target.getBoundingClientRect().height, storageKey, true);
   };
   handle.addEventListener('pointerup', stop);
   handle.addEventListener('pointercancel', stop);
 
-  // Double-click to clear the manual height and go back to sizing to content.
+  // Double-click clears the manual height and goes back to sizing to content.
   handle.addEventListener('dblclick', () => {
-    form.style.height = '';
-    try { localStorage.removeItem('mmt_cue_form_h'); } catch (e) {}
+    target.style.height = '';
+    try { localStorage.removeItem(storageKey); } catch (e) {}
   });
+}
+
+function initCueFormResize() {
+  wireSectionResizer('row-resizer', 'cue-edit-panel', 'mmt_cue_form_h');
+  wireSectionResizer('type-resizer', 'type-manager-el', 'mmt_cue_types_h');
 }
 
 function toggleCuePanel() {
