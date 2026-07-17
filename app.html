@@ -3325,8 +3325,12 @@
   <div class="cue-edit">
     <h3 id="ce-title">Edit Cue</h3>
     <label>Type</label>
-    <select id="ce-type"></select>
-    <label>Cue Number</label>
+    <select id="ce-type" onchange="onCeTypeChange()"></select>
+    <div id="ce-act-row" style="display:none;">
+      <label>Act</label>
+      <input type="number" id="ce-act" min="1" value="1" />
+    </div>
+    <label id="ce-num-label">Cue Number</label>
     <input type="text" id="ce-num" />
     <label>Action (what the cue does)</label>
     <input type="text" id="ce-action" placeholder="e.g. Fade to blue wash" />
@@ -3678,7 +3682,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v5</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v6</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9333,7 +9337,6 @@ let showId = '';
 // a divider row that the cues below it belong to. SCENE_TYPE_ID is the single
 // place that distinction is defined.
 const SCENE_TYPE_ID = 'scene';
-const INTERMISSION_TYPE_ID = 'intermission';
 let cueTypes = [
   { id: 'lx', name: 'LX', color: '#e74c3c' },
   { id: 'sfx', name: 'SFX', color: '#3498db' },
@@ -9341,7 +9344,6 @@ let cueTypes = [
   { id: 'spot', name: 'SPOT', color: '#f1c40f' },
   { id: 'spot_out', name: 'SPOT OUT', color: '#e67e22' },
   { id: 'scene', name: 'SCENE', color: '#8e44ad' },
-  { id: 'intermission', name: 'INTERMISSION', color: '#16a085' },
 ];
 const DEFAULT_CUE_TYPES = [
   { id: 'lx', name: 'LX', color: '#e74c3c' },
@@ -9350,32 +9352,32 @@ const DEFAULT_CUE_TYPES = [
   { id: 'spot', name: 'SPOT', color: '#f1c40f' },
   { id: 'spot_out', name: 'SPOT OUT', color: '#e67e22' },
   { id: 'scene', name: 'SCENE', color: '#8e44ad' },
-  { id: 'intermission', name: 'INTERMISSION', color: '#16a085' },
 ];
 const isSceneCue = c => c && c.type === SCENE_TYPE_ID;
-const isIntermissionCue = c => c && c.type === INTERMISSION_TYPE_ID;
-// Scenes and intermissions structure the sheet rather than being cues in it.
-const isStructuralCue = c => isSceneCue(c) || isIntermissionCue(c);
+// Scenes structure the sheet rather than being cues in it.
+const isStructuralCue = c => isSceneCue(c);
 
-// Act/scene labels are DERIVED from script order, never stored. Drop an
-// intermission above three existing scenes and they must all become Act 2 —
-// which can't happen if the label was baked in when the marker was placed.
-// Walks the cues in script order and returns { [cueId]: 'Act 2, Scene 1' }.
+// Act/scene labels. The act is a field on the scene itself (c.act, default 1).
+// The scene NUMBER is still derived from script order and restarts at 1 each
+// time the act changes, so inserting a scene mid-act renumbers the rest for
+// free. Returns { [cueId]: 'Act 2, Scene 1 — The Witches Domain' }.
 function sceneLabels() {
   const out = {};
-  let act = 1, scene = 0;
+  let lastAct = null, scene = 0;
   cuesInScriptOrder().forEach(c => {
-    if (isIntermissionCue(c)) { act++; scene = 0; return; }
-    if (isSceneCue(c)) {
-      scene++;
-      // A scene renamed to something real ("The Witches Domain") keeps its
-      // title and just gets the act/scene prefix; an untouched auto-name is
-      // replaced outright so it can't drift out of sync.
-      const custom = String(c.number || '').trim();
-      const isAuto = /^(act\s*\d+[,\s]*)?scene\s*\d+$/i.test(custom);
-      const base = 'Act ' + act + ', Scene ' + scene;
-      out[c.id] = (custom && !isAuto) ? base + ' — ' + custom.replace(/^(act\s*\d+[,\s]*)?scene\s*\d+\s*[—-]\s*/i, '') : base;
-    }
+    if (!isSceneCue(c)) return;
+    const act = Math.max(1, parseInt(c.act) || 1);
+    if (act !== lastAct) { scene = 0; lastAct = act; }
+    scene++;
+    // A scene renamed to something real ("The Witches Domain") keeps its title
+    // and just gets the act/scene prefix; an untouched auto-name is replaced
+    // outright so it can't drift out of sync with its position.
+    const custom = String(c.number || '').trim();
+    const isAuto = /^(act\s*\d+[,\s]*)?scene\s*\d+$/i.test(custom);
+    const base = 'Act ' + act + ', Scene ' + scene;
+    out[c.id] = (custom && !isAuto)
+      ? base + ' — ' + custom.replace(/^(act\s*\d+[,\s]*)?scene\s*\d+\s*[—-]\s*/i, '')
+      : base;
   });
   return out;
 }
@@ -10049,15 +10051,16 @@ drawCanvas.addEventListener('pointerup', e => {
       // the count stops matching reality. Take the highest number actually in
       // use and add one, so numbers only ever move forward.
       let num;
-      if (typeId === INTERMISSION_TYPE_ID) {
-        num = 'Intermission';
-      } else if (typeId === SCENE_TYPE_ID) {
-        // Just a placeholder — the real "Act 2, Scene 1" label is computed from
-        // script order at render time (see sceneLabels), so that dropping an
-        // intermission above existing scenes renumbers them automatically.
-        // Rename this in the editor to the scene's actual title.
-        const sceneCount = cues.filter(c => c.type === SCENE_TYPE_ID).length;
-        num = 'Scene ' + (sceneCount + 1);
+      let sceneAct = null;
+      if (typeId === SCENE_TYPE_ID) {
+        // A new scene inherits the act of the scene above it in script order —
+        // so once you set Act 2, every scene you place after it stays in Act 2
+        // instead of resetting to 1. Change it in the editor to start a new act.
+        const priorScenes = cuesInScriptOrder(cues.filter(c => c.type === SCENE_TYPE_ID));
+        sceneAct = priorScenes.length ? (parseInt(priorScenes[priorScenes.length - 1].act) || 1) : 1;
+        // Placeholder only — the real "Act 2, Scene 1" label is computed from
+        // script order at render (see sceneLabels). Rename to the scene's title.
+        num = 'Scene ' + (cues.filter(c => c.type === SCENE_TYPE_ID).length + 1);
       } else if (isSpot) {
         // Spots alternate 1/2 (two followspot ops) — pick whichever the most
         // recent spot cue in SCRIPT ORDER wasn't, so they ping-pong down the page.
@@ -10085,7 +10088,9 @@ drawCanvas.addEventListener('pointerup', e => {
       const labelX = drawCanvas.width - labelW - 28; // keep long labels (e.g. SPOT OUT 2) on-page
       const labelY = rect.y + rect.h;                // level with marker BOTTOM → horizontal line from bottom
 
-      cues.push({ id: cueId, type: typeId, number: num, action, cueLine, notes, description: notes, page: currentPage, lineCrop });
+      const newCue = { id: cueId, type: typeId, number: num, action, cueLine, notes, description: notes, page: currentPage, lineCrop };
+      if (sceneAct !== null) newCue.act = sceneAct;
+      cues.push(newCue);
 
       if (!annotations[currentPage]) annotations[currentPage] = [];
       annotations[currentPage].push({
@@ -10616,6 +10621,18 @@ function flashCueMarker(a) {
   pulse();
 }
 
+// Act only applies to scenes, so the field appears only for them. Also relabels
+// "Cue Number" -> "Scene Name", since that's what the field means for a scene.
+function onCeTypeChange() {
+  const sel = document.getElementById('ce-type');
+  if (!sel) return;
+  const isScene = sel.value === SCENE_TYPE_ID;
+  const row = document.getElementById('ce-act-row');
+  if (row) row.style.display = isScene ? '' : 'none';
+  const lbl = document.getElementById('ce-num-label');
+  if (lbl) lbl.textContent = isScene ? 'Scene Name' : 'Cue Number';
+}
+
 function editCue(id) {
   const c = cues.find(c => c.id === id);
   if (!c) return;
@@ -10623,6 +10640,8 @@ function editCue(id) {
   document.getElementById('ce-title').textContent = 'Edit ' + (c.number || 'Cue');
   document.getElementById('ce-type').innerHTML = cueTypes.map(t => `<option value="${t.id}"${t.id===c.type?' selected':''}>${t.name}</option>`).join('');
   document.getElementById('ce-num').value = c.number || '';
+  document.getElementById('ce-act').value = Math.max(1, parseInt(c.act) || 1);
+  onCeTypeChange();
   document.getElementById('ce-action').value = c.action || '';
   document.getElementById('ce-line').value = c.cueLine || '';
   document.getElementById('ce-notes').value = c.notes || c.description || '';
@@ -10635,6 +10654,11 @@ function saveCueEdit() {
   if (!c) return;
   c.type = document.getElementById('ce-type').value;
   c.number = document.getElementById('ce-num').value.trim();
+  if (c.type === SCENE_TYPE_ID) {
+    c.act = Math.max(1, parseInt(document.getElementById('ce-act').value) || 1);
+  } else {
+    delete c.act; // act is meaningless on a normal cue
+  }
   c.action = document.getElementById('ce-action').value.trim();
   c.cueLine = document.getElementById('ce-line').value.trim();
   c.notes = document.getElementById('ce-notes').value.trim();
@@ -10966,27 +10990,12 @@ async function exportCueSheet() {
   // trusting whatever label was stored when each marker was dropped.
   const SCENE_LABELS = sceneLabels();
 
-  // Intermission reads as a hard break in the show, so it gets its own
-  // full-width bar in the type's teal rather than the purple scene tint.
-  function drawIntermission() {
-    const h = 18;
-    ensureRoom(h + 20);
-    const teal = hexToRgb((cueTypes.find(t => t.id === INTERMISSION_TYPE_ID) || {}).color || '#16a085');
-    doc.setFillColor(...teal); doc.rect(M, y, TABLE_W, h, 'F');
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(255,255,255);
-    doc.text('INTERMISSION', M + TABLE_W / 2, y + 12, { align: 'center' });
-    doc.setDrawColor(...GRID); doc.setLineWidth(0.5); doc.rect(M, y, TABLE_W, h);
-    y += h;
-    bandOn = false;
-  }
-
   // Anything before the first scene marker still needs a home, otherwise those
   // cues would print with no heading at all.
   if (sorted.length && !isStructuralCue(sorted[0])) drawDivider('Top of Show');
 
   {
     sorted.forEach(c => {
-      if (isIntermissionCue(c)) { drawIntermission(); return; }
       if (isSceneCue(c)) { drawDivider(SCENE_LABELS[c.id] || c.number || 'Scene'); return; }
       const t = cueTypes.find(x => x.id === c.type);
       const chipColor = t ? hexToRgb(t.color) : [153,153,153];
