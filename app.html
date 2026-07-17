@@ -3678,7 +3678,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v2</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -10913,21 +10913,21 @@ async function exportCueSheet() {
       }
       const lineLines = (!crop && c.cueLine) ? wrap(c.cueLine, colLine.w - 4, 9.5) : [];
 
-      // Row height must cover the tallest thing in the row. Three competing
-      // claims, and the old code only counted the first two:
-      //   1. text columns (Action / Cue Line / Notes)
-      //   2. the crop thumbnail — drawn from rowTop+1, but rowH is measured
-      //      from y (= rowTop+9), so it needs thumbH+1 of headroom ABOVE y
-      //      plus padding, or the image runs into the row beneath it.
-      //   3. the Cue column itself — the type chip sits at rowTop and the cue
-      //      number's baseline is at rowTop+24, i.e. 24-9=15pt below y, and it
-      //      needs a few pt of descender room under that. This is what made
-      //      "LX 62"/"LX 61" and "LX 56"/"LX 57" print on top of each other on
-      //      sparse rows, where textRowH alone came out to only ~20pt.
-      const textRowH = Math.max(1, actionLines.length, lineLines.length, notesLines.length) * 12 + 8;
-      const cueColH  = 24 - 9 + 10;        // number baseline below y + descender room
-      const thumbRowH = thumbH ? (thumbH - 8 + 10) : 0; // image extends 8pt above y
-      const rowH = Math.max(textRowH, cueColH, thumbRowH);
+      // Row layout, all measured from rowTop (the row's true top edge).
+      //
+      // The old code mixed origins: content was drawn from both rowTop and y
+      // (= rowTop + 9), while rowH only advanced y — so the height never
+      // actually covered what the row occupied. Everything below is expressed
+      // as "distance from rowTop" so the row reserves exactly what it draws.
+      //
+      //   text baseline    : rowTop + 9  (first line), +12 per extra line
+      //   cue number base  : rowTop + 24, needs ~4pt descender room
+      //   crop image top   : rowTop + 1, extends thumbH down
+      const textLines = Math.max(1, actionLines.length, lineLines.length, notesLines.length);
+      const textBottom  = 9 + (textLines - 1) * 12 + 4;   // last baseline + descender
+      const cueColBottom = 24 + 4;                        // number baseline + descender
+      const thumbBottom  = thumbH ? (1 + thumbH) : 0;     // image top offset + its height
+      const rowH = Math.max(textBottom, cueColBottom, thumbBottom) + 8; // +8 breathing room
 
       ensureRoom(rowH);
       const rowTop = y - 9;
