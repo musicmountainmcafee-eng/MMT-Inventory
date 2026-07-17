@@ -2053,7 +2053,13 @@
     transform: translate(calc(-100% - 14px), calc(-100% - 14px));
   }
 
-  #scripts-editor .cue-panel { width: 300px; background: var(--cue-surface); border-left: 1px solid var(--cue-border); display: flex; flex-direction: column; flex-shrink: 0; }
+  #scripts-editor .cue-panel { width: 300px; background: var(--cue-surface); border-left: 1px solid var(--cue-border); display: flex; flex-direction: column; flex-shrink: 0; position: relative; }
+  /* Drag handle on the panel's left edge — grab it to widen/narrow the whole
+     Cue Sheet column. Sits slightly outside the border so it's easy to hit. */
+  #scripts-editor .panel-resizer { position: absolute; left: -3px; top: 0; bottom: 0; width: 7px; cursor: col-resize; z-index: 5; background: transparent; }
+  #scripts-editor .panel-resizer:hover, #scripts-editor .panel-resizer.dragging { background: var(--purple); opacity: 0.55; }
+  #scripts-editor.resizing { cursor: col-resize; user-select: none; }
+  #scripts-editor.resizing .cue-list { pointer-events: none; }
   #scripts-editor .cue-panel-header { padding: 12px 16px; border-bottom: 1px solid var(--cue-border); display: flex; align-items: center; justify-content: space-between; }
   #scripts-editor .cue-panel-header h3 { font-size: 14px; font-weight: 600; }
   #scripts-editor .cue-list { flex: 1; overflow-y: auto; padding: 8px; }
@@ -2094,6 +2100,8 @@
 
   @media (max-width: 768px) {
     #scripts-editor .cue-panel { width: 100%; position: fixed; bottom: 0; left: 0; right: 0; height: 45vh; z-index: 20; transform: translateY(100%); transition: transform 0.3s; border-top: 1px solid var(--cue-border); border-left: none; }
+    /* Panel is a full-width bottom sheet on mobile — nothing to resize sideways. */
+    #scripts-editor .panel-resizer { display: none; }
     #scripts-editor .cue-panel.open { transform: translateY(0); }
     #scripts-editor .tool-sidebar { width: 44px; }
     #scripts-editor .tool-btn { width: 34px; height: 34px; font-size: 15px; }
@@ -3289,17 +3297,10 @@
     </div>
     <!-- CUE PANEL -->
     <div class="cue-panel" id="cue-panel">
+      <div class="panel-resizer" id="panel-resizer" title="Drag to resize"></div>
       <div class="cue-panel-header">
         <h3>Cue Sheet</h3>
         <span style="font-size:12px;color:var(--cue-text-faint);" id="cue-count">0 cues</span>
-      </div>
-      <div class="cue-size-bar" style="display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--cue-border);font-size:10px;color:var(--cue-text-faint);text-transform:uppercase;letter-spacing:0.05em;">
-        <label style="display:flex;align-items:center;gap:5px;flex:1;">Width
-          <input type="range" id="ct-width" min="60" max="320" value="140" style="flex:1;accent-color:var(--purple);" oninput="applyCueTableSize()" />
-        </label>
-        <label style="display:flex;align-items:center;gap:5px;flex:1;">Height
-          <input type="range" id="ct-height" min="4" max="40" value="7" style="flex:1;accent-color:var(--purple);" oninput="applyCueTableSize()" />
-        </label>
       </div>
       <div class="cue-list" id="cue-list" style="overflow-x:auto;"></div>
       <div class="cue-add" id="cue-edit-panel">
@@ -3685,7 +3686,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v7</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v8</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9405,8 +9406,25 @@ function mergeCueTypes(saved) {
 // fold them back into a sane default rather than leaving them broken.
 function purgeRetiredTypes() {
   let changed = false;
+  const sceneType = DEFAULT_CUE_TYPES.find(t => t.id === SCENE_TYPE_ID);
   cues.forEach(c => {
-    if (RETIRED_CUE_TYPE_IDS.includes(c.type)) { c.type = SCENE_TYPE_ID; changed = true; }
+    if (!RETIRED_CUE_TYPE_IDS.includes(c.type)) return;
+    c.type = SCENE_TYPE_ID;
+    // Rename off the retired type ("INTERMISSION 1" -> "Scene"), since the label
+    // is drawn from c.number and would otherwise still read INTERMISSION.
+    if (/intermission/i.test(String(c.number || ''))) c.number = 'Scene';
+    if (c.act == null) c.act = 1;
+    // The marker drawn on the script carries its own label/color copy, so it
+    // keeps showing the old teal INTERMISSION chip unless it's synced too.
+    Object.keys(annotations).forEach(pg => {
+      (annotations[pg] || []).forEach(a => {
+        if (a.cueId === c.id) {
+          a.label = c.number;
+          if (sceneType) a.color = sceneType.color;
+        }
+      });
+    });
+    changed = true;
   });
   return changed;
 }
@@ -10797,43 +10815,73 @@ function goToPage(p) { if (p !== currentPage) { savePageAnnotations(); currentPa
 // sliders above the list. Width targets the CUE LINE and NOTES columns — the
 // content ones that actually get squeezed; the type/#/page columns are sized to
 // their content and shouldn't stretch. Persisted per-device.
-function applyCueTableSize() {
-  const wEl = document.getElementById('ct-width');
-  const hEl = document.getElementById('ct-height');
-  if (!wEl || !hEl) return;
-  const w = parseInt(wEl.value) || 140;
-  const h = parseInt(hEl.value) || 7;
-  let st = document.getElementById('ct-size-style');
-  if (!st) {
-    st = document.createElement('style');
-    st.id = 'ct-size-style';
-    document.head.appendChild(st);
-  }
-  // table-layout:fixed is what makes the widths actually stick — without it the
-  // browser auto-sizes columns and ignores them (that's why CUE LINE collapsed
-  // to a sliver when a row had only an image).
-  st.textContent =
-    '#scripts-editor .cue-table { table-layout: fixed; }' +
-    '#scripts-editor .cue-table td, #scripts-editor .cue-table th { padding-top:' + h + 'px; padding-bottom:' + h + 'px; }' +
-    '#scripts-editor .cue-table .ct-line, #scripts-editor .cue-table th:nth-child(4) { width:' + w + 'px; max-width:' + w + 'px; overflow:hidden; text-overflow:ellipsis; }' +
-    '#scripts-editor .cue-table .ct-notes, #scripts-editor .cue-table th:nth-child(5) { width:' + w + 'px; max-width:' + w + 'px; overflow:hidden; text-overflow:ellipsis; }';
-  try {
-    localStorage.setItem('mmt_ct_size', JSON.stringify({ w, h }));
-  } catch (e) {}
+// Drag the Cue Sheet panel's left edge to resize the whole column. Width is
+// persisted per-device, and clamped so the panel can't be dragged off-screen or
+// squeezed down to nothing.
+const PANEL_MIN_W = 220;
+const PANEL_MAX_W = 900;
+
+function setCuePanelWidth(px, persist) {
+  const panel = document.getElementById('cue-panel');
+  if (!panel) return;
+  // Never let the panel eat the whole editor — leave room for the script itself.
+  const editor = document.getElementById('scripts-editor');
+  const roomForScript = editor ? Math.max(PANEL_MIN_W, editor.clientWidth - 360) : PANEL_MAX_W;
+  const w = Math.round(Math.min(Math.max(px, PANEL_MIN_W), Math.min(PANEL_MAX_W, roomForScript)));
+  panel.style.width = w + 'px';
+  if (persist) { try { localStorage.setItem('mmt_cue_panel_w', String(w)); } catch (e) {} }
+  return w;
 }
 
-// Restore saved slider positions before first paint so the table doesn't jump.
-function initCueTableSize() {
-  try {
-    const s = JSON.parse(localStorage.getItem('mmt_ct_size') || 'null');
-    if (s) {
-      const wEl = document.getElementById('ct-width');
-      const hEl = document.getElementById('ct-height');
-      if (wEl && s.w) wEl.value = s.w;
-      if (hEl && s.h) hEl.value = s.h;
-    }
-  } catch (e) {}
-  applyCueTableSize();
+function initCuePanelResize() {
+  const panel = document.getElementById('cue-panel');
+  const handle = document.getElementById('panel-resizer');
+  if (!panel || !handle) return;
+
+  // Restore saved width (desktop only — on mobile the panel is a bottom sheet
+  // and an inline width would fight the CSS).
+  if (window.innerWidth > 768) {
+    try {
+      const saved = parseInt(localStorage.getItem('mmt_cue_panel_w'));
+      if (saved) setCuePanelWidth(saved, false);
+    } catch (e) {}
+  }
+
+  if (handle.dataset.wired) return;  // openScriptsEditor can run more than once
+  handle.dataset.wired = '1';
+
+  let dragging = false;
+  const editor = document.getElementById('scripts-editor');
+
+  handle.addEventListener('pointerdown', e => {
+    if (window.innerWidth <= 768) return;
+    dragging = true;
+    handle.classList.add('dragging');
+    if (editor) editor.classList.add('resizing');
+    handle.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  handle.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    // Panel is right-anchored, so its width is the distance from the pointer to
+    // the window's right edge.
+    setCuePanelWidth(window.innerWidth - e.clientX, false);
+  });
+
+  const stop = e => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    if (editor) editor.classList.remove('resizing');
+    try { handle.releasePointerCapture(e.pointerId); } catch (err) {}
+    setCuePanelWidth(panel.getBoundingClientRect().width, true);  // persist final width
+  };
+  handle.addEventListener('pointerup', stop);
+  handle.addEventListener('pointercancel', stop);
+
+  // Double-click the handle to snap back to the default.
+  handle.addEventListener('dblclick', () => setCuePanelWidth(300, true));
 }
 
 function toggleCuePanel() {
@@ -11257,7 +11305,7 @@ function openScriptsEditor() {
   const ed = document.getElementById('scripts-editor');
   if (ed) ed.classList.add('open');
   renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches();
-  initCueTableSize();
+  initCuePanelResize();
   // Default to the cue tool with the first cue type selected
   setTool('cue');
   if (cueTypes.length) {
