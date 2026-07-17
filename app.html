@@ -3678,7 +3678,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.11 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.11 v2</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9698,11 +9698,16 @@ function cropScriptLine(rect) {
   const pdfCanvas = document.getElementById('pdf-canvas');
   if (!pdfCanvas) return '';
   try {
-    const pad = 4;
-    const cropX = Math.max(0, rect.x - pad);
-    const cropY = Math.max(0, rect.y - pad);
-    const cropW = Math.min(pdfCanvas.width - cropX, rect.w + pad * 2);
-    const cropH = Math.min(pdfCanvas.height - cropY, rect.h + pad * 2);
+    // Horizontal padding is deliberately larger than vertical: people drawing
+    // a box around a line of dialogue tend to undershoot the right edge (the
+    // line trails off, or the box is drawn slightly short), which used to
+    // silently truncate the exported photo mid-word. A few extra px on top/
+    // bottom keeps the row tight; a bigger buffer on the sides forgives that.
+    const padX = 16, padY = 4;
+    const cropX = Math.max(0, rect.x - padX);
+    const cropY = Math.max(0, rect.y - padY);
+    const cropW = Math.min(pdfCanvas.width - cropX, rect.w + padX * 2);
+    const cropH = Math.min(pdfCanvas.height - cropY, rect.h + padY * 2);
     if (cropW <= 0 || cropH <= 0) return '';
 
     const off = document.createElement('canvas');
