@@ -3258,7 +3258,6 @@
       <span class="show-name" id="show-name"></span>
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
-      <button class="top-btn" id="toggle-cues" onclick="toggleCuePanel()">Cues ▸</button>
       <button class="top-btn" onclick="exportCueSheet()">Export Cues</button>
       <button class="top-btn" onclick="exportAnnotatedPDF()">Export PDF</button>
       <button class="top-btn primary" onclick="goHome()">← Scripts</button>
@@ -3267,15 +3266,11 @@
   <div class="cue-main">
     <!-- TOOL SIDEBAR -->
     <div class="tool-sidebar">
-      <button class="tool-btn" id="tool-pen" onclick="setTool('pen')" title="Pen">✏️</button>
       <button class="tool-btn active" id="tool-cue" onclick="setTool('cue')" title="Place Cue">🔵</button>
-      <button class="tool-btn" id="tool-eraser" onclick="setTool('eraser')" title="Eraser">🧹</button>
       <div class="tool-divider"></div>
       <button class="tool-btn" onclick="undo()" title="Undo">↩</button>
       <div class="tool-divider"></div>
       <div id="type-quick" style="display:flex;flex-direction:column;gap:3px;align-items:center;"></div>
-      <div class="tool-divider"></div>
-      <input type="range" min="1" max="8" value="2" id="pen-size" style="width:36px;writing-mode:vertical-lr;height:60px;accent-color:var(--purple);" title="Pen size" />
     </div>
     <!-- PDF VIEWER -->
     <div class="viewer">
@@ -3297,6 +3292,14 @@
       <div class="cue-panel-header">
         <h3>Cue Sheet</h3>
         <span style="font-size:12px;color:var(--cue-text-faint);" id="cue-count">0 cues</span>
+      </div>
+      <div class="cue-size-bar" style="display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--cue-border);font-size:10px;color:var(--cue-text-faint);text-transform:uppercase;letter-spacing:0.05em;">
+        <label style="display:flex;align-items:center;gap:5px;flex:1;">Width
+          <input type="range" id="ct-width" min="60" max="320" value="140" style="flex:1;accent-color:var(--purple);" oninput="applyCueTableSize()" />
+        </label>
+        <label style="display:flex;align-items:center;gap:5px;flex:1;">Height
+          <input type="range" id="ct-height" min="4" max="40" value="7" style="flex:1;accent-color:var(--purple);" oninput="applyCueTableSize()" />
+        </label>
       </div>
       <div class="cue-list" id="cue-list" style="overflow-x:auto;"></div>
       <div class="cue-add" id="cue-edit-panel">
@@ -3682,7 +3685,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v6</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v7</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9383,12 +9386,29 @@ function sceneLabels() {
 }
 // Merge saved types with defaults so newly-added default types (e.g. SPOT OUT)
 // appear on scripts saved before they existed, without losing the user's own types.
+// Types that were shipped once and then retired. Saved cue types live in the
+// Sheet, and mergeCueTypes only ever ADDED missing defaults — so a type removed
+// from the defaults would linger in the sidebar forever on any device that had
+// already saved it. Listing it here purges it on load.
+const RETIRED_CUE_TYPE_IDS = ['intermission'];
+
 function mergeCueTypes(saved) {
-  const result = Array.isArray(saved) ? saved.slice() : [];
+  const result = (Array.isArray(saved) ? saved : [])
+    .filter(t => t && !RETIRED_CUE_TYPE_IDS.includes(t.id));
   DEFAULT_CUE_TYPES.forEach(def => {
     if (!result.some(t => t.id === def.id)) result.push(def);
   });
   return result;
+}
+
+// Any cue still pointing at a retired type would render with a blank chip, so
+// fold them back into a sane default rather than leaving them broken.
+function purgeRetiredTypes() {
+  let changed = false;
+  cues.forEach(c => {
+    if (RETIRED_CUE_TYPE_IDS.includes(c.type)) { c.type = SCENE_TYPE_ID; changed = true; }
+  });
+  return changed;
 }
 
 // Cues: { id, type, number, description, page }
@@ -9898,7 +9918,7 @@ drawCanvas.addEventListener('pointerdown', e => {
   if (currentTool === 'pen' || currentTool === 'eraser') {
     isDrawing = true;
     const color = currentTool === 'eraser' ? 'erase' : penColor;
-    const size = currentTool === 'eraser' ? 20 : parseInt(document.getElementById('pen-size').value);
+    const size = currentTool === 'eraser' ? 20 : (parseInt((document.getElementById('pen-size') || {}).value) || 2);
     currentStroke = { type: 'stroke', points: [pos], color, size };
     drawCanvas.setPointerCapture(e.pointerId);
   }
@@ -10773,10 +10793,57 @@ function onCueFormInput() {
 
 function goToPage(p) { if (p !== currentPage) { savePageAnnotations(); currentPage = p; renderPage(); } }
 
+// Column width / row height for the on-screen cue sheet, driven by the two
+// sliders above the list. Width targets the CUE LINE and NOTES columns — the
+// content ones that actually get squeezed; the type/#/page columns are sized to
+// their content and shouldn't stretch. Persisted per-device.
+function applyCueTableSize() {
+  const wEl = document.getElementById('ct-width');
+  const hEl = document.getElementById('ct-height');
+  if (!wEl || !hEl) return;
+  const w = parseInt(wEl.value) || 140;
+  const h = parseInt(hEl.value) || 7;
+  let st = document.getElementById('ct-size-style');
+  if (!st) {
+    st = document.createElement('style');
+    st.id = 'ct-size-style';
+    document.head.appendChild(st);
+  }
+  // table-layout:fixed is what makes the widths actually stick — without it the
+  // browser auto-sizes columns and ignores them (that's why CUE LINE collapsed
+  // to a sliver when a row had only an image).
+  st.textContent =
+    '#scripts-editor .cue-table { table-layout: fixed; }' +
+    '#scripts-editor .cue-table td, #scripts-editor .cue-table th { padding-top:' + h + 'px; padding-bottom:' + h + 'px; }' +
+    '#scripts-editor .cue-table .ct-line, #scripts-editor .cue-table th:nth-child(4) { width:' + w + 'px; max-width:' + w + 'px; overflow:hidden; text-overflow:ellipsis; }' +
+    '#scripts-editor .cue-table .ct-notes, #scripts-editor .cue-table th:nth-child(5) { width:' + w + 'px; max-width:' + w + 'px; overflow:hidden; text-overflow:ellipsis; }';
+  try {
+    localStorage.setItem('mmt_ct_size', JSON.stringify({ w, h }));
+  } catch (e) {}
+}
+
+// Restore saved slider positions before first paint so the table doesn't jump.
+function initCueTableSize() {
+  try {
+    const s = JSON.parse(localStorage.getItem('mmt_ct_size') || 'null');
+    if (s) {
+      const wEl = document.getElementById('ct-width');
+      const hEl = document.getElementById('ct-height');
+      if (wEl && s.w) wEl.value = s.w;
+      if (hEl && s.h) hEl.value = s.h;
+    }
+  } catch (e) {}
+  applyCueTableSize();
+}
+
 function toggleCuePanel() {
   const panel = document.getElementById('cue-panel');
+  if (!panel) return;
   panel.classList.toggle('open');
-  document.getElementById('toggle-cues').textContent = panel.classList.contains('open') ? 'Cues ◂' : 'Cues ▸';
+  // The header toggle is gone (it did nothing on desktop, where the panel is
+  // always visible); selectCue still opens the panel on mobile.
+  const btn = document.getElementById('toggle-cues');
+  if (btn) btn.textContent = panel.classList.contains('open') ? 'Cues ◂' : 'Cues ▸';
 }
 
 // ── SAVE/LOAD ────────────────────────────────────────────────────────────────
@@ -10814,6 +10881,7 @@ function loadShowData() {
       if (saved.cueTypes) cueTypes = mergeCueTypes(saved.cueTypes);
       if (saved.cues) cues = saved.cues;
       if (saved.annotations) annotations = saved.annotations;
+      purgeRetiredTypes();
     }
   } catch(e) {}
   // Then fetch from Sheet
@@ -10822,8 +10890,12 @@ function loadShowData() {
       if (d.cueData.cueTypes) cueTypes = mergeCueTypes(d.cueData.cueTypes);
       if (d.cueData.cues) cues = d.cueData.cues;
       if (d.cueData.annotations) annotations = d.cueData.annotations;
+      // Retired types linger in the Sheet, so clean them on the way in and push
+      // the corrected data back — otherwise every device keeps re-importing them.
+      const cleaned = purgeRetiredTypes();
       try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(d.cueData)); } catch(e) {}
       redrawAnnotations(); renderCueTypes(); renderCueList(); renderColorSwatches();
+      if (cleaned) saveShowData();
     }
   }, () => {});
 }
@@ -11174,9 +11246,7 @@ document.addEventListener('keydown', e => {
   if (typing) return;
   if (e.key === 'ArrowLeft') prevPage();
   if (e.key === 'ArrowRight') nextPage();
-  if (e.key === 'p') setTool('pen');
   if (e.key === 'c') setTool('cue');
-  if (e.key === 'e') setTool('eraser');
   if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCueId) { e.preventDefault(); deleteCue(selectedCueId); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
 });
@@ -11187,6 +11257,7 @@ function openScriptsEditor() {
   const ed = document.getElementById('scripts-editor');
   if (ed) ed.classList.add('open');
   renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches();
+  initCueTableSize();
   // Default to the cue tool with the first cue type selected
   setTool('cue');
   if (cueTypes.length) {
