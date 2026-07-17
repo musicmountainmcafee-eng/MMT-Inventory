@@ -10913,8 +10913,21 @@ async function exportCueSheet() {
       }
       const lineLines = (!crop && c.cueLine) ? wrap(c.cueLine, colLine.w - 4, 9.5) : [];
 
+      // Row height must cover the tallest thing in the row. Three competing
+      // claims, and the old code only counted the first two:
+      //   1. text columns (Action / Cue Line / Notes)
+      //   2. the crop thumbnail — drawn from rowTop+1, but rowH is measured
+      //      from y (= rowTop+9), so it needs thumbH+1 of headroom ABOVE y
+      //      plus padding, or the image runs into the row beneath it.
+      //   3. the Cue column itself — the type chip sits at rowTop and the cue
+      //      number's baseline is at rowTop+24, i.e. 24-9=15pt below y, and it
+      //      needs a few pt of descender room under that. This is what made
+      //      "LX 62"/"LX 61" and "LX 56"/"LX 57" print on top of each other on
+      //      sparse rows, where textRowH alone came out to only ~20pt.
       const textRowH = Math.max(1, actionLines.length, lineLines.length, notesLines.length) * 12 + 8;
-      const rowH = Math.max(textRowH, thumbH + 8);
+      const cueColH  = 24 - 9 + 10;        // number baseline below y + descender room
+      const thumbRowH = thumbH ? (thumbH - 8 + 10) : 0; // image extends 8pt above y
+      const rowH = Math.max(textRowH, cueColH, thumbRowH);
 
       ensureRoom(rowH);
       const rowTop = y - 9;
@@ -11024,8 +11037,26 @@ async function exportAnnotatedPDF() {
 document.addEventListener('keydown', e => {
   const ed = document.getElementById('scripts-editor');
   if (!ed || !ed.classList.contains('open')) return;  // only in editor
+
   const tn = (e.target.tagName || '').toUpperCase();
-  if (tn === 'INPUT' || tn === 'TEXTAREA' || tn === 'SELECT' || e.target.isContentEditable) return;
+  const typing = tn === 'INPUT' || tn === 'TEXTAREA' || tn === 'SELECT' || e.target.isContentEditable;
+
+  // The cue edit modal (opened by double-clicking a cue box or its number in
+  // the list) — Backspace/Delete removes that cue outright, so long as you
+  // aren't mid-edit in one of its fields. Handled before the `typing` bail-out
+  // below, because opening the modal focuses a field and would otherwise
+  // swallow the key forever.
+  const cueModal = document.getElementById('cue-edit-overlay');
+  if (cueModal && cueModal.classList.contains('open')) {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !typing && editingCueId) {
+      e.preventDefault();
+      deleteCue(editingCueId);
+    }
+    if (e.key === 'Escape') { e.preventDefault(); closeCueEdit(); }
+    return; // modal is up — don't run the page/tool shortcuts underneath it
+  }
+
+  if (typing) return;
   if (e.key === 'ArrowLeft') prevPage();
   if (e.key === 'ArrowRight') nextPage();
   if (e.key === 'p') setTool('pen');
