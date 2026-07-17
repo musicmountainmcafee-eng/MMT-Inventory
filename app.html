@@ -9972,11 +9972,16 @@ drawCanvas.addEventListener('pointerup', e => {
       // It was a click, not a drag → select it (for the Delete key)
       selectCue(a.cueId);
     }
+    const wasMoved = dragMoved && dragMode === 'marker';
     draggingCue = null;
     dragStartPos = null;
     dragMode = null;
     dragOffset = null;
     redrawAnnotations();
+    // Moving a marker changes the cue's position in the script, which is what
+    // determines its place in the cue sheet — so the list has to re-sort.
+    // (Dragging just the label only moves the callout, order is unaffected.)
+    if (wasMoved) renderCueList();
     saveShowData();
     return;
   }
@@ -10416,8 +10421,41 @@ function deleteCueType(i) { ctEditingIdx = i; deleteCueTypeFromModal(); }
 function editTypeColor(i) { editCueTypeModal(i); }
 
 // ── CUE LIST ─────────────────────────────────────────────────────────────────
+// A cue's true position in the show is where its box sits on the script page —
+// top to bottom, page one onward. NOT its number: numbers get edited, inserted
+// out of sequence, and don't reflect where the cue actually falls in the script.
+// The box geometry lives in annotations[page] (keyed by cueId), not on the cue
+// record, so we join the two here.
+//
+// Returns {y, x} in canvas pixels, or null if the cue has no box (shouldn't
+// normally happen, but a cue whose annotation was lost must not vanish).
+function cueRectPos(c) {
+  const a = (annotations[c.page] || []).find(x => x.type === 'cue' && x.cueId === c.id);
+  if (!a || !a.rect) return null;
+  return { y: a.rect.y, x: a.rect.x };
+}
+
+// Canonical cue order: page, then top-to-bottom, then left-to-right for boxes
+// sitting on the same line. Cues missing geometry sort to the end of their page
+// (by number) rather than being dropped or jumping to the top.
+function cuesInScriptOrder(list) {
+  return [...(list || cues)].sort((a, b) => {
+    if (a.page !== b.page) return a.page - b.page;
+    const pa = cueRectPos(a), pb = cueRectPos(b);
+    if (pa && pb) {
+      // ~6px tolerance so two boxes nudged to slightly different heights on the
+      // same line still read left-to-right instead of flipping order randomly.
+      if (Math.abs(pa.y - pb.y) > 6) return pa.y - pb.y;
+      return pa.x - pb.x;
+    }
+    if (pa && !pb) return -1;
+    if (!pa && pb) return 1;
+    return (a.number || '').localeCompare(b.number || '', undefined, { numeric: true });
+  });
+}
+
 function renderCueList() {
-  const sorted = [...cues].sort((a, b) => a.page - b.page || (a.number || '').localeCompare(b.number || ''));
+  const sorted = cuesInScriptOrder();
   document.getElementById('cue-count').textContent = cues.length + ' cue' + (cues.length !== 1 ? 's' : '');
   const el = document.getElementById('cue-list');
   if (!sorted.length) {
@@ -10706,7 +10744,7 @@ function goHome() {
 
 // ── EXPORT ───────────────────────────────────────────────────────────────────
 async function exportCueSheet() {
-  const sorted = [...cues].sort((a, b) => (a.page - b.page) || (a.number || '').localeCompare(b.number || '', undefined, { numeric: true }));
+  const sorted = cuesInScriptOrder();
   if (!sorted.length) { toast('No cues to export'); return; }
   const showName = document.getElementById('show-name').textContent || 'Untitled';
   const now = new Date();
