@@ -3787,7 +3787,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v15</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v16</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -11854,12 +11854,14 @@ async function exportSetChangePlot() {
   // rather than starting with unlabelled rows.
   let curScene = '';
 
-  function newPage() {
+  // withCont=false when a scene is being moved to this page deliberately — it's
+  // about to draw its own bar, and a "(cont.)" above it would be a lie.
+  function newPage(withCont) {
     doc.addPage(); drawTitle(); drawHeader();
-    if (curScene) drawSceneBar(curScene + ' (cont.)', true);
+    if (withCont !== false && curScene) drawSceneBar(curScene + ' (cont.)', true);
   }
   function ensureRoom(h) {
-    if (y + h > pageH - MARGIN_BOTTOM && y > 90) { newPage(); return true; }
+    if (y + h > pageH - MARGIN_BOTTOM && y > 90) { newPage(true); return true; }
     return false;
   }
   // isCont guards the recursion: a continuation bar is drawn immediately after
@@ -11882,29 +11884,30 @@ async function exportSetChangePlot() {
   drawHeader();
 
   const SCENE_LABELS = sceneLabels();
-  let firstBlockInScene = true;
-  let anyScene = false;
-  let shade = false;    // alternates per change, so a block reads as one unit
+  const SCENE_BAR_H = 18;
+
+  // ── Pass 1: measure ────────────────────────────────────────────────────────
+  // Row heights have to be known before anything is placed, because whether a
+  // scene fits on the current page depends on the height of the whole scene,
+  // not just its next row.
+  doc.setFontSize(FS);
+  const wrap = (txt, i) => doc.splitTextToSize(String(txt || ''), COLS[i].w - PAD*2);
+  const sections = [];
+  let cur = null;
 
   ordered.forEach(c => {
     if (isSceneCue(c)) {
-      curScene = SCENE_LABELS[c.id] || c.number || '';
-      drawSceneBar(curScene);
-      firstBlockInScene = true;
-      shade = false;    // every scene opens unshaded
-      anyScene = true;
+      cur = { label: SCENE_LABELS[c.id] || c.number || '', blocks: [] };
+      sections.push(cur);
       return;
     }
     if (c.type !== SHIFT_TYPE_ID) return;   // LX/SFX/FLY belong on the cue sheet
+    // Changes placed above the first scene marker still need somewhere to live.
+    if (!cur) { cur = { label: '', blocks: [] }; sections.push(cur); }
 
     // A change with nothing entered yet still prints, so a blank block on the
     // page tells you it needs filling rather than silently vanishing.
     const moves = (c.moves && c.moves.length) ? c.moves : [{}];
-
-    // Measure the whole block first: a change should not be split across a page
-    // break unless it genuinely can't fit on one.
-    doc.setFontSize(FS);
-    const wrap = (txt, i) => doc.splitTextToSize(String(txt || ''), COLS[i].w - PAD*2);
     const built = moves.map((m, i) => {
       const cells = {
         num:    [i === 0 ? shortNum(c.number) : ''],
@@ -11920,20 +11923,17 @@ async function exportSetChangePlot() {
       const lines = Math.max(...COLS.map(col => cells[col.key].length), 1);
       return { cells, h: Math.max(MIN_ROW, lines * LEAD + PAD*2) };
     });
-    const blockH = built.reduce((s, r) => s + r.h, 0);
+    cur.blocks.push({ built, h: built.reduce((t, r) => t + r.h, 0) });
+  });
 
-    if (!firstBlockInScene) {
-      if (ensureRoom(blockH + 3)) firstBlockInScene = true;
-      else drawBreakRule();
-    } else {
-      ensureRoom(blockH);
-    }
+  const anyScene = sections.some(sec => sec.label);
 
-    const on = shade;
-    built.forEach(r => {
-      // Row taller than a whole page: draw it and let it clip rather than loop.
-      if (y + r.h > pageH - MARGIN_BOTTOM && y > 90) newPage();
-      if (on) { doc.setFillColor(...BLOCK_TINT); doc.rect(M, y, TABLE_W, r.h, 'F'); }
+  function drawRows(block, shaded) {
+    block.built.forEach(r => {
+      // A single row taller than a whole page: draw it and let it clip rather
+      // than loop forever adding empty pages.
+      if (y + r.h > pageH - MARGIN_BOTTOM && y > 90) newPage(true);
+      if (shaded) { doc.setFillColor(...BLOCK_TINT); doc.rect(M, y, TABLE_W, r.h, 'F'); }
       doc.setFontSize(FS); doc.setTextColor(30,30,30);
       COLS.forEach((col, i) => {
         doc.setFont('helvetica', col.bold ? 'bold' : 'normal');
@@ -11946,8 +11946,40 @@ async function exportSetChangePlot() {
       doc.line(M, y + r.h, M + TABLE_W, y + r.h);
       y += r.h;
     });
-    firstBlockInScene = false;
-    shade = !shade;
+  }
+
+  // ── Pass 2: place ──────────────────────────────────────────────────────────
+  const TOP_Y = y;                                   // first row position on a fresh page
+  const USABLE = pageH - MARGIN_BOTTOM - TOP_Y;      // height a scene gets to itself
+
+  sections.forEach(sec => {
+    const barH = sec.label ? SCENE_BAR_H : 0;
+    const secH = barH + sec.blocks.reduce((t, b) => t + b.h, 0)
+                      + Math.max(0, sec.blocks.length - 1) * 1.4;
+
+    // Keep a scene whole. If it won't fit in what's left but would fit on a
+    // page of its own, start it on the next one — an orphaned row or two under
+    // a "(cont.)" bar is harder to read than the white space it saves. A scene
+    // genuinely taller than a page still has to break, and gets the bar.
+    if (y > TOP_Y && y + secH > pageH - MARGIN_BOTTOM && secH <= USABLE) {
+      curScene = '';
+      newPage(false);
+    }
+
+    if (sec.label) { curScene = sec.label; drawSceneBar(sec.label); }
+
+    let shade = false, first = true;
+    sec.blocks.forEach(b => {
+      if (!first) {
+        if (ensureRoom(b.h + 3)) first = true;
+        else drawBreakRule();
+      } else {
+        ensureRoom(b.h);
+      }
+      drawRows(b, shade);
+      shade = !shade;
+      first = false;
+    });
   });
 
   if (!anyScene) toast('No scene markers found — plot has no scene bars');
