@@ -2086,6 +2086,15 @@
   #ac-pop div.on { background: var(--purple, #534AB7); color: #fff; }
   #ac-pop div:hover { background: var(--cue-surface2, #2a2a36); }
   #ac-pop div.on:hover { background: var(--purple, #534AB7); }
+  table.preset-grid { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
+  table.preset-grid th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #5e5e78; text-align: left; padding: 0 5px 4px; }
+  table.preset-grid td { padding: 0 5px; vertical-align: middle; }
+  table.preset-grid .pg-name { font-size: 13px; font-weight: 600; color: #e4e4ec; }
+  table.preset-grid input { width: 100%; box-sizing: border-box; padding: 7px 9px; font-size: 13px;
+    font-family: 'DM Sans', sans-serif; background: #2a2a4a; color: #e4e4ec;
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; margin: 0; }
+  table.preset-grid input:focus { outline: none; border-color: var(--purple); }
+  .pg-empty { font-size: 13px; color: #8b8ba6; padding: 10px 0; }
   #scripts-editor .ct-moves { font-size: 10px; color: var(--cue-text-faint); font-family: 'DM Mono', monospace; }
   #scripts-editor .page-nav { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 8px; background: var(--cue-surface); border-bottom: 1px solid var(--cue-border); flex-shrink: 0; }
   #scripts-editor .page-nav button { padding: 4px 12px; border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm); background: none; color: var(--cue-text-muted); font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
@@ -3349,6 +3358,7 @@
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
       <button class="top-btn" onclick="exportCueSheet()">Export Cues</button>
+      <button class="top-btn" onclick="openPresets()">Presets</button>
       <button class="top-btn" onclick="exportSetChangePlot()">Export Scene Change Plot</button>
       <button class="top-btn" onclick="exportAnnotatedPDF()">Export PDF</button>
       <button class="top-btn primary" onclick="goHome()">← Scripts</button>
@@ -3428,6 +3438,17 @@
 </div>
 
 <!-- Scripts: cue edit modal -->
+<div class="cue-edit-overlay" id="preset-overlay" onclick="if(event.target===this)closePresets()">
+  <div class="cue-edit" style="max-width:760px;">
+    <h3>Before house opens</h3>
+    <p style="font-size:12px;color:#8b8ba6;margin:-8px 0 14px;">
+      Every piece in the show, listed automatically. Say where each one starts.
+      Prints at the top of the scene change plot.</p>
+    <div id="preset-body"></div>
+    <div class="cue-edit-btns"><button class="ce-btn" onclick="closePresets()">Done</button></div>
+  </div>
+</div>
+
 <div class="cue-edit-overlay" id="cue-edit-overlay" onclick="if(event.target===this)closeCueEdit()">
   <div class="cue-edit">
     <h3 id="ce-title">Edit Cue</h3>
@@ -3787,7 +3808,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v18</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v20</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9548,6 +9569,50 @@ let cues = [];
 // read time, so the list can't go stale against the moves themselves and a
 // value stays offered as long as any row still uses it.
 let setVocab = { people: [], pieces: [] };
+
+// Where each piece lives before the house opens, keyed by lowercased piece name
+// so it survives a piece being retyped with different capitalisation.
+//   presets[key] = { piece, location, notes }
+// The piece list itself is derived from the plot, not stored — add a move for a
+// new piece and it appears here on its own.
+let presets = {};
+
+function normalizePresets(v) {
+  const out = {};
+  if (v && typeof v === 'object') {
+    Object.keys(v).forEach(k => {
+      const e = v[k];
+      if (!e || typeof e !== 'object') return;
+      out[k] = {
+        piece: String(e.piece || k),
+        location: String(e.location || ''),
+        notes: String(e.notes || '')
+      };
+    });
+  }
+  return out;
+}
+
+// Every distinct piece used anywhere in the show, first spelling wins.
+function allPieces() {
+  const seen = new Map();
+  cuesInScriptOrder().forEach(c => {
+    if (c.type !== SHIFT_TYPE_ID) return;
+    (c.moves || []).forEach(m => {
+      const v = String(m.piece || '').trim();
+      if (!v) return;
+      const k = v.toLowerCase();
+      if (!seen.has(k)) seen.set(k, v);
+    });
+  });
+  return [...seen.entries()].map(([key, piece]) => ({ key, piece }))
+    .sort((a, b) => a.piece.localeCompare(b.piece));
+}
+
+function presetFor(key) {
+  if (!presets[key]) presets[key] = { piece: '', location: '', notes: '' };
+  return presets[key];
+}
 const COMMON_ACTIONS = ['In', 'Out', 'Set', 'Strike', 'Preset', 'Roll down', 'Fly in', 'Fly out', 'On', 'Off'];
 
 // The move grid used to carry a Trigger column; it was redundant with Notes,
@@ -10920,6 +10985,48 @@ function renderCueList() {
   }
 }
 
+// ── PRESETS (before house opens) ─────────────────────────────────────────────
+function openPresets() {
+  renderPresets();
+  document.getElementById('preset-overlay').classList.add('open');
+}
+function closePresets() {
+  document.getElementById('preset-overlay').classList.remove('open');
+}
+
+function renderPresets() {
+  const body = document.getElementById('preset-body');
+  if (!body) return;
+  const list = allPieces();
+  if (!list.length) {
+    body.innerHTML = '<div class="pg-empty">No pieces yet — they appear here once you add moves to a set change.</div>';
+    return;
+  }
+  body.innerHTML = `<table class="preset-grid">
+    <thead><tr>
+      <th style="width:26%">Piece</th><th style="width:34%">Preset location</th><th style="width:40%">Notes</th>
+    </tr></thead>
+    <tbody>${list.map(({ key, piece }) => {
+      const e = presets[key] || {};
+      return `<tr>
+        <td class="pg-name">${escA(piece)}</td>
+        <td><input type="text" value="${escA(e.location)}" autocomplete="off"
+              oninput="presetEdit('${escA(key)}','${escA(piece)}','location',this.value)" /></td>
+        <td><input type="text" value="${escA(e.notes)}" autocomplete="off"
+              oninput="presetEdit('${escA(key)}','${escA(piece)}','notes',this.value)" /></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+// No re-render on keystroke — it would pull the caret out of the field.
+function presetEdit(key, piece, field, val) {
+  const e = presetFor(key);
+  e.piece = piece;
+  e[field] = val;
+  saveShowData();
+}
+
 // ── SET CHANGE MOVES ─────────────────────────────────────────────────────────
 // One SHIFT cue = one change = a block of moves. The cue supplies the page,
 // the script position and the calling trigger; each move row is one thing that
@@ -11669,7 +11776,7 @@ function savePageAnnotations() { /* annotations are saved per-stroke already */ 
 
 function saveShowData() {
   if (!showId) return;
-  const data = { cueTypes, cues, annotations, setVocab };
+  const data = { cueTypes, cues, annotations, setVocab, presets };
   // Save locally for instant access — keeps local data-URL crops too, so this
   // device sees them right away even before the background upload finishes.
   try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(data)); } catch(e) {}
@@ -11700,6 +11807,7 @@ function loadShowData() {
       if (saved.cues) cues = saved.cues;
       if (saved.annotations) annotations = saved.annotations;
       setVocab = normalizeVocab(saved.setVocab);
+      presets = normalizePresets(saved.presets);
       migrateMoveTriggers();
       purgeRetiredTypes();
     }
@@ -11711,6 +11819,7 @@ function loadShowData() {
       if (d.cueData.cues) cues = d.cueData.cues;
       if (d.cueData.annotations) annotations = d.cueData.annotations;
       setVocab = normalizeVocab(d.cueData.setVocab);
+      presets = normalizePresets(d.cueData.presets);
       const migrated = migrateMoveTriggers();
       // Retired types linger in the Sheet, so clean them on the way in and push
       // the corrected data back — otherwise every device keeps re-importing them.
@@ -11799,7 +11908,7 @@ async function exportSetChangePlot() {
   // over headset, and the trigger itself in the space that frees up.
   const COLS = [
     { key: 'num',    label: '#',         w: 30,  bold: true },
-    { key: 'cue',    label: 'CALLED ON', w: 130 },
+    { key: 'cue',    label: 'CUE',       w: 130 },
     { key: 'pg',     label: 'PG',        w: 30  },
     { key: 'piece',  label: 'PIECE',     w: 130, bold: true },
     { key: 'action', label: 'ACTION',    w: 68  },
@@ -11881,6 +11990,60 @@ async function exportSetChangePlot() {
   }
 
   drawTitle();
+
+  // ── Before house opens ─────────────────────────────────────────────────────
+  // Its own short table ahead of the plot proper: what's onstage or standing by
+  // when the doors open. Only pieces with something entered print — the rest
+  // would be a wall of blank rows. Presets written inside a scene change stay
+  // in that change; this section is about the state at top of show.
+  const presetRows = allPieces()
+    .map(({ key, piece }) => ({ piece, ...(presets[key] || {}) }))
+    .filter(r => (r.location || '').trim() || (r.notes || '').trim());
+
+  if (presetRows.length) {
+    const PC = [
+      { key: 'piece',    label: 'PIECE',           w: 180, bold: true },
+      { key: 'location', label: 'PRESET LOCATION', w: 244 },
+      { key: 'notes',    label: 'NOTES',           w: 280 },
+    ];
+    const PX = []; { let x = M; for (const c of PC) { PX.push(x); x += c.w; } }
+
+    drawSceneBar('Before house opens');
+
+    const hh = 18;
+    doc.setFillColor(...HEAD_BG); doc.rect(M, y, TABLE_W, hh, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(90,90,105);
+    PC.forEach((c,i2) => doc.text(c.label, PX[i2] + PAD, y + 12));
+    doc.setDrawColor(...GRID); doc.setLineWidth(0.5);
+    PC.forEach((c,i2) => doc.line(PX[i2], y, PX[i2], y + hh));
+    doc.line(M + TABLE_W, y, M + TABLE_W, y + hh);
+    doc.setDrawColor(140,140,155); doc.setLineWidth(0.9);
+    doc.line(M, y + hh, M + TABLE_W, y + hh);
+    y += hh;
+
+    doc.setFontSize(FS);
+    let pShade = false;
+    presetRows.forEach(r => {
+      const cells = PC.map((c, i2) => doc.splitTextToSize(String(r[c.key] || ''), c.w - PAD*2));
+      const rowH = Math.max(MIN_ROW, Math.max(...cells.map(c => c.length), 1) * LEAD + PAD*2);
+      if (y + rowH > pageH - MARGIN_BOTTOM) { doc.addPage(); drawTitle(); }
+      if (pShade) { doc.setFillColor(...BLOCK_TINT); doc.rect(M, y, TABLE_W, rowH, 'F'); }
+      doc.setFontSize(FS); doc.setTextColor(30,30,30);
+      PC.forEach((c, i2) => {
+        doc.setFont('helvetica', c.bold ? 'bold' : 'normal');
+        cells[i2].forEach((ln, li) => doc.text(ln, PX[i2] + PAD, y + PAD + LEAD - 3 + li * LEAD));
+      });
+      doc.setDrawColor(...GRID); doc.setLineWidth(0.4);
+      PC.forEach((c, i2) => doc.line(PX[i2], y, PX[i2], y + rowH));
+      doc.line(M + TABLE_W, y, M + TABLE_W, y + rowH);
+      doc.line(M, y + rowH, M + TABLE_W, y + rowH);
+      y += rowH;
+      pShade = !pShade;
+    });
+    y += 12;
+    curScene = '';   // the plot's own scenes start clean after this
+  }
+
   drawHeader();
 
   const SCENE_LABELS = sceneLabels();
