@@ -3787,7 +3787,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v12</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v13</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -10934,13 +10934,17 @@ const MOVE_COLS = [
 // ── Keyboard autocomplete ────────────────────────────────────────────────────
 // Replaces <datalist>, which can't be driven from the keyboard at all.
 //
-//   Tab    cycle the suggestions (Shift+Tab backwards)
-//   Enter  take the highlighted one and move to the next cell
-//   Esc    dismiss
+// Spreadsheet model: Tab is the ONLY key that moves between cells.
 //
-// Tab only cycles while there is something to cycle. In a column with no
-// vocabulary — Spike, Notes — or when nothing matches, it falls through to the
-// browser's own Tab, otherwise the caret would be trapped in the cell.
+//   Tab    cycle the suggestions while the list is open; move to the next cell
+//          when it isn't (Shift+Tab backwards / previous cell)
+//   Enter  drop the highlighted suggestion into the cell and close the list —
+//          the caret stays put, Tab is what advances
+//   Esc    dismiss without taking anything
+//
+// The list opens on typing, never on focus. Opening it on focus would mean an
+// empty cell you meant to skip past came up with the whole vocabulary showing,
+// and Tab would start cycling that instead of moving you on.
 //
 // The highlight starts on an EXACT match if the typed text is one, and on the
 // first suggestion otherwise. That distinction matters with your data: "Main"
@@ -11039,14 +11043,23 @@ function acKey(e, input) {
   if (e.key === 'Escape') { if (open) { e.stopPropagation(); acClose(); } return; }
 
   if (e.key === 'Tab') {
-    // Nothing to cycle: let the browser move focus as normal.
-    if (!open) { acClose(); return; }
-    e.preventDefault();
-    const n = _acItems.length;
-    _acIdx = e.shiftKey
-      ? (_acIdx <= 0 ? n - 1 : _acIdx - 1)
-      : (_acIdx >= n - 1 ? 0 : _acIdx + 1);   // wraps, so you can keep tapping
-    acHighlight();
+    if (open) {
+      e.preventDefault();                      // cycling, not leaving the cell
+      const n = _acItems.length;
+      _acIdx = e.shiftKey
+        ? (_acIdx <= 0 ? n - 1 : _acIdx - 1)
+        : (_acIdx >= n - 1 ? 0 : _acIdx + 1);  // wraps, so you can keep tapping
+      acHighlight();
+      return;
+    }
+    acClose();
+    // Off the end of the grid, Tab starts the next move instead of dropping you
+    // out of it. Anywhere else the browser's own Tab already does the right
+    // thing, including rolling onto the next row.
+    if (!e.shiftKey && mvIsLastInput(input)) {
+      e.preventDefault();
+      moveAdd(input.dataset.cue);
+    }
     return;
   }
 
@@ -11063,25 +11076,18 @@ function acKey(e, input) {
   }
 
   if (e.key === 'Enter') {
+    // Fills the cell and stops there. Advancing on Enter as well would give two
+    // keys that do the same job and make Tab's meaning ambiguous.
     e.preventDefault();
     acAccept();          // no-op when nothing is highlighted — keeps what you typed
     acClose();
-    mvFocusNext(input);
     return;
   }
 }
 
-// Enter advances. Off the end of the last row it starts a new move rather than
-// dropping you out of the grid, so a change can be entered without reaching for
-// the mouse or the Add button.
-function mvFocusNext(input) {
+function mvIsLastInput(input) {
   const inputs = [...document.querySelectorAll('#mvd-body .mv-grid tbody input')];
-  const i = inputs.indexOf(input);
-  if (i === -1) return;
-  if (i === inputs.length - 1) { moveAdd(input.dataset.cue); return; }
-  const next = inputs[i + 1];
-  next.focus();
-  if (next.select) next.select();
+  return inputs.length > 0 && inputs[inputs.length - 1] === input;
 }
 
 
@@ -11126,7 +11132,6 @@ function renderMoveDrawer(focusFirst) {
         data-src="${col.src || ''}" data-vocab="${col.src === 'actions' ? '' : (col.src || '')}"
         data-last="${ci === MOVE_COLS.length - 1 ? '1' : '0'}"
         oninput="moveEdit(this.dataset.cue,this.dataset.move,this.dataset.key,this.value);acOpen(this)"
-        onfocus="acOpen(this)"
         onblur="moveCommit(this.dataset.vocab,this.value);setTimeout(acClose,120)"
         onkeydown="acKey(event,this)" /></td>`).join('')}
     <td style="width:30px"><button class="mv-del" title="Delete move" tabindex="-1"
