@@ -3787,7 +3787,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v13</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v14</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9590,6 +9590,10 @@ function vocabList(kind) {
   }));
   const seen = new Set();
   return [...stored, ...used]
+    // A one-character entry is never a useful suggestion — it's a half-typed
+    // value that got saved when focus left the cell. Dropping them here also
+    // cleans up ones already sitting in the data, without hunting for the cell.
+    .filter(v => v.trim().length > 1)
     .filter(v => { const k = v.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
     .sort((a, b) => a.localeCompare(b));
 }
@@ -9597,7 +9601,7 @@ function vocabList(kind) {
 function vocabRemember(kind, raw) {
   String(raw || '').split('/').forEach(v => {
     v = v.trim();
-    if (!v) return;
+    if (v.length < 2) return;   // don't learn abandoned single keystrokes
     if (!Array.isArray(setVocab[kind])) setVocab[kind] = [];
     if (!setVocab[kind].some(x => x.toLowerCase() === v.toLowerCase())) setVocab[kind].push(v);
   });
@@ -10990,15 +10994,21 @@ function acOpen(input) {
   const all = acSource(kind);
   // Startswith first, then contains — what you began typing ranks above an
   // incidental substring match.
-  const starts = all.filter(v => v.toLowerCase().startsWith(typed));
-  const has = all.filter(v => !v.toLowerCase().startsWith(typed) && v.toLowerCase().includes(typed));
-  _acItems = (typed ? [...starts, ...has] : all).slice(0, 8);
+  // Offering back the exact string already in the cell is a suggestion that
+  // does nothing, and it pushes the real candidates down a slot — so typing "A"
+  // put "A" under the highlight and ASM needed a Tab to reach.
+  const exactExists = !!typed && all.some(v => v.toLowerCase() === typed);
+  const pool = typed ? all.filter(v => v.toLowerCase() !== typed) : all;
+  const starts = pool.filter(v => v.toLowerCase().startsWith(typed));
+  const has = pool.filter(v => !v.toLowerCase().startsWith(typed) && v.toLowerCase().includes(typed));
+  _acItems = (typed ? [...starts, ...has] : pool).slice(0, 8);
   _acInput = input;
   if (!_acItems.length) return acClose();
-  // Exact match wins, so a fully-typed value survives Enter untouched; failing
-  // that, lead with the closest suggestion so Enter is a two-keystroke pick.
-  const exact = _acItems.findIndex(v => v.toLowerCase() === typed);
-  _acIdx = typed ? (exact >= 0 ? exact : 0) : -1;
+  // Normally the closest candidate is lit, so Enter is a one-key pick. But if
+  // what's typed is ALREADY a known value, light nothing: you have both "Main"
+  // and "Main Curtian", and a finished "Main" must not be promoted to the
+  // longer name just because it's the only thing left to suggest.
+  _acIdx = exactExists ? -1 : (typed ? 0 : -1);
   const el = acPop();
   el.innerHTML = _acItems.map((v, i) =>
     `<div data-i="${i}" class="${i === _acIdx ? 'on' : ''}">${escA(v)}</div>`).join('');
@@ -11043,6 +11053,9 @@ function acKey(e, input) {
   if (e.key === 'Escape') { if (open) { e.stopPropagation(); acClose(); } return; }
 
   if (e.key === 'Tab') {
+    // List open but nothing lit means what's typed is already a complete known
+    // value — there's nothing to cycle onto, so Tab should just move you along.
+    if (open && _acIdx < 0) { acClose(); return; }
     if (open) {
       e.preventDefault();                      // cycling, not leaving the cell
       const n = _acItems.length;
