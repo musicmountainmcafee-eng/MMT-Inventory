@@ -3776,7 +3776,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v9</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v10</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -11564,7 +11564,25 @@ async function exportSetChangePlot() {
 
   toast('Building set change plot…');
 
-  const showName = document.getElementById('show-name').textContent || 'Untitled';
+  // The header reads off the uploaded script's filename, which carries junk the
+  // audience for this document doesn't care about: "The Will Rogers Follies
+  // Script (1)" is a Drive de-duplication artifact, not a show title. Strip the
+  // extension, any trailing "(2)", and the words that describe the file rather
+  // than the production. Looped because they stack — "…Script (1).pdf".
+  const rawName = document.getElementById('show-name').textContent || 'Untitled';
+  const cleanShowName = raw => {
+    let n = String(raw).trim();
+    for (let i = 0; i < 6; i++) {
+      const before = n;
+      n = n.replace(/\.(pdf|docx?|txt)$/i, '')
+           .replace(/\s*\(\s*\d+\s*\)\s*$/, '')
+           .replace(/\s*[-–—_]?\s*\b(script|libretto|final|draft|copy|rev\.?\s*\d*|v\d+)\b\s*$/i, '')
+           .trim();
+      if (n === before) break;
+    }
+    return n || String(raw).trim() || 'Untitled';
+  };
+  const showName = cleanShowName(rawName);
   const now = new Date();
   const exportedStr = now.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
     + ' at ' + now.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
@@ -11600,12 +11618,25 @@ async function exportSetChangePlot() {
 
   let y = 0;
 
+  // Title left, timestamp beneath it, a rule tying the block to the table. Page
+  // numbers are stamped at the end, once the total is known.
   function drawTitle() {
-    y = 54;
-    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(20,20,20);
-    doc.text(showName + ' — Set Change Plot', M, y); y += 13;
-    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(140,140,140);
-    doc.text('Exported ' + exportedStr, M, y); y += 16;
+    y = 52;
+    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(22,22,28);
+    doc.text(showName, M, y);
+    // Measure while the 15pt bold face is still active — getTextWidth reports
+    // against the current font, so doing this after the switch would size the
+    // gap off the wrong metrics.
+    const titleW = doc.getTextWidth(showName);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(120,120,132);
+    doc.text('Set Changes', M + titleW + 9, y);
+    y += 13;
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(150,150,160);
+    doc.text('Exported ' + exportedStr, M, y);
+    y += 7;
+    doc.setDrawColor(38,38,46); doc.setLineWidth(1.1);
+    doc.line(M, y, M + TABLE_W, y);
+    y += 13;
   }
   function drawHeader() {
     const h = 17;
@@ -11706,8 +11737,17 @@ async function exportSetChangePlot() {
 
   if (!anyScene) toast('No scene markers found — plot has no scene bars');
 
+  // Page N of M, right-aligned on the title baseline. Has to run after the last
+  // page exists, so it's a second pass rather than part of drawTitle.
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(150,150,160);
+    doc.text('Page ' + i + ' of ' + totalPages, M + TABLE_W, 52, { align: 'right' });
+  }
+
   const safe = showName.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
-  doc.save(safe + '_Set_Change_Plot.pdf');
+  doc.save(safe + '_Set_Changes.pdf');
   toast('Set change plot exported');
 }
 
