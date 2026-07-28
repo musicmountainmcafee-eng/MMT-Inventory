@@ -2042,6 +2042,13 @@
   #scripts-editor .page-nav button { padding: 4px 12px; border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm); background: none; color: var(--cue-text-muted); font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
   #scripts-editor .page-nav button:hover { background: var(--cue-surface2); }
   #scripts-editor .page-nav span { font-size: 13px; color: var(--cue-text-muted); font-family: 'DM Mono', monospace; }
+  #scripts-editor .page-jump { display: inline-flex; align-items: center; gap: 5px; }
+  #scripts-editor .page-jump select {
+    padding: 3px 6px; border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm);
+    background: var(--cue-surface2); color: var(--cue-text); font-size: 13px;
+    font-family: 'DM Mono', monospace; cursor: pointer; max-height: 300px;
+  }
+  #scripts-editor .page-jump select:hover { border-color: var(--cue-text-muted); }
   /* overflow-x hidden + centered flex = the script is always horizontally
      centered and never side-scrolls. Zoom is capped to the available width
      (see maxFitZoom) so nothing is ever cut off by this. */
@@ -3300,7 +3307,10 @@
     <div class="viewer">
       <div class="page-nav">
         <button onclick="prevPage()">◀ Prev</button>
-        <span id="page-info">Page 1 / 1</span>
+        <span class="page-jump">Page
+          <select id="page-sel" onchange="goToPage(parseInt(this.value, 10))" title="Jump to page"></select>
+          / <span id="page-total">1</span>
+        </span>
         <button onclick="nextPage()">Next ▶</button>
         <span class="zoom-group">
           <button onclick="zoomOut()" title="Zoom out (−)">−</button>
@@ -3710,7 +3720,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v3</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9991,7 +10001,31 @@ async function renderPage() {
   // Canvas dimensions just changed, so the reserved scroll footprint has to be
   // recomputed for the new page size.
   applyScriptZoom(false);
-  document.getElementById('page-info').textContent = `Page ${currentPage} / ${totalPages}`;
+  renderPageSelect();
+}
+
+// Rebuilding every <option> on each page turn is wasted work on a 100+ page
+// script, so only rebuild when the page count or the set of pages carrying cues
+// actually changes; otherwise just move the selection.
+let _pageSelSig = '';
+function renderPageSelect() {
+  const sel = document.getElementById('page-sel');
+  const tot = document.getElementById('page-total');
+  if (!sel) return;
+  if (tot) tot.textContent = totalPages;
+  const marked = new Set((cues || []).map(c => c.page));
+  const sig = totalPages + ':' + [...marked].sort((a, b) => a - b).join(',');
+  if (sig !== _pageSelSig) {
+    _pageSelSig = sig;
+    let html = '';
+    for (let p = 1; p <= totalPages; p++) {
+      // A dot flags pages that already have cues on them — the fastest way to
+      // find your way back around a marked-up script.
+      html += `<option value="${p}">${p}${marked.has(p) ? ' •' : ''}</option>`;
+    }
+    sel.innerHTML = html;
+  }
+  sel.value = String(currentPage);
 }
 
 function prevPage() { if (currentPage > 1) { savePageAnnotations(); currentPage--; renderPage(); } }
@@ -10715,6 +10749,8 @@ function cuesInScriptOrder(list) {
 
 function renderCueList() {
   const sorted = cuesInScriptOrder();
+  // Cue set may have changed, so the page selector's dots need re-deriving.
+  try { renderPageSelect(); } catch(e) {}
   document.getElementById('cue-count').textContent = cues.length + ' cue' + (cues.length !== 1 ? 's' : '');
   const el = document.getElementById('cue-list');
   if (!sorted.length) {
@@ -10957,7 +10993,10 @@ function onCueFormInput() {
   saveShowData();
 }
 
-function goToPage(p) { if (p !== currentPage) { savePageAnnotations(); currentPage = p; renderPage(); } }
+function goToPage(p) {
+  if (!Number.isFinite(p) || p < 1 || p > totalPages || p === currentPage) return;
+  savePageAnnotations(); currentPage = p; renderPage();
+}
 
 // Column width / row height for the on-screen cue sheet, driven by the two
 // sliders above the list. Width targets the CUE LINE and NOTES columns — the
