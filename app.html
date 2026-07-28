@@ -3776,7 +3776,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v8</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v9</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -11569,7 +11569,10 @@ async function exportSetChangePlot() {
   const exportedStr = now.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
     + ' at ' + now.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
 
-  const doc = new jsPDFCtor({ orientation: 'p', unit: 'pt', format: 'letter' });
+  // Landscape: the plot is seven columns and Notes carries whole sentences
+  // ("May need to come on later than this"), which wrap two and three deep on a
+  // portrait page. 704pt of printable width instead of 524 buys most of that back.
+  const doc = new jsPDFCtor({ orientation: 'l', unit: 'pt', format: 'letter' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
 
@@ -11580,15 +11583,17 @@ async function exportSetChangePlot() {
   const SCENE_BAR = [38, 38, 46];       // black bar = scene
   const BREAK_RULE = [150, 150, 162];   // grey rule = next change, same scene
 
-  // Widths total the printable 524pt so the table squares off at both margins.
+  // Widths total the printable 704pt so the table squares off at both margins.
+  // Most of the extra width goes to NOTES, which is the column that was
+  // actually wrapping, and to PIECE ("Vaudville drop", "Dressing Screen").
   const COLS = [
-    { key: 'cue',    label: 'CUE',    w: 96  },
-    { key: 'pg',     label: 'PG',     w: 26  },
-    { key: 'piece',  label: 'PIECE',  w: 96  },
-    { key: 'action', label: 'ACTION', w: 60  },
-    { key: 'who',    label: 'WHO',    w: 74  },
-    { key: 'spike',  label: 'SPIKE',  w: 44  },
-    { key: 'notes',  label: 'NOTES',  w: 128 },
+    { key: 'cue',    label: 'CUE',    w: 110 },
+    { key: 'pg',     label: 'PG',     w: 30  },
+    { key: 'piece',  label: 'PIECE',  w: 130 },
+    { key: 'action', label: 'ACTION', w: 70  },
+    { key: 'who',    label: 'WHO',    w: 90  },
+    { key: 'spike',  label: 'SPIKE',  w: 50  },
+    { key: 'notes',  label: 'NOTES',  w: 224 },
   ];
   const X = []; { let x = M; for (const c of COLS) { X.push(x); x += c.w; } }
   const TABLE_W = COLS.reduce((s, c) => s + c.w, 0);
