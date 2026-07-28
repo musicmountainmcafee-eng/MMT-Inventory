@@ -3710,7 +3710,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.16 v10</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v2</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -4535,11 +4535,20 @@ function dtRollover() {
   if (!_dt.days[today]) _dt.days[today] = [];
   // Snapshot past keys first (oldest → newest) so we don't mutate while iterating.
   const past = Object.keys(_dt.days).filter(k => k < today).sort();
+  // Rollover can legitimately run more than once against the same day (cached
+  // paint, then again on the server response, then again on midnight focus).
+  // Key what's already on today so a second pass re-carries nothing.
+  const already = new Set(
+    (_dt.days[today] || []).map(t => (t.origin || today) + '|' + t.text)
+  );
   past.forEach(iso => {
     const leftover = (_dt.days[iso] || []).filter(t => !t.done);
     leftover.forEach(t => {
       // Recurring items regenerate on their own — don't drag them forward.
       if (t.recurId) return;
+      const key = (t.origin || iso) + '|' + t.text;
+      if (already.has(key)) return;
+      already.add(key);
       _dt.days[today].push({
         id: 'dt' + Date.now() + Math.random().toString(36).slice(2,7),
         text: t.text,
@@ -4802,6 +4811,15 @@ if (typeof window !== 'undefined' && window.addEventListener) {
 function saveDayTracker(isUserEdit) {
   if (isUserEdit !== false) _dtDirty = true;
   try { localStorage.setItem('mmt_daytracker', JSON.stringify(_dt)); } catch(e) {}
+  // Derived saves fired during the cached first paint are computed from data
+  // that may be stale — if the cache predates a check-off made on another
+  // device, rollover sees those tasks as unfinished and carries them forward.
+  // Pushing that would overwrite the good server copy with a roll built on the
+  // wrong `done` flags, and since it also stamps lastRoll=today, the rollover
+  // that runs on the real data afterwards early-returns and never corrects it.
+  // Cache only until the server has answered; the post-response rollover is the
+  // one that persists.
+  if (isUserEdit === false && !_dtLoaded) return;
   fetch(SCRIPT_URL, {
     method: 'POST', headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ action: 'saveKV', key: 'daytracker', value: _dt })
@@ -9371,6 +9389,7 @@ let cueTypes = [
   { id: 'fly', name: 'FLY', color: '#2ecc71' },
   { id: 'spot', name: 'SPOT', color: '#f1c40f' },
   { id: 'spot_out', name: 'SPOT OUT', color: '#e67e22' },
+  { id: 'shift', name: 'SHIFT', color: '#34495e' },
   { id: 'scene', name: 'SCENE', color: '#8e44ad' },
 ];
 const DEFAULT_CUE_TYPES = [
@@ -9379,6 +9398,7 @@ const DEFAULT_CUE_TYPES = [
   { id: 'fly', name: 'FLY', color: '#2ecc71' },
   { id: 'spot', name: 'SPOT', color: '#f1c40f' },
   { id: 'spot_out', name: 'SPOT OUT', color: '#e67e22' },
+  { id: 'shift', name: 'SHIFT', color: '#34495e' },
   { id: 'scene', name: 'SCENE', color: '#8e44ad' },
 ];
 const isSceneCue = c => c && c.type === SCENE_TYPE_ID;
