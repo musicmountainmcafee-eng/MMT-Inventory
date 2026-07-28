@@ -3787,7 +3787,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v11</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v12</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -10932,14 +10932,20 @@ const MOVE_COLS = [
 ];
 
 // ── Keyboard autocomplete ────────────────────────────────────────────────────
-// Replaces <datalist>, which can't be driven from the keyboard: Tab does not
-// accept a native suggestion, so every repeat of "ASM/Crew" had to be typed out
-// or clicked. Here down/up walk the list and Tab or Enter takes what's lit.
+// Replaces <datalist>, which can't be driven from the keyboard at all.
 //
-// A suggestion is applied ONLY if it was actively highlighted. Auto-accepting
-// the top match on Tab would be faster but silently wrong in the common case:
-// "Main" is a prefix of "Main Curtian", so committing to a plain Main would
-// swap in the longer name behind your back.
+//   Tab    cycle the suggestions (Shift+Tab backwards)
+//   Enter  take the highlighted one and move to the next cell
+//   Esc    dismiss
+//
+// Tab only cycles while there is something to cycle. In a column with no
+// vocabulary — Spike, Notes — or when nothing matches, it falls through to the
+// browser's own Tab, otherwise the caret would be trapped in the cell.
+//
+// The highlight starts on an EXACT match if the typed text is one, and on the
+// first suggestion otherwise. That distinction matters with your data: "Main"
+// and "Main Curtian" both exist, so highlighting the first prefix match
+// unconditionally would turn a finished "Main" into "Main Curtian" on Enter.
 let _acInput = null, _acItems = [], _acIdx = -1;
 
 function acSource(kind) {
@@ -10985,6 +10991,10 @@ function acOpen(input) {
   _acItems = (typed ? [...starts, ...has] : all).slice(0, 8);
   _acInput = input;
   if (!_acItems.length) return acClose();
+  // Exact match wins, so a fully-typed value survives Enter untouched; failing
+  // that, lead with the closest suggestion so Enter is a two-keystroke pick.
+  const exact = _acItems.findIndex(v => v.toLowerCase() === typed);
+  _acIdx = typed ? (exact >= 0 ? exact : 0) : -1;
   const el = acPop();
   el.innerHTML = _acItems.map((v, i) =>
     `<div data-i="${i}" class="${i === _acIdx ? 'on' : ''}">${escA(v)}</div>`).join('');
@@ -11025,31 +11035,55 @@ function acAccept() {
 
 function acKey(e, input) {
   const open = _acInput === input && _acItems.length;
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    if (!open) { _acIdx = -1; acOpen(input); }
-    _acIdx = Math.min(_acIdx + 1, _acItems.length - 1); acHighlight(); return;
-  }
-  if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    if (!open) return;
-    _acIdx = Math.max(_acIdx - 1, -1); acHighlight(); return;
-  }
+
   if (e.key === 'Escape') { if (open) { e.stopPropagation(); acClose(); } return; }
-  if (e.key === 'Enter') { e.preventDefault(); if (!acAccept()) acClose(); return; }
-  if (e.key === 'Tab' && !e.shiftKey) {
-    acAccept();                       // no-op unless something was highlighted
-    acClose();
-    // Tab off the last column starts the next move rather than making you
-    // reach for the Add button.
-    if (input.dataset.last === '1') {
-      e.preventDefault();
-      moveAdd(input.dataset.cue);
-    }
+
+  if (e.key === 'Tab') {
+    // Nothing to cycle: let the browser move focus as normal.
+    if (!open) { acClose(); return; }
+    e.preventDefault();
+    const n = _acItems.length;
+    _acIdx = e.shiftKey
+      ? (_acIdx <= 0 ? n - 1 : _acIdx - 1)
+      : (_acIdx >= n - 1 ? 0 : _acIdx + 1);   // wraps, so you can keep tapping
+    acHighlight();
     return;
   }
-  if (e.key === 'Tab') acClose();
+
+  // Arrows do the same job — muscle memory from every other combobox.
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!open) { if (e.key === 'ArrowDown') acOpen(input); return; }
+    const n = _acItems.length;
+    _acIdx = e.key === 'ArrowDown'
+      ? (_acIdx >= n - 1 ? 0 : _acIdx + 1)
+      : (_acIdx <= 0 ? n - 1 : _acIdx - 1);
+    acHighlight();
+    return;
+  }
+
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    acAccept();          // no-op when nothing is highlighted — keeps what you typed
+    acClose();
+    mvFocusNext(input);
+    return;
+  }
 }
+
+// Enter advances. Off the end of the last row it starts a new move rather than
+// dropping you out of the grid, so a change can be entered without reaching for
+// the mouse or the Add button.
+function mvFocusNext(input) {
+  const inputs = [...document.querySelectorAll('#mvd-body .mv-grid tbody input')];
+  const i = inputs.indexOf(input);
+  if (i === -1) return;
+  if (i === inputs.length - 1) { moveAdd(input.dataset.cue); return; }
+  const next = inputs[i + 1];
+  next.focus();
+  if (next.select) next.select();
+}
+
 
 let mvDrawerCueId = null;
 
