@@ -3349,7 +3349,7 @@
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
       <button class="top-btn" onclick="exportCueSheet()">Export Cues</button>
-      <button class="top-btn" onclick="exportSetChangePlot()">Export Plot</button>
+      <button class="top-btn" onclick="exportSetChangePlot()">Export Scene Change Plot</button>
       <button class="top-btn" onclick="exportAnnotatedPDF()">Export PDF</button>
       <button class="top-btn primary" onclick="goHome()">← Scripts</button>
     </div>
@@ -3787,7 +3787,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v16</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v17</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -11952,16 +11952,39 @@ async function exportSetChangePlot() {
   const TOP_Y = y;                                   // first row position on a fresh page
   const USABLE = pageH - MARGIN_BOTTOM - TOP_Y;      // height a scene gets to itself
 
+  // Act number off the front of a typed scene name: "2-1" or "Act 2, Scene 1".
+  // Labels with no act in them — PRE-SHOW, INTERMISSION — return null and don't
+  // disturb the running act, so an intermission band sits at the end of the act
+  // it follows instead of triggering a break of its own.
+  const actOf = label => {
+    const t = String(label || '').trim();
+    let m = t.match(/^(\d+)\s*[-–—.:]/);
+    if (m) return m[1];
+    m = t.match(/^act\s*(\d+)/i);
+    return m ? m[1] : null;
+  };
+  let lastAct = null;
+
   sections.forEach(sec => {
     const barH = sec.label ? SCENE_BAR_H : 0;
     const secH = barH + sec.blocks.reduce((t, b) => t + b.h, 0)
                       + Math.max(0, sec.blocks.length - 1) * 1.4;
 
-    // Keep a scene whole. If it won't fit in what's left but would fit on a
-    // page of its own, start it on the next one — an orphaned row or two under
-    // a "(cont.)" bar is harder to read than the white space it saves. A scene
-    // genuinely taller than a page still has to break, and gets the bar.
-    if (y > TOP_Y && y + secH > pageH - MARGIN_BOTTOM && secH <= USABLE) {
+    const act = actOf(sec.label);
+    // Only a move between two KNOWN acts counts. Going from an unnumbered
+    // PRE-SHOW into 1-1 isn't an act change and shouldn't burn a page.
+    const actBreak = act !== null && lastAct !== null && act !== lastAct;
+    if (act !== null) lastAct = act;
+
+    if (actBreak && y > TOP_Y) {
+      // A new act always opens a page, however much room is left below.
+      curScene = '';
+      newPage(false);
+    } else if (y > TOP_Y && y + secH > pageH - MARGIN_BOTTOM && secH <= USABLE) {
+      // Keep a scene whole. If it won't fit in what's left but would fit on a
+      // page of its own, start it on the next one — an orphaned row or two
+      // under a "(cont.)" bar is harder to read than the white space it saves.
+      // A scene genuinely taller than a page still has to break, and gets the bar.
       curScene = '';
       newPage(false);
     }
