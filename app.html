@@ -2037,7 +2037,40 @@
   #scripts-editor .tool-color { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--cue-border); cursor: pointer; margin: 2px 0; }
   #scripts-editor .tool-color.active { border-color: white; box-shadow: 0 0 0 2px var(--purple); }
 
-  #scripts-editor .viewer { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #111; }
+  #scripts-editor .viewer { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #111; position: relative; }
+  /* Set-change grid lives here rather than in the cue sidebar: six columns of
+     text can't breathe in a 300px rail, and this way the script stays visible
+     above it while you type. */
+  #mv-drawer {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 40;
+    display: none; flex-direction: column;
+    height: 260px; min-height: 120px; max-height: 75%;
+    background: var(--cue-surface); border-top: 2px solid var(--shift-color, #34495e);
+    box-shadow: 0 -8px 28px rgba(0,0,0,0.55);
+  }
+  #mv-drawer.open { display: flex; }
+  #mv-drawer .mvd-grip { height: 7px; cursor: ns-resize; background: var(--cue-surface2); flex-shrink: 0; }
+  #mv-drawer .mvd-grip:hover { background: var(--purple); }
+  #mv-drawer .mvd-head { display: flex; align-items: center; justify-content: space-between; padding: 7px 12px; border-bottom: 1px solid var(--cue-border); flex-shrink: 0; }
+  #mv-drawer .mvd-title { font-size: 12px; font-weight: 700; letter-spacing: 0.4px; color: var(--cue-text); }
+  #mv-drawer .mvd-title em { font-style: normal; color: var(--cue-text-faint); font-weight: 400; margin-left: 6px; }
+  #mv-drawer .mvd-close { background: none; border: none; color: var(--cue-text-muted); font-size: 17px; cursor: pointer; line-height: 1; padding: 2px 6px; }
+  #mv-drawer .mvd-close:hover { color: var(--cue-text); }
+  #mv-drawer .mvd-body { flex: 1; overflow: auto; padding: 8px 12px 12px; }
+  #mv-drawer table.mv-grid { border-collapse: separate; border-spacing: 0 3px; width: 100%; }
+  #mv-drawer table.mv-grid th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--cue-text-faint); padding: 0 4px 3px; text-align: left; }
+  #mv-drawer table.mv-grid td { padding: 0 4px; vertical-align: middle; }
+  #mv-drawer table.mv-grid input {
+    width: 100%; box-sizing: border-box; padding: 7px 9px; font-size: 13px;
+    font-family: 'DM Sans', sans-serif; background: var(--cue-surface2);
+    border: 1px solid var(--cue-border); border-radius: 5px; color: var(--cue-text);
+  }
+  #mv-drawer table.mv-grid input:focus { outline: none; border-color: var(--purple); background: var(--cue-surface); }
+  #mv-drawer .mv-del { background: none; border: none; color: var(--cue-text-faint); cursor: pointer; font-size: 15px; padding: 4px 6px; line-height: 1; }
+  #mv-drawer .mv-del:hover { color: var(--cue-red); }
+  #mv-drawer .mv-add { margin-top: 9px; font-size: 12px; padding: 6px 14px; border: 1px dashed var(--cue-border); border-radius: 5px; background: none; color: var(--cue-text-muted); cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  #mv-drawer .mv-add:hover { border-style: solid; color: var(--cue-text); }
+  #scripts-editor .ct-moves { font-size: 10px; color: var(--cue-text-faint); font-family: 'DM Mono', monospace; }
   #scripts-editor .page-nav { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 8px; background: var(--cue-surface); border-bottom: 1px solid var(--cue-border); flex-shrink: 0; }
   #scripts-editor .page-nav button { padding: 4px 12px; border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm); background: none; color: var(--cue-text-muted); font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
   #scripts-editor .page-nav button:hover { background: var(--cue-surface2); }
@@ -2091,16 +2124,6 @@
   #scripts-editor .cue-table .ct-num { font-family: 'DM Mono', monospace; font-weight: 600; font-size: 12px; white-space: nowrap; }
   #scripts-editor .cue-table .ct-action { color: var(--cue-text); }
   #scripts-editor .cue-table .ct-line { color: var(--cue-text-muted); font-style: italic; font-size: 11px; }
-  /* Inline set-change grid: expands under the selected SHIFT cue. */
-  #scripts-editor .mv-cell { padding: 0 !important; background: var(--cue-surface2) !important; cursor: default !important; }
-  #scripts-editor .mv-wrap { padding: 8px 8px 10px 14px; border-left: 3px solid var(--shift-color, #34495e); }
-  #scripts-editor .mv-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-  #scripts-editor .mv-head span { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--cue-text-faint); }
-  #scripts-editor table.mv-grid { border-collapse: collapse; width: 100%; }
-  #scripts-editor table.mv-grid th { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--cue-text-faint); padding: 2px 3px; text-align: left; border-bottom: none; position: static; background: none; }
-  #scripts-editor table.mv-grid td { padding: 1px 3px; border-bottom: none; vertical-align: middle; cursor: default; }
-  #scripts-editor table.mv-grid tr:hover td { background: none; }
-  #scripts-editor table.mv-grid input {
     width: 100%; box-sizing: border-box; padding: 4px 6px; font-size: 11px;
     font-family: 'DM Sans', sans-serif; background: var(--cue-surface);
     border: 1px solid var(--cue-border); border-radius: 4px; color: var(--cue-text);
@@ -3346,6 +3369,15 @@
           <div id="cue-cursor-label"></div>
         </div>
       </div>
+      <!-- Set change grid; opens over the script when a SHIFT cue is selected -->
+      <div id="mv-drawer">
+        <div class="mvd-grip" onmousedown="mvdStartResize(event)" title="Drag to resize"></div>
+        <div class="mvd-head">
+          <div class="mvd-title" id="mvd-title">Set Change</div>
+          <button class="mvd-close" onclick="closeMoveDrawer()" title="Close (Esc)">✕</button>
+        </div>
+        <div class="mvd-body" id="mvd-body"></div>
+      </div>
     </div>
     <!-- CUE PANEL -->
     <div class="cue-panel" id="cue-panel">
@@ -3389,14 +3421,6 @@
     <h3 id="ce-title">Edit Cue</h3>
     <label>Type</label>
     <select id="ce-type" onchange="onCeTypeChange()"></select>
-    <div id="ce-act-row" style="display:none;">
-      <label>Act</label>
-      <input type="number" id="ce-act" min="1" value="1" />
-      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;">
-        <input type="checkbox" id="ce-unnum" style="width:auto;margin:0;" />
-        Don't number this — print as a band (Pre-Show, Intermission)
-      </label>
-    </div>
     <label id="ce-num-label">Cue Number</label>
     <input type="text" id="ce-num" />
     <label>Action (what the cue does)</label>
@@ -3749,7 +3773,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v5</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9447,34 +9471,16 @@ const isSceneCue = c => c && c.type === SCENE_TYPE_ID;
 // Scenes structure the sheet rather than being cues in it.
 const isStructuralCue = c => isSceneCue(c);
 
-// Act/scene labels. The act is a field on the scene itself (c.act, default 1).
-// The scene NUMBER is still derived from script order and restarts at 1 each
-// time the act changes, so inserting a scene mid-act renumbers the rest for
-// free. Returns { [cueId]: 'Act 2, Scene 1 — The Witches Domain' }.
+// Scene names are typed, not derived. An earlier version computed
+// "Act 1, Scene 1" from script order and renumbered everything on insert; that
+// fought every show whose scenes aren't a flat 1..n (Pre-Show, Intermission,
+// "1-1" style plots, scenes that split). Whatever is typed is the label.
 function sceneLabels() {
   const out = {};
-  let lastAct = null, scene = 0;
-  cuesInScriptOrder().forEach(c => {
-    if (!isSceneCue(c)) return;
-    // Pre-Show / Intermission are structural bands, not scenes: they print with
-    // their own name and are skipped by the counter, so Act 2 still opens on
-    // Scene 1 rather than Scene 2.
-    if (c.unnumbered) { out[c.id] = String(c.number || '').trim() || 'Section'; return; }
-    const act = Math.max(1, parseInt(c.act) || 1);
-    if (act !== lastAct) { scene = 0; lastAct = act; }
-    scene++;
-    // A scene renamed to something real ("The Witches Domain") keeps its title
-    // and just gets the act/scene prefix; an untouched auto-name is replaced
-    // outright so it can't drift out of sync with its position.
-    const custom = String(c.number || '').trim();
-    const isAuto = /^(act\s*\d+[,\s]*)?scene\s*\d+$/i.test(custom);
-    const base = 'Act ' + act + ', Scene ' + scene;
-    out[c.id] = (custom && !isAuto)
-      ? base + ' — ' + custom.replace(/^(act\s*\d+[,\s]*)?scene\s*\d+\s*[—-]\s*/i, '')
-      : base;
-  });
+  cues.forEach(c => { if (isSceneCue(c)) out[c.id] = String(c.number || '').trim(); });
   return out;
 }
+
 // Merge saved types with defaults so newly-added default types (e.g. SPOT OUT)
 // appear on scripts saved before they existed, without losing the user's own types.
 // Types that were shipped once and then retired. Saved cue types live in the
@@ -9503,7 +9509,6 @@ function purgeRetiredTypes() {
     // Rename off the retired type ("INTERMISSION 1" -> "Scene"), since the label
     // is drawn from c.number and would otherwise still read INTERMISSION.
     if (/intermission/i.test(String(c.number || ''))) c.number = 'Scene';
-    if (c.act == null) c.act = 1;
     // The marker drawn on the script carries its own label/color copy, so it
     // keeps showing the old teal INTERMISSION chip unless it's synced too.
     Object.keys(annotations).forEach(pg => {
@@ -10371,14 +10376,9 @@ drawCanvas.addEventListener('pointerup', e => {
       let num;
       let sceneAct = null;
       if (typeId === SCENE_TYPE_ID) {
-        // A new scene inherits the act of the scene above it in script order —
-        // so once you set Act 2, every scene you place after it stays in Act 2
-        // instead of resetting to 1. Change it in the editor to start a new act.
-        const priorScenes = cuesInScriptOrder(cues.filter(c => c.type === SCENE_TYPE_ID));
-        sceneAct = priorScenes.length ? (parseInt(priorScenes[priorScenes.length - 1].act) || 1) : 1;
-        // Placeholder only — the real "Act 2, Scene 1" label is computed from
-        // script order at render (see sceneLabels). Rename to the scene's title.
-        num = 'Scene ' + (cues.filter(c => c.type === SCENE_TYPE_ID).length + 1);
+        // Left blank on purpose — you name the scene yourself. The editor opens
+        // straight onto the field so it can be typed the moment it's placed.
+        num = '';
       } else if (isSpot) {
         // Spots alternate 1/2 (two followspot ops) — pick whichever the most
         // recent spot cue in SCRIPT ORDER wasn't, so they ping-pong down the page.
@@ -10481,15 +10481,13 @@ function openCueInfo(cueId) {
 // Select/highlight a cue: marks it as the active cue (for the Delete key) and
 // persistently highlights its row in the cue sheet.
 function selectCue(cueId, focusNum) {
-  const prev = selectedCueId;
   selectedCueId = cueId;
-  // Moving between SHIFT cues has to rebuild the table, since the inline move
-  // grid belongs to whichever one is selected. Class-swapping alone would leave
-  // the grid attached to the cue you just left.
-  const shifted = c => { const x = cues.find(y => y.id === c); return x && x.type === SHIFT_TYPE_ID; };
-  if (prev !== cueId && (shifted(prev) || shifted(cueId))) {
-    try { renderCueList(); } catch(e) {}
-  }
+  // A SHIFT cue is a set change, so bring its grid up; anything else puts it away.
+  const sel = cues.find(x => x.id === cueId);
+  try {
+    if (sel && sel.type === SHIFT_TYPE_ID) openMoveDrawer(cueId);
+    else closeMoveDrawer();
+  } catch(e) {}
   const panel = document.getElementById('cue-panel');
   if (panel && !panel.classList.contains('open') && window.innerWidth <= 768) {
     panel.classList.add('open');
@@ -10880,9 +10878,7 @@ function renderCueList() {
         <td class="ct-notes">${c.notes || c.description || ''}</td>
         <td>${c.page}</td>
       </tr>`;
-      // The grid only unfolds for the cue you're actually on — showing every
-      // SHIFT cue's rows at once would bury the cue list it lives in.
-      return row + (isShift && selectedCueId === c.id ? moveGridHtml(c, color) : '');
+      return row;
     }).join('')}</tbody>
   </table>`;
   // Re-apply persistent selection highlight after rebuild
@@ -10898,38 +10894,98 @@ function renderCueList() {
 // physically shifts. In the plot these print together, then a rule, then the
 // next cue's block.
 const MOVE_COLS = [
-  { key: 'piece',   label: 'Piece',   w: 130, list: 'dl-pieces',  vocab: 'pieces', ph: 'Main Curtain' },
-  { key: 'action',  label: 'Action',  w: 90,  list: 'dl-actions', vocab: null,     ph: 'In' },
-  { key: 'who',     label: 'Who',     w: 110, list: 'dl-people',  vocab: 'people', ph: 'ASM/Crew' },
-  { key: 'spike',   label: 'Spike',   w: 70,  list: null,         vocab: null,     ph: '' },
-  { key: 'trigger', label: 'Trigger', w: 130, list: null,         vocab: null,     ph: 'when main in' },
-  { key: 'notes',   label: 'Notes',   w: 150, list: null,         vocab: null,     ph: 'SL Wing 1' },
+  { key: 'piece',   label: 'Piece',   pct: '20%', list: 'dl-pieces',  vocab: 'pieces', ph: 'Main Curtain' },
+  { key: 'action',  label: 'Action',  pct: '11%', list: 'dl-actions', vocab: null,     ph: 'In' },
+  { key: 'who',     label: 'Who',     pct: '15%', list: 'dl-people',  vocab: 'people', ph: 'ASM/Crew' },
+  { key: 'spike',   label: 'Spike',   pct: '9%',  list: null,         vocab: null,     ph: '' },
+  { key: 'trigger', label: 'Trigger', pct: '20%', list: null,         vocab: null,     ph: 'when main in' },
+  { key: 'notes',   label: 'Notes',   pct: '25%', list: null,         vocab: null,     ph: 'SL Wing 1' },
 ];
 
-function moveGridHtml(c, color) {
+let mvDrawerCueId = null;
+
+function openMoveDrawer(cueId) {
+  const c = cues.find(x => x.id === cueId);
+  if (!c || c.type !== SHIFT_TYPE_ID) return closeMoveDrawer();
+  mvDrawerCueId = cueId;
+  document.getElementById('mv-drawer').classList.add('open');
+  renderMoveDrawer(true);
+}
+
+function closeMoveDrawer() {
+  mvDrawerCueId = null;
+  const d = document.getElementById('mv-drawer');
+  if (d) d.classList.remove('open');
+}
+
+// focusFirst: only on open. Re-renders triggered by add/delete manage their own
+// focus, and stealing it on every repaint would fight you mid-row.
+function renderMoveDrawer(focusFirst) {
+  const c = cues.find(x => x.id === mvDrawerCueId);
+  const body = document.getElementById('mvd-body');
+  if (!c || !body) return;
+  const t = cueTypes.find(x => x.id === c.type);
+  const drawer = document.getElementById('mv-drawer');
+  if (drawer && t) drawer.style.setProperty('--shift-color', t.color);
+
+  const scene = sceneOfCue(c);
+  document.getElementById('mvd-title').innerHTML =
+    'Set Change' + (c.number ? ' — ' + escA(c.number) : '') +
+    `<em>pg ${c.page}${scene ? ' · ' + escA(scene) : ''}</em>`;
+
+  renderSetVocab();
   const moves = c.moves || [];
   const rows = moves.map(m => `<tr>
-    ${MOVE_COLS.map(col => `<td><input type="text" value="${escA(m[col.key])}"
-        placeholder="${escA(col.ph)}" style="min-width:${col.w}px"
+    ${MOVE_COLS.map(col => `<td style="width:${col.pct}"><input type="text" value="${escA(m[col.key])}"
+        placeholder="${escA(col.ph)}"
         ${col.list ? `list="${col.list}"` : ''}
         oninput="moveEdit('${c.id}','${m.id}','${col.key}',this.value)"
-        onchange="moveCommit('${col.vocab || ''}',this.value)"
-        onclick="event.stopPropagation()" /></td>`).join('')}
-    <td><button class="mv-del" title="Delete move"
-        onclick="event.stopPropagation();moveDelete('${c.id}','${m.id}')">✕</button></td>
+        onchange="moveCommit('${col.vocab || ''}',this.value)" /></td>`).join('')}
+    <td style="width:30px"><button class="mv-del" title="Delete move"
+        onclick="moveDelete('${c.id}','${m.id}')">✕</button></td>
   </tr>`).join('');
-  return `<tr class="mv-row"><td class="mv-cell" colspan="6" onclick="event.stopPropagation()">
-    <div class="mv-wrap" style="--shift-color:${color}">
-      <div class="mv-head"><span>Set Change — ${escA(c.number || '')}</span></div>
-      <div style="overflow-x:auto;">
-        <table class="mv-grid">
-          <thead><tr>${MOVE_COLS.map(col => `<th>${col.label}</th>`).join('')}<th></th></tr></thead>
-          <tbody>${rows || `<tr><td colspan="${MOVE_COLS.length + 1}" style="font-size:11px;color:var(--cue-text-faint);padding:4px 3px;">No moves yet.</td></tr>`}</tbody>
-        </table>
-      </div>
-      <button class="mv-add" onclick="event.stopPropagation();moveAdd('${c.id}')">+ Add move</button>
-    </div>
-  </td></tr>`;
+
+  body.innerHTML = `<table class="mv-grid">
+      <thead><tr>${MOVE_COLS.map(col => `<th>${col.label}</th>`).join('')}<th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <button class="mv-add" onclick="moveAdd('${c.id}')">+ Add move</button>`;
+
+  // An empty change is the common case right after placing the cue, so give it
+  // a row to type into rather than making you click Add first.
+  if (!moves.length) { moveAdd(c.id); return; }
+  if (focusFirst) {
+    const first = body.querySelector('input');
+    if (first) { first.focus(); first.select(); }
+  }
+}
+
+// Nearest SCENE marker at or above this cue in script order, for the header.
+function sceneOfCue(c) {
+  const ordered = cuesInScriptOrder();
+  let name = '';
+  for (const x of ordered) {
+    if (x.id === c.id) break;
+    if (isSceneCue(x)) name = String(x.number || '').trim();
+  }
+  return name;
+}
+
+// Drag the top edge to resize; height is remembered for the session.
+function mvdStartResize(e) {
+  e.preventDefault();
+  const d = document.getElementById('mv-drawer');
+  const startY = e.clientY, startH = d.offsetHeight;
+  const move = ev => {
+    const h = Math.max(120, startH + (startY - ev.clientY));
+    d.style.height = h + 'px';
+  };
+  const up = () => {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
 }
 
 function moveAdd(cueId) {
@@ -10941,10 +10997,11 @@ function moveAdd(cueId) {
     piece: '', action: '', who: '', spike: '', trigger: '', notes: ''
   });
   renderCueList();
+  renderMoveDrawer(false);
   saveShowData();
   // Land the caret in the new row's Piece box so you can keep typing.
-  const inputs = document.querySelectorAll('.mv-grid tbody tr:last-child input');
-  if (inputs.length) inputs[0].focus();
+  const last = document.querySelector('#mvd-body .mv-grid tbody tr:last-child input');
+  if (last) last.focus();
 }
 
 function moveDelete(cueId, moveId) {
@@ -10952,6 +11009,7 @@ function moveDelete(cueId, moveId) {
   if (!c || !Array.isArray(c.moves)) return;
   c.moves = c.moves.filter(m => m.id !== moveId);
   renderCueList();
+  renderMoveDrawer(false);
   saveShowData();
 }
 
@@ -10963,6 +11021,11 @@ function moveEdit(cueId, moveId, field, val) {
   const m = c.moves.find(x => x.id === moveId);
   if (!m) return;
   m[field] = val;
+  // Keep the sidebar's move count honest, but touch only that cell — a full
+  // renderCueList() here would be fine (the inputs live in the drawer now) yet
+  // still repaints the table on every keystroke for no reason.
+  const cell = document.querySelector(`.cue-table tr[data-cue-id="${cueId}"] .ct-moves`);
+  if (cell) cell.textContent = c.moves.length + ' move' + (c.moves.length !== 1 ? 's' : '');
   saveShowData();
 }
 
@@ -11044,8 +11107,6 @@ function onCeTypeChange() {
   const sel = document.getElementById('ce-type');
   if (!sel) return;
   const isScene = sel.value === SCENE_TYPE_ID;
-  const row = document.getElementById('ce-act-row');
-  if (row) row.style.display = isScene ? '' : 'none';
   const lbl = document.getElementById('ce-num-label');
   if (lbl) lbl.textContent = isScene ? 'Scene Name' : 'Cue Number';
 }
@@ -11057,8 +11118,6 @@ function editCue(id) {
   document.getElementById('ce-title').textContent = 'Edit ' + (c.number || 'Cue');
   document.getElementById('ce-type').innerHTML = cueTypes.map(t => `<option value="${t.id}"${t.id===c.type?' selected':''}>${t.name}</option>`).join('');
   document.getElementById('ce-num').value = c.number || '';
-  document.getElementById('ce-act').value = Math.max(1, parseInt(c.act) || 1);
-  document.getElementById('ce-unnum').checked = !!c.unnumbered;
   onCeTypeChange();
   document.getElementById('ce-action').value = c.action || '';
   document.getElementById('ce-line').value = c.cueLine || '';
@@ -11072,14 +11131,8 @@ function saveCueEdit() {
   if (!c) return;
   c.type = document.getElementById('ce-type').value;
   c.number = document.getElementById('ce-num').value.trim();
-  if (c.type === SCENE_TYPE_ID) {
-    c.act = Math.max(1, parseInt(document.getElementById('ce-act').value) || 1);
-    if (document.getElementById('ce-unnum').checked) c.unnumbered = true;
-    else delete c.unnumbered;
-  } else {
-    delete c.act; // act is meaningless on a normal cue
-    delete c.unnumbered;
-  }
+  // act/unnumbered were only ever inputs to the old derived numbering.
+  delete c.act; delete c.unnumbered;
   c.action = document.getElementById('ce-action').value.trim();
   c.cueLine = document.getElementById('ce-line').value.trim();
   c.notes = document.getElementById('ce-notes').value.trim();
@@ -11107,6 +11160,7 @@ function deleteCue(id) {
     annotations[page] = (annotations[page] || []).filter(a => a.cueId !== target);
   });
   if (selectedCueId === target) { selectedCueId = null; if (typeof clearCueForm === 'function') clearCueForm(); }
+  if (mvDrawerCueId === target) closeMoveDrawer();
   closeCueEdit();
   renderCueList();
   redrawAnnotations();
@@ -11164,6 +11218,7 @@ function clearCueForm() {
 // Deselect → empty, disabled panel
 function clearCueSelection() {
   selectedCueId = null;
+  closeMoveDrawer();
   document.querySelectorAll('.cue-table tr.cue-selected').forEach(r => r.classList.remove('cue-selected'));
   clearCueForm();
 }
@@ -11583,7 +11638,7 @@ async function exportCueSheet() {
 
   {
     sorted.forEach(c => {
-      if (isSceneCue(c)) { drawDivider(SCENE_LABELS[c.id] || c.number || 'Scene'); return; }
+      if (isSceneCue(c)) { drawDivider(SCENE_LABELS[c.id] || c.number || ''); return; }
       const t = cueTypes.find(x => x.id === c.type);
       const chipColor = t ? hexToRgb(t.color) : [153,153,153];
       const chipLabel = t ? t.name : (c.type || '');
@@ -11748,6 +11803,7 @@ document.addEventListener('keydown', e => {
   // aren't mid-edit in one of its fields. Handled before the `typing` bail-out
   // below, because opening the modal focuses a field and would otherwise
   // swallow the key forever.
+  if (e.key === 'Escape' && mvDrawerCueId) { closeMoveDrawer(); return; }
   const cueModal = document.getElementById('cue-edit-overlay');
   if (cueModal && cueModal.classList.contains('open')) {
     if ((e.key === 'Delete' || e.key === 'Backspace') && !typing && editingCueId) {
