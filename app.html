@@ -2091,6 +2091,26 @@
   #scripts-editor .cue-table .ct-num { font-family: 'DM Mono', monospace; font-weight: 600; font-size: 12px; white-space: nowrap; }
   #scripts-editor .cue-table .ct-action { color: var(--cue-text); }
   #scripts-editor .cue-table .ct-line { color: var(--cue-text-muted); font-style: italic; font-size: 11px; }
+  /* Inline set-change grid: expands under the selected SHIFT cue. */
+  #scripts-editor .mv-cell { padding: 0 !important; background: var(--cue-surface2) !important; cursor: default !important; }
+  #scripts-editor .mv-wrap { padding: 8px 8px 10px 14px; border-left: 3px solid var(--shift-color, #34495e); }
+  #scripts-editor .mv-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  #scripts-editor .mv-head span { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--cue-text-faint); }
+  #scripts-editor table.mv-grid { border-collapse: collapse; width: 100%; }
+  #scripts-editor table.mv-grid th { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--cue-text-faint); padding: 2px 3px; text-align: left; border-bottom: none; position: static; background: none; }
+  #scripts-editor table.mv-grid td { padding: 1px 3px; border-bottom: none; vertical-align: middle; cursor: default; }
+  #scripts-editor table.mv-grid tr:hover td { background: none; }
+  #scripts-editor table.mv-grid input {
+    width: 100%; box-sizing: border-box; padding: 4px 6px; font-size: 11px;
+    font-family: 'DM Sans', sans-serif; background: var(--cue-surface);
+    border: 1px solid var(--cue-border); border-radius: 4px; color: var(--cue-text);
+  }
+  #scripts-editor table.mv-grid input:focus { outline: none; border-color: var(--purple); }
+  #scripts-editor .mv-del { background: none; border: none; color: var(--cue-text-faint); cursor: pointer; font-size: 13px; padding: 2px 4px; line-height: 1; }
+  #scripts-editor .mv-del:hover { color: var(--cue-red); }
+  #scripts-editor .mv-add { margin-top: 6px; font-size: 11px; padding: 3px 10px; border: 1px dashed var(--cue-border); border-radius: 4px; background: none; color: var(--cue-text-muted); cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  #scripts-editor .mv-add:hover { border-style: solid; color: var(--cue-text); }
+  #scripts-editor .ct-moves { font-size: 10px; color: var(--cue-text-faint); font-family: 'DM Mono', monospace; }
   #scripts-editor .cue-table .ct-notes { color: var(--cue-text-faint); font-size: 11px; }
   #scripts-editor .cue-add { padding: 12px 16px; border-top: 1px solid var(--cue-border); overflow-y: auto; flex-shrink: 0; }
   /* Horizontal grip between the cue list and the entry form — drag up for a
@@ -3359,6 +3379,11 @@
 </div>
 
 <!-- Scripts: cue edit modal -->
+<!-- Typeahead vocabularies for the set-change grid, rebuilt by renderSetVocab() -->
+<datalist id="dl-pieces"></datalist>
+<datalist id="dl-people"></datalist>
+<datalist id="dl-actions"></datalist>
+
 <div class="cue-edit-overlay" id="cue-edit-overlay" onclick="if(event.target===this)closeCueEdit()">
   <div class="cue-edit">
     <h3 id="ce-title">Edit Cue</h3>
@@ -3367,6 +3392,10 @@
     <div id="ce-act-row" style="display:none;">
       <label>Act</label>
       <input type="number" id="ce-act" min="1" value="1" />
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:400;">
+        <input type="checkbox" id="ce-unnum" style="width:auto;margin:0;" />
+        Don't number this — print as a band (Pre-Show, Intermission)
+      </label>
     </div>
     <label id="ce-num-label">Cue Number</label>
     <input type="text" id="ce-num" />
@@ -3720,7 +3749,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v4</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9393,6 +9422,9 @@ let showId = '';
 // a divider row that the cues below it belong to. SCENE_TYPE_ID is the single
 // place that distinction is defined.
 const SCENE_TYPE_ID = 'scene';
+// SHIFT cues are the set changes. Each one owns a `moves` array — the little
+// grid of piece/action/who rows that becomes one block of the set change plot.
+const SHIFT_TYPE_ID = 'shift';
 let cueTypes = [
   { id: 'lx', name: 'LX', color: '#e74c3c' },
   { id: 'sfx', name: 'SFX', color: '#3498db' },
@@ -9424,6 +9456,10 @@ function sceneLabels() {
   let lastAct = null, scene = 0;
   cuesInScriptOrder().forEach(c => {
     if (!isSceneCue(c)) return;
+    // Pre-Show / Intermission are structural bands, not scenes: they print with
+    // their own name and are skipped by the counter, so Act 2 still opens on
+    // Scene 1 rather than Scene 2.
+    if (c.unnumbered) { out[c.id] = String(c.number || '').trim() || 'Section'; return; }
     const act = Math.max(1, parseInt(c.act) || 1);
     if (act !== lastAct) { scene = 0; lastAct = act; }
     scene++;
@@ -9484,7 +9520,69 @@ function purgeRetiredTypes() {
 }
 
 // Cues: { id, type, number, description, page }
+// SHIFT cues additionally carry:
+//   moves: [{ id, piece, action, who, spike, trigger, notes }]
 let cues = [];
+
+// Per-show typeahead vocabularies for the set-change grid. Stored values are
+// what's been deliberately kept; anything currently in use is unioned in at
+// read time, so the list can't go stale against the moves themselves and a
+// value stays offered as long as any row still uses it.
+let setVocab = { people: [], pieces: [] };
+const COMMON_ACTIONS = ['In', 'Out', 'Set', 'Strike', 'Preset', 'Roll down', 'Fly in', 'Fly out', 'On', 'Off'];
+
+// Older saves predate setVocab entirely, and a partial payload could hand back
+// a non-array — either would break the typeahead on load.
+function normalizeVocab(v) {
+  const o = (v && typeof v === 'object') ? v : {};
+  return {
+    people: Array.isArray(o.people) ? o.people.filter(x => typeof x === 'string') : [],
+    pieces: Array.isArray(o.pieces) ? o.pieces.filter(x => typeof x === 'string') : []
+  };
+}
+
+function vocabList(kind) {
+  const stored = Array.isArray(setVocab[kind]) ? setVocab[kind] : [];
+  const used = [];
+  const field = kind === 'people' ? 'who' : 'piece';
+  cues.forEach(c => (c.moves || []).forEach(m => {
+    // "ASM/Crew" is two assignments sharing a cell — offer each on its own.
+    String(m[field] || '').split('/').forEach(v => {
+      v = v.trim();
+      if (v) used.push(v);
+    });
+  }));
+  const seen = new Set();
+  return [...stored, ...used]
+    .filter(v => { const k = v.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function vocabRemember(kind, raw) {
+  String(raw || '').split('/').forEach(v => {
+    v = v.trim();
+    if (!v) return;
+    if (!Array.isArray(setVocab[kind])) setVocab[kind] = [];
+    if (!setVocab[kind].some(x => x.toLowerCase() === v.toLowerCase())) setVocab[kind].push(v);
+  });
+}
+
+function renderSetVocab() {
+  const fill = (id, vals) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = vals.map(v => `<option value="${escA(v)}"></option>`).join('');
+  };
+  fill('dl-pieces', vocabList('pieces'));
+  fill('dl-people', vocabList('people'));
+  fill('dl-actions', COMMON_ACTIONS);
+}
+
+// Attribute-safe escape — the grid writes user text straight into value="".
+function escA(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 // Annotations per page: { [page]: [ {type:'stroke', points:[], color, size} | {type:'cue', x, y, cueId} ] }
 let annotations = {};
@@ -10383,7 +10481,15 @@ function openCueInfo(cueId) {
 // Select/highlight a cue: marks it as the active cue (for the Delete key) and
 // persistently highlights its row in the cue sheet.
 function selectCue(cueId, focusNum) {
+  const prev = selectedCueId;
   selectedCueId = cueId;
+  // Moving between SHIFT cues has to rebuild the table, since the inline move
+  // grid belongs to whichever one is selected. Class-swapping alone would leave
+  // the grid attached to the cue you just left.
+  const shifted = c => { const x = cues.find(y => y.id === c); return x && x.type === SHIFT_TYPE_ID; };
+  if (prev !== cueId && (shifted(prev) || shifted(cueId))) {
+    try { renderCueList(); } catch(e) {}
+  }
   const panel = document.getElementById('cue-panel');
   if (panel && !panel.classList.contains('open') && window.innerWidth <= 768) {
     panel.classList.add('open');
@@ -10757,20 +10863,26 @@ function renderCueList() {
     el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-faint);font-size:13px;">No cues yet.<br>Select a type and drag on the script to place cues.</div>';
     return;
   }
+  renderSetVocab();
   el.innerHTML = `<table class="cue-table">
     <thead><tr><th>Type</th><th>#</th><th>Action</th><th>Cue Line</th><th>Notes</th><th>Pg</th></tr></thead>
     <tbody>${sorted.map(c => {
       const t = cueTypes.find(t => t.id === c.type);
       const color = t ? t.color : '#999';
       const typeName = t ? t.name : c.type;
-      return `<tr data-cue-id="${c.id}" onclick="jumpToCue('${c.id}')" ondblclick="editCue('${c.id}')">
+      const isShift = c.type === SHIFT_TYPE_ID;
+      const nMoves = (c.moves || []).length;
+      const row = `<tr data-cue-id="${c.id}" onclick="jumpToCue('${c.id}')" ondblclick="editCue('${c.id}')">
         <td><span class="ct-type" style="background:${color}">${typeName}</span></td>
         <td class="ct-num">${c.number || ''}</td>
-        <td class="ct-action">${c.action || ''}</td>
+        <td class="ct-action">${c.action || ''}${isShift && nMoves ? ` <span class="ct-moves">${nMoves} move${nMoves !== 1 ? 's' : ''}</span>` : ''}</td>
         <td class="ct-line">${c.cueLine ? c.cueLine : (c.lineCrop ? '<span style="opacity:0.5;" title="Script line captured as image">📷 line</span>' : '')}</td>
         <td class="ct-notes">${c.notes || c.description || ''}</td>
         <td>${c.page}</td>
       </tr>`;
+      // The grid only unfolds for the cue you're actually on — showing every
+      // SHIFT cue's rows at once would bury the cue list it lives in.
+      return row + (isShift && selectedCueId === c.id ? moveGridHtml(c, color) : '');
     }).join('')}</tbody>
   </table>`;
   // Re-apply persistent selection highlight after rebuild
@@ -10778,6 +10890,89 @@ function renderCueList() {
     const row = el.querySelector('.cue-table tr[data-cue-id="' + selectedCueId + '"]');
     if (row) row.classList.add('cue-selected');
   }
+}
+
+// ── SET CHANGE MOVES ─────────────────────────────────────────────────────────
+// One SHIFT cue = one change = a block of moves. The cue supplies the page,
+// the script position and the calling trigger; each move row is one thing that
+// physically shifts. In the plot these print together, then a rule, then the
+// next cue's block.
+const MOVE_COLS = [
+  { key: 'piece',   label: 'Piece',   w: 130, list: 'dl-pieces',  vocab: 'pieces', ph: 'Main Curtain' },
+  { key: 'action',  label: 'Action',  w: 90,  list: 'dl-actions', vocab: null,     ph: 'In' },
+  { key: 'who',     label: 'Who',     w: 110, list: 'dl-people',  vocab: 'people', ph: 'ASM/Crew' },
+  { key: 'spike',   label: 'Spike',   w: 70,  list: null,         vocab: null,     ph: '' },
+  { key: 'trigger', label: 'Trigger', w: 130, list: null,         vocab: null,     ph: 'when main in' },
+  { key: 'notes',   label: 'Notes',   w: 150, list: null,         vocab: null,     ph: 'SL Wing 1' },
+];
+
+function moveGridHtml(c, color) {
+  const moves = c.moves || [];
+  const rows = moves.map(m => `<tr>
+    ${MOVE_COLS.map(col => `<td><input type="text" value="${escA(m[col.key])}"
+        placeholder="${escA(col.ph)}" style="min-width:${col.w}px"
+        ${col.list ? `list="${col.list}"` : ''}
+        oninput="moveEdit('${c.id}','${m.id}','${col.key}',this.value)"
+        onchange="moveCommit('${col.vocab || ''}',this.value)"
+        onclick="event.stopPropagation()" /></td>`).join('')}
+    <td><button class="mv-del" title="Delete move"
+        onclick="event.stopPropagation();moveDelete('${c.id}','${m.id}')">✕</button></td>
+  </tr>`).join('');
+  return `<tr class="mv-row"><td class="mv-cell" colspan="6" onclick="event.stopPropagation()">
+    <div class="mv-wrap" style="--shift-color:${color}">
+      <div class="mv-head"><span>Set Change — ${escA(c.number || '')}</span></div>
+      <div style="overflow-x:auto;">
+        <table class="mv-grid">
+          <thead><tr>${MOVE_COLS.map(col => `<th>${col.label}</th>`).join('')}<th></th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="${MOVE_COLS.length + 1}" style="font-size:11px;color:var(--cue-text-faint);padding:4px 3px;">No moves yet.</td></tr>`}</tbody>
+        </table>
+      </div>
+      <button class="mv-add" onclick="event.stopPropagation();moveAdd('${c.id}')">+ Add move</button>
+    </div>
+  </td></tr>`;
+}
+
+function moveAdd(cueId) {
+  const c = cues.find(x => x.id === cueId);
+  if (!c) return;
+  if (!Array.isArray(c.moves)) c.moves = [];
+  c.moves.push({
+    id: 'mv' + Date.now() + Math.random().toString(36).slice(2, 6),
+    piece: '', action: '', who: '', spike: '', trigger: '', notes: ''
+  });
+  renderCueList();
+  saveShowData();
+  // Land the caret in the new row's Piece box so you can keep typing.
+  const inputs = document.querySelectorAll('.mv-grid tbody tr:last-child input');
+  if (inputs.length) inputs[0].focus();
+}
+
+function moveDelete(cueId, moveId) {
+  const c = cues.find(x => x.id === cueId);
+  if (!c || !Array.isArray(c.moves)) return;
+  c.moves = c.moves.filter(m => m.id !== moveId);
+  renderCueList();
+  saveShowData();
+}
+
+// Keystroke handler. Deliberately does NOT re-render — rebuilding the table on
+// every character would tear the focused input out from under the caret.
+function moveEdit(cueId, moveId, field, val) {
+  const c = cues.find(x => x.id === cueId);
+  if (!c || !Array.isArray(c.moves)) return;
+  const m = c.moves.find(x => x.id === moveId);
+  if (!m) return;
+  m[field] = val;
+  saveShowData();
+}
+
+// Fires on blur / datalist pick, once the value has settled — that's the point
+// to fold it into the vocabulary rather than learning every half-typed prefix.
+function moveCommit(vocabKind, val) {
+  if (!vocabKind) return;
+  vocabRemember(vocabKind, val);
+  renderSetVocab();
+  saveShowData();
 }
 
 // Click a cue in the panel → flip to its page and scroll the script to its marker.
@@ -10863,6 +11058,7 @@ function editCue(id) {
   document.getElementById('ce-type').innerHTML = cueTypes.map(t => `<option value="${t.id}"${t.id===c.type?' selected':''}>${t.name}</option>`).join('');
   document.getElementById('ce-num').value = c.number || '';
   document.getElementById('ce-act').value = Math.max(1, parseInt(c.act) || 1);
+  document.getElementById('ce-unnum').checked = !!c.unnumbered;
   onCeTypeChange();
   document.getElementById('ce-action').value = c.action || '';
   document.getElementById('ce-line').value = c.cueLine || '';
@@ -10878,8 +11074,11 @@ function saveCueEdit() {
   c.number = document.getElementById('ce-num').value.trim();
   if (c.type === SCENE_TYPE_ID) {
     c.act = Math.max(1, parseInt(document.getElementById('ce-act').value) || 1);
+    if (document.getElementById('ce-unnum').checked) c.unnumbered = true;
+    else delete c.unnumbered;
   } else {
     delete c.act; // act is meaningless on a normal cue
+    delete c.unnumbered;
   }
   c.action = document.getElementById('ce-action').value.trim();
   c.cueLine = document.getElementById('ce-line').value.trim();
@@ -11165,7 +11364,7 @@ function savePageAnnotations() { /* annotations are saved per-stroke already */ 
 
 function saveShowData() {
   if (!showId) return;
-  const data = { cueTypes, cues, annotations };
+  const data = { cueTypes, cues, annotations, setVocab };
   // Save locally for instant access — keeps local data-URL crops too, so this
   // device sees them right away even before the background upload finishes.
   try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(data)); } catch(e) {}
@@ -11195,6 +11394,7 @@ function loadShowData() {
       if (saved.cueTypes) cueTypes = mergeCueTypes(saved.cueTypes);
       if (saved.cues) cues = saved.cues;
       if (saved.annotations) annotations = saved.annotations;
+      setVocab = normalizeVocab(saved.setVocab);
       purgeRetiredTypes();
     }
   } catch(e) {}
@@ -11204,6 +11404,7 @@ function loadShowData() {
       if (d.cueData.cueTypes) cueTypes = mergeCueTypes(d.cueData.cueTypes);
       if (d.cueData.cues) cues = d.cueData.cues;
       if (d.cueData.annotations) annotations = d.cueData.annotations;
+      setVocab = normalizeVocab(d.cueData.setVocab);
       // Retired types linger in the Sheet, so clean them on the way in and push
       // the corrected data back — otherwise every device keeps re-importing them.
       const cleaned = purgeRetiredTypes();
