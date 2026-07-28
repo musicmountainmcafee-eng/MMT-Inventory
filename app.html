@@ -2095,6 +2095,8 @@
     border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; margin: 0; }
   table.preset-grid input:focus { outline: none; border-color: var(--purple); }
   .pg-empty { font-size: 13px; color: #8b8ba6; padding: 10px 0; }
+  table.preset-grid tr.pg-off .pg-name { color: #6b6b86; text-decoration: line-through; }
+  table.preset-grid tr.pg-off input[type=text] { opacity: 0.45; }
   #scripts-editor .ct-moves { font-size: 10px; color: var(--cue-text-faint); font-family: 'DM Mono', monospace; }
   #scripts-editor .page-nav { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 8px; background: var(--cue-surface); border-bottom: 1px solid var(--cue-border); flex-shrink: 0; }
   #scripts-editor .page-nav button { padding: 4px 12px; border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm); background: none; color: var(--cue-text-muted); font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
@@ -3808,7 +3810,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v20</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v21</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9586,7 +9588,8 @@ function normalizePresets(v) {
       out[k] = {
         piece: String(e.piece || k),
         location: String(e.location || ''),
-        notes: String(e.notes || '')
+        notes: String(e.notes || ''),
+        hidden: !!e.hidden
       };
     });
   }
@@ -9610,7 +9613,7 @@ function allPieces() {
 }
 
 function presetFor(key) {
-  if (!presets[key]) presets[key] = { piece: '', location: '', notes: '' };
+  if (!presets[key]) presets[key] = { piece: '', location: '', notes: '', hidden: false };
   return presets[key];
 }
 const COMMON_ACTIONS = ['In', 'Out', 'Set', 'Strike', 'Preset', 'Roll down', 'Fly in', 'Fly out', 'On', 'Off'];
@@ -11002,13 +11005,21 @@ function renderPresets() {
     body.innerHTML = '<div class="pg-empty">No pieces yet — they appear here once you add moves to a set change.</div>';
     return;
   }
+  const shown = list.filter(({ key }) => !(presets[key] || {}).hidden).length;
   body.innerHTML = `<table class="preset-grid">
     <thead><tr>
-      <th style="width:26%">Piece</th><th style="width:34%">Preset location</th><th style="width:40%">Notes</th>
+      <th style="width:9%">Print</th><th style="width:24%">Piece</th>
+      <th style="width:30%">Preset location</th><th style="width:37%">Notes</th>
     </tr></thead>
     <tbody>${list.map(({ key, piece }) => {
       const e = presets[key] || {};
-      return `<tr>
+      // Everything prints unless you say otherwise — a piece with nothing
+      // filled in is a gap worth seeing on the sheet, not something to bury.
+      const off = e.hidden ? ' pg-off' : '';
+      return `<tr class="pg-row${off}">
+        <td style="text-align:center;"><input type="checkbox" ${e.hidden ? '' : 'checked'}
+              title="Print this row" style="width:auto;margin:0;cursor:pointer;"
+              onchange="presetToggle('${escA(key)}','${escA(piece)}',this.checked)" /></td>
         <td class="pg-name">${escA(piece)}</td>
         <td><input type="text" value="${escA(e.location)}" autocomplete="off"
               oninput="presetEdit('${escA(key)}','${escA(piece)}','location',this.value)" /></td>
@@ -11016,10 +11027,21 @@ function renderPresets() {
               oninput="presetEdit('${escA(key)}','${escA(piece)}','notes',this.value)" /></td>
       </tr>`;
     }).join('')}</tbody>
-  </table>`;
+  </table>
+  <div style="font-size:12px;color:#8b8ba6;margin-top:10px;">
+    ${shown} of ${list.length} printing${shown === 0 ? ' — the section will be left off entirely' : ''}</div>`;
 }
 
 // No re-render on keystroke — it would pull the caret out of the field.
+// Checkbox, so re-rendering costs nothing — no caret to lose.
+function presetToggle(key, piece, print) {
+  const e = presetFor(key);
+  e.piece = piece;
+  e.hidden = !print;
+  renderPresets();
+  saveShowData();
+}
+
 function presetEdit(key, piece, field, val) {
   const e = presetFor(key);
   e.piece = piece;
@@ -11993,12 +12015,13 @@ async function exportSetChangePlot() {
 
   // ── Before house opens ─────────────────────────────────────────────────────
   // Its own short table ahead of the plot proper: what's onstage or standing by
-  // when the doors open. Only pieces with something entered print — the rest
-  // would be a wall of blank rows. Presets written inside a scene change stay
-  // in that change; this section is about the state at top of show.
+  // when the doors open. Every piece in the show prints unless it's been turned
+  // off in the Presets dialog — a blank location is a gap someone should fill,
+  // and hiding it would hide the gap. Presets written inside a scene change
+  // stay in that change; this section is about the state at top of show.
   const presetRows = allPieces()
-    .map(({ key, piece }) => ({ piece, ...(presets[key] || {}) }))
-    .filter(r => (r.location || '').trim() || (r.notes || '').trim());
+    .map(({ key, piece }) => ({ ...(presets[key] || {}), piece }))
+    .filter(r => !r.hidden);
 
   if (presetRows.length) {
     const PC = [
