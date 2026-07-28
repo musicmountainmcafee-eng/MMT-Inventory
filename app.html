@@ -3787,7 +3787,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v14</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v15</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -11780,25 +11780,39 @@ async function exportSetChangePlot() {
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
 
-  const M = 44, PAD = 5, LEAD = 10, FS = 8.5;
-  const MIN_ROW = 17, MARGIN_BOTTOM = 46;
+  // 9.5/12 rather than 8.5/10: this gets read backstage in blue light, not at a
+  // desk. Landscape supplied the width to pay for it.
+  const M = 44, PAD = 6, LEAD = 12, FS = 9.5;
+  const MIN_ROW = 20, MARGIN_BOTTOM = 46;
   const GRID = [205, 205, 214];
   const HEAD_BG = [232, 232, 240];
   const SCENE_BAR = [38, 38, 46];       // black bar = scene
   const BREAK_RULE = [150, 150, 162];   // grey rule = next change, same scene
+  const BLOCK_TINT = [237, 238, 243];   // every other change, so blocks read as units
 
   // Widths total the printable 704pt so the table squares off at both margins.
   // Most of the extra width goes to NOTES, which is the column that was
   // actually wrapping, and to PIECE ("Vaudville drop", "Dressing Screen").
+  // The old single CUE column fell back to the cue's name when no trigger was
+  // typed, so it printed "SCENE CHANGE 1…28" — the widest column on the page
+  // spent on a phrase that repeats every block. Split: a narrow number to call
+  // over headset, and the trigger itself in the space that frees up.
   const COLS = [
-    { key: 'cue',    label: 'CUE',    w: 110 },
-    { key: 'pg',     label: 'PG',     w: 30  },
-    { key: 'piece',  label: 'PIECE',  w: 130 },
-    { key: 'action', label: 'ACTION', w: 70  },
-    { key: 'who',    label: 'WHO',    w: 90  },
-    { key: 'spike',  label: 'SPIKE',  w: 50  },
-    { key: 'notes',  label: 'NOTES',  w: 224 },
+    { key: 'num',    label: '#',         w: 30,  bold: true },
+    { key: 'cue',    label: 'CALLED ON', w: 130 },
+    { key: 'pg',     label: 'PG',        w: 30  },
+    { key: 'piece',  label: 'PIECE',     w: 130, bold: true },
+    { key: 'action', label: 'ACTION',    w: 68  },
+    { key: 'who',    label: 'WHO',       w: 88  },
+    { key: 'spike',  label: 'SPIKE',     w: 48  },
+    { key: 'notes',  label: 'NOTES',     w: 180 },
   ];
+  // "SCENE CHANGE 12" -> "12". Falls back to the whole label so a change named
+  // something without digits still prints something.
+  const shortNum = v => {
+    const m = String(v || '').match(/(\d+[A-Za-z.]*)\s*$/);
+    return m ? m[1] : String(v || '').trim();
+  };
   const X = []; { let x = M; for (const c of COLS) { X.push(x); x += c.w; } }
   const TABLE_W = COLS.reduce((s, c) => s + c.w, 0);
 
@@ -11825,10 +11839,10 @@ async function exportSetChangePlot() {
     y += 13;
   }
   function drawHeader() {
-    const h = 17;
+    const h = 18;
     doc.setFillColor(...HEAD_BG); doc.rect(M, y, TABLE_W, h, 'F');
-    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(90,90,105);
-    COLS.forEach((c,i) => doc.text(c.label, X[i] + PAD, y + 11));
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(90,90,105);
+    COLS.forEach((c,i) => doc.text(c.label, X[i] + PAD, y + 12));
     doc.setDrawColor(...GRID); doc.setLineWidth(0.5);
     COLS.forEach((c,i) => doc.line(X[i], y, X[i], y + h));
     doc.line(M + TABLE_W, y, M + TABLE_W, y + h);
@@ -11836,18 +11850,26 @@ async function exportSetChangePlot() {
     doc.line(M, y + h, M + TABLE_W, y + h);
     y += h;
   }
+  // Whichever scene we're inside, so a page that opens mid-scene can say so
+  // rather than starting with unlabelled rows.
+  let curScene = '';
+
+  function newPage() {
+    doc.addPage(); drawTitle(); drawHeader();
+    if (curScene) drawSceneBar(curScene + ' (cont.)', true);
+  }
   function ensureRoom(h) {
-    if (y + h > pageH - MARGIN_BOTTOM && y > 90) {
-      doc.addPage(); drawTitle(); drawHeader(); return true;
-    }
+    if (y + h > pageH - MARGIN_BOTTOM && y > 90) { newPage(); return true; }
     return false;
   }
-  function drawSceneBar(label) {
-    const h = 16;
-    ensureRoom(h + 24);   // never strand a scene bar at the foot of a page
+  // isCont guards the recursion: a continuation bar is drawn immediately after
+  // a fresh header, so it must not call ensureRoom and spawn another page.
+  function drawSceneBar(label, isCont) {
+    const h = 18;
+    if (!isCont) ensureRoom(h + 26);   // never strand a scene bar at the foot of a page
     doc.setFillColor(...SCENE_BAR); doc.rect(M, y, TABLE_W, h, 'F');
-    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(255,255,255);
-    doc.text(String(label || '').toUpperCase(), M + PAD, y + 11);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
+    doc.text(String(label || '').toUpperCase(), M + PAD, y + 12.5);
     y += h;
   }
   function drawBreakRule() {
@@ -11862,11 +11884,14 @@ async function exportSetChangePlot() {
   const SCENE_LABELS = sceneLabels();
   let firstBlockInScene = true;
   let anyScene = false;
+  let shade = false;    // alternates per change, so a block reads as one unit
 
   ordered.forEach(c => {
     if (isSceneCue(c)) {
-      drawSceneBar(SCENE_LABELS[c.id] || c.number || '');
+      curScene = SCENE_LABELS[c.id] || c.number || '';
+      drawSceneBar(curScene);
       firstBlockInScene = true;
+      shade = false;    // every scene opens unshaded
       anyScene = true;
       return;
     }
@@ -11879,18 +11904,18 @@ async function exportSetChangePlot() {
     // Measure the whole block first: a change should not be split across a page
     // break unless it genuinely can't fit on one.
     doc.setFontSize(FS);
+    const wrap = (txt, i) => doc.splitTextToSize(String(txt || ''), COLS[i].w - PAD*2);
     const built = moves.map((m, i) => {
-      // m.trigger only survives on data a device hasn't migrated yet; the
-      // grid no longer offers the field.
-      const cueTxt = m.trigger || (i === 0 ? (c.cueLine || c.number || '') : '');
       const cells = {
-        cue:    doc.splitTextToSize(String(cueTxt), COLS[0].w - PAD*2),
+        num:    [i === 0 ? shortNum(c.number) : ''],
+        // m.trigger only survives on data a device hasn't migrated yet.
+        cue:    wrap(m.trigger || (i === 0 ? (c.cueLine || '') : ''), 1),
         pg:     [i === 0 ? String(c.page || '') : ''],
-        piece:  doc.splitTextToSize(String(m.piece  || ''), COLS[2].w - PAD*2),
-        action: doc.splitTextToSize(String(m.action || ''), COLS[3].w - PAD*2),
-        who:    doc.splitTextToSize(String(m.who    || ''), COLS[4].w - PAD*2),
-        spike:  doc.splitTextToSize(String(m.spike  || ''), COLS[5].w - PAD*2),
-        notes:  doc.splitTextToSize(String(m.notes  || ''), COLS[6].w - PAD*2),
+        piece:  wrap(m.piece,  3),
+        action: wrap(m.action, 4),
+        who:    wrap(m.who,    5),
+        spike:  wrap(m.spike,  6),
+        notes:  wrap(m.notes,  7),
       };
       const lines = Math.max(...COLS.map(col => cells[col.key].length), 1);
       return { cells, h: Math.max(MIN_ROW, lines * LEAD + PAD*2) };
@@ -11904,13 +11929,16 @@ async function exportSetChangePlot() {
       ensureRoom(blockH);
     }
 
+    const on = shade;
     built.forEach(r => {
       // Row taller than a whole page: draw it and let it clip rather than loop.
-      if (y + r.h > pageH - MARGIN_BOTTOM && y > 90) { doc.addPage(); drawTitle(); drawHeader(); }
-      doc.setFont('helvetica','normal'); doc.setFontSize(FS); doc.setTextColor(30,30,30);
+      if (y + r.h > pageH - MARGIN_BOTTOM && y > 90) newPage();
+      if (on) { doc.setFillColor(...BLOCK_TINT); doc.rect(M, y, TABLE_W, r.h, 'F'); }
+      doc.setFontSize(FS); doc.setTextColor(30,30,30);
       COLS.forEach((col, i) => {
-        const lines = r.cells[col.key];
-        lines.forEach((ln, li) => doc.text(ln, X[i] + PAD, y + PAD + LEAD - 2 + li * LEAD));
+        doc.setFont('helvetica', col.bold ? 'bold' : 'normal');
+        r.cells[col.key].forEach((ln, li) =>
+          doc.text(ln, X[i] + PAD, y + PAD + LEAD - 3 + li * LEAD));
       });
       doc.setDrawColor(...GRID); doc.setLineWidth(0.4);
       COLS.forEach((col, i) => doc.line(X[i], y, X[i], y + r.h));
@@ -11919,6 +11947,7 @@ async function exportSetChangePlot() {
       y += r.h;
     });
     firstBlockInScene = false;
+    shade = !shade;
   });
 
   if (!anyScene) toast('No scene markers found — plot has no scene bars');
