@@ -3787,7 +3787,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v17</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v18</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -12008,12 +12008,21 @@ async function exportSetChangePlot() {
   if (!anyScene) toast('No scene markers found — plot has no scene bars');
 
   // Page N of M, right-aligned on the title baseline. Has to run after the last
-  // page exists, so it's a second pass rather than part of drawTitle.
+  // page exists, so it's a second pass rather than part of drawTitle. Counted
+  // before the spacers go in, so the numbering matches the pages that carry
+  // content rather than the padded total.
   const totalPages = doc.internal.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(150,150,160);
     doc.text('Page ' + i + ' of ' + totalPages, M + TABLE_W, 52, { align: 'right' });
+  }
+
+  // A blank after each sheet so a duplex printer leaves every back face empty —
+  // the plot ends up single-sided, with room to write on the reverse.
+  // Walking backwards keeps the indices below the insertion point stable.
+  if (typeof doc.insertPage === 'function') {
+    for (let i = totalPages; i >= 1; i--) doc.insertPage(i + 1);
   }
 
   const safe = showName.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
