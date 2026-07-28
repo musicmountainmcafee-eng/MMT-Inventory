@@ -3424,11 +3424,13 @@
     <select id="ce-type" onchange="onCeTypeChange()"></select>
     <label id="ce-num-label">Cue Number</label>
     <input type="text" id="ce-num" />
-    <label>Action (what the cue does)</label>
-    <input type="text" id="ce-action" placeholder="e.g. Fade to blue wash" />
-    <label>Cue Line (trigger text)</label>
+    <div id="ce-action-row">
+      <label>Action (what the cue does)</label>
+      <input type="text" id="ce-action" placeholder="e.g. Fade to blue wash" />
+    </div>
+    <label id="ce-line-label">Cue Line (trigger text)</label>
     <input type="text" id="ce-line" placeholder="e.g. SO QUIET THIS MORNING" />
-    <label>Notes</label>
+    <label id="ce-notes-label">Notes</label>
     <textarea id="ce-notes" placeholder="Additional notes..."></textarea>
     <label>Page</label>
     <input type="number" id="ce-page" min="1" />
@@ -3774,7 +3776,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v6</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v8</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -9537,6 +9539,23 @@ let cues = [];
 let setVocab = { people: [], pieces: [] };
 const COMMON_ACTIONS = ['In', 'Out', 'Set', 'Strike', 'Preset', 'Roll down', 'Fly in', 'Fly out', 'On', 'Off'];
 
+// The move grid used to carry a Trigger column; it was redundant with Notes,
+// which is where "when main in" style follow-ons belong. Removing the input
+// would have stranded anything already typed there — invisible but still
+// exporting — so fold it into Notes on load. Deleting the key as we go makes
+// this idempotent.
+function migrateMoveTriggers() {
+  let changed = false;
+  cues.forEach(c => (c.moves || []).forEach(m => {
+    if (!m || !m.trigger) { if (m) delete m.trigger; return; }
+    const t = String(m.trigger).trim();
+    if (t) m.notes = m.notes ? (m.notes + ' — ' + t) : t;
+    delete m.trigger;
+    changed = true;
+  }));
+  return changed;
+}
+
 // Older saves predate setVocab entirely, and a partial payload could hand back
 // a non-array — either would break the typeahead on load.
 function normalizeVocab(v) {
@@ -10897,12 +10916,11 @@ function renderCueList() {
 // No placeholders: greyed sample text in an empty cell reads as real content at
 // a glance, which is exactly wrong on a sheet someone runs a show off.
 const MOVE_COLS = [
-  { key: 'piece',   label: 'Piece',   pct: '20%', list: 'dl-pieces',  vocab: 'pieces' },
-  { key: 'action',  label: 'Action',  pct: '11%', list: 'dl-actions', vocab: null     },
-  { key: 'who',     label: 'Who',     pct: '15%', list: 'dl-people',  vocab: 'people' },
-  { key: 'spike',   label: 'Spike',   pct: '9%',  list: null,         vocab: null     },
-  { key: 'trigger', label: 'Trigger', pct: '20%', list: null,         vocab: null     },
-  { key: 'notes',   label: 'Notes',   pct: '25%', list: null,         vocab: null     },
+  { key: 'piece',  label: 'Piece',  pct: '24%', list: 'dl-pieces',  vocab: 'pieces' },
+  { key: 'action', label: 'Action', pct: '13%', list: 'dl-actions', vocab: null     },
+  { key: 'who',    label: 'Who',    pct: '18%', list: 'dl-people',  vocab: 'people' },
+  { key: 'spike',  label: 'Spike',  pct: '11%', list: null,         vocab: null     },
+  { key: 'notes',  label: 'Notes',  pct: '34%', list: null,         vocab: null     },
 ];
 
 let mvDrawerCueId = null;
@@ -10996,7 +11014,7 @@ function moveAdd(cueId) {
   if (!Array.isArray(c.moves)) c.moves = [];
   c.moves.push({
     id: 'mv' + Date.now() + Math.random().toString(36).slice(2, 6),
-    piece: '', action: '', who: '', spike: '', trigger: '', notes: ''
+    piece: '', action: '', who: '', spike: '', notes: ''
   });
   renderCueList();
   renderMoveDrawer(false);
@@ -11105,12 +11123,53 @@ function flashCueMarker(a) {
 
 // Act only applies to scenes, so the field appears only for them. Also relabels
 // "Cue Number" -> "Scene Name", since that's what the field means for a scene.
+// A set change carries fields at two scopes and the generic labels can't tell
+// them apart: the cue's "Cue Line" is what the ASM calls the whole change on
+// ("In argentina"), while a move's "Trigger" is what one row waits for ("when
+// main in"). Cue-level Action is meaningless for a change — the actions live
+// per-move — so it's hidden rather than left prompting for input that nothing
+// reads. Keyed on type ID, not display name, so renaming a type in the sidebar
+// doesn't change behaviour.
+//
+// `action: null` means hide. Anything not listed keeps the generic labels, so
+// LX/SFX/FLY/SPOT and any type added later are untouched.
+const CUE_FIELD_LABELS = {
+  shift: { modalNum:'Change #',  num:'Change #',   action:null,
+           line:'Called on',     notes:'Change notes' },
+  scene: { modalNum:'Scene Name', num:'Scene name', action:'Action (optional)',
+           line:'Cue line (trigger text)', notes:'Notes (optional)' }
+};
+const CUE_FIELD_DEFAULT = {
+  modalNum:'Cue Number', num:'Cue #', action:'Action (e.g. Fade to blue)',
+  line:'Cue line (trigger text)', notes:'Notes (optional)'
+};
+const cueFieldLabels = typeId => CUE_FIELD_LABELS[typeId] || CUE_FIELD_DEFAULT;
+
 function onCeTypeChange() {
   const sel = document.getElementById('ce-type');
   if (!sel) return;
-  const isScene = sel.value === SCENE_TYPE_ID;
-  const lbl = document.getElementById('ce-num-label');
-  if (lbl) lbl.textContent = isScene ? 'Scene Name' : 'Cue Number';
+  const L = cueFieldLabels(sel.value);
+  const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  set('ce-num-label', L.modalNum);
+  set('ce-line-label', L.line === 'Called on' ? 'Called on (what the change is called on)' : 'Cue Line (trigger text)');
+  set('ce-notes-label', L.notes === 'Change notes' ? 'Change notes' : 'Notes');
+  const arow = document.getElementById('ce-action-row');
+  // Hidden, not removed — the input keeps its value so saveCueEdit still reads
+  // it and nothing already typed is silently dropped.
+  if (arow) arow.style.display = L.action === null ? 'none' : '';
+}
+
+// Same treatment for the always-visible panel form, which has no <label>s at
+// all — its placeholders are doing that job, and they were all written for LX.
+function applyFormLabels(typeId) {
+  const L = cueFieldLabels(typeId);
+  const ph = (id, txt) => { const el = document.getElementById(id); if (el) el.placeholder = txt; };
+  ph('cue-num', L.num);
+  ph('cue-line', L.line);
+  ph('cue-desc', L.notes);
+  const act = document.getElementById('cue-action');
+  if (act) act.style.display = L.action === null ? 'none' : '';
+  if (act && L.action !== null) act.placeholder = L.action;
 }
 
 function editCue(id) {
@@ -11184,6 +11243,7 @@ function loadCueIntoForm(cueId, focusNum) {
   const fields = ['cue-type-sel', 'cue-num', 'cue-action', 'cue-line', 'cue-desc'];
   if (!c) { clearCueForm(); return; }
   document.getElementById('cue-type-sel').value = c.type || '';
+  applyFormLabels(c.type);
   document.getElementById('cue-num').value = c.number || '';
   document.getElementById('cue-action').value = c.action || '';
   document.getElementById('cue-line').value = c.cueLine || '';
@@ -11203,6 +11263,7 @@ function loadCueIntoForm(cueId, focusNum) {
 }
 
 function clearCueForm() {
+  applyFormLabels(null);   // back to generic, and un-hide Action
   const fields = ['cue-num', 'cue-action', 'cue-line', 'cue-desc'];
   fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const cropImg = document.getElementById('cue-line-crop');
@@ -11231,6 +11292,7 @@ function onCueFormInput() {
   const c = cues.find(x => x.id === selectedCueId);
   if (!c) return;
   c.type = document.getElementById('cue-type-sel').value;
+  applyFormLabels(c.type);
   c.number = document.getElementById('cue-num').value;
   c.action = document.getElementById('cue-action').value;
   c.cueLine = document.getElementById('cue-line').value;
@@ -11452,6 +11514,7 @@ function loadShowData() {
       if (saved.cues) cues = saved.cues;
       if (saved.annotations) annotations = saved.annotations;
       setVocab = normalizeVocab(saved.setVocab);
+      migrateMoveTriggers();
       purgeRetiredTypes();
     }
   } catch(e) {}
@@ -11462,9 +11525,10 @@ function loadShowData() {
       if (d.cueData.cues) cues = d.cueData.cues;
       if (d.cueData.annotations) annotations = d.cueData.annotations;
       setVocab = normalizeVocab(d.cueData.setVocab);
+      const migrated = migrateMoveTriggers();
       // Retired types linger in the Sheet, so clean them on the way in and push
       // the corrected data back — otherwise every device keeps re-importing them.
-      const cleaned = purgeRetiredTypes();
+      const cleaned = purgeRetiredTypes() || migrated;
       try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(d.cueData)); } catch(e) {}
       redrawAnnotations(); renderCueTypes(); renderCueList(); renderColorSwatches();
       if (cleaned) saveShowData();
@@ -11594,6 +11658,8 @@ async function exportSetChangePlot() {
     // break unless it genuinely can't fit on one.
     doc.setFontSize(FS);
     const built = moves.map((m, i) => {
+      // m.trigger only survives on data a device hasn't migrated yet; the
+      // grid no longer offers the field.
       const cueTxt = m.trigger || (i === 0 ? (c.cueLine || c.number || '') : '');
       const cells = {
         cue:    doc.splitTextToSize(String(cueTxt), COLS[0].w - PAD*2),
