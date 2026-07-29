@@ -2402,6 +2402,169 @@
     .home-task-name, .home-store-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .home-task-when, .home-store-ct { flex-shrink: 0; }
   }
+  /* ── SHOW ARCHIVE ─────────────────────────────────────────────────────── */
+  /* Nag banner sits at the very top of Home. Amber rather than purple so it
+     reads as "unfinished business" instead of ordinary chrome. */
+  .arc-banner {
+    display: none; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: linear-gradient(90deg, rgba(245,166,35,0.16), rgba(245,166,35,0.06));
+    border: 1px solid rgba(245,166,35,0.45); border-left: 4px solid var(--accent2);
+    border-radius: var(--radius); padding: 12px 16px; margin-bottom: 18px;
+  }
+  .arc-banner.show { display: flex; }
+  .arc-banner-icon { font-size: 20px; line-height: 1; }
+  .arc-banner-txt { flex: 1; min-width: 200px; }
+  .arc-banner-title { font-weight: 700; font-size: 14px; color: var(--text); }
+  .arc-banner-sub { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+  .arc-banner-btn {
+    background: var(--accent2); color: #3a2a00; border: none; border-radius: var(--radius-sm);
+    padding: 8px 16px; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .arc-banner-btn:hover { filter: brightness(1.06); }
+
+  /* Once-a-day full-screen prompt. Deliberately not dismissible by backdrop
+     click — it takes an explicit choice, per the "doesn't go away" rule. */
+  .arc-nag {
+    display: none; position: fixed; inset: 0; z-index: 6000;
+    background: rgba(10,10,20,0.72); backdrop-filter: blur(3px);
+    align-items: center; justify-content: center; padding: 24px;
+  }
+  .arc-nag.open { display: flex; }
+  .arc-nag-card {
+    background: var(--surface); border-radius: var(--radius); max-width: 460px; width: 100%;
+    padding: 30px 28px; text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,0.32);
+  }
+  .arc-nag-emoji { font-size: 42px; }
+  .arc-nag-h { font-size: 21px; font-weight: 800; margin: 12px 0 6px; color: var(--text); letter-spacing: -0.01em; }
+  .arc-nag-show { color: var(--purple); }
+  .arc-nag-p { font-size: 14px; color: var(--text-muted); line-height: 1.55; margin-bottom: 8px; }
+  .arc-nag-prog { font-size: 12.5px; color: var(--text-muted); margin-bottom: 20px; font-weight: 600; }
+  .arc-nag-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .arc-nag-go {
+    background: var(--purple); color: #fff; border: none; border-radius: var(--radius-sm);
+    padding: 11px 24px; font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit;
+  }
+  .arc-nag-go:hover { background: var(--purple-dark); }
+  .arc-nag-later {
+    background: transparent; color: var(--text-muted); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 11px 20px; font-size: 14px; cursor: pointer; font-family: inherit;
+  }
+  .arc-nag-later:hover { background: var(--bg); }
+
+  /* Tab body */
+  .arc-wrap { max-width: 980px; margin: 0 auto; padding: 4px 0 60px; }
+  .arc-header { margin-bottom: 20px; }
+  .arc-title { font-size: 25px; font-weight: 800; letter-spacing: -0.02em; margin: 0; color: var(--text); }
+  .arc-sub { font-size: 13.5px; color: var(--text-muted); margin: 5px 0 0; }
+
+  .arc-picker { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .arc-chip {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+    padding: 7px 15px; font-size: 13px; cursor: pointer; font-family: inherit; color: var(--text);
+    display: flex; align-items: center; gap: 7px;
+  }
+  .arc-chip:hover { border-color: var(--purple); }
+  .arc-chip.active { background: var(--purple); color: #fff; border-color: var(--purple); }
+  .arc-chip-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent2); flex-shrink: 0; }
+  .arc-chip-dot.done { background: var(--green); }
+  .arc-chip.active .arc-chip-dot { background: #fff; }
+
+  /* Progress rail */
+  .arc-progress { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 18px; }
+  .arc-prog-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 9px; gap: 12px; }
+  .arc-prog-lbl { font-size: 13px; font-weight: 700; color: var(--text); }
+  .arc-prog-count { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .arc-prog-bar { height: 7px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+  .arc-prog-fill { height: 100%; background: var(--green); border-radius: 4px; transition: width 0.25s ease; }
+
+  /* Sections */
+  .arc-sec { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 14px; overflow: hidden; }
+  .arc-sec.confirmed { border-color: rgba(59,109,17,0.4); }
+  .arc-sec-hdr {
+    display: flex; align-items: center; gap: 11px; padding: 14px 18px; cursor: pointer;
+    user-select: none;
+  }
+  .arc-sec-hdr:hover { background: var(--bg); }
+  .arc-sec-chk {
+    width: 21px; height: 21px; border-radius: 50%; border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    font-size: 12px; color: transparent; font-weight: 800;
+  }
+  .arc-sec.confirmed .arc-sec-chk { background: var(--green); border-color: var(--green); color: #fff; }
+  .arc-sec-name { font-weight: 700; font-size: 14.5px; color: var(--text); flex: 1; }
+  .arc-sec-meta { font-size: 12px; color: var(--text-muted); }
+  .arc-sec-caret { color: var(--text-faint); font-size: 12px; transition: transform 0.2s; }
+  .arc-sec.open .arc-sec-caret { transform: rotate(90deg); }
+  .arc-sec-body { display: none; padding: 4px 18px 18px; border-top: 1px solid var(--border); }
+  .arc-sec.open .arc-sec-body { display: block; }
+  .arc-sec-hint { font-size: 12.5px; color: var(--text-muted); margin: 12px 0; line-height: 1.5; }
+
+  /* Pick lists (pieces / paint / drops) */
+  .arc-list { display: flex; flex-direction: column; gap: 2px; max-height: 340px; overflow-y: auto; margin-top: 8px; }
+  .arc-row { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: var(--radius-sm); }
+  .arc-row:hover { background: var(--bg); }
+  .arc-row input[type="checkbox"] { width: 17px; height: 17px; flex-shrink: 0; cursor: pointer; accent-color: var(--purple); }
+  .arc-row-main { flex: 1; min-width: 0; }
+  .arc-row-name { font-size: 13.5px; color: var(--text); font-weight: 600; }
+  .arc-row-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
+  .arc-row-loc {
+    width: 150px; flex-shrink: 0; padding: 6px 9px; font-size: 12.5px; font-family: inherit;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--bg); color: var(--text);
+  }
+  .arc-swatch { width: 17px; height: 17px; border-radius: 4px; border: 1px solid var(--border); flex-shrink: 0; }
+  .arc-empty { font-size: 13px; color: var(--text-muted); padding: 16px 4px; font-style: italic; }
+  .arc-search {
+    width: 100%; padding: 9px 12px; font-size: 13.5px; font-family: inherit; margin-top: 4px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--bg); color: var(--text); box-sizing: border-box;
+  }
+
+  /* Photos */
+  .arc-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 9px; margin-top: 12px; }
+  .arc-photo { position: relative; aspect-ratio: 1; border-radius: var(--radius-sm); overflow: hidden; background: var(--bg); border: 1px solid var(--border); }
+  .arc-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .arc-photo-del {
+    position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(0,0,0,0.62); color: #fff; border: none; cursor: pointer; font-size: 13px; line-height: 1;
+  }
+  .arc-photo-tag {
+    position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6); color: #fff;
+    font-size: 10px; padding: 3px 5px; text-align: center;
+  }
+  .arc-add-photo {
+    display: inline-flex; align-items: center; gap: 7px; margin-top: 12px;
+    background: var(--purple-light); color: var(--purple-dark); border: 1px dashed rgba(83,74,183,0.45);
+    border-radius: var(--radius-sm); padding: 9px 16px; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+  }
+  .arc-add-photo:hover { background: var(--purple); color: #fff; }
+
+  .arc-ta {
+    width: 100%; min-height: 92px; padding: 11px 13px; font-size: 13.5px; font-family: inherit;
+    border: 1px solid var(--border); border-radius: var(--radius-sm); resize: vertical;
+    background: var(--bg); color: var(--text); box-sizing: border-box; line-height: 1.5;
+  }
+  .arc-ta-lbl { font-size: 12.5px; font-weight: 700; color: var(--text); margin: 14px 0 6px; }
+
+  .arc-confirm {
+    background: var(--green); color: #fff; border: none; border-radius: var(--radius-sm);
+    padding: 9px 20px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 16px;
+  }
+  .arc-confirm:hover { filter: brightness(1.08); }
+  .arc-confirm.undo { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+
+  .arc-done-banner {
+    display: none; background: var(--green-light); border: 1px solid rgba(59,109,17,0.35);
+    border-radius: var(--radius); padding: 14px 18px; margin-bottom: 18px;
+    font-size: 13.5px; color: var(--green-dark); font-weight: 600;
+  }
+  .arc-done-banner.show { display: block; }
+
+  @media (max-width: 640px) {
+    .arc-row { flex-wrap: wrap; }
+    .arc-row-loc { width: 100%; }
+  }
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -2463,6 +2626,7 @@
       <a class="sidebar-link" href="#backdrops" data-tab="backdrops" onclick="switchTab('backdrops');closeSidebarMobile();return false;"><span class="sl-icon">🎭</span> Drops</a>
       <a class="sidebar-link" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');closeSidebarMobile();return false;"><span class="sl-icon">🎬</span> Scripts</a>
       <a class="sidebar-link" href="#reference" data-tab="reference" onclick="switchTab('reference');closeSidebarMobile();return false;"><span class="sl-icon">📸</span> Reference Photos</a>
+      <a class="sidebar-link td-only" href="#archive" data-tab="archive" onclick="switchTab('archive');closeSidebarMobile();return false;"><span class="sl-icon">🗄️</span> Show Archive<span class="cleaning-badge" id="archive-badge" style="display:none;"></span></a>
       <div class="sidebar-divider"></div>
       <a class="sidebar-link" href="#shopping" data-tab="shopping" onclick="switchTab('shopping');closeSidebarMobile();return false;"><span class="sl-icon">🛒</span> Shopping Lists</a>
       <a class="sidebar-link" href="#cleaning" data-tab="cleaning" onclick="switchTab('cleaning');closeSidebarMobile();return false;"><span class="sl-icon">🧽</span> Cleaning Log<span class="cleaning-badge" id="cleaning-badge" style="display:none;"></span></a>
@@ -2502,6 +2666,16 @@
   <!-- ===== TAB: HOME ===== -->
   <div class="tab-panel active" id="tab-home" data-tab="home">
   <div class="home-redesign">
+
+    <!-- Archive nag: shown when a show's documentation is due and unfinished -->
+    <div class="arc-banner td-only" id="arc-banner" onclick="arcOpenFromBanner()">
+      <span class="arc-banner-icon">🗄️</span>
+      <div class="arc-banner-txt">
+        <div class="arc-banner-title" id="arc-banner-title">Archive due</div>
+        <div class="arc-banner-sub" id="arc-banner-sub"></div>
+      </div>
+      <button class="arc-banner-btn" type="button">Document it →</button>
+    </div>
 
     <!-- SECTION: MAIN GRID -->
     <div class="home-main-grid">
@@ -3020,6 +3194,31 @@
   </div>
 
   <!-- SIDE WORK NOTES (TD-only, separate non-MMT workspace) -->
+  <!-- ── SHOW ARCHIVE ──────────────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-archive" data-tab="archive">
+    <div class="arc-wrap">
+      <div class="arc-header">
+        <h2 class="arc-title">Show Archive</h2>
+        <p class="arc-sub">What got used, what it looked like, where it went. Fill it in once and the next show can search it.</p>
+      </div>
+
+      <!-- Show selector — one chip per show that has opened -->
+      <div class="arc-picker" id="arc-picker"></div>
+
+      <div class="arc-done-banner" id="arc-done-banner">✓ Archive complete — this show is fully documented.</div>
+
+      <div class="arc-progress">
+        <div class="arc-prog-top">
+          <span class="arc-prog-lbl" id="arc-prog-lbl">Progress</span>
+          <span class="arc-prog-count" id="arc-prog-count">0 of 5</span>
+        </div>
+        <div class="arc-prog-bar"><div class="arc-prog-fill" id="arc-prog-fill" style="width:0%"></div></div>
+      </div>
+
+      <div id="arc-sections"></div>
+    </div>
+  </div>
+
   <div class="tab-panel" id="tab-sidework" data-tab="sidework">
     <div class="sw-wrap">
       <div class="sw-header">
@@ -3075,6 +3274,20 @@
   </div>
 
   <!-- ===== TV MODE ===== -->
+  <!-- Once-a-day archive prompt. No backdrop-click dismiss by design. -->
+  <div class="arc-nag" id="arc-nag">
+    <div class="arc-nag-card">
+      <div class="arc-nag-emoji">🗄️</div>
+      <div class="arc-nag-h">Document <span class="arc-nag-show" id="arc-nag-show">the show</span></div>
+      <p class="arc-nag-p" id="arc-nag-p">It opened last week. Capture what got used and what the space looked like while it's still fresh — next season's you will go looking for this.</p>
+      <div class="arc-nag-prog" id="arc-nag-prog"></div>
+      <div class="arc-nag-btns">
+        <button class="arc-nag-go" onclick="arcNagGo()">Do it now</button>
+        <button class="arc-nag-later" onclick="arcNagLater()">Not today</button>
+      </div>
+    </div>
+  </div>
+
   <div class="tv-overlay" id="tv-overlay">
     <button class="tv-exit" onclick="closeTvMode()">Exit (Esc)</button>
     <div class="tv-top">
@@ -3810,7 +4023,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.27 v22</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">7.28 v1</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -4001,6 +4214,17 @@ function initApp() {
   initNavSpy();
   // Load cleaning data in the background so the overdue badge shows right away
   try { loadCleaning(); _cleaningLoaded = true; } catch(e) {}
+  // Archive: banner paints from cache immediately, then the daily prompt fires
+  // once the server copy has landed so we don't nag against stale state.
+  try {
+    if (userRole !== 'crew') {
+      updateArcBanner();
+      loadArchives(() => {
+        updateArcBanner();
+        setTimeout(maybeShowArcNag, 900);   // let the app settle before interrupting
+      });
+    }
+  } catch(e) { console.warn('archive init:', e); }
   // Enter key to add shop item
   const si = document.getElementById('shop-input');
   if (si) si.addEventListener('keydown', e => { if (e.key === 'Enter') addShopItem(); });
@@ -4023,7 +4247,7 @@ function applyRoleVisibility() {
 }
 
 // ── TAB SWITCHING (unified app) ─────────────────────────────────────────────
-const TABS = ['home','todo','daytracker','notes','inventory','backdrops','scripts','reference','shopping','cleaning','sidework'];
+const TABS = ['home','todo','daytracker','notes','inventory','backdrops','scripts','reference','archive','shopping','cleaning','sidework'];
 let currentTab = 'home';
 
 function switchTab(tab) {
@@ -4055,6 +4279,7 @@ function switchTab(tab) {
   if (tab === 'cleaning' && typeof ensureCleaningLoaded === 'function') ensureCleaningLoaded();
   if (tab === 'sidework' && typeof ensureSideWorkLoaded === 'function') ensureSideWorkLoaded();
   if (tab === 'reference' && typeof ensureReferenceLoaded === 'function') ensureReferenceLoaded();
+  if (tab === 'archive' && typeof ensureArchiveLoaded === 'function') ensureArchiveLoaded();
 }
 
 // On load, honor a #tab hash (e.g. deep link to #inventory)
@@ -4299,6 +4524,7 @@ const GS_SOURCES = [
   { key:'shopping',  label:'Shopping',   emoji:'🛒' },
   { key:'photos',    label:'Photos',     emoji:'📸' },
   { key:'notes',     label:'Shows',      emoji:'📝' },
+  { key:'archive',   label:'Archive',    emoji:'🗄️' },
 ];
 
 function openGlobalSearch() {
@@ -4371,6 +4597,32 @@ function gsCollect() {
     (drops || []).forEach(d => push('drops', d.name || 'Unnamed',
       [d.number, d.category, d.notes].filter(Boolean).join(' · '),
       () => switchTab('backdrops')));
+  } catch(e) {}
+
+  // Show Archive — makes "did we already build/own this?" answerable by search.
+  // Indexed per piece/paint/drop so the hit lands on the thing, not the show.
+  try {
+    Object.keys(_archives || {}).forEach(slug => {
+      if (slug === '_epoch' || slug === '_epochLocked') return;
+      const rec = _archives[slug];
+      if (!rec || !rec.show) return;
+      const jump = () => { _arcCurrent = slug; switchTab('archive'); };
+      (rec.pieces || []).forEach(id => {
+        const it = (typeof allItems !== 'undefined' ? allItems : []).find(i => i.assetId === id);
+        push('archive', it ? it.name : id, 'used in ' + rec.show, jump);
+      });
+      (rec.paint || []).forEach(id => {
+        const pt = (typeof paintData !== 'undefined' ? paintData : []).find(p => p.id === id);
+        if (pt) push('archive', pt.name, 'paint · ' + rec.show + (pt.brand ? ' · ' + pt.brand : ''), jump);
+      });
+      Object.keys(rec.drops || {}).forEach(k => {
+        const dr = (typeof drops !== 'undefined' ? drops : []).find(d => String(d.id != null ? d.id : d.number) === k);
+        push('archive', dr ? (dr.name || 'Drop ' + dr.number) : 'Drop ' + k,
+             'drop · ' + rec.show + (rec.drops[k] ? ' · stored: ' + rec.drops[k] : ''), jump);
+      });
+      if ((rec.reuse || '').trim()) push('archive', rec.reuse.slice(0, 70), 'reuse note · ' + rec.show, jump);
+      if ((rec.avoid || '').trim()) push('archive', rec.avoid.slice(0, 70), 'avoid note · ' + rec.show, jump);
+    });
   } catch(e) {}
 
   // To Do tasks
@@ -12607,6 +12859,502 @@ function ensureScriptsLoaded() {
   try { loadScriptList(); } catch(e) { console.warn('loadScriptList:', e); }
 }
 // ── END SCRIPTS JS ───────────────────────────────────────────────────────────
+
+// ── SHOW ARCHIVE ─────────────────────────────────────────────────────────────
+// Post-opening documentation capture. Fires the Monday after a show opens and
+// keeps nagging (Home banner + one full-screen prompt a day) until all five
+// sections are confirmed. TD-only — crew never sees it.
+//
+// Storage: one KV blob under 'showarchive', shaped { _epoch, <slug>: record }.
+// The _epoch guard means shows that opened before this feature existed never
+// auto-nag; they're still listed in the tab so they can be filled in by hand.
+
+var _arcCollapsed = {};        // collapse state, view-only, not persisted
+let _archives = null;          // null until first load
+let _arcCurrent = '';          // slug of the show being edited in the tab
+let _arcLoaded = false;
+const ARC_SECTIONS = [
+  { id: 'pieces', name: 'Set pieces used',      hint: 'Pre-checked from anything the catalogue had assigned to this show. Uncheck what never made it on stage, add anything that did.' },
+  { id: 'paint',  name: 'Paint colors used',    hint: 'Pre-checked from colors already tagged to this show in the paint library. Getting this right is what saves you re-matching a color next season.' },
+  { id: 'drops',  name: 'Backdrops used',       hint: 'Check what flew, then note where each one ended up — pipe, rack, or bin. This is the field the catalogue does not track.' },
+  { id: 'photos', name: 'Space photos',         hint: 'Wide shots of the set and backstage — storage, wing space, how the deck was laid out. Reference Photos already tagged to this show show up here automatically.' },
+  { id: 'notes',  name: 'Reuse / avoid',        hint: 'The part you will actually re-read. What is worth pulling back out, and what was not worth the build.' }
+];
+
+function arcSlug(name) { return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+function arcToday()    { const d = new Date(); d.setHours(0,0,0,0); return d; }
+function arcIso(d)     { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+
+// First Monday strictly after opening night. A show that opens on a Monday
+// gets the following Monday, not the same day.
+function arcDueDate(startStr) {
+  const d = new Date(startStr + 'T00:00:00');
+  const dow = d.getDay();               // 0 Sun … 6 Sat
+  let add = (8 - dow) % 7;
+  if (add === 0) add = 7;
+  const m = new Date(d);
+  m.setDate(m.getDate() + add);
+  m.setHours(0,0,0,0);
+  return m;
+}
+
+function arcShowList() {
+  try {
+    const ms = JSON.parse(localStorage.getItem('mmt_shows_ms') || '[]');
+    const ct = JSON.parse(localStorage.getItem('mmt_shows_ct') || '[]');
+    return [...ms, ...ct].filter(s => s && s.name && s.start);
+  } catch (e) { return []; }
+}
+
+// Shows that have already opened, newest first.
+function arcOpenedShows() {
+  const t = arcToday();
+  return arcShowList()
+    .filter(s => new Date(s.start + 'T00:00:00') <= t)
+    .sort((a, b) => b.start.localeCompare(a.start));
+}
+
+function arcStore() {
+  if (!_archives) _archives = { _epoch: todayISO(), _epochLocked: false };
+  if (!_archives._epoch) _archives._epoch = todayISO();
+  return _archives;
+}
+
+// Fetch or build the record for a show, seeding the two sections that can
+// prefill themselves from data the app already holds.
+function arcRecord(show, create) {
+  const store = arcStore();
+  const slug = arcSlug(show.name);
+  if (!store[slug] && create) {
+    store[slug] = {
+      show: show.name, start: show.start,
+      pieces: arcSeedPieces(show.name),
+      paint:  arcSeedPaint(show.name),
+      drops:  {},
+      photos: [],
+      reuse: '', avoid: '',
+      confirmed: { pieces:false, paint:false, drops:false, photos:false, notes:false },
+      lastNag: '', completedTs: 0, seeded: true
+    };
+  }
+  return store[slug] || null;
+}
+
+function arcNorm(s) { return (s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+
+function arcSeedPieces(showName) {
+  const t = arcNorm(showName);
+  if (!t || typeof allItems === 'undefined') return [];
+  return (allItems || [])
+    .filter(i => arcNorm(i.currentShow) === t || arcNorm(i.lastShow) === t)
+    .map(i => i.assetId).filter(Boolean);
+}
+
+function arcSeedPaint(showName) {
+  const t = arcNorm(showName);
+  if (!t || typeof paintData === 'undefined') return [];
+  return (paintData || [])
+    .filter(p => (p.shows || []).some(s => arcNorm(s) === t))
+    .map(p => p.id).filter(Boolean);
+}
+
+// ── Completion ───────────────────────────────────────────────────────────────
+function arcDoneCount(rec) {
+  if (!rec) return 0;
+  return ARC_SECTIONS.filter(s => rec.confirmed && rec.confirmed[s.id]).length;
+}
+function arcIsComplete(rec) { return arcDoneCount(rec) === ARC_SECTIONS.length; }
+
+// The show currently nagging: due, past the epoch, still unfinished.
+// Earliest first, so a backlog clears in order.
+function arcDueShow() {
+  const store = arcStore();
+  const epoch = new Date((store._epoch || todayISO()) + 'T00:00:00');
+  const t = arcToday();
+  const due = arcShowList()
+    .filter(s => {
+      const d = arcDueDate(s.start);
+      if (d > t) return false;         // not due yet
+      if (d < epoch) return false;     // predates the feature — no retroactive nagging
+      const rec = arcRecord(s, false);
+      return !arcIsComplete(rec);
+    })
+    .sort((a, b) => a.start.localeCompare(b.start));
+  return due[0] || null;
+}
+
+// ── Persistence ──────────────────────────────────────────────────────────────
+function loadArchives(cb) {
+  try {
+    const cached = localStorage.getItem('mmt_archive');
+    if (cached) _archives = JSON.parse(cached);
+  } catch (e) {}
+  jsonp(SCRIPT_URL + '?action=getKV&key=showarchive&_=' + Date.now(), d => {
+    // Server is authoritative. Never let an empty response wipe a good cache.
+    try {
+      if (d && d.value && typeof d.value === 'object' && Object.keys(d.value).length) {
+        _archives = d.value;
+      }
+    } catch (e) { console.warn('archive parse:', e); }
+    const fresh = !_archives || !_archives._epochLocked;
+    arcStore();
+    try { localStorage.setItem('mmt_archive', JSON.stringify(_archives)); } catch (e) {}
+    // Lock the epoch the first time we ever run, otherwise it re-mints to
+    // "today" on every launch and drifts past due dates that never fired.
+    if (fresh) { _archives._epochLocked = true; saveArchives(); }
+    if (cb) cb();
+  }, () => { arcStore(); if (cb) cb(); });
+}
+
+function saveArchives() {
+  arcStore();
+  try { localStorage.setItem('mmt_archive', JSON.stringify(_archives)); } catch (e) {}
+  const payload = JSON.stringify(_archives);
+  fetch(SCRIPT_URL, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'saveKV', key: 'showarchive', value: _archives })
+  }).catch(() => {
+    jsonp(SCRIPT_URL + '?action=saveKV&key=showarchive&value=' + encodeURIComponent(payload) + '&_=' + Date.now(),
+          () => {}, () => {});
+  });
+  updateArcBanner();
+}
+
+// ── Banner + daily prompt ────────────────────────────────────────────────────
+function updateArcBanner() {
+  const banner = document.getElementById('arc-banner');
+  const badge  = document.getElementById('archive-badge');
+  if (!banner) return;
+  const show = arcDueShow();
+  if (!show) {
+    banner.classList.remove('show');
+    if (badge) badge.style.display = 'none';
+    return;
+  }
+  const rec  = arcRecord(show, true);
+  const done = arcDoneCount(rec);
+  const left = ARC_SECTIONS.length - done;
+  document.getElementById('arc-banner-title').textContent = 'Archive ' + show.name;
+  document.getElementById('arc-banner-sub').textContent =
+    done === 0
+      ? 'Opened ' + fmtDate(show.start) + ' — nothing documented yet.'
+      : done + ' of ' + ARC_SECTIONS.length + ' sections done · ' + left + ' to go.';
+  banner.classList.add('show');
+  if (badge) { badge.textContent = left; badge.style.display = ''; }
+}
+
+// Fires at most once per calendar day per show.
+function maybeShowArcNag() {
+  if (typeof userRole !== 'undefined' && userRole === 'crew') return;   // TD-only
+  const show = arcDueShow();
+  if (!show) return;
+  const rec = arcRecord(show, true);
+  const today = todayISO();
+  if (rec.lastNag === today) return;
+
+  const nag = document.getElementById('arc-nag');
+  if (!nag) return;
+  document.getElementById('arc-nag-show').textContent = show.name;
+  const done = arcDoneCount(rec);
+  document.getElementById('arc-nag-p').textContent = done === 0
+    ? 'It opened ' + fmtDate(show.start) + '. Capture what got used and what the space looked like while it is still fresh — next season\u2019s you will go looking for this.'
+    : 'Still unfinished. Picking it up now beats reconstructing it from memory in February.';
+  document.getElementById('arc-nag-prog').textContent = done + ' of ' + ARC_SECTIONS.length + ' sections done';
+  nag.classList.add('open');
+}
+
+function arcDismissNag() {
+  const show = arcDueShow();
+  if (show) {
+    const rec = arcRecord(show, true);
+    rec.lastNag = todayISO();
+    saveArchives();
+  }
+  const nag = document.getElementById('arc-nag');
+  if (nag) nag.classList.remove('open');
+}
+function arcNagLater() { arcDismissNag(); }
+function arcNagGo() {
+  const show = arcDueShow();
+  arcDismissNag();
+  if (show) _arcCurrent = arcSlug(show.name);
+  switchTab('archive');
+}
+function arcOpenFromBanner() {
+  const show = arcDueShow();
+  if (show) _arcCurrent = arcSlug(show.name);
+  switchTab('archive');
+}
+
+// ── Tab rendering ────────────────────────────────────────────────────────────
+function ensureArchiveLoaded() {
+  if (_arcLoaded) { renderArchive(); return; }
+  _arcLoaded = true;
+  // Pull in the datasets the sections read from — any of these tabs may never
+  // have been opened this session.
+  try { if (typeof allItems !== 'undefined' && !allItems.length && typeof loadInventoryData === 'function') loadInventoryData().then(() => renderArchive()).catch(() => {}); } catch (e) {}
+  try { if (typeof paintData !== 'undefined' && !paintData.length && typeof loadPaintData === 'function') loadPaintData().then(() => renderArchive()).catch(() => {}); } catch (e) {}
+  try { if (typeof drops !== 'undefined' && !drops.length && typeof loadDrops === 'function') loadDrops(); } catch (e) {}
+  try { if (typeof ensureReferenceLoaded === 'function') ensureReferenceLoaded(); } catch (e) {}
+  if (!_archives) loadArchives(() => renderArchive()); else renderArchive();
+  setTimeout(() => { try { renderArchive(); } catch (e) {} }, 1400);
+}
+
+function renderArchive() {
+  const picker = document.getElementById('arc-picker');
+  if (!picker) return;
+  arcStore();
+  const shows = arcOpenedShows();
+  if (!shows.length) {
+    picker.innerHTML = '';
+    document.getElementById('arc-sections').innerHTML = '<div class="arc-empty">No shows have opened yet.</div>';
+    return;
+  }
+  // Default selection: whatever is nagging, else the most recent opening.
+  if (!_arcCurrent || !shows.some(s => arcSlug(s.name) === _arcCurrent)) {
+    const due = arcDueShow();
+    _arcCurrent = arcSlug(due ? due.name : shows[0].name);
+  }
+  picker.innerHTML = shows.map(s => {
+    const slug = arcSlug(s.name);
+    const rec  = arcRecord(s, false);
+    const done = arcIsComplete(rec);
+    return '<button class="arc-chip' + (slug === _arcCurrent ? ' active' : '') + '" onclick="arcSelect(\'' + slug + '\')">' +
+           '<span class="arc-chip-dot' + (done ? ' done' : '') + '"></span>' + esc(s.name) + '</button>';
+  }).join('');
+
+  const show = shows.find(s => arcSlug(s.name) === _arcCurrent);
+  if (!show) return;
+  const rec = arcRecord(show, true);
+
+  const done = arcDoneCount(rec);
+  const pct  = Math.round((done / ARC_SECTIONS.length) * 100);
+  document.getElementById('arc-prog-lbl').textContent = show.name;
+  document.getElementById('arc-prog-count').textContent = done + ' of ' + ARC_SECTIONS.length + ' sections';
+  document.getElementById('arc-prog-fill').style.width = pct + '%';
+  document.getElementById('arc-done-banner').classList.toggle('show', arcIsComplete(rec));
+
+  document.getElementById('arc-sections').innerHTML =
+    ARC_SECTIONS.map(sec => arcRenderSection(sec, rec, show)).join('');
+}
+
+function arcSelect(slug) { _arcCurrent = slug; renderArchive(); }
+
+function arcRenderSection(sec, rec, show) {
+  const isDone = !!(rec.confirmed && rec.confirmed[sec.id]);
+  const open   = !isDone && !_arcCollapsed[sec.id];
+  let body = '', meta = '';
+
+  if (sec.id === 'pieces') {
+    const items = (typeof allItems !== 'undefined' ? allItems : []) || [];
+    meta = rec.pieces.length + ' selected';
+    body = items.length
+      ? '<input class="arc-search" placeholder="Filter set pieces…" oninput="arcFilter(this,\'arc-list-pieces\')" />' +
+        '<div class="arc-list" id="arc-list-pieces">' + items.map(i =>
+          '<label class="arc-row"><input type="checkbox" ' + (rec.pieces.includes(i.assetId) ? 'checked' : '') +
+          ' onchange="arcToggle(\'pieces\',\'' + esc(i.assetId) + '\',this.checked)" />' +
+          '<span class="arc-row-main"><span class="arc-row-name">' + esc(i.name || i.assetId) + '</span>' +
+          '<span class="arc-row-sub">' + esc([i.assetId, i.category, i.location].filter(Boolean).join(' · ')) + '</span></span></label>'
+        ).join('') + '</div>'
+      : '<div class="arc-empty">Catalogue has not loaded yet — open the Set Piece Catalogue tab once, then come back.</div>';
+
+  } else if (sec.id === 'paint') {
+    const paints = (typeof paintData !== 'undefined' ? paintData : []) || [];
+    meta = rec.paint.length + ' selected';
+    body = paints.length
+      ? '<div class="arc-list" id="arc-list-paint">' + paints.map(p =>
+          '<label class="arc-row"><input type="checkbox" ' + (rec.paint.includes(p.id) ? 'checked' : '') +
+          ' onchange="arcToggle(\'paint\',\'' + esc(p.id) + '\',this.checked)" />' +
+          '<span class="arc-swatch" style="background:' + esc(p.hex || '#888') + '"></span>' +
+          '<span class="arc-row-main"><span class="arc-row-name">' + esc(p.name) + '</span>' +
+          '<span class="arc-row-sub">' + esc([p.brand, p.code].filter(Boolean).join(' · ')) + '</span></span></label>'
+        ).join('') + '</div>'
+      : '<div class="arc-empty">Paint library has not loaded yet — open the Paint tab once, then come back.</div>';
+
+  } else if (sec.id === 'drops') {
+    const dl = (typeof drops !== 'undefined' ? drops : []) || [];
+    const picked = Object.keys(rec.drops || {});
+    meta = picked.length + ' selected';
+    body = dl.length
+      ? '<input class="arc-search" placeholder="Filter backdrops…" oninput="arcFilter(this,\'arc-list-drops\')" />' +
+        '<div class="arc-list" id="arc-list-drops">' + dl.map(d => {
+          const key = String(d.id != null ? d.id : d.number);
+          const on  = Object.prototype.hasOwnProperty.call(rec.drops || {}, key);
+          return '<div class="arc-row"><input type="checkbox" ' + (on ? 'checked' : '') +
+            ' onchange="arcDropToggle(\'' + esc(key) + '\',this.checked)" />' +
+            '<span class="arc-row-main"><span class="arc-row-name">' + esc(d.name || ('Drop ' + (d.number || ''))) + '</span>' +
+            '<span class="arc-row-sub">' + esc([d.number ? '#' + d.number : '', d.category].filter(Boolean).join(' · ')) + '</span></span>' +
+            '<input class="arc-row-loc" placeholder="Where is it now?" value="' + esc((rec.drops || {})[key] || '') +
+            '" ' + (on ? '' : 'disabled') + ' onchange="arcDropLoc(\'' + esc(key) + '\',this.value)" /></div>';
+        }).join('') + '</div>'
+      : '<div class="arc-empty">Drops have not loaded yet — open the Drops tab once, then come back.</div>';
+
+  } else if (sec.id === 'photos') {
+    const existing = (typeof getRefPhotosForShow === 'function') ? getRefPhotosForShow(show.name) : [];
+    const added = rec.photos || [];
+    const np = existing.length + added.length;
+    meta = np + (np === 1 ? ' photo' : ' photos');
+    body =
+      (existing.length
+        ? '<div class="arc-sec-hint">' + existing.length + ' Reference Photo' + (existing.length === 1 ? '' : 's') + ' already tagged to this show:</div>' +
+          '<div class="arc-photos">' + existing.map(p =>
+            '<div class="arc-photo"><img src="' + esc(p.thumb || p.url) + '" loading="lazy" />' +
+            '<div class="arc-photo-tag">Reference</div></div>').join('') + '</div>'
+        : '<div class="arc-sec-hint">No Reference Photos tagged to this show yet.</div>') +
+      (added.length
+        ? '<div class="arc-sec-hint">Archive photos:</div><div class="arc-photos">' + added.map(p =>
+            '<div class="arc-photo"><img src="' + esc(p.thumb || p.url) + '" loading="lazy" />' +
+            '<button class="arc-photo-del" onclick="arcPhotoDel(\'' + esc(p.id) + '\')">×</button></div>').join('') + '</div>'
+        : '') +
+      '<button class="arc-add-photo" onclick="arcAddPhoto()">📷 Add space photo</button>';
+
+  } else if (sec.id === 'notes') {
+    const filled = (rec.reuse || '').trim() || (rec.avoid || '').trim();
+    meta = filled ? 'written' : 'empty';
+    body =
+      '<div class="arc-ta-lbl">Worth reusing</div>' +
+      '<textarea class="arc-ta" placeholder="Units, rigs, or solutions to pull back out next time…" onchange="arcNote(\'reuse\',this.value)">' + esc(rec.reuse || '') + '</textarea>' +
+      '<div class="arc-ta-lbl">Not worth repeating</div>' +
+      '<textarea class="arc-ta" placeholder="What cost more than it was worth, what broke, what to build differently…" onchange="arcNote(\'avoid\',this.value)">' + esc(rec.avoid || '') + '</textarea>';
+  }
+
+  return '<div class="arc-sec' + (isDone ? ' confirmed' : '') + (open ? ' open' : '') + '" id="arc-sec-' + sec.id + '">' +
+    '<div class="arc-sec-hdr" onclick="arcToggleSection(\'' + sec.id + '\')">' +
+      '<span class="arc-sec-chk">✓</span>' +
+      '<span class="arc-sec-name">' + esc(sec.name) + '</span>' +
+      '<span class="arc-sec-meta">' + esc(meta) + '</span>' +
+      '<span class="arc-sec-caret">▶</span>' +
+    '</div>' +
+    '<div class="arc-sec-body">' +
+      '<div class="arc-sec-hint">' + esc(sec.hint) + '</div>' + body +
+      '<button class="arc-confirm' + (isDone ? ' undo' : '') + '" onclick="arcConfirm(\'' + sec.id + '\')">' +
+        (isDone ? 'Reopen this section' : '✓ Done with this section') + '</button>' +
+    '</div></div>';
+}
+
+function arcToggleSection(id) {
+  _arcCollapsed[id] = !_arcCollapsed[id];
+  const el = document.getElementById('arc-sec-' + id);
+  if (el) el.classList.toggle('open');
+}
+
+function arcFilter(input, listId) {
+  const q = input.value.toLowerCase();
+  const list = document.getElementById(listId);
+  if (!list) return;
+  [...list.children].forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function arcCur() {
+  const shows = arcOpenedShows();
+  const show = shows.find(s => arcSlug(s.name) === _arcCurrent);
+  return show ? arcRecord(show, true) : null;
+}
+
+function arcToggle(field, id, on) {
+  const rec = arcCur(); if (!rec) return;
+  const arr = rec[field] || (rec[field] = []);
+  const i = arr.indexOf(id);
+  if (on && i < 0) arr.push(id);
+  if (!on && i >= 0) arr.splice(i, 1);
+  saveArchives();
+  arcRefreshMeta(field === 'pieces' ? 'pieces' : 'paint', arr.length + ' selected');
+}
+
+function arcDropToggle(key, on) {
+  const rec = arcCur(); if (!rec) return;
+  if (!rec.drops) rec.drops = {};
+  if (on) rec.drops[key] = rec.drops[key] || '';
+  else delete rec.drops[key];
+  saveArchives();
+  renderArchive();
+  const el = document.getElementById('arc-sec-drops');
+  if (el) el.classList.add('open');
+}
+function arcDropLoc(key, val) {
+  const rec = arcCur(); if (!rec || !rec.drops) return;
+  rec.drops[key] = val;
+  saveArchives();
+}
+function arcNote(field, val) {
+  const rec = arcCur(); if (!rec) return;
+  rec[field] = val;
+  saveArchives();
+}
+
+// Light-touch meta refresh so toggling a checkbox doesn't rebuild the whole
+// list and lose scroll position.
+function arcRefreshMeta(secId, text) {
+  const el = document.getElementById('arc-sec-' + secId);
+  if (!el) return;
+  const m = el.querySelector('.arc-sec-meta');
+  if (m) m.textContent = text;
+}
+
+function arcConfirm(secId) {
+  const rec = arcCur(); if (!rec) return;
+  if (!rec.confirmed) rec.confirmed = {};
+  rec.confirmed[secId] = !rec.confirmed[secId];
+  if (arcIsComplete(rec) && !rec.completedTs) rec.completedTs = Date.now();
+  if (!arcIsComplete(rec)) rec.completedTs = 0;
+  _arcCollapsed[secId] = rec.confirmed[secId];   // collapse on confirm
+  saveArchives();
+  renderArchive();
+  if (arcIsComplete(rec)) showToast('Archive complete — ' + rec.show);
+}
+
+// Reuses the Reference Photos upload path, tagged so archive shots stay
+// findable as reference too.
+function arcAddPhoto() {
+  const rec = arcCur(); if (!rec) return;
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
+  input.onchange = () => {
+    const files = [...(input.files || [])];
+    if (!files.length) return;
+    showToast('Uploading ' + files.length + ' photo' + (files.length === 1 ? '' : 's') + '\u2026');
+    let pending = files.length;
+    files.forEach(f => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const item = { base64: reader.result.split(',')[1], mimeType: f.type, fileName: f.name || 'archive.jpg' };
+        // uploadRefItem pushes into _refPhotos and persists it, so archive
+        // shots stay findable in Reference Photos too. We read back the
+        // freshly unshifted record to get the hosted URL.
+        uploadRefItem(item, { show: rec.show, piece: '', category: 'Archive', notes: 'Space photo' }, ok => {
+          if (ok && typeof _refPhotos !== 'undefined' && _refPhotos.length) {
+            const fresh = _refPhotos[0];
+            rec.photos = rec.photos || [];
+            rec.photos.push({ id: fresh.id, url: fresh.url, thumb: fresh.thumb || fresh.url, ts: fresh.ts });
+          }
+          if (--pending === 0) {
+            saveArchives();
+            renderArchive();
+            const el = document.getElementById('arc-sec-photos');
+            if (el) el.classList.add('open');
+            showToast('Photos added');
+          }
+        });
+      };
+      reader.onerror = () => { if (--pending === 0) { saveArchives(); renderArchive(); } };
+      reader.readAsDataURL(f);
+    });
+  };
+  input.click();
+}
+
+function arcPhotoDel(id) {
+  const rec = arcCur(); if (!rec) return;
+  rec.photos = (rec.photos || []).filter(p => p.id !== id);
+  saveArchives();
+  renderArchive();
+  const el = document.getElementById('arc-sec-photos');
+  if (el) el.classList.add('open');
+}
+// ── END SHOW ARCHIVE ─────────────────────────────────────────────────────────
+
 
 
 </script>
