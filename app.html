@@ -2651,6 +2651,9 @@
   .chk-table .chk-act { opacity:.35; }
   .chk-tablefoot { display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap; }
   .chk-hint { font-size:11.5px; color:var(--text-faint); }
+  .chk-table tr.chk-ghost td { border-bottom:1px dashed var(--border); }
+  .chk-table tr.chk-ghost input::placeholder { color:var(--text-faint); font-style:italic; }
+  .chk-table tr.chk-ghost td.chk-tick, .chk-table tr.chk-ghost td.chk-c-act { opacity:0; }
 
 
   .chk-wrap { max-width:1100px; margin:0 auto; }
@@ -3327,8 +3330,7 @@
             <tbody id="chk-std-body"></tbody>
           </table>
           <div class="chk-tablefoot td-only">
-            <button class="chk-btn2" onclick="chkAddRow('std')">+ Add row</button>
-            <span class="chk-hint">Enter for the next row · paste a column from Sheets</span>
+            <span class="chk-hint">Just start typing on the last line · Enter for the next row · paste straight from Sheets</span>
           </div>
         </div>
 
@@ -3341,7 +3343,6 @@
             <tbody id="chk-show-body"></tbody>
           </table>
           <div class="chk-tablefoot td-only">
-            <button class="chk-btn2" onclick="chkAddRow('show')">+ Add row</button>
             <span class="chk-hint">Two columns paste as Section + Item</span>
           </div>
         </div>
@@ -4179,7 +4180,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">8.1 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">8.1 v4</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -4695,12 +4696,16 @@ function chkRender() {
 
   // show picker
   const sel = document.getElementById('chk-show');
-  if (sel && !sel.options.length) {
+  if (sel) {
     const list = chkShowList();
-    sel.innerHTML = list.map(s => `<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('')
+    const markup = list.map(s => `<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('')
       || '<option value="">No shows configured</option>';
-    const def = chkDefaultShow();
-    if (def) sel.value = def;
+    if (sel.innerHTML !== markup) {          // shows can be added in Settings
+      const keep = sel.value;
+      sel.innerHTML = markup;
+      if (keep && list.some(s => s.name === keep)) sel.value = keep;
+      else { const def = chkDefaultShow(); if (def) sel.value = def; }
+    }
   }
   const showName = chkCurrentShow();
   document.querySelectorAll('.chk-show-label').forEach(el => { el.textContent = showName || 'this show'; });
@@ -4724,20 +4729,6 @@ function chkRender() {
 function chkSelectPos(id) { _chkPos = id; chkRender(); }
 
 // ── edits ────────────────────────────────────────────────────────────────────
-function chkDeleteStandard(id) {
-  if (!chkIsTD()) return;
-  const st = chkStore();
-  const it = st.items.find(i => i.id === id);
-  if (!it) return;
-  if (!confirm('Delete "' + it.text + '" from the standard list for every show?')) return;
-  st.items = st.items.filter(i => i.id !== id);
-  Object.keys(st.show).forEach(k => {
-    const l = st.show[k];
-    if (l && Array.isArray(l.skips)) l.skips = l.skips.filter(s => s !== id);
-  });
-  chkSave(); chkDropRow('std', id); chkUpdateCounts();
-}
-
 function chkToggleSkip(id) {
   if (!chkIsTD()) return;
   const showName = chkCurrentShow();
@@ -4750,18 +4741,15 @@ function chkToggleSkip(id) {
   chkSave(); chkUpdateCounts();
 }
 
-function chkDeleteShowItem(id) {
-  if (!chkIsTD()) return;
-  const layer = chkShowLayer(chkCurrentShow(), true);
-  layer.adds = layer.adds.filter(x => x.id !== id);
-  chkSave(); chkDropRow('show', id); chkUpdateCounts();
-}
-
-
 // ── table editor ─────────────────────────────────────────────────────────────
-// Both panels are editable grids: type across, Enter for a new row, paste a
-// column straight out of a spreadsheet. Typing never re-renders (that would
-// steal focus) — it writes to the model and debounce-saves.
+// Spreadsheet-style grid. There is always one trailing "ghost" row that exists
+// only in the DOM — it becomes a real record the moment you type in it, and a
+// fresh ghost takes its place. That means no Add button, and no half-empty rows
+// ever reaching storage or the printout.
+//
+// Keys:  Section  —Enter→  Item  —Enter→  next row's Section (pre-filled with
+//        the section you just used, selected so you can type over it).
+// Rows are only ever removed with the × button. Backspace edits text, nothing more.
 var _chkSaveTimer = null;
 
 function chkSaveSoon() {
@@ -4769,62 +4757,128 @@ function chkSaveSoon() {
   _chkSaveTimer = setTimeout(chkSave, 600);
 }
 
+function chkBodyEl(kind) {
+  return document.getElementById(kind === 'std' ? 'chk-std-body' : 'chk-show-body');
+}
+
 function chkRenderTables(showName) {
   const st = chkStore();
   const td = chkIsTD();
   const skips = chkShowLayer(showName, false).skips;
 
-  const stdBody = document.getElementById('chk-std-body');
+  chkPruneBlanks();
+
+  const stdBody = chkBodyEl('std');
   if (stdBody) {
     const mine = st.items.filter(i => i.pos === _chkPos);
-    stdBody.innerHTML = mine.map(i => chkRowHTML('std', i, skips.indexOf(i.id) !== -1, td)).join('')
-      || chkBlankRowHTML('std', td);
+    stdBody.innerHTML =
+      mine.map(i => chkRowHTML('std', i, skips.indexOf(i.id) !== -1, td)).join('') +
+      (td ? chkGhostHTML('std') : (mine.length ? '' : chkEmptyHTML(4)));
   }
 
-  const showBody = document.getElementById('chk-show-body');
+  const showBody = chkBodyEl('show');
   if (showBody) {
     const adds = chkShowLayer(showName, false).adds.filter(a => a.pos === _chkPos);
-    showBody.innerHTML = adds.map(a => chkRowHTML('show', a, false, td)).join('')
-      || chkBlankRowHTML('show', td);
+    showBody.innerHTML =
+      adds.map(a => chkRowHTML('show', a, false, td)).join('') +
+      (td ? chkGhostHTML('show') : (adds.length ? '' : chkEmptyHTML(3)));
   }
   chkUpdateCounts();
 }
 
-function chkRowHTML(kind, item, off, td) {
+function chkEmptyHTML(cols) {
+  return `<tr><td colspan="${cols}" class="chk-empty">Nothing here yet.</td></tr>`;
+}
+
+function chkCellsHTML(kind, item, off, td, ghost) {
   const ro = td ? '' : ' readonly';
   const tick = kind === 'std'
-    ? `<td class="chk-tick"><input type="checkbox" ${off ? '' : 'checked'} ${td ? '' : 'disabled'}
-         onchange="chkToggleSkip('${item.id}')" title="Print on this show's sheet"></td>`
+    ? `<td class="chk-tick">${ghost ? '' : `<input type="checkbox" tabindex="-1" ${off ? '' : 'checked'} ${td ? '' : 'disabled'}
+         onchange="chkToggleSkip('${item.id}')" title="Print on this show's sheet">`}</td>`
     : '';
-  return `<tr data-id="${item.id}" data-kind="${kind}"${off ? ' class="chk-off"' : ''}>
-    ${tick}
+  const del = (td && !ghost)
+    ? `<button class="chk-act del" tabindex="-1" title="Delete row"
+         onclick="chkDelClick('${kind}','${item.id}')">×</button>` : '';
+  return `${tick}
     <td class="chk-c-sec"><input list="chk-secs" value="${esc(item.section || '')}"${ro}
         placeholder="Section" oninput="chkCell(this,'section')"
-        onkeydown="chkKey(event,this)"></td>
-    <td class="chk-c-txt"><input value="${esc(item.text || '')}"${ro}
-        placeholder="Checklist item" oninput="chkCell(this,'text')"
         onkeydown="chkKey(event,this)" onpaste="chkPaste(event,this)"></td>
-    <td class="chk-c-act">${td ? `<button class="chk-act del" title="Delete row"
-        onclick="${kind === 'std' ? 'chkDeleteStandard' : 'chkDeleteShowItem'}('${item.id}')">×</button>` : ''}</td>
-  </tr>`;
+    <td class="chk-c-txt"><input value="${esc(item.text || '')}"${ro}
+        placeholder="${ghost ? 'Type here to add a row…' : 'Checklist item'}"
+        oninput="chkCell(this,'text')"
+        onkeydown="chkKey(event,this)" onpaste="chkPaste(event,this)"></td>
+    <td class="chk-c-act">${del}</td>`;
 }
 
-function chkBlankRowHTML(kind, td) {
-  if (!td) return `<tr><td colspan="4" class="chk-empty">Nothing here yet.</td></tr>`;
-  return '';
+function chkRowHTML(kind, item, off, td) {
+  return `<tr data-id="${item.id}" data-kind="${kind}"${off ? ' class="chk-off"' : ''}>
+    ${chkCellsHTML(kind, item, off, td, false)}</tr>`;
 }
 
-// Which model record does this row point at?
+// The trailing row. No data-id — it isn't real yet.
+function chkGhostHTML(kind) {
+  return `<tr class="chk-ghost" data-kind="${kind}">
+    ${chkCellsHTML(kind, { section:'', text:'' }, false, true, true)}</tr>`;
+}
+
+// Section carried down from the last real row above.
+function chkLastSection(kind) {
+  const body = chkBodyEl(kind);
+  if (!body) return '';
+  const rows = body.querySelectorAll('tr[data-id]');
+  if (!rows.length) return '';
+  const inp = rows[rows.length - 1].querySelector('.chk-c-sec input');
+  return inp ? inp.value : '';
+}
+
 function chkFindRec(kind, id) {
   const st = chkStore();
   if (kind === 'std') return st.items.find(i => i.id === id);
   return chkShowLayer(chkCurrentShow(), true).adds.find(a => a.id === id);
 }
 
+// Turn the ghost row into a real record and hand it a fresh ghost below.
+function chkMaterialize(tr) {
+  const kind = tr.dataset.kind;
+  if (kind === 'show' && !chkCurrentShow()) { try { toast('Pick a show first'); } catch(e){} return null; }
+  const sec = tr.querySelector('.chk-c-sec input');
+  const txt = tr.querySelector('.chk-c-txt input');
+  if (!sec.value) sec.value = chkLastSection(kind);
+  const rec = { id: chkNewId(kind === 'std' ? 'i' : 's'), pos: _chkPos,
+                section: sec.value, text: txt.value };
+  if (kind === 'std') chkStore().items.push(rec);
+  else chkShowLayer(chkCurrentShow(), true).adds.push(rec);
+
+  tr.dataset.id = rec.id;
+  tr.classList.remove('chk-ghost');
+  // give the row its checkbox + delete button now that it's real
+  tr.innerHTML = chkCellsHTML(kind, rec, false, true, false);
+  const body = chkBodyEl(kind);
+  const ghost = document.createElement('tbody');
+  ghost.innerHTML = chkGhostHTML(kind);
+  body.appendChild(ghost.firstElementChild);
+  return rec;
+}
+
 function chkCell(input, field) {
   if (!chkIsTD()) return;
   const tr = input.closest('tr');
-  const rec = chkFindRec(tr.dataset.kind, tr.dataset.id);
+  let id = tr.dataset.id;
+
+  if (!id) {                       // typing in the ghost row
+    if (!input.value.trim()) return;
+    const caret = input.selectionStart;
+    const cls = input.parentNode.className;
+    const rec = chkMaterialize(tr);
+    if (!rec) return;
+    // the row was re-rendered, so put the cursor back where it was
+    const again = tr.querySelector('.' + cls.split(' ')[0] + ' input');
+    if (again) { again.focus(); try { again.setSelectionRange(caret, caret); } catch(e){} }
+    chkSaveSoon(); chkUpdateCounts();
+    return;
+  }
+
+  const rec = chkFindRec(tr.dataset.kind, id);
   if (!rec) return;
   rec[field] = input.value;
   if (field === 'section' && input.value.trim()) chkLearnSection(input.value.trim());
@@ -4832,7 +4886,6 @@ function chkCell(input, field) {
   chkSaveSoon();
 }
 
-// A section typed by hand joins the list, so it autocompletes next time.
 function chkLearnSection(name) {
   const st = chkStore();
   if (st.sections.indexOf(name) !== -1) return;
@@ -4841,61 +4894,46 @@ function chkLearnSection(name) {
   if (dl) dl.innerHTML = st.sections.map(s => `<option value="${esc(s)}">`).join('');
 }
 
+// Enter only ever moves the cursor. It never deletes, and neither does Backspace.
 function chkKey(e, input) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
   const tr = input.closest('tr');
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    const next = tr.nextElementSibling;
-    if (next && next.dataset.id) {
-      const t = next.querySelector('.chk-c-txt input');
-      if (t) { t.focus(); t.select(); return; }
+  const inSection = !!input.closest('.chk-c-sec');
+
+  if (inSection) {                              // Section → Item, same row
+    const t = tr.querySelector('.chk-c-txt input');
+    if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
+    return;
+  }
+
+  // Item → next row's Section, pre-filled and selected
+  let next = tr.nextElementSibling;
+  if (!next) return;
+  const carry = tr.querySelector('.chk-c-sec input');
+  const nsec = next.querySelector('.chk-c-sec input');
+  if (nsec) {
+    if (!nsec.value && carry) nsec.value = carry.value;
+    if (next.dataset.id) {
+      const rec = chkFindRec(next.dataset.kind, next.dataset.id);
+      if (rec && !rec.section) { rec.section = nsec.value; chkSaveSoon(); }
     }
-    chkNewRow(tr.dataset.kind, tr, true);
-  } else if (e.key === 'Backspace') {
-    // An item row with no item text is useless — back out of it. The section
-    // cell is ignored here because new rows inherit a section automatically.
-    const txt = tr.querySelector('.chk-c-txt input');
-    const body = tr.parentNode;
-    if (txt && !txt.value.trim() && body && body.querySelectorAll('tr[data-id]').length > 1) {
-      e.preventDefault();
-      const prev = tr.previousElementSibling;
-      chkRemoveRec(tr.dataset.kind, tr.dataset.id);
-      tr.remove();
-      if (prev) {
-        const t = prev.querySelector('.chk-c-txt input');
-        if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
-      }
-      chkSaveSoon(); chkUpdateCounts();
-    }
+    nsec.focus(); nsec.select();
   }
 }
 
-// Adds one row to the model + DOM. Returns the <tr>.
-function chkNewRow(kind, afterTr, focus, seed) {
-  if (!chkIsTD()) return null;
-  const showName = chkCurrentShow();
-  if (kind === 'show' && !showName) { try { toast('Pick a show first'); } catch(e){} return null; }
-  const section = (seed && seed.section) || (afterTr && afterTr.querySelector('.chk-c-sec input')
-    ? afterTr.querySelector('.chk-c-sec input').value : '');
-  const rec = { id: chkNewId(kind === 'std' ? 'i' : 's'), pos: _chkPos,
-                section: section, text: (seed && seed.text) || '' };
-  if (kind === 'std') chkStore().items.push(rec);
-  else chkShowLayer(showName, true).adds.push(rec);
-
-  const body = document.getElementById(kind === 'std' ? 'chk-std-body' : 'chk-show-body');
-  const tmp = document.createElement('tbody');
-  tmp.innerHTML = chkRowHTML(kind, rec, false, true);
-  const tr = tmp.firstElementChild;
-  if (afterTr && afterTr.parentNode === body) afterTr.after(tr); else body.appendChild(tr);
-  if (focus) { const t = tr.querySelector('.chk-c-txt input'); if (t) t.focus(); }
-  chkSaveSoon(); chkUpdateCounts();
-  return tr;
-}
-
-function chkAddRow(kind) {
-  const body = document.getElementById(kind === 'std' ? 'chk-std-body' : 'chk-show-body');
-  const rows = body ? body.querySelectorAll('tr[data-id]') : [];
-  chkNewRow(kind, rows.length ? rows[rows.length - 1] : null, true);
+function chkDelClick(kind, id) {
+  if (!chkIsTD()) return;
+  const rec = chkFindRec(kind, id);
+  const hasText = rec && (rec.text || '').trim();
+  if (kind === 'std') {
+    if (hasText && !confirm('Delete "' + rec.text + '" from the standard list for every show?')) return;
+    chkRemoveRec('std', id);
+  } else {
+    chkRemoveRec('show', id);
+  }
+  chkDropRow(kind, id);
+  chkSave(); chkUpdateCounts();
 }
 
 function chkRemoveRec(kind, id) {
@@ -4913,43 +4951,71 @@ function chkRemoveRec(kind, id) {
 }
 
 function chkDropRow(kind, id) {
-  const body = document.getElementById(kind === 'std' ? 'chk-std-body' : 'chk-show-body');
+  const body = chkBodyEl(kind);
   if (!body) return;
   const tr = body.querySelector('tr[data-id="' + id + '"]');
   if (tr) tr.remove();
 }
 
-// Paste a column out of Excel/Sheets: one row per line, tab splits section/item.
+// Rows whose item text was emptied out are dropped rather than stored forever.
+function chkPruneBlanks() {
+  const st = chkStore();
+  let n = 0;
+  const before = st.items.length;
+  st.items = st.items.filter(i => (i.text || '').trim());
+  n += before - st.items.length;
+  Object.keys(st.show).forEach(k => {
+    const l = st.show[k];
+    if (!l || !Array.isArray(l.adds)) return;
+    const b = l.adds.length;
+    l.adds = l.adds.filter(a => (a.text || '').trim());
+    n += b - l.adds.length;
+  });
+  if (n) chkSaveSoon();
+  return n;
+}
+
+// Paste a block out of Sheets/Excel: one row per line, tab splits Section | Item.
 function chkPaste(e, input) {
   if (!chkIsTD()) return;
-  const txt = (e.clipboardData || window.clipboardData).getData('text') || '';
-  if (txt.indexOf('\n') === -1 && txt.indexOf('\t') === -1) return;  // ordinary paste
+  const txt = ((e.clipboardData || window.clipboardData) || {}).getData
+    ? (e.clipboardData || window.clipboardData).getData('text') : '';
+  if (!txt || (txt.indexOf('\n') === -1 && txt.indexOf('\t') === -1)) return;  // ordinary paste
   e.preventDefault();
   const lines = txt.split(/\r?\n/).map(l => l.replace(/\s+$/, '')).filter(l => l.length);
   if (!lines.length) return;
-  const tr = input.closest('tr');
+
+  let tr = input.closest('tr');
   const kind = tr.dataset.kind;
-  let anchor = tr;
-  lines.forEach((line, n) => {
+  let carry = (tr.querySelector('.chk-c-sec input') || {}).value || chkLastSection(kind);
+
+  lines.forEach(line => {
     const parts = line.split('\t');
-    const seed = parts.length > 1
-      ? { section: parts[0].trim(), text: parts.slice(1).join(' ').trim() }
-      : { text: parts[0].trim() };
-    if (n === 0) {
-      const rec = chkFindRec(kind, tr.dataset.id);
-      if (rec) {
-        rec.text = seed.text;
-        if (seed.section) rec.section = seed.section;
-        const ti = tr.querySelector('.chk-c-txt input'); if (ti) ti.value = rec.text;
-        const si = tr.querySelector('.chk-c-sec input'); if (si) si.value = rec.section || '';
-        if (seed.section) chkLearnSection(seed.section);
-      }
-    } else {
-      if (seed.section) chkLearnSection(seed.section);
-      anchor = chkNewRow(kind, anchor, false, seed) || anchor;
-    }
+    let section = carry, text;
+    if (parts.length > 1) { section = parts[0].trim() || carry; text = parts.slice(1).join(' ').trim(); }
+    else { text = parts[0].trim(); }
+    if (!text) return;
+    carry = section;
+    if (section) chkLearnSection(section);
+
+    // find the row to fill: the current one if it's still the ghost, else the ghost at the end
+    let target = tr.dataset.id ? chkBodyEl(kind).querySelector('tr.chk-ghost') : tr;
+    if (!target) return;
+    target.querySelector('.chk-c-sec input').value = section;
+    target.querySelector('.chk-c-txt input').value = text;
+    const rec = chkMaterialize(target);
+    if (rec) { rec.section = section; rec.text = text; }
+    tr = target;
   });
-  chkSaveSoon(); chkUpdateCounts();
+
+  const ghost = chkBodyEl(kind).querySelector('tr.chk-ghost');
+  if (ghost) {
+    const s = ghost.querySelector('.chk-c-sec input');
+    if (s && !s.value) s.value = carry;
+    const t = ghost.querySelector('.chk-c-txt input');
+    if (t) t.focus();
+  }
+  chkSave(); chkUpdateCounts();
 }
 
 function chkUpdateCounts() {
@@ -4959,9 +5025,9 @@ function chkUpdateCounts() {
   const row = document.getElementById('chk-pos-row');
   if (!row) return;
   positions.forEach(p => {
-    const n = chkResolve(p.id, showName).reduce((t, s) => t + s.items.filter(x => (x.text||'').trim()).length, 0);
-    const btn = row.querySelector('[data-pos="' + p.id + '"] .chk-count');
-    if (btn) btn.textContent = n;
+    const n = chkResolve(p.id, showName).reduce((t, s) => t + s.items.length, 0);
+    const c = row.querySelector('[data-pos="' + p.id + '"] .chk-count');
+    if (c) c.textContent = n;
   });
 }
 
