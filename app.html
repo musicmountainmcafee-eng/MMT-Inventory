@@ -3309,11 +3309,6 @@
         <h2>Pre-Show Checklists</h2>
         <div class="chk-bar">
           <select id="chk-show" onchange="chkRender()"></select>
-          <select id="chk-format" class="td-only" onchange="chkSetFormat(this.value)">
-            <option value="A">Format A — Call board</option>
-            <option value="B">Format B — Run sheet</option>
-            <option value="C">Format C — Boxed</option>
-          </select>
           <button onclick="chkPrint('one')">🖨 Print this position</button>
           <button class="chk-btn2" onclick="chkPrint('all')">Print all</button>
         </div>
@@ -4184,7 +4179,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">8.1 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">8.1 v3</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -4556,12 +4551,12 @@ var _chkPos = '';
 var _chkSeq = 0;
 
 const CHK_DEFAULT_POSITIONS = [
-  { id:'ASM',    name:'ASM',                 sort:10, format:'B', active:true },
-  { id:'DECK',   name:'Deck Crew',           sort:20, format:'A', active:true },
-  { id:'SPOT',   name:'Spot Ops',            sort:30, format:'A', active:true },
-  { id:'LX',     name:'Light Board Op',      sort:40, format:'C', active:true },
-  { id:'QLAB',   name:'QLab Op',             sort:50, format:'C', active:true },
-  { id:'CT_LX',  name:'CT Light Board Op',   sort:60, format:'C', active:true }
+  { id:'ASM',    name:'ASM',               sort:10, active:true },
+  { id:'DECK',   name:'Deck Crew',         sort:20, active:true },
+  { id:'SPOT',   name:'Spot Ops',          sort:30, active:true },
+  { id:'LX',     name:'Light Board Op',    sort:40, active:true },
+  { id:'QLAB',   name:'QLab Op',           sort:50, active:true },
+  { id:'CT_LX',  name:'CT Light Board Op', sort:60, active:true }
 ];
 const CHK_DEFAULT_SECTIONS = ['House & safety','Preset','Fight call','Half hour','House open','Places'];
 
@@ -4723,23 +4718,10 @@ function chkRender() {
   const dl = document.getElementById('chk-secs');
   if (dl) dl.innerHTML = st.sections.map(s => `<option value="${esc(s)}">`).join('');
 
-  // format select follows the selected position
-  const pos = st.positions.find(p => p.id === _chkPos);
-  const fmt = document.getElementById('chk-format');
-  if (fmt && pos) fmt.value = pos.format || 'A';
-
   chkRenderTables(showName);
 }
 
 function chkSelectPos(id) { _chkPos = id; chkRender(); }
-
-function chkSetFormat(v) {
-  const st = chkStore();
-  const pos = st.positions.find(p => p.id === _chkPos);
-  if (!pos) return;
-  pos.format = v;
-  chkSave();
-}
 
 // ── edits ────────────────────────────────────────────────────────────────────
 function chkDeleteStandard(id) {
@@ -5041,24 +5023,11 @@ function chkSheetCSS() {
   .runs .hd{font-size:6.5pt;letter-spacing:1pt;text-transform:uppercase;color:var(--ink-soft);text-align:center}
   .runs .rl{font-size:7pt;letter-spacing:.7pt;text-transform:uppercase;white-space:nowrap}
   .runs .b{height:.22in;border:1.3pt solid var(--ink);border-radius:1.5pt;background:#fff}
-  /* B: two columns */
-  .sheet.compact .cols{columns:2;column-gap:.29in;column-rule:.5pt solid var(--rule)}
-  .sheet.compact .sec{break-inside:avoid;margin-bottom:.16in}
-  .sheet.compact ul.items li{font-size:9.5pt;padding:2.2pt 0}
-  /* C: boxed */
-  .sheet.boxed .sec{border:1.6pt solid var(--accent);padding:.13in .16in .08in;
-                    margin-bottom:.16in;border-radius:3pt}
-  .sheet.boxed .sec-h{margin-top:-.22in;background:#fff;padding-right:.1in;display:inline-flex;width:auto}
-  .sheet.boxed .sec-h::after{display:none}
-  .sheet.boxed ul.items li{border-bottom:none;padding:4.5pt 0}
-  .sheet.boxed .box{width:.21in;height:.21in}
   `;
 }
 
 function chkSheetHTML(pos, show, showName) {
   const secs = chkResolve(pos.id, showName);
-  const fmt = pos.format || 'A';
-  const cls = fmt === 'B' ? ' compact' : (fmt === 'C' ? ' boxed' : '');
   const weekends = chkWeekends(show);
   const cols = weekends.length || 4;
 
@@ -5080,13 +5049,13 @@ function chkSheetHTML(pos, show, showName) {
     : '—';
   const logo = (typeof LOGO_URL !== 'undefined' && LOGO_URL) ? `<div class="logo"><img src="${LOGO_URL}"></div>` : '';
 
-  return `<div class="sheet${cls}">
+  return `<div class="sheet">
     <div class="frame">
       <div class="fr t"><i></i><i></i><i></i></div><div class="fr r"><i></i><i></i><i></i></div>
       <div class="fr b"><i></i><i></i><i></i></div><div class="fr l"><i></i><i></i><i></i></div>
     </div>
     <div class="head">
-      <div class="tape"><span class="pos">${esc(pos.name)}</span><span class="posmeta">Pre-show checklist</span></div>
+      <div class="tape"><span class="pos">${esc(pos.name)}</span><span class="posmeta">Call Sheet</span></div>
       ${logo}
     </div>
     <div class="slug">
@@ -5094,7 +5063,7 @@ function chkSheetHTML(pos, show, showName) {
       <div><span>Run</span><b>${esc(runLabel)}</b></div>
       <div><span>Position</span><b>${esc(pos.name)}</b></div>
     </div>
-    ${fmt === 'B' ? `<div class="cols">${body}</div>` : body}
+    ${body}
     <div class="foot">
       <div class="cap"><span>&#9670; show-specific</span><span>Initial each performance</span></div>
       <div class="runs" style="--cols:${cols};">${chart}</div>
