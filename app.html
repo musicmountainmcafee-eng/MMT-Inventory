@@ -3318,7 +3318,6 @@
       </div>
 
       <div class="chk-pos-row" id="chk-pos-row"></div>
-      <datalist id="chk-secs"></datalist>
 
       <div class="chk-panelgrid">
         <div class="chk-card">
@@ -3330,7 +3329,7 @@
             <tbody id="chk-std-body"></tbody>
           </table>
           <div class="chk-tablefoot td-only">
-            <span class="chk-hint">Just start typing on the last line · Enter for the next row · paste straight from Sheets</span>
+            <span class="chk-hint">Just start typing on the last line · Enter for the next row · sections print in the order you type them</span>
           </div>
         </div>
 
@@ -4180,7 +4179,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">8.1 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">8.1 v5</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -4679,12 +4678,14 @@ function chkResolve(posId, showName) {
     if (!(a.text || '').trim()) return;
     rows.push({ id:a.id, section:a.section, text:a.text, isNew:true });
   });
-  const order = st.sections;
+  // Sections print in the order they first appear in the table, so the grid
+  // you typed is the running order on paper.
   const bySec = {};
-  rows.forEach(r => { const s = r.section || 'Other'; (bySec[s] = bySec[s] || []).push(r); });
-  const secs = Object.keys(bySec).sort((a,b) => {
-    const ia = order.indexOf(a), ib = order.indexOf(b);
-    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  const secs = [];
+  rows.forEach(r => {
+    const s = (r.section || '').trim() || 'Other';
+    if (!bySec[s]) { bySec[s] = []; secs.push(s); }
+    bySec[s].push(r);
   });
   return secs.map(s => ({ section:s, items:bySec[s] }));
 }
@@ -4718,10 +4719,6 @@ function chkRender() {
     const n = chkResolve(p.id, showName).reduce((t, s) => t + s.items.length, 0);
     return `<button class="chk-pos${p.id === _chkPos ? ' active' : ''}" data-pos="${p.id}" onclick="chkSelectPos('${p.id}')">${esc(p.name)}<span class="chk-count">${n}</span></button>`;
   }).join('');
-
-  // section autocomplete list (free text, so new sections can just be typed)
-  const dl = document.getElementById('chk-secs');
-  if (dl) dl.innerHTML = st.sections.map(s => `<option value="${esc(s)}">`).join('');
 
   chkRenderTables(showName);
 }
@@ -4800,7 +4797,7 @@ function chkCellsHTML(kind, item, off, td, ghost) {
     ? `<button class="chk-act del" tabindex="-1" title="Delete row"
          onclick="chkDelClick('${kind}','${item.id}')">×</button>` : '';
   return `${tick}
-    <td class="chk-c-sec"><input list="chk-secs" value="${esc(item.section || '')}"${ro}
+    <td class="chk-c-sec"><input type="text" autocomplete="off" value="${esc(item.section || '')}"${ro}
         placeholder="Section" oninput="chkCell(this,'section')"
         onkeydown="chkKey(event,this)" onpaste="chkPaste(event,this)"></td>
     <td class="chk-c-txt"><input value="${esc(item.text || '')}"${ro}
@@ -4881,20 +4878,10 @@ function chkCell(input, field) {
   const rec = chkFindRec(tr.dataset.kind, id);
   if (!rec) return;
   rec[field] = input.value;
-  if (field === 'section' && input.value.trim()) chkLearnSection(input.value.trim());
   if (field === 'text') chkUpdateCounts();
   chkSaveSoon();
 }
 
-function chkLearnSection(name) {
-  const st = chkStore();
-  if (st.sections.indexOf(name) !== -1) return;
-  st.sections.push(name);
-  const dl = document.getElementById('chk-secs');
-  if (dl) dl.innerHTML = st.sections.map(s => `<option value="${esc(s)}">`).join('');
-}
-
-// Enter only ever moves the cursor. It never deletes, and neither does Backspace.
 function chkKey(e, input) {
   if (e.key !== 'Enter') return;
   e.preventDefault();
@@ -4996,7 +4983,6 @@ function chkPaste(e, input) {
     else { text = parts[0].trim(); }
     if (!text) return;
     carry = section;
-    if (section) chkLearnSection(section);
 
     // find the row to fill: the current one if it's still the ghost, else the ghost at the end
     let target = tr.dataset.id ? chkBodyEl(kind).querySelector('tr.chk-ghost') : tr;
