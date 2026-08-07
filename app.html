@@ -2576,6 +2576,15 @@
   .chk-pos:hover { border-color:var(--purple); color:var(--purple); }
   .chk-pos.active { background:var(--purple); border-color:var(--purple); color:#fff; }
   .chk-pos .chk-count { opacity:.65; font-weight:500; margin-left:5px; }
+  .chk-pos-all { border-style:dashed; border-color:var(--purple); color:var(--purple); }
+  .chk-pos-all.active { border-style:solid; color:#fff; }
+  .chk-pos-sep { width:1px; align-self:stretch; background:var(--border); margin:2px 5px; }
+  .chk-allnote {
+    background:color-mix(in srgb, var(--purple) 9%, transparent);
+    border:1px solid var(--purple); border-radius:var(--radius);
+    padding:9px 12px; margin-bottom:14px; font-size:12.5px; line-height:1.5;
+    color:var(--text);
+  }
 
   .chk-panelgrid { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; }
   @media (max-width:900px) { .chk-panelgrid { grid-template-columns:1fr; } }
@@ -3318,6 +3327,14 @@
       </div>
 
       <div class="chk-pos-row" id="chk-pos-row"></div>
+
+      <div class="chk-allnote" id="chk-allnote" style="display:none;">
+        <strong>Shared list.</strong> Anything typed here prints on <em>every</em> position's call
+        sheet — type it once instead of once per position. Shared items slot into the matching
+        section on each sheet and print above that position's own items, so keep the sections here
+        in running order. Unticking Print drops the item from every sheet for
+        <strong class="chk-show-label">this show</strong>.
+      </div>
 
       <div class="chk-panelgrid">
         <div class="chk-card">
@@ -4560,6 +4577,13 @@ const CHK_DEFAULT_POSITIONS = [
 ];
 const CHK_DEFAULT_SECTIONS = ['House & safety','Preset','Fight call','Half hour','House open','Places'];
 
+// A virtual position. Items filed under it belong to EVERY position, so shared
+// items get typed once and print on every sheet. It is deliberately NOT stored
+// in st.positions: nothing can rename, reorder or deactivate it, and chkPrint
+// keeps working off the real position list without needing to filter it out.
+const CHK_ALL = 'ALL';
+const CHK_ALL_POS = { id:CHK_ALL, name:'All Positions', sort:-1, active:true };
+
 function chkStore() {
   if (!_chk || typeof _chk !== 'object') _chk = {};
   if (!Array.isArray(_chk.positions) || !_chk.positions.length) _chk.positions = JSON.parse(JSON.stringify(CHK_DEFAULT_POSITIONS));
@@ -4669,14 +4693,22 @@ function chkResolve(posId, showName) {
   const layer = chkShowLayer(showName, false);
   const skips = layer.skips;
   const rows = [];
-  st.items.filter(i => i.pos === posId).forEach(i => {
-    if (skips.indexOf(i.id) !== -1) return;
-    if (!(i.text || '').trim()) return;            // half-typed row, don't print it
-    rows.push({ id:i.id, section:i.section, text:i.text, isNew:false });
+  // Shared (ALL) items are pulled in ahead of the position's own, so inside a
+  // section the common steps read first. Resolving ALL itself must not merge
+  // ALL into ALL, or the editor tab would double every row.
+  const src = (posId === CHK_ALL) ? [CHK_ALL] : [CHK_ALL, posId];
+  src.forEach(pid => {
+    st.items.filter(i => i.pos === pid).forEach(i => {
+      if (skips.indexOf(i.id) !== -1) return;
+      if (!(i.text || '').trim()) return;          // half-typed row, don't print it
+      rows.push({ id:i.id, section:i.section, text:i.text, isNew:false });
+    });
   });
-  layer.adds.filter(a => a.pos === posId).forEach(a => {
-    if (!(a.text || '').trim()) return;
-    rows.push({ id:a.id, section:a.section, text:a.text, isNew:true });
+  src.forEach(pid => {
+    layer.adds.filter(a => a.pos === pid).forEach(a => {
+      if (!(a.text || '').trim()) return;
+      rows.push({ id:a.id, section:a.section, text:a.text, isNew:true });
+    });
   });
   // Sections print in the order they first appear in the table, so the grid
   // you typed is the running order on paper.
@@ -4713,12 +4745,18 @@ function chkRender() {
 
   // positions
   const positions = st.positions.filter(p => p.active !== false).sort((a,b) => (a.sort||0) - (b.sort||0));
-  if (!_chkPos || !positions.some(p => p.id === _chkPos)) _chkPos = positions.length ? positions[0].id : '';
+  if (!_chkPos || (_chkPos !== CHK_ALL && !positions.some(p => p.id === _chkPos)))
+    _chkPos = positions.length ? positions[0].id : CHK_ALL;
   const row = document.getElementById('chk-pos-row');
-  row.innerHTML = positions.map(p => {
+  const chip = p => {
     const n = chkResolve(p.id, showName).reduce((t, s) => t + s.items.length, 0);
-    return `<button class="chk-pos${p.id === _chkPos ? ' active' : ''}" data-pos="${p.id}" onclick="chkSelectPos('${p.id}')">${esc(p.name)}<span class="chk-count">${n}</span></button>`;
-  }).join('');
+    const cls = 'chk-pos' + (p.id === CHK_ALL ? ' chk-pos-all' : '') + (p.id === _chkPos ? ' active' : '');
+    return `<button class="${cls}" data-pos="${p.id}" onclick="chkSelectPos('${p.id}')">${esc(p.name)}<span class="chk-count">${n}</span></button>`;
+  };
+  row.innerHTML = chip(CHK_ALL_POS) + '<span class="chk-pos-sep"></span>' + positions.map(chip).join('');
+
+  const note = document.getElementById('chk-allnote');
+  if (note) note.style.display = (_chkPos === CHK_ALL) ? '' : 'none';
 
   chkRenderTables(showName);
 }
@@ -5010,7 +5048,7 @@ function chkUpdateCounts() {
   const positions = st.positions.filter(p => p.active !== false).sort((a,b) => (a.sort||0) - (b.sort||0));
   const row = document.getElementById('chk-pos-row');
   if (!row) return;
-  positions.forEach(p => {
+  [CHK_ALL_POS].concat(positions).forEach(p => {
     const n = chkResolve(p.id, showName).reduce((t, s) => t + s.items.length, 0);
     const c = row.querySelector('[data-pos="' + p.id + '"] .chk-count');
     if (c) c.textContent = n;
@@ -5140,7 +5178,9 @@ function chkPrint(mode) {
   const showName = chkCurrentShow();
   const show = chkShowRecord(showName);
   let positions = st.positions.filter(p => p.active !== false).sort((a,b) => (a.sort||0) - (b.sort||0));
-  if (mode === 'one') positions = positions.filter(p => p.id === _chkPos);
+  // "this position" on the shared tab means everyone — those items are on
+  // every sheet, so print the full set rather than nothing.
+  if (mode === 'one' && _chkPos !== CHK_ALL) positions = positions.filter(p => p.id === _chkPos);
   if (!positions.length) { try { toast('Nothing to print'); } catch(e){} return; }
 
   const sheets = positions.map(p => chkSheetHTML(p, show, showName)).join('\n');
