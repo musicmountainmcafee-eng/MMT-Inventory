@@ -2627,8 +2627,8 @@
   .chk-c-grip { width:46px; text-align:center; }
   .chk-c-tick { width:52px; text-align:center; }
   .chk-c-sec  { width:150px; }
-  .chk-c-pos  { width:210px; }
-  .chk-c-dia  { width:44px; text-align:center; }
+  .chk-c-pos  { width:214px; }
+  .chk-c-scope{ width:112px; }
   .chk-c-act  { width:38px; text-align:center; }
 
   .chk-grid tr.chk-skipped input { color:var(--text-faint); text-decoration:line-through; }
@@ -2640,8 +2640,49 @@
   .chk-pos-cell { position:relative; }
   .chk-pos-cell.all input { color:var(--purple-dark); font-weight:600; }
   .chk-pos-cell input.bad { color:var(--red); }
-  .chk-flag { position:absolute; right:6px; top:50%; transform:translateY(-50%);
+  .chk-flag { position:absolute; right:26px; top:50%; transform:translateY(-50%);
               font-size:14px; line-height:1; pointer-events:none; }
+  #tab-checklists button.chk-caret {
+    position:absolute; right:4px; top:50%; transform:translateY(-50%);
+    background:none; border:none; color:var(--text-faint); font-size:10px;
+    padding:4px 5px; border-radius:4px; line-height:1;
+  }
+  #tab-checklists button.chk-caret:hover { background:var(--bg); color:var(--purple); }
+
+  /* position picker — fixed so the table can't clip it */
+  .chk-pick {
+    position:fixed; z-index:60; min-width:212px; padding:5px;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius-sm); box-shadow:0 6px 22px rgba(0,0,0,.16);
+  }
+  .chk-pick label {
+    display:flex; align-items:center; gap:9px; padding:7px 9px; border-radius:5px;
+    font-size:13px; cursor:pointer; color:var(--text);
+  }
+  .chk-pick label:hover { background:var(--bg); }
+  .chk-pick label.all { border-bottom:1px solid var(--border); border-radius:5px 5px 0 0;
+                        font-weight:600; margin-bottom:3px; }
+  .chk-pick input[type=checkbox] { width:15px; height:15px; accent-color:var(--purple); }
+
+  /* scope pill */
+  #tab-checklists button.chk-scope {
+    background:none; border:1px solid var(--border); color:var(--text-muted);
+    font-size:11.5px; font-weight:600; padding:4px 9px; border-radius:999px;
+    white-space:nowrap; width:100%;
+  }
+  #tab-checklists button.chk-scope:hover { border-color:var(--purple); color:var(--purple);
+                                           background:var(--surface); }
+  #tab-checklists button.chk-scope.on { background:var(--purple); border-color:var(--purple); color:#fff; }
+
+  .chk-sechead-in input.nm {
+    font-size:11px; letter-spacing:.09em; text-transform:uppercase; font-weight:700;
+    color:var(--text-muted); background:none; border:1px solid transparent;
+    border-radius:5px; padding:3px 6px; font-family:'DM Sans',sans-serif; width:auto;
+    min-width:120px;
+  }
+  .chk-sechead-in input.nm:hover { border-color:var(--border); }
+  .chk-sechead-in input.nm:focus { outline:none; border-color:var(--purple);
+                                   background:var(--surface); color:var(--text); }
 
   /* reordering */
   .chk-gripcell { display:flex; align-items:center; justify-content:center; gap:1px; }
@@ -2683,7 +2724,7 @@
 
   @media (max-width:820px) {
     .chk-card { overflow-x:auto; }
-    .chk-grid { min-width:720px; }
+    .chk-grid { min-width:780px; }
   }
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -3342,7 +3383,7 @@
               <th class="chk-c-sec">Section</th>
               <th>Item</th>
               <th class="chk-c-pos">Positions</th>
-              <th class="chk-c-dia" title="This show only — prints with a diamond">&#9670;</th>
+              <th class="chk-c-scope" title="Whether this row prints for every production or only the one selected">Scope</th>
               <th class="chk-c-act"></th>
             </tr>
           </thead>
@@ -3351,11 +3392,12 @@
         <div class="chk-foot">
           <span class="td-only">Drag the grip to reorder &nbsp;·&nbsp;
             <kbd>Alt</kbd>+<kbd>&uarr;</kbd><kbd>&darr;</kbd> moves a row, add <kbd>Shift</kbd>
-            for the whole section &nbsp;·&nbsp; the grid order is the print order</span>
+            for the whole section &nbsp;·&nbsp; <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes a delete</span>
           <span id="chk-count"></span>
         </div>
       </div>
 
+      <div class="chk-pick" id="chk-pick" hidden></div>
       <datalist id="chk-sections"></datalist>
     </div>
   </div>
@@ -4988,7 +5030,12 @@ function chkRender() {
               + `<button class="chk-nudge" onclick="chkMoveSection(${g},1)"${g === groups.length - 1 ? ' disabled' : ''} title="Move section down">&#9660;</button></span>`
             : '')
         + '</div></td>'
-        + `<td colspan="6"><div class="chk-sechead-in"><span class="nm">${esc(r.section || 'Other')}</span>`
+        + `<td colspan="6"><div class="chk-sechead-in">`
+        + (td
+            ? `<input class="nm" type="text" value="${esc(r.section || '')}" placeholder="Section"
+                 onchange="chkRenameSection(this.defaultValue, this.value)"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">`
+            : `<span class="nm">${esc(r.section || 'Other')}</span>`)
         + `<span class="ct">${groups[g] ? groups[g].n : 0}</span></div></td></tr>`;
     }
 
@@ -5022,9 +5069,16 @@ function chkRender() {
       +   ` onkeydown="chkKey(event,this)" onpaste="chkPaste(event,${idx},1)"></td>`
       + `<td class="chk-pos-cell${p.all ? ' all' : ''}"><input type="text" value="${esc(posText)}"${ro}`
       +   ` placeholder="All, or Deck, Spot…" data-r="${esc(r.id)}" data-c="2"`
-      +   ` oninput="chkPosCell(${idx},this)" onkeydown="chkKey(event,this)"`
-      +   ` onblur="chkRender()" onpaste="chkPaste(event,${idx},2)">${flag}</td>`
-      + `<td class="chk-c-dia">${td ? `<button class="chk-act${r.show ? ' on' : ''}" onclick="chkToggleShow(${idx})" title="${r.show ? 'This show only' : 'Standard — every show'}">${r.show ? '&#9670;' : '&#9671;'}</button>` : ''}</td>`
+      +   ` style="padding-right:26px" oninput="chkPosCell(${idx},this)" onkeydown="chkKey(event,this)"`
+      +   ` onblur="chkRender()" onpaste="chkPaste(event,${idx},2)">${flag}`
+      +   (td ? `<button class="chk-caret" onclick="chkOpenPick('${esc(r.id)}',this)"
+                  title="Pick positions" aria-label="Pick positions">&#9660;</button>` : '')
+      +   '</td>'
+      + `<td class="chk-c-scope">${td
+            ? `<button class="chk-scope${r.show ? ' on' : ''}" onclick="chkToggleShow(${idx})"
+                 title="${r.show ? 'Only prints for ' + esc(showName) + ', with a diamond' : 'Prints for every production'}"
+                 >${r.show ? '&#9670; This show' : 'Every show'}</button>`
+            : (r.show ? '<span style="font-size:11.5px;color:var(--purple-dark)">&#9670; This show</span>' : '')}</td>`
       + `<td class="chk-c-act">${td ? `<button class="chk-act del" onclick="chkDel(${idx})" title="Delete row">&times;</button>` : ''}</td>`
       + '</tr>';
   });
@@ -5035,7 +5089,7 @@ function chkRender() {
       + '<td><input type="text" list="chk-sections" placeholder="Section" oninput="chkGrow(this,0)" onkeydown="chkKey(event,this)" onpaste="chkPasteGhost(event)"></td>'
       + '<td><input type="text" placeholder="Type here to add a row…" oninput="chkGrow(this,1)" onkeydown="chkKey(event,this)" onpaste="chkPasteGhost(event)"></td>'
       + '<td class="chk-pos-cell"><input type="text" placeholder="All, or Deck, Spot…" oninput="chkGrow(this,2)" onkeydown="chkKey(event,this)" onpaste="chkPasteGhost(event)"></td>'
-      + '<td class="chk-c-dia"></td><td class="chk-c-act"></td></tr>';
+      + '<td class="chk-c-scope"></td><td class="chk-c-act"></td></tr>';
   } else if (!html) {
     html = '<tr><td colspan="7" style="padding:26px;text-align:center;color:var(--text-muted);">Nothing here yet.</td></tr>';
   }
@@ -5080,6 +5134,119 @@ function chkResolveCounts(showName, counts) {
   });
 }
 function chkSetFilter(id) { _chkFilter = (_chkFilter === id) ? '' : id; chkRender(); }
+
+// ── position picker ──────────────────────────────────────────────────────────
+// Typing stays the fast path on a laptop, but tapping six checkboxes beats
+// thumb-typing "Deck, Spot, QLab" on a phone in the shop. Both write the same
+// `pos` list. Fixed positioning keeps it clear of the table's overflow.
+var _chkPick = null;
+
+function chkOpenPick(id, btn) {
+  if (_chkPick === id) { chkClosePick(); return; }
+  _chkPick = id;
+  const box = btn.getBoundingClientRect();
+  const el = document.getElementById('chk-pick');
+  el.hidden = false;
+  chkFillPick();
+  const w = el.offsetWidth || 212, h = el.offsetHeight || 240;
+  let left = Math.min(box.right - w, window.innerWidth - w - 8);
+  let top = box.bottom + 4;
+  if (top + h > window.innerHeight - 8) top = Math.max(8, box.top - h - 4);
+  el.style.left = Math.max(8, left) + 'px';
+  el.style.top = top + 'px';
+}
+function chkClosePick() {
+  _chkPick = null;
+  const el = document.getElementById('chk-pick');
+  if (el) { el.hidden = true; el.innerHTML = ''; }
+}
+function chkFillPick() {
+  const el = document.getElementById('chk-pick');
+  if (!el || !_chkPick) return;
+  const it = chkStore().items.find(i => i.id === _chkPick);
+  if (!it) { chkClosePick(); return; }
+  const all = chkPosList().map(p => p.id);
+  const isAll = all.length && all.every(id => (it.pos || []).indexOf(id) !== -1);
+  el.innerHTML =
+    `<label class="all"><input type="checkbox" ${isAll ? 'checked' : ''} onchange="chkPickAll(this.checked)">All positions</label>`
+    + chkPosList().map(p =>
+        `<label><input type="checkbox" ${(it.pos || []).indexOf(p.id) !== -1 ? 'checked' : ''}`
+        + ` onchange="chkPickOne('${esc(p.id)}',this.checked)">${esc(p.name)}</label>`
+      ).join('');
+}
+function chkPickOne(posId, on) {
+  const it = chkStore().items.find(i => i.id === _chkPick);
+  if (!it) return;
+  if (!Array.isArray(it.pos)) it.pos = [];
+  const n = it.pos.indexOf(posId);
+  if (on && n === -1) it.pos.push(posId);
+  if (!on && n !== -1) it.pos.splice(n, 1);
+  // keep the stored order matching the position list so the cell text is stable
+  const order = chkPosList().map(p => p.id);
+  it.pos.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  chkRender(); chkFillPick(); chkSaveSoon();
+}
+function chkPickAll(on) {
+  const it = chkStore().items.find(i => i.id === _chkPick);
+  if (!it) return;
+  it.pos = on ? chkPosList().map(p => p.id) : [];
+  chkRender(); chkFillPick(); chkSaveSoon();
+}
+document.addEventListener('mousedown', e => {
+  if (!_chkPick) return;
+  if (e.target.closest && (e.target.closest('#chk-pick') || e.target.closest('.chk-caret'))) return;
+  chkClosePick();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && _chkPick) chkClosePick(); });
+window.addEventListener('scroll', () => { if (_chkPick) chkClosePick(); }, true);
+
+// ── renaming a section ───────────────────────────────────────────────────────
+// The heading owns the name now, so renaming it moves the whole block at once
+// instead of making you retype the Section cell on every row. Renaming onto an
+// existing name merges the two groups.
+function chkRenameSection(from, to) {
+  if (!chkIsTD()) return;
+  to = String(to || '').trim();
+  if (!to || to === from) { chkRender(); return; }
+  let n = 0;
+  chkStore().items.forEach(i => { if (i.section === from) { i.section = to; n++; } });
+  chkNormalize(); chkRender(); chkSave();
+  try { toast('Renamed ' + n + ' row' + (n === 1 ? '' : 's') + ' to ' + to); } catch(e){}
+}
+
+// ── undo ─────────────────────────────────────────────────────────────────────
+// Delete is one tap and drag misfires on a phone, so deletions are recoverable.
+var _chkTrash = [];
+function chkUndo() {
+  if (!chkIsTD() || !_chkTrash.length) { try { toast('Nothing to undo'); } catch(e){} return; }
+  const last = _chkTrash.pop();
+  const items = chkStore().items;
+  items.splice(Math.min(last.at, items.length), 0, last.item);
+  chkNormalize(); chkRender(); chkSave();
+  try { toast('Restored "' + (last.item.text || 'row').slice(0, 30) + '"'); } catch(e){}
+}
+document.addEventListener('keydown', e => {
+  if (!(e.key === 'z' || e.key === 'Z') || !(e.ctrlKey || e.metaKey) || e.shiftKey) return;
+  const panel = document.getElementById('tab-checklists');
+  if (!panel || panel.offsetParent === null) return;      // only on this tab
+  e.preventDefault();
+  chkUndo();
+});
+
+// ── don't lose the last keystroke ────────────────────────────────────────────
+// Saves are debounced, so leaving the tab within the window would drop them.
+// sendBeacon survives unload where fetch does not.
+function chkFlush() {
+  if (!_chkSaveTimer) return;
+  clearTimeout(_chkSaveTimer); _chkSaveTimer = null;
+  const body = JSON.stringify({ action:'saveKV', key:'checklists', value:_chk });
+  try {
+    if (navigator.sendBeacon && navigator.sendBeacon(SCRIPT_URL, new Blob([body], { type:'text/plain' }))) return;
+  } catch (e) {}
+  chkSave();
+}
+window.addEventListener('beforeunload', chkFlush);
+document.addEventListener('visibilitychange', () => { if (document.hidden) chkFlush(); });
 
 // ── editing ──────────────────────────────────────────────────────────────────
 function chkCell(i, field, val) {
@@ -5135,9 +5302,14 @@ function chkToggleShow(i) {
 }
 function chkDel(i) {
   if (!chkIsTD()) return;
-  chkStore().items.splice(i, 1);
+  const gone = chkStore().items.splice(i, 1)[0];
+  if (gone) {
+    _chkTrash.push({ item: gone, at: i });
+    if (_chkTrash.length > 20) _chkTrash.shift();
+  }
+  chkClosePick();
   chkRender(); chkSave();
-  try { toast('Row deleted'); } catch(e){}
+  try { toast('Row deleted — Ctrl+Z to undo'); } catch(e){}
 }
 
 // The trailing row becomes real the moment you type in it, and a fresh ghost
