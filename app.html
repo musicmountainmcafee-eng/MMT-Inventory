@@ -3364,7 +3364,9 @@
           <p class="chk-sub">One row per task. The Positions column decides whose sheet it lands on.</p>
         </div>
         <div class="chk-bar">
-          <select id="chk-show" onchange="chkRender()"></select>
+          <select id="chk-show" onchange="chkPickShow()"></select>
+          <button class="chk-btn2" id="chk-auto" hidden onclick="chkAutoShow()"
+                  title="Go back to following the calendar">↺ Auto</button>
           <input type="search" id="chk-q" placeholder="Search items…" style="width:150px"
                  oninput="chkRender()">
           <select id="chk-printpos"></select>
@@ -4774,12 +4776,42 @@ function chkShowList() {
     return [...ms, ...ct].filter(s => s && s.name && s.start).sort((a,b) => a.start.localeCompare(b.start));
   } catch (e) { return []; }
 }
+// The show whose sheets you'd be printing right now: one that's open tonight,
+// else the next one to open, else the last one that ran. Two shows can overlap
+// (a children's run inside a mainstage run), so a tie goes to whichever closes
+// first — that's the one running out of performances.
 function chkDefaultShow() {
   const list = chkShowList();
   if (!list.length) return null;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const upcoming = list.filter(s => new Date((s.end || s.start) + 'T00:00:00') >= today);
-  return (upcoming[0] || list[list.length - 1]).name;
+  const today = (typeof todayISO === 'function') ? todayISO()
+    : new Date().toISOString().slice(0, 10);
+  const endOf = s => s.end || s.start;
+
+  const running = list.filter(s => s.start <= today && endOf(s) >= today)
+                      .sort((a, b) => endOf(a).localeCompare(endOf(b)));
+  if (running.length) return running[0].name;
+
+  const upcoming = list.filter(s => s.start > today)
+                       .sort((a, b) => a.start.localeCompare(b.start));
+  if (upcoming.length) return upcoming[0].name;
+
+  return list[list.length - 1].name;
+}
+
+// The selector follows the calendar until you override it. Picking a show by
+// hand pins it for the session so a re-render doesn't yank you back.
+var _chkShowPinned = false;
+function chkPickShow() {
+  _chkShowPinned = true;
+  chkClosePick();
+  chkRender();
+}
+function chkAutoShow() {
+  _chkShowPinned = false;
+  const sel = document.getElementById('chk-show');
+  const def = chkDefaultShow();
+  if (sel && def) sel.value = def;
+  chkRender();
 }
 function chkCurrentShow() {
   const sel = document.getElementById('chk-show');
@@ -4992,9 +5024,17 @@ function chkRender() {
     if (sel.innerHTML !== markup) {
       const keep = sel.value;
       sel.innerHTML = markup;
-      if (keep && list.some(s => s.name === keep)) sel.value = keep;
-      else { const def = chkDefaultShow(); if (def) sel.value = def; }
+      if (_chkShowPinned && keep && list.some(s => s.name === keep)) sel.value = keep;
+      else { _chkShowPinned = false; const def = chkDefaultShow(); if (def) sel.value = def; }
     }
+    // A pinned show that's since been deleted shouldn't strand the tab.
+    if (_chkShowPinned && !list.some(s => s.name === sel.value)) _chkShowPinned = false;
+    if (!_chkShowPinned) {
+      const def = chkDefaultShow();
+      if (def && sel.value !== def) sel.value = def;
+    }
+    const auto = document.getElementById('chk-auto');
+    if (auto) auto.hidden = !_chkShowPinned;
   }
   const showName = chkCurrentShow();
 
@@ -5227,8 +5267,7 @@ function chkUndo() {
 }
 document.addEventListener('keydown', e => {
   if (!(e.key === 'z' || e.key === 'Z') || !(e.ctrlKey || e.metaKey) || e.shiftKey) return;
-  const panel = document.getElementById('tab-checklists');
-  if (!panel || panel.offsetParent === null) return;      // only on this tab
+  if (!chkTabVisible()) return;                          // only on this tab
   e.preventDefault();
   chkUndo();
 });
@@ -5245,6 +5284,25 @@ function chkFlush() {
   } catch (e) {}
   chkSave();
 }
+// A tab left open overnight would keep yesterday's answer, so re-check when it
+// comes back to the front and once an hour while it's showing.
+// switchTab marks the visible panel with .active; offsetParent would work in a
+// browser but is dead weight anywhere without layout.
+function chkTabVisible() {
+  const panel = document.getElementById('tab-checklists');
+  return !!panel && panel.classList.contains('active');
+}
+var _chkDay = null;
+function chkCheckDay() {
+  if (!chkTabVisible()) return;
+  const today = (typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0, 10);
+  if (_chkDay === today) return;
+  _chkDay = today;
+  if (!_chkShowPinned) chkRender();
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) chkCheckDay(); });
+setInterval(chkCheckDay, 3600000);
+
 window.addEventListener('beforeunload', chkFlush);
 document.addEventListener('visibilitychange', () => { if (document.hidden) chkFlush(); });
 
