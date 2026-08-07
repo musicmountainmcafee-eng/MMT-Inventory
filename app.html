@@ -2632,6 +2632,24 @@
   .chk-c-act  { width:38px; text-align:center; }
 
   .chk-grid tr.chk-skipped input { color:var(--text-faint); text-decoration:line-through; }
+
+  /* left rail: how many positions a row reaches, readable without parsing text */
+  .chk-grid tbody td:first-child { border-left:3px solid transparent; }
+  .chk-grid tr.scope-all  td:first-child { border-left-color:var(--green); }
+  .chk-grid tr.scope-some td:first-child { border-left-color:var(--blue); }
+  .chk-grid tr.scope-none td:first-child { border-left-color:var(--orange); }
+  .chk-pos-cell.all input { color:var(--green-dark); font-weight:700; }
+  .chk-pos-cell.some input { color:var(--blue-dark); }
+
+  .chk-legend { display:flex; gap:14px; flex-wrap:wrap; align-items:center;
+                font-size:11px; color:var(--text-faint); margin:-6px 0 12px 2px; }
+  .chk-legend i { display:inline-block; width:3px; height:11px; border-radius:2px;
+                  margin-right:5px; vertical-align:-1px; }
+
+  /* delete only shows on hover, so the grid isn't a column of crosses */
+  #tab-checklists button.chk-act.del { opacity:0; }
+  .chk-grid tr:hover .chk-act.del, .chk-grid tr:focus-within .chk-act.del { opacity:1; }
+  @media (hover:none) { #tab-checklists button.chk-act.del { opacity:1; } }
   .chk-grid tr.chk-showonly td { background:var(--purple-light); }
   .chk-grid tr.chk-showonly:hover td { background:var(--purple-light); }
   .chk-grid tr.chk-dim { opacity:.28; }
@@ -3375,6 +3393,12 @@
       </div>
 
       <div class="chk-cov" id="chk-cov"></div>
+      <div class="chk-legend">
+        <span><i style="background:var(--green)"></i>Everyone</span>
+        <span><i style="background:var(--blue)"></i>Several positions</span>
+        <span><i style="background:var(--border)"></i>One position</span>
+        <span><i style="background:var(--purple-light)"></i>Purple row = this show only</span>
+      </div>
 
       <div class="chk-card">
         <table class="chk-grid">
@@ -4613,13 +4637,16 @@ var _chkSeq = 0;
 var _chkFilter = '';        // position id to spotlight in the grid, '' for none
 var _chkDrag = null;
 
+// `name` is the title printed on the call sheet; `short` is what shows in the
+// grid, because six full job titles in one cell is unreadable. Every short form
+// is also an alias, so what you read is what you can type.
 const CHK_DEFAULT_POSITIONS = [
-  { id:'ASM',    name:'ASM',               sort:10, active:true },
-  { id:'DECK',   name:'Deck Crew',         sort:20, active:true },
-  { id:'SPOT',   name:'Spot Ops',          sort:30, active:true },
-  { id:'LX',     name:'Light Board Op',    sort:40, active:true },
-  { id:'QLAB',   name:'QLab Op',           sort:50, active:true },
-  { id:'CT_LX',  name:'CT Light Board Op', sort:60, active:true }
+  { id:'ASM',    name:'ASM',               short:'ASM',   sort:10, active:true },
+  { id:'DECK',   name:'Deck Crew',         short:'Deck',  sort:20, active:true },
+  { id:'SPOT',   name:'Spot Ops',          short:'Spot',  sort:30, active:true },
+  { id:'LX',     name:'Light Board Op',    short:'LX',    sort:40, active:true },
+  { id:'QLAB',   name:'QLab Op',           short:'QLab',  sort:50, active:true },
+  { id:'CT_LX',  name:'CT Light Board Op', short:'CT LX', sort:60, active:true }
 ];
 const CHK_DEFAULT_SECTIONS = ['House & safety','Preset','Fight call','Half hour','House open','Places'];
 
@@ -4654,8 +4681,10 @@ function chkPosList() {
   return chkStore().positions.filter(p => p.active !== false).sort((a,b) => (a.sort||0) - (b.sort||0));
 }
 function chkPosById(id) { return chkPosList().find(p => p.id === id) || null; }
+function chkPosShort(p) { return p.short || p.name || p.id; }
 function chkPosAliases(p) {
-  const out = [String(p.id).toLowerCase(), String(p.name || '').toLowerCase()];
+  const out = [String(p.id).toLowerCase(), String(p.name || '').toLowerCase(),
+               String(p.short || '').toLowerCase()].filter(Boolean);
   (CHK_ALIASES[p.id] || []).forEach(a => out.push(a));
   return out;
 }
@@ -4680,8 +4709,15 @@ function chkParsePos(text) {
 function chkFmtPos(ids) {
   const all = chkPosList().map(p => p.id);
   if (!ids || !ids.length) return '';
-  if (ids.length === all.length) return 'All';
-  return ids.map(i => (chkPosById(i) || {}).name || i).join(', ');
+  if (all.length && ids.length === all.length) return 'Everyone';
+  return ids.map(i => { const p = chkPosById(i); return p ? chkPosShort(p) : i; }).join(', ');
+}
+// How wide a row's reach is — drives the colour rail down the left edge.
+function chkScopeOf(item) {
+  const n = (item.pos || []).length, all = chkPosList().length;
+  if (!n) return 'none';
+  if (all && n === all) return 'all';
+  return n > 1 ? 'some' : 'one';
 }
 
 // ── loading, migration, saving ───────────────────────────────────────────────
@@ -4771,31 +4807,38 @@ function chkShowList() {
     }
   } catch (e) {}
   try {
-    const ms = JSON.parse(localStorage.getItem('mmt_shows_ms') || '[]');
-    const ct = JSON.parse(localStorage.getItem('mmt_shows_ct') || '[]');
+    const ms = JSON.parse(localStorage.getItem('mmt_shows_ms') || '[]').map(s => ({ ...s, type:'Mainstage' }));
+    const ct = JSON.parse(localStorage.getItem('mmt_shows_ct') || '[]').map(s => ({ ...s, type:"Children's" }));
     return [...ms, ...ct].filter(s => s && s.name && s.start).sort((a,b) => a.start.localeCompare(b.start));
   } catch (e) { return []; }
 }
-// The show whose sheets you'd be printing right now: one that's open tonight,
-// else the next one to open, else the last one that ran. Two shows can overlap
-// (a children's run inside a mainstage run), so a tie goes to whichever closes
-// first — that's the one running out of performances.
+// The show whose sheets you'd be printing right now. A children's run usually
+// sits inside a mainstage run, and the mainstage show is the one these sheets
+// are really for, so it wins whenever both are open — sorting purely by which
+// closes first hands it to the short kids' run every time.
+// Order of preference: mainstage open now, children's open now, mainstage next
+// to open, anything next to open, most recent.
 function chkDefaultShow() {
   const list = chkShowList();
   if (!list.length) return null;
   const today = (typeof todayISO === 'function') ? todayISO()
     : new Date().toISOString().slice(0, 10);
   const endOf = s => s.end || s.start;
+  const isMain = s => (s.type || '').toLowerCase().indexOf('child') === -1;
 
-  const running = list.filter(s => s.start <= today && endOf(s) >= today)
-                      .sort((a, b) => endOf(a).localeCompare(endOf(b)));
-  if (running.length) return running[0].name;
+  const open = list.filter(s => s.start <= today && endOf(s) >= today);
+  const soon = list.filter(s => s.start > today);
+  const byEnd = (a, b) => endOf(a).localeCompare(endOf(b));
+  const byStart = (a, b) => a.start.localeCompare(b.start);
 
-  const upcoming = list.filter(s => s.start > today)
-                       .sort((a, b) => a.start.localeCompare(b.start));
-  if (upcoming.length) return upcoming[0].name;
-
-  return list[list.length - 1].name;
+  const pick = [
+    open.filter(isMain).sort(byEnd)[0],
+    open.sort(byEnd)[0],
+    soon.filter(isMain).sort(byStart)[0],
+    soon.sort(byStart)[0],
+    list[list.length - 1]
+  ].find(Boolean);
+  return pick ? pick.name : null;
 }
 
 // The selector follows the calendar until you override it. Picking a show by
@@ -5019,7 +5062,8 @@ function chkRender() {
   const sel = document.getElementById('chk-show');
   if (sel) {
     const list = chkShowList();
-    const markup = list.map(s => `<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('')
+    const markup = list.map(s => `<option value="${esc(s.name)}">${esc(s.name)}${
+      (s.type || '').toLowerCase().indexOf('child') !== -1 ? ' · CT' : ''}</option>`).join('')
       || '<option value="">No shows configured</option>';
     if (sel.innerHTML !== markup) {
       const keep = sel.value;
@@ -5081,7 +5125,8 @@ function chkRender() {
 
     const p = chkParsePos(chkFmtPos(r.pos));
     const posText = chkFmtPos(r.pos);
-    const cls = [];
+    const scope = chkScopeOf(r);
+    const cls = ['scope-' + scope];
     if (skips.indexOf(r.id) !== -1) cls.push('chk-skipped');
     if (r.show) cls.push('chk-showonly');
     if (_chkFilter && (r.pos || []).indexOf(_chkFilter) === -1) cls.push('chk-dim');
@@ -5107,7 +5152,7 @@ function chkRender() {
       + `<td><input type="text" value="${esc(r.text || '')}" placeholder="Checklist item"${ro}`
       +   ` data-r="${esc(r.id)}" data-c="1" oninput="chkCell(${idx},'text',this.value)"`
       +   ` onkeydown="chkKey(event,this)" onpaste="chkPaste(event,${idx},1)"></td>`
-      + `<td class="chk-pos-cell${p.all ? ' all' : ''}"><input type="text" value="${esc(posText)}"${ro}`
+      + `<td class="chk-pos-cell${scope === 'all' ? ' all' : (scope === 'some' ? ' some' : '')}"><input type="text" value="${esc(posText)}"${ro}`
       +   ` placeholder="All, or Deck, Spot…" data-r="${esc(r.id)}" data-c="2"`
       +   ` style="padding-right:26px" oninput="chkPosCell(${idx},this)" onkeydown="chkKey(event,this)"`
       +   ` onblur="chkRender()" onpaste="chkPaste(event,${idx},2)">${flag}`
@@ -5208,10 +5253,11 @@ function chkFillPick() {
   const all = chkPosList().map(p => p.id);
   const isAll = all.length && all.every(id => (it.pos || []).indexOf(id) !== -1);
   el.innerHTML =
-    `<label class="all"><input type="checkbox" ${isAll ? 'checked' : ''} onchange="chkPickAll(this.checked)">All positions</label>`
+    `<label class="all"><input type="checkbox" ${isAll ? 'checked' : ''} onchange="chkPickAll(this.checked)">Everyone</label>`
     + chkPosList().map(p =>
         `<label><input type="checkbox" ${(it.pos || []).indexOf(p.id) !== -1 ? 'checked' : ''}`
-        + ` onchange="chkPickOne('${esc(p.id)}',this.checked)">${esc(p.name)}</label>`
+        + ` onchange="chkPickOne('${esc(p.id)}',this.checked)">${esc(chkPosShort(p))}`
+        + `<span style="color:var(--text-faint);font-size:11px;margin-left:auto">${esc(p.name)}</span></label>`
       ).join('');
 }
 function chkPickOne(posId, on) {
