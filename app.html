@@ -2566,7 +2566,7 @@
     .arc-row-loc { width: 100%; }
   }
   /* ── PRE-SHOW CHECKLISTS ─────────────────────────────────────────────── */
-  .chk-wrap { max-width:1180px; margin:0 auto; }
+  .chk-wrap { max-width:1100px; margin:0 auto; }
   .chk-header { display:flex; justify-content:space-between; align-items:flex-start;
                 gap:14px; flex-wrap:wrap; margin-bottom:4px; }
   .chk-header h2 { margin:0 0 3px; }
@@ -2588,25 +2588,23 @@
   }
   #tab-checklists button.chk-btn2:hover { border-color:var(--purple); color:var(--purple); }
 
-  /* coverage chips */
   .chk-cov { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 14px; align-items:center; }
   .chk-cov-lbl { font-size:11px; letter-spacing:.08em; text-transform:uppercase;
                  color:var(--text-faint); margin-right:4px; font-weight:700; }
-  #tab-checklists button.chk-chip {
+  #tab-checklists button.chk-cchip {
     font-size:12.5px; font-weight:600; padding:5px 12px; border-radius:999px;
     border:1px solid var(--border); background:var(--surface); color:var(--text-muted);
     white-space:nowrap;
   }
-  #tab-checklists button.chk-chip:hover { border-color:var(--purple); color:var(--purple);
-                                          background:var(--surface); }
-  #tab-checklists button.chk-chip.active { background:var(--purple); border-color:var(--purple); color:#fff; }
-  #tab-checklists button.chk-chip.warn { border-color:var(--orange); color:var(--orange); }
-  .chk-chip b { font-weight:500; opacity:.65; margin-left:5px; }
+  #tab-checklists button.chk-cchip:hover { border-color:var(--purple); color:var(--purple);
+                                           background:var(--surface); }
+  #tab-checklists button.chk-cchip.active { background:var(--purple); border-color:var(--purple); color:#fff; }
+  #tab-checklists button.chk-cchip.warn { border-color:var(--orange); color:var(--orange); }
+  .chk-cchip b { font-weight:500; opacity:.65; margin-left:5px; }
 
-  /* the grid */
   .chk-card { background:var(--surface); border:1px solid var(--border);
               border-radius:var(--radius); overflow:hidden; }
-  .chk-grid { width:100%; border-collapse:collapse; font-size:13.5px; }
+  .chk-grid { width:100%; border-collapse:collapse; font-size:13.5px; table-layout:fixed; }
   .chk-grid thead th {
     position:sticky; top:0; z-index:2; background:var(--surface);
     font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; font-weight:700;
@@ -2617,90 +2615,62 @@
   .chk-grid tbody tr:hover td { background:var(--bg); }
   .chk-grid input[type=text] {
     width:100%; border:1px solid transparent; border-radius:var(--radius-sm);
-    background:none; padding:8px 10px; font-size:13.5px; color:var(--text);
+    background:none; padding:9px 10px; font-size:13.5px; color:var(--text);
     font-family:'DM Sans',sans-serif;
   }
   .chk-grid input[type=text]:hover { border-color:var(--border); }
   .chk-grid input[type=text]:focus { outline:none; border-color:var(--purple);
     background:var(--surface); box-shadow:0 0 0 2px var(--purple-light); }
-  .chk-grid input[type=checkbox] { width:15px; height:15px; accent-color:var(--purple); cursor:pointer; }
-  .chk-c-grip { width:46px; text-align:center; }
-  .chk-c-tick { width:52px; text-align:center; }
-  .chk-c-sec  { width:150px; }
-  .chk-c-pos  { width:214px; }
-  .chk-c-scope{ width:112px; }
-  .chk-c-act  { width:38px; text-align:center; }
 
-  .chk-grid tr.chk-skipped input { color:var(--text-faint); text-decoration:line-through; }
+  .chk-c-grip { width:44px; text-align:center; }
+  .chk-c-who  { width:252px; }
+  .chk-c-app  { width:132px; }
+  .chk-c-act  { width:56px; text-align:center; }
 
-  /* left rail: how many positions a row reaches, readable without parsing text */
-  .chk-grid tbody td:first-child { border-left:3px solid transparent; }
-  .chk-grid tr.scope-all  td:first-child { border-left-color:var(--green); }
-  .chk-grid tr.scope-some td:first-child { border-left-color:var(--blue); }
-  .chk-grid tr.scope-none td:first-child { border-left-color:var(--orange); }
-  .chk-pos-cell.all input { color:var(--green-dark); font-weight:700; }
-  .chk-pos-cell.some input { color:var(--blue-dark); }
+  /* who: six toggles, nothing to type */
+  .chk-who { display:flex; gap:3px; flex-wrap:nowrap; padding:0 8px; }
+  #tab-checklists button.chk-w {
+    flex:0 0 auto; font-size:10.5px; font-weight:600; padding:3px 0; width:33px;
+    border-radius:5px; border:1px solid var(--border); background:var(--surface);
+    color:var(--text-faint); letter-spacing:0;
+  }
+  #tab-checklists button.chk-w:hover { border-color:var(--purple); color:var(--purple); background:var(--surface); }
+  #tab-checklists button.chk-w.on { background:var(--purple); border-color:var(--purple); color:#fff; }
+  #tab-checklists button.chk-w.every { width:30px; }
+  #tab-checklists button.chk-w.every.on { background:var(--green); border-color:var(--green); }
 
-  .chk-legend { display:flex; gap:14px; flex-wrap:wrap; align-items:center;
-                font-size:11px; color:var(--text-faint); margin:-6px 0 12px 2px; }
-  .chk-legend i { display:inline-block; width:3px; height:11px; border-radius:2px;
-                  margin-right:5px; vertical-align:-1px; }
+  select.chk-app {
+    width:100%; font-size:12px; padding:5px 6px; border-radius:var(--radius-sm);
+    border:1px solid transparent; background:none; color:var(--text-muted);
+    font-family:'DM Sans',sans-serif; cursor:pointer;
+  }
+  select.chk-app:hover { border-color:var(--border); background:var(--surface); }
+  select.chk-app.only { color:var(--purple-dark); font-weight:600; }
+  select.chk-app.off  { color:var(--text-faint); }
 
-  /* delete only shows on hover, so the grid isn't a column of crosses */
-  #tab-checklists button.chk-act.del { opacity:0; }
-  .chk-grid tr:hover .chk-act.del, .chk-grid tr:focus-within .chk-act.del { opacity:1; }
-  @media (hover:none) { #tab-checklists button.chk-act.del { opacity:1; } }
-  .chk-grid tr.chk-showonly td { background:var(--purple-light); }
-  .chk-grid tr.chk-showonly:hover td { background:var(--purple-light); }
-  .chk-grid tr.chk-dim { opacity:.28; }
+  .chk-grid tr.chk-off input[type=text] { color:var(--text-faint); text-decoration:line-through; }
+  .chk-grid tr.chk-only td { background:var(--purple-light); }
+  .chk-grid tr.chk-only:hover td { background:var(--purple-light); }
+  .chk-grid tr.chk-dim { opacity:.3; }
   .chk-grid tr.chk-ghost input::placeholder { color:var(--text-faint); font-style:italic; }
 
-  .chk-pos-cell { position:relative; }
-  .chk-pos-cell.all input { color:var(--purple-dark); font-weight:600; }
-  .chk-pos-cell input.bad { color:var(--red); }
-  .chk-flag { position:absolute; right:26px; top:50%; transform:translateY(-50%);
-              font-size:14px; line-height:1; pointer-events:none; }
-  #tab-checklists button.chk-caret {
-    position:absolute; right:4px; top:50%; transform:translateY(-50%);
-    background:none; border:none; color:var(--text-faint); font-size:10px;
-    padding:4px 5px; border-radius:4px; line-height:1;
-  }
-  #tab-checklists button.chk-caret:hover { background:var(--bg); color:var(--purple); }
-
-  /* position picker — fixed so the table can't clip it */
-  .chk-pick {
-    position:fixed; z-index:60; min-width:212px; padding:5px;
-    background:var(--surface); border:1px solid var(--border);
-    border-radius:var(--radius-sm); box-shadow:0 6px 22px rgba(0,0,0,.16);
-  }
-  .chk-pick label {
-    display:flex; align-items:center; gap:9px; padding:7px 9px; border-radius:5px;
-    font-size:13px; cursor:pointer; color:var(--text);
-  }
-  .chk-pick label:hover { background:var(--bg); }
-  .chk-pick label.all { border-bottom:1px solid var(--border); border-radius:5px 5px 0 0;
-                        font-weight:600; margin-bottom:3px; }
-  .chk-pick input[type=checkbox] { width:15px; height:15px; accent-color:var(--purple); }
-
-  /* scope pill */
-  #tab-checklists button.chk-scope {
-    background:none; border:1px solid var(--border); color:var(--text-muted);
-    font-size:11.5px; font-weight:600; padding:4px 9px; border-radius:999px;
-    white-space:nowrap; width:100%;
-  }
-  #tab-checklists button.chk-scope:hover { border-color:var(--purple); color:var(--purple);
-                                           background:var(--surface); }
-  #tab-checklists button.chk-scope.on { background:var(--purple); border-color:var(--purple); color:#fff; }
-
-  .chk-sechead-in input.nm {
-    font-size:11px; letter-spacing:.09em; text-transform:uppercase; font-weight:700;
+  /* section heading + the Everyone / Specific bands inside it */
+  .chk-grid tr.chk-sechead td { background:var(--bg); padding:0; }
+  .chk-grid tr.chk-sechead:hover td { background:var(--bg); }
+  .chk-sechead-in { display:flex; align-items:center; gap:6px; padding:8px 10px 7px; }
+  .chk-sechead-in input.nm, .chk-sechead-in span.nm {
+    font-size:11.5px; letter-spacing:.09em; text-transform:uppercase; font-weight:700;
     color:var(--text-muted); background:none; border:1px solid transparent;
-    border-radius:5px; padding:3px 6px; font-family:'DM Sans',sans-serif; width:auto;
-    min-width:120px;
+    border-radius:5px; padding:3px 6px; font-family:'DM Sans',sans-serif; min-width:130px;
   }
   .chk-sechead-in input.nm:hover { border-color:var(--border); }
   .chk-sechead-in input.nm:focus { outline:none; border-color:var(--purple);
                                    background:var(--surface); color:var(--text); }
+  .chk-grid tr.chk-band td { padding:0; border-bottom:0; }
+  .chk-grid tr.chk-band:hover td { background:none; }
+  .chk-band-in { font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+                 font-weight:700; padding:10px 10px 3px 57px; color:var(--text-faint); }
+  .chk-band-in.every { color:var(--green); }
 
   /* reordering */
   .chk-gripcell { display:flex; align-items:center; justify-content:center; gap:1px; }
@@ -2708,7 +2678,6 @@
               padding:6px 3px; border-radius:5px; user-select:none; letter-spacing:-1px; }
   .chk-grip:hover { background:var(--bg); color:var(--text); }
   .chk-grip:active { cursor:grabbing; }
-  .chk-grid tr.chk-nodrag .chk-grip { cursor:not-allowed; opacity:.3; }
   #tab-checklists button.chk-nudge {
     font-size:9px; line-height:1; background:none; border:none; color:var(--text-faint);
     padding:2px 3px; border-radius:4px; display:block; opacity:0;
@@ -2716,33 +2685,27 @@
   .chk-grid tr:hover .chk-nudge, .chk-grid tr:focus-within .chk-nudge { opacity:1; }
   #tab-checklists button.chk-nudge:hover { background:var(--bg); color:var(--purple); }
   #tab-checklists button.chk-nudge:disabled { opacity:.15; cursor:default; }
-  @media (hover:none) { .chk-nudge { opacity:1 !important; } }
 
   .chk-grid tr.chk-lifted td { opacity:.35; }
   .chk-grid tr.chk-above td { box-shadow: inset 0 2px 0 var(--purple); }
   .chk-grid tr.chk-below td { box-shadow: inset 0 -2px 0 var(--purple); }
 
-  .chk-grid tr.chk-sechead td { background:var(--bg); padding:0; }
-  .chk-grid tr.chk-sechead:hover td { background:var(--bg); }
-  .chk-sechead-in { display:flex; align-items:center; gap:8px; padding:7px 10px 6px; }
-  .chk-sechead-in .nm { font-size:11px; letter-spacing:.09em; text-transform:uppercase;
-                        font-weight:700; color:var(--text-muted); }
-  .chk-sechead-in .ct { font-size:11px; color:var(--text-faint); }
-
-  #tab-checklists button.chk-act { background:none; color:var(--text-muted); padding:4px 6px;
-                                   font-size:15px; border-radius:5px; }
+  #tab-checklists button.chk-act {
+    background:none; color:var(--text-faint); padding:4px 5px; font-size:14px;
+    border-radius:5px; opacity:0;
+  }
+  .chk-grid tr:hover .chk-act, .chk-grid tr:focus-within .chk-act { opacity:1; }
   #tab-checklists button.chk-act:hover { background:var(--bg); color:var(--text); }
   #tab-checklists button.chk-act.del:hover { color:var(--red); background:var(--bg); }
-  #tab-checklists button.chk-act.on { color:var(--purple); }
 
   .chk-foot { display:flex; justify-content:space-between; align-items:center; gap:12px;
               padding:9px 12px; font-size:12px; color:var(--text-muted); flex-wrap:wrap; }
   .chk-foot kbd { font-size:11px; border:1px solid var(--border); border-radius:4px;
                   padding:1px 5px; background:var(--bg); font-family:'DM Sans',sans-serif; }
 
-  @media (max-width:820px) {
+  @media (max-width:900px) {
     .chk-card { overflow-x:auto; }
-    .chk-grid { min-width:780px; }
+    .chk-grid { min-width:820px; }
   }
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -3379,37 +3342,28 @@
       <div class="chk-header">
         <div>
           <h2>Pre-Show Checklists</h2>
-          <p class="chk-sub">One row per task. The Positions column decides whose sheet it lands on.</p>
+          <p class="chk-sub">Tap who does each task. Shared duties group together under Everyone.</p>
         </div>
         <div class="chk-bar">
           <select id="chk-show" onchange="chkPickShow()"></select>
           <button class="chk-btn2" id="chk-auto" hidden onclick="chkAutoShow()"
                   title="Go back to following the calendar">↺ Auto</button>
-          <input type="search" id="chk-q" placeholder="Search items…" style="width:150px"
-                 oninput="chkRender()">
+          <input type="search" id="chk-q" placeholder="Search…" style="width:130px" oninput="chkRender()">
           <select id="chk-printpos"></select>
-          <button onclick="chkPrint()">🖨 Print call sheets</button>
+          <button onclick="chkPrint()">🖨 Print</button>
         </div>
       </div>
 
       <div class="chk-cov" id="chk-cov"></div>
-      <div class="chk-legend">
-        <span><i style="background:var(--green)"></i>Everyone</span>
-        <span><i style="background:var(--blue)"></i>Several positions</span>
-        <span><i style="background:var(--border)"></i>One position</span>
-        <span><i style="background:var(--purple-light)"></i>Purple row = this show only</span>
-      </div>
 
       <div class="chk-card">
         <table class="chk-grid">
           <thead>
             <tr>
               <th class="chk-c-grip"></th>
-              <th class="chk-c-tick" title="Untick to leave this off the current show only">Print</th>
-              <th class="chk-c-sec">Section</th>
               <th>Item</th>
-              <th class="chk-c-pos">Positions</th>
-              <th class="chk-c-scope" title="Whether this row prints for every production or only the one selected">Scope</th>
+              <th class="chk-c-who">Who</th>
+              <th class="chk-c-app">Applies to</th>
               <th class="chk-c-act"></th>
             </tr>
           </thead>
@@ -3418,12 +3372,11 @@
         <div class="chk-foot">
           <span class="td-only">Drag the grip to reorder &nbsp;·&nbsp;
             <kbd>Alt</kbd>+<kbd>&uarr;</kbd><kbd>&darr;</kbd> moves a row, add <kbd>Shift</kbd>
-            for the whole section &nbsp;·&nbsp; <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes a delete</span>
+            for the whole section &nbsp;·&nbsp; <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes</span>
           <span id="chk-count"></span>
         </div>
       </div>
 
-      <div class="chk-pick" id="chk-pick" hidden></div>
       <datalist id="chk-sections"></datalist>
     </div>
   </div>
@@ -4846,7 +4799,6 @@ function chkDefaultShow() {
 var _chkShowPinned = false;
 function chkPickShow() {
   _chkShowPinned = true;
-  chkClosePick();
   chkRender();
 }
 function chkAutoShow() {
@@ -4897,6 +4849,14 @@ function chkWeekends(show) {
 // Printing groups by section name, so scattered rows would make the paper
 // disagree with the screen. Keeping each section's rows together removes the
 // gap entirely: what you see is the running order.
+function chkShared(i) {
+  const all = chkPosList().length;
+  return all > 0 && (i.pos || []).length === all;
+}
+// Sections stay contiguous, and inside each one the shared duties bank to the
+// top. That's what makes the Everyone heading possible: it's a real boundary in
+// the list, not a colour you have to decode. filter() is stable, so the order
+// you dragged rows into survives inside each band.
 function chkNormalize() {
   const st = chkStore();
   const order = [], buckets = {};
@@ -4905,7 +4865,10 @@ function chkNormalize() {
     if (!buckets[s]) { buckets[s] = []; order.push(s); }
     buckets[s].push(i);
   });
-  st.items = order.reduce((out, s) => out.concat(buckets[s]), []);
+  st.items = order.reduce((out, s) => {
+    const b = buckets[s];
+    return out.concat(b.filter(chkShared), b.filter(i => !chkShared(i)));
+  }, []);
 }
 function chkGroups() {
   const out = [];
@@ -5045,14 +5008,22 @@ function chkResolve(posId, showName) {
 function chkGrabFocus() {
   const el = document.activeElement;
   if (!el || !el.dataset || el.dataset.r === undefined) return null;
-  return { r:el.dataset.r, c:el.dataset.c, at:el.selectionStart };
+  return { r:el.dataset.r, at:el.selectionStart };
 }
 function chkPutFocus(k) {
   if (!k) return;
-  const el = document.querySelector('#chk-body input[data-r="' + k.r + '"][data-c="' + k.c + '"]');
+  const el = document.querySelector('#chk-body input[data-r="' + k.r + '"]');
   if (!el) return;
   el.focus();
   try { el.setSelectionRange(k.at, k.at); } catch (e) {}
+}
+
+// Every show / This show only / Off this show. One control covering what used to
+// be a Print tick and a Scope pill — two different mechanics answering the same
+// question, which is exactly why it read as confusing.
+function chkApplies(item, showName) {
+  if (item.show) return 'only';
+  return chkShowLayer(showName, false).skips.indexOf(item.id) !== -1 ? 'off' : 'every';
 }
 
 function chkRender() {
@@ -5071,7 +5042,6 @@ function chkRender() {
       if (_chkShowPinned && keep && list.some(s => s.name === keep)) sel.value = keep;
       else { _chkShowPinned = false; const def = chkDefaultShow(); if (def) sel.value = def; }
     }
-    // A pinned show that's since been deleted shouldn't strand the tab.
     if (_chkShowPinned && !list.some(s => s.name === sel.value)) _chkShowPinned = false;
     if (!_chkShowPinned) {
       const def = chkDefaultShow();
@@ -5084,8 +5054,8 @@ function chkRender() {
 
   const pp = document.getElementById('chk-printpos');
   if (pp) {
-    const markup = '<option value="">Print: all positions</option>'
-      + chkPosList().map(p => `<option value="${esc(p.id)}">Print: ${esc(p.name)}</option>`).join('');
+    const markup = '<option value="">All positions</option>'
+      + chkPosList().map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
     if (pp.innerHTML !== markup) { const keep = pp.value; pp.innerHTML = markup; pp.value = keep || ''; }
   }
 
@@ -5094,47 +5064,53 @@ function chkRender() {
   const q = qEl ? qEl.value.trim().toLowerCase() : '';
   const keep = chkGrabFocus();
   const groups = chkGroups();
-  const skips = chkShowLayer(showName, false).skips;
-  let last = null, html = '';
+  const positions = chkPosList();
+  const COLS = 5;
+  let lastSec = null, lastBand = null, html = '';
 
   st.items.forEach((r, idx) => {
     if (r.show && r.show !== showName) return;
     if (q && ((r.text || '') + ' ' + (r.section || '')).toLowerCase().indexOf(q) === -1) return;
 
-    if (r.section !== last) {
-      last = r.section;
+    if (r.section !== lastSec) {
+      lastSec = r.section; lastBand = null;
       const g = groups.findIndex(x => x.sec === r.section);
       html += `<tr class="chk-sechead" data-sec="${esc(r.section)}">`
         + '<td class="chk-c-grip"><div class="chk-gripcell">'
         + (td && !q
             ? `<span class="chk-grip" draggable="true" data-drag="sec" data-sec="${esc(r.section)}" title="Drag to move this whole section">&#8942;&#8942;</span>`
-            : '')
-        + (td && !q
-            ? `<span><button class="chk-nudge" onclick="chkMoveSection(${g},-1)"${g === 0 ? ' disabled' : ''} title="Move section up">&#9650;</button>`
+              + `<span><button class="chk-nudge" onclick="chkMoveSection(${g},-1)"${g === 0 ? ' disabled' : ''} title="Move section up">&#9650;</button>`
               + `<button class="chk-nudge" onclick="chkMoveSection(${g},1)"${g === groups.length - 1 ? ' disabled' : ''} title="Move section down">&#9660;</button></span>`
             : '')
         + '</div></td>'
-        + `<td colspan="6"><div class="chk-sechead-in">`
+        + `<td colspan="${COLS - 1}"><div class="chk-sechead-in">`
         + (td
             ? `<input class="nm" type="text" value="${esc(r.section || '')}" placeholder="Section"
                  onchange="chkRenameSection(this.defaultValue, this.value)"
                  onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">`
             : `<span class="nm">${esc(r.section || 'Other')}</span>`)
-        + `<span class="ct">${groups[g] ? groups[g].n : 0}</span></div></td></tr>`;
+        + '</div></td></tr>';
     }
 
-    const p = chkParsePos(chkFmtPos(r.pos));
-    const posText = chkFmtPos(r.pos);
-    const scope = chkScopeOf(r);
-    const cls = ['scope-' + scope];
-    if (skips.indexOf(r.id) !== -1) cls.push('chk-skipped');
-    if (r.show) cls.push('chk-showonly');
-    if (_chkFilter && (r.pos || []).indexOf(_chkFilter) === -1) cls.push('chk-dim');
-    if (q) cls.push('chk-nodrag');
+    const band = chkShared(r) ? 'every' : 'some';
+    if (band !== lastBand) {
+      lastBand = band;
+      html += `<tr class="chk-band"><td colspan="${COLS}"><div class="chk-band-in ${band}">`
+        + (band === 'every' ? 'Everyone' : 'Specific positions') + '</div></td></tr>';
+    }
 
-    let flag = '';
-    if (!(r.pos || []).length) flag = '<span class="chk-flag" style="color:var(--orange)" title="Nobody gets this item">&#9888;</span>';
-    const ro = td ? '' : ' readonly';
+    const mode = chkApplies(r, showName);
+    const cls = [];
+    if (mode === 'only') cls.push('chk-only');
+    if (mode === 'off') cls.push('chk-off');
+    if (_chkFilter && (r.pos || []).indexOf(_chkFilter) === -1) cls.push('chk-dim');
+
+    const chips = td
+      ? `<button class="chk-w every${chkShared(r) ? ' on' : ''}" onclick="chkAllWho(${idx})" title="Everyone">All</button>`
+        + positions.map(p => `<button class="chk-w${(r.pos || []).indexOf(p.id) !== -1 ? ' on' : ''}"`
+            + ` onclick="chkToggleWho(${idx},'${esc(p.id)}')" title="${esc(p.name)}">${esc(chkPosShort(p))}</button>`).join('')
+      : positions.filter(p => (r.pos || []).indexOf(p.id) !== -1)
+          .map(p => `<button class="chk-w on" disabled>${esc(chkPosShort(p))}</button>`).join('');
 
     html += `<tr class="${cls.join(' ')}" data-i="${idx}" data-id="${esc(r.id)}">`
       + '<td class="chk-c-grip"><div class="chk-gripcell">'
@@ -5144,39 +5120,35 @@ function chkRender() {
             + `<button class="chk-nudge" onclick="chkMoveRow(${idx},1)" title="Move down (Alt+Down)">&#9660;</button></span>`
           : '')
       + '</div></td>'
-      + `<td class="chk-c-tick"><input type="checkbox" ${skips.indexOf(r.id) === -1 ? 'checked' : ''} ${td ? '' : 'disabled'}`
-      +   ` onchange="chkToggleSkip('${esc(r.id)}')" title="Print on this show's sheets"></td>`
-      + `<td><input type="text" list="chk-sections" value="${esc(r.section || '')}" placeholder="Section"${ro}`
-      +   ` data-r="${esc(r.id)}" data-c="0" oninput="chkCell(${idx},'section',this.value)"`
-      +   ` onkeydown="chkKey(event,this)" onblur="chkRegroup()" onpaste="chkPaste(event,${idx},0)"></td>`
-      + `<td><input type="text" value="${esc(r.text || '')}" placeholder="Checklist item"${ro}`
-      +   ` data-r="${esc(r.id)}" data-c="1" oninput="chkCell(${idx},'text',this.value)"`
-      +   ` onkeydown="chkKey(event,this)" onpaste="chkPaste(event,${idx},1)"></td>`
-      + `<td class="chk-pos-cell${scope === 'all' ? ' all' : (scope === 'some' ? ' some' : '')}"><input type="text" value="${esc(posText)}"${ro}`
-      +   ` placeholder="All, or Deck, Spot…" data-r="${esc(r.id)}" data-c="2"`
-      +   ` style="padding-right:26px" oninput="chkPosCell(${idx},this)" onkeydown="chkKey(event,this)"`
-      +   ` onblur="chkRender()" onpaste="chkPaste(event,${idx},2)">${flag}`
-      +   (td ? `<button class="chk-caret" onclick="chkOpenPick('${esc(r.id)}',this)"
-                  title="Pick positions" aria-label="Pick positions">&#9660;</button>` : '')
-      +   '</td>'
-      + `<td class="chk-c-scope">${td
-            ? `<button class="chk-scope${r.show ? ' on' : ''}" onclick="chkToggleShow(${idx})"
-                 title="${r.show ? 'Only prints for ' + esc(showName) + ', with a diamond' : 'Prints for every production'}"
-                 >${r.show ? '&#9670; This show' : 'Every show'}</button>`
-            : (r.show ? '<span style="font-size:11.5px;color:var(--purple-dark)">&#9670; This show</span>' : '')}</td>`
-      + `<td class="chk-c-act">${td ? `<button class="chk-act del" onclick="chkDel(${idx})" title="Delete row">&times;</button>` : ''}</td>`
+      + `<td><input type="text" value="${esc(r.text || '')}" placeholder="Checklist item"${td ? '' : ' readonly'}`
+      +   ` data-r="${esc(r.id)}" oninput="chkCell(${idx},this.value)" onkeydown="chkKey(event,this)"`
+      +   ` onpaste="chkPaste(event,${idx})"></td>`
+      + `<td class="chk-c-who"><div class="chk-who">${chips}</div></td>`
+      + `<td class="chk-c-app">${td
+          ? `<select class="chk-app ${mode}" onchange="chkSetApplies(${idx},this.value)">
+               <option value="every"${mode === 'every' ? ' selected' : ''}>Every show</option>
+               <option value="only"${mode === 'only' ? ' selected' : ''}>This show only</option>
+               <option value="off"${mode === 'off' ? ' selected' : ''}>Off this show</option>
+             </select>`
+          : `<span style="font-size:11.5px;color:var(--text-muted)">${mode === 'only' ? 'This show' : (mode === 'off' ? '—' : '')}</span>`}</td>`
+      + `<td class="chk-c-act">${td
+          ? `<span style="display:flex;justify-content:center">`
+            + `<button class="chk-act" onclick="chkDup(${idx})" title="Duplicate">&#10697;</button>`
+            + `<button class="chk-act del" onclick="chkDel(${idx})" title="Delete">&times;</button></span>`
+          : ''}</td>`
       + '</tr>';
   });
 
   if (td) {
-    html += '<tr class="chk-ghost">'
-      + '<td class="chk-c-grip"></td><td class="chk-c-tick"></td>'
-      + '<td><input type="text" list="chk-sections" placeholder="Section" oninput="chkGrow(this,0)" onkeydown="chkKey(event,this)" onpaste="chkPasteGhost(event)"></td>'
-      + '<td><input type="text" placeholder="Type here to add a row…" oninput="chkGrow(this,1)" onkeydown="chkKey(event,this)" onpaste="chkPasteGhost(event)"></td>'
-      + '<td class="chk-pos-cell"><input type="text" placeholder="All, or Deck, Spot…" oninput="chkGrow(this,2)" onkeydown="chkKey(event,this)" onpaste="chkPasteGhost(event)"></td>'
-      + '<td class="chk-c-scope"></td><td class="chk-c-act"></td></tr>';
+    html += `<tr class="chk-ghost"><td class="chk-c-grip"></td>`
+      + '<td><input type="text" placeholder="Type here to add an item…" oninput="chkGrow(this)" onkeydown="chkKey(event,this)" onpaste="chkPasteGhost(event)"></td>'
+      + `<td class="chk-c-who"></td><td class="chk-c-app"></td><td class="chk-c-act"></td></tr>`
+      + `<tr class="chk-sechead"><td class="chk-c-grip"></td><td colspan="${COLS - 1}"><div class="chk-sechead-in">`
+      + `<input class="nm" type="text" value="" placeholder="+ New section"
+           onchange="chkAddSection(this.value)"
+           onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div></td></tr>`;
   } else if (!html) {
-    html = '<tr><td colspan="7" style="padding:26px;text-align:center;color:var(--text-muted);">Nothing here yet.</td></tr>';
+    html = `<tr><td colspan="${COLS}" style="padding:26px;text-align:center;color:var(--text-muted);">Nothing here yet.</td></tr>`;
   }
 
   document.getElementById('chk-body').innerHTML = html;
@@ -5189,8 +5161,9 @@ function chkRender() {
   }
 
   chkRenderCoverage(showName);
-  const live = st.items.filter(i => (i.text || '').trim() && skips.indexOf(i.id) === -1
-                                    && (!i.show || i.show === showName)).length;
+  const live = st.items.filter(i => (i.text || '').trim()
+                 && chkApplies(i, showName) !== 'off'
+                 && (!i.show || i.show === showName)).length;
   const cEl = document.getElementById('chk-count');
   if (cEl) cEl.textContent = live + ' item' + (live === 1 ? '' : 's') + ' printing';
 }
@@ -5200,16 +5173,6 @@ function chkRenderCoverage(showName) {
   if (!row) return;
   const counts = {};
   chkPosList().forEach(p => counts[p.id] = 0);
-  chkResolveCounts(showName, counts);
-  row.innerHTML = '<span class="chk-cov-lbl">On each sheet</span>'
-    + chkPosList().map(p => {
-        const on = _chkFilter === p.id;
-        return `<button class="chk-chip${on ? ' active' : ''}${counts[p.id] === 0 ? ' warn' : ''}"`
-          + ` onclick="chkSetFilter('${esc(p.id)}')">${esc(p.name)}<b>${counts[p.id]}</b></button>`;
-      }).join('')
-    + (_chkFilter ? `<button class="chk-chip" onclick="chkSetFilter('')">Clear filter</button>` : '');
-}
-function chkResolveCounts(showName, counts) {
   const skips = chkShowLayer(showName, false).skips;
   chkStore().items.forEach(i => {
     if (i.show && i.show !== showName) return;
@@ -5217,91 +5180,16 @@ function chkResolveCounts(showName, counts) {
     if (!(i.text || '').trim()) return;
     (i.pos || []).forEach(id => { if (counts[id] !== undefined) counts[id]++; });
   });
+  row.innerHTML = '<span class="chk-cov-lbl">On each sheet</span>'
+    + chkPosList().map(p =>
+        `<button class="chk-cchip${_chkFilter === p.id ? ' active' : ''}${counts[p.id] === 0 ? ' warn' : ''}"`
+        + ` onclick="chkSetFilter('${esc(p.id)}')">${esc(p.name)}<b>${counts[p.id]}</b></button>`).join('')
+    + (_chkFilter ? `<button class="chk-cchip" onclick="chkSetFilter('')">Clear</button>` : '');
 }
 function chkSetFilter(id) { _chkFilter = (_chkFilter === id) ? '' : id; chkRender(); }
 
-// ── position picker ──────────────────────────────────────────────────────────
-// Typing stays the fast path on a laptop, but tapping six checkboxes beats
-// thumb-typing "Deck, Spot, QLab" on a phone in the shop. Both write the same
-// `pos` list. Fixed positioning keeps it clear of the table's overflow.
-var _chkPick = null;
-
-function chkOpenPick(id, btn) {
-  if (_chkPick === id) { chkClosePick(); return; }
-  _chkPick = id;
-  const box = btn.getBoundingClientRect();
-  const el = document.getElementById('chk-pick');
-  el.hidden = false;
-  chkFillPick();
-  const w = el.offsetWidth || 212, h = el.offsetHeight || 240;
-  let left = Math.min(box.right - w, window.innerWidth - w - 8);
-  let top = box.bottom + 4;
-  if (top + h > window.innerHeight - 8) top = Math.max(8, box.top - h - 4);
-  el.style.left = Math.max(8, left) + 'px';
-  el.style.top = top + 'px';
-}
-function chkClosePick() {
-  _chkPick = null;
-  const el = document.getElementById('chk-pick');
-  if (el) { el.hidden = true; el.innerHTML = ''; }
-}
-function chkFillPick() {
-  const el = document.getElementById('chk-pick');
-  if (!el || !_chkPick) return;
-  const it = chkStore().items.find(i => i.id === _chkPick);
-  if (!it) { chkClosePick(); return; }
-  const all = chkPosList().map(p => p.id);
-  const isAll = all.length && all.every(id => (it.pos || []).indexOf(id) !== -1);
-  el.innerHTML =
-    `<label class="all"><input type="checkbox" ${isAll ? 'checked' : ''} onchange="chkPickAll(this.checked)">Everyone</label>`
-    + chkPosList().map(p =>
-        `<label><input type="checkbox" ${(it.pos || []).indexOf(p.id) !== -1 ? 'checked' : ''}`
-        + ` onchange="chkPickOne('${esc(p.id)}',this.checked)">${esc(chkPosShort(p))}`
-        + `<span style="color:var(--text-faint);font-size:11px;margin-left:auto">${esc(p.name)}</span></label>`
-      ).join('');
-}
-function chkPickOne(posId, on) {
-  const it = chkStore().items.find(i => i.id === _chkPick);
-  if (!it) return;
-  if (!Array.isArray(it.pos)) it.pos = [];
-  const n = it.pos.indexOf(posId);
-  if (on && n === -1) it.pos.push(posId);
-  if (!on && n !== -1) it.pos.splice(n, 1);
-  // keep the stored order matching the position list so the cell text is stable
-  const order = chkPosList().map(p => p.id);
-  it.pos.sort((a, b) => order.indexOf(a) - order.indexOf(b));
-  chkRender(); chkFillPick(); chkSaveSoon();
-}
-function chkPickAll(on) {
-  const it = chkStore().items.find(i => i.id === _chkPick);
-  if (!it) return;
-  it.pos = on ? chkPosList().map(p => p.id) : [];
-  chkRender(); chkFillPick(); chkSaveSoon();
-}
-document.addEventListener('mousedown', e => {
-  if (!_chkPick) return;
-  if (e.target.closest && (e.target.closest('#chk-pick') || e.target.closest('.chk-caret'))) return;
-  chkClosePick();
-});
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && _chkPick) chkClosePick(); });
-window.addEventListener('scroll', () => { if (_chkPick) chkClosePick(); }, true);
-
-// ── renaming a section ───────────────────────────────────────────────────────
-// The heading owns the name now, so renaming it moves the whole block at once
-// instead of making you retype the Section cell on every row. Renaming onto an
-// existing name merges the two groups.
-function chkRenameSection(from, to) {
-  if (!chkIsTD()) return;
-  to = String(to || '').trim();
-  if (!to || to === from) { chkRender(); return; }
-  let n = 0;
-  chkStore().items.forEach(i => { if (i.section === from) { i.section = to; n++; } });
-  chkNormalize(); chkRender(); chkSave();
-  try { toast('Renamed ' + n + ' row' + (n === 1 ? '' : 's') + ' to ' + to); } catch(e){}
-}
-
 // ── undo ─────────────────────────────────────────────────────────────────────
-// Delete is one tap and drag misfires on a phone, so deletions are recoverable.
+// Delete is one click and drag misfires, so deletions are recoverable.
 var _chkTrash = [];
 function chkUndo() {
   if (!chkIsTD() || !_chkTrash.length) { try { toast('Nothing to undo'); } catch(e){} return; }
@@ -5311,15 +5199,21 @@ function chkUndo() {
   chkNormalize(); chkRender(); chkSave();
   try { toast('Restored "' + (last.item.text || 'row').slice(0, 30) + '"'); } catch(e){}
 }
+// switchTab marks the visible panel with .active; offsetParent would work in a
+// browser but is dead weight anywhere without layout.
+function chkTabVisible() {
+  const panel = document.getElementById('tab-checklists');
+  return !!panel && panel.classList.contains('active');
+}
 document.addEventListener('keydown', e => {
   if (!(e.key === 'z' || e.key === 'Z') || !(e.ctrlKey || e.metaKey) || e.shiftKey) return;
-  if (!chkTabVisible()) return;                          // only on this tab
+  if (!chkTabVisible()) return;
   e.preventDefault();
   chkUndo();
 });
 
 // ── don't lose the last keystroke ────────────────────────────────────────────
-// Saves are debounced, so leaving the tab within the window would drop them.
+// Saves are debounced, so leaving within that window would drop them.
 // sendBeacon survives unload where fetch does not.
 function chkFlush() {
   if (!_chkSaveTimer) return;
@@ -5330,14 +5224,7 @@ function chkFlush() {
   } catch (e) {}
   chkSave();
 }
-// A tab left open overnight would keep yesterday's answer, so re-check when it
-// comes back to the front and once an hour while it's showing.
-// switchTab marks the visible panel with .active; offsetParent would work in a
-// browser but is dead weight anywhere without layout.
-function chkTabVisible() {
-  const panel = document.getElementById('tab-checklists');
-  return !!panel && panel.classList.contains('active');
-}
+// A tab left open overnight would keep yesterday's answer for the show selector.
 var _chkDay = null;
 function chkCheckDay() {
   if (!chkTabVisible()) return;
@@ -5346,63 +5233,86 @@ function chkCheckDay() {
   _chkDay = today;
   if (!_chkShowPinned) chkRender();
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden) chkCheckDay(); });
+window.addEventListener('beforeunload', chkFlush);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) chkFlush(); else chkCheckDay();
+});
 setInterval(chkCheckDay, 3600000);
 
-window.addEventListener('beforeunload', chkFlush);
-document.addEventListener('visibilitychange', () => { if (document.hidden) chkFlush(); });
-
 // ── editing ──────────────────────────────────────────────────────────────────
-function chkCell(i, field, val) {
+function chkCell(i, val) {
   if (!chkIsTD()) return;
   const it = chkStore().items[i];
   if (!it) return;
-  it[field] = val;
-  chkRender(); chkSaveSoon();
-}
-// Positions are stored as ids but typed as words, so the raw text is parsed on
-// every keystroke and only committed when it resolves to something.
-function chkPosCell(i, input) {
-  if (!chkIsTD()) return;
-  const it = chkStore().items[i];
-  if (!it) return;
-  const p = chkParsePos(input.value);
-  input.classList.toggle('bad', p.bad.length > 0);
-  if (p.bad.length) { input.title = 'Not a position: ' + p.bad.join(', '); return; }
-  input.title = '';
-  it.pos = p.ids;
+  it.text = val;
   chkSaveSoon();
-  chkRenderCoverage(chkCurrentShow());
+  const cEl = document.getElementById('chk-count');
+  if (cEl) chkRenderCoverage(chkCurrentShow());
 }
-// Section grouping snaps on blur — regrouping mid-keystroke would yank the
-// field out from under you.
-function chkRegroup() {
+// Toggling who can move a row between the Everyone and Specific bands, so the
+// list re-sorts and the row visibly jumps — that jump is the confirmation.
+function chkToggleWho(i, posId) {
   if (!chkIsTD()) return;
-  const before = chkStore().items.map(i => i.id).join();
-  chkNormalize();
-  chkRender();
-  if (chkStore().items.map(i => i.id).join() !== before) {
-    chkSaveSoon();
-    try { toast('Grouped with the matching section'); } catch(e){}
-  }
+  const it = chkStore().items[i];
+  if (!it) return;
+  if (!Array.isArray(it.pos)) it.pos = [];
+  const n = it.pos.indexOf(posId);
+  if (n === -1) it.pos.push(posId); else it.pos.splice(n, 1);
+  const order = chkPosList().map(p => p.id);
+  it.pos.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  chkNormalize(); chkRender(); chkSaveSoon();
 }
-function chkToggleSkip(id) {
+function chkAllWho(i) {
   if (!chkIsTD()) return;
-  const showName = chkCurrentShow();
-  if (!showName) { try { toast('Pick a show first'); } catch(e){} return; }
-  const layer = chkShowLayer(showName, true);
-  const n = layer.skips.indexOf(id);
-  if (n === -1) layer.skips.push(id); else layer.skips.splice(n, 1);
-  chkRender(); chkSave();
+  const it = chkStore().items[i];
+  if (!it) return;
+  it.pos = chkShared(it) ? [] : chkPosList().map(p => p.id);
+  chkNormalize(); chkRender(); chkSaveSoon();
 }
-function chkToggleShow(i) {
+function chkSetApplies(i, mode) {
   if (!chkIsTD()) return;
   const it = chkStore().items[i];
   if (!it) return;
   const showName = chkCurrentShow();
-  if (!showName && !it.show) { try { toast('Pick a show first'); } catch(e){} return; }
-  it.show = it.show ? null : showName;
+  if (!showName && mode !== 'every') { try { toast('Pick a show first'); } catch(e){} chkRender(); return; }
+  const layer = chkShowLayer(showName, true);
+  const n = layer.skips.indexOf(it.id);
+  it.show = (mode === 'only') ? showName : null;
+  if (mode === 'off' && n === -1) layer.skips.push(it.id);
+  if (mode !== 'off' && n !== -1) layer.skips.splice(n, 1);
   chkRender(); chkSave();
+}
+function chkRenameSection(from, to) {
+  if (!chkIsTD()) return;
+  to = String(to || '').trim();
+  if (!to || to === from) { chkRender(); return; }
+  let n = 0;
+  chkStore().items.forEach(i => { if (i.section === from) { i.section = to; n++; } });
+  chkNormalize(); chkRender(); chkSave();
+  try { toast('Renamed ' + n + ' row' + (n === 1 ? '' : 's') + ' to ' + to); } catch(e){}
+}
+// Sections exist only as a property of their rows, so a new one arrives with a
+// blank row attached and the cursor already in it.
+function chkAddSection(name) {
+  if (!chkIsTD()) return;
+  name = String(name || '').trim();
+  if (!name) { chkRender(); return; }
+  const id = chkNewId('i');
+  chkStore().items.push({ id, section:name, text:'', pos: chkPosList().map(p => p.id), show:null });
+  chkNormalize(); chkRender(); chkSave();
+  const el = document.querySelector('#chk-body input[data-r="' + id + '"]');
+  if (el) el.focus();
+}
+function chkDup(i) {
+  if (!chkIsTD()) return;
+  const it = chkStore().items[i];
+  if (!it) return;
+  const copy = { id: chkNewId('i'), section: it.section, text: it.text,
+                 pos: (it.pos || []).slice(), show: it.show };
+  chkStore().items.splice(i + 1, 0, copy);
+  chkNormalize(); chkRender(); chkSave();
+  const el = document.querySelector('#chk-body input[data-r="' + copy.id + '"]');
+  if (el) { el.focus(); el.select(); }
 }
 function chkDel(i) {
   if (!chkIsTD()) return;
@@ -5411,27 +5321,24 @@ function chkDel(i) {
     _chkTrash.push({ item: gone, at: i });
     if (_chkTrash.length > 20) _chkTrash.shift();
   }
-  chkClosePick();
   chkRender(); chkSave();
-  try { toast('Row deleted — Ctrl+Z to undo'); } catch(e){}
+  try { toast('Deleted — Ctrl+Z to undo'); } catch(e){}
 }
 
-// The trailing row becomes real the moment you type in it, and a fresh ghost
-// takes its place — no Add button, and no half-empty rows reaching storage.
-function chkGrow(input, col) {
+// New rows default to Everyone: most pre-show duties are, and unticking is
+// quicker than ticking six.
+function chkGrow(input) {
   if (!chkIsTD()) return;
-  const tr = input.closest('tr');
-  const vals = [...tr.querySelectorAll('input[type=text]')].map(x => x.value);
-  if (!vals.some(v => v.trim())) return;
+  const val = input.value;
+  if (!val.trim()) return;
   const st = chkStore();
   const prev = st.items.length ? st.items[st.items.length - 1] : null;
   const id = chkNewId('i');
-  st.items.push({ id, section: vals[0] || (prev ? prev.section : ''), text: vals[1],
-                  pos: chkParsePos(vals[2] || 'All').ids, show:null });
-  chkNormalize();
-  chkRender(); chkSaveSoon();
-  const target = document.querySelector('#chk-body input[data-r="' + id + '"][data-c="' + col + '"]');
-  if (target) { target.focus(); target.setSelectionRange(target.value.length, target.value.length); }
+  st.items.push({ id, section: prev ? prev.section : (st.sections[0] || 'Preset'),
+                  text: val, pos: chkPosList().map(p => p.id), show:null });
+  chkNormalize(); chkRender(); chkSaveSoon();
+  const el = document.querySelector('#chk-body input[data-r="' + id + '"]');
+  if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
 }
 
 function chkKey(e, input) {
@@ -5451,43 +5358,36 @@ function chkKey(e, input) {
   if (e.key !== 'Enter') return;
   e.preventDefault();
   const tr = input.closest('tr');
-  const cells = [...tr.querySelectorAll('input[type=text]')];
-  const at = cells.indexOf(input);
-  if (at < cells.length - 1) { cells[at + 1].focus(); return; }
-  const next = tr.nextElementSibling;
-  if (next) {
-    const first = next.querySelectorAll('input[type=text]')[1];   // jump to Item
-    if (first) first.focus();
-  }
+  let next = tr.nextElementSibling;
+  while (next && !next.querySelector('input[type=text]')) next = next.nextElementSibling;
+  if (next) next.querySelector('input[type=text]').focus();
 }
 
 // ── paste ────────────────────────────────────────────────────────────────────
-// A block copied out of a spreadsheet lands as rows. Columns fill from wherever
-// you started pasting, so a two-column paste onto Item fills Item + Positions
-// and inherits the section above.
+// A block out of a spreadsheet still lands as rows. Two columns is Item + Who,
+// three is Section + Item + Who — the shape tells us which.
 function chkGrab(e) {
   const t = ((e.clipboardData || window.clipboardData).getData('text') || '').replace(/\r/g, '');
   return t.split('\n').filter(l => l.trim()).map(l => l.split('\t'));
 }
-function chkMkRow(cols, startCol, ref) {
-  const out = { id: chkNewId('i'), section: (ref && ref.section) || '', text:'', pos:[], show:null };
-  const fields = ['section', 'text', 'posText'];
-  cols.forEach((v, n) => {
-    const f = fields[startCol + n];
-    if (f) out[f] = String(v).trim();
-  });
-  out.pos = chkParsePos(out.posText || 'All').ids;
-  delete out.posText;
+function chkMkRow(cols, ref) {
+  const wide = cols.length >= 3;
+  const out = { id: chkNewId('i'),
+                section: wide ? String(cols[0] || '').trim() : ((ref && ref.section) || ''),
+                text: String(cols[wide ? 1 : 0] || '').trim(),
+                show: null };
+  const who = String(cols[wide ? 2 : 1] || '').trim();
+  out.pos = chkParsePos(who || 'Everyone').ids;
+  if (!out.pos.length) out.pos = chkPosList().map(p => p.id);
   return out;
 }
-function chkPaste(e, i, col) {
+function chkPaste(e, i) {
   if (!chkIsTD()) return;
   const cells = chkGrab(e);
   if (cells.length < 2 && cells[0] && cells[0].length < 2) return;   // single value, let it through
   e.preventDefault();
   const st = chkStore();
-  const ref = st.items[i];
-  const made = cells.map(c => chkMkRow(c, col, ref));
+  const made = cells.map(c => chkMkRow(c, st.items[i]));
   st.items.splice(i, 1, ...made);
   chkNormalize(); chkRender(); chkSave();
   try { toast('Pasted ' + made.length + ' row' + (made.length === 1 ? '' : 's')); } catch(err){}
@@ -5498,7 +5398,7 @@ function chkPasteGhost(e) {
   if (cells.length < 2 && cells[0] && cells[0].length < 2) return;
   e.preventDefault();
   const st = chkStore();
-  cells.forEach(c => st.items.push(chkMkRow(c, 0, st.items[st.items.length - 1])));
+  cells.forEach(c => st.items.push(chkMkRow(c, st.items[st.items.length - 1])));
   chkNormalize(); chkRender(); chkSave();
   try { toast('Pasted ' + cells.length + ' row' + (cells.length === 1 ? '' : 's')); } catch(err){}
 }
