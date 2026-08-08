@@ -2712,6 +2712,70 @@
     .chk-card { overflow-x:auto; }
     .chk-grid { min-width:820px; }
   }
+
+  /* ── TAB CONSISTENCY ───────────────────────────────────────────────────── */
+  /* Each tab had grown its own frame: eight different content widths, four
+     title sizes across three weights, five subtitle treatments, and three tabs
+     that never centred at all. Defined last so they override the per-tab rules
+     above without having to rewrite each one. */
+  :root { --tab-narrow:640px; --tab-mid:880px; --tab-wide:1100px; }
+  .tab-panel.active { position:relative; }
+
+  .sw-wrap { max-width:var(--tab-narrow); }
+  .shop-tab-wrap, .cleaning-wrap { max-width:var(--tab-mid); }
+  .chk-wrap, .arc-wrap, .ref-wrap, .dt-wrap, .drp-wrap { max-width:var(--tab-wide); }
+  .sw-wrap, .shop-tab-wrap, .cleaning-wrap, .chk-wrap,
+  .arc-wrap, .ref-wrap, .dt-wrap, .drp-wrap {
+    margin-left:auto; margin-right:auto; padding:8px 16px 48px;
+  }
+
+  .arc-header, .sw-header, .dt-head, .ref-head,
+  .chk-header, .cleaning-header, .shop-tab-header { margin-bottom:18px; }
+
+  .arc-title, .sw-title, .dt-title, .ref-title, .shop-tab-title,
+  .chk-header h2, .cleaning-header h2 {
+    font-size:25px; font-weight:800; letter-spacing:-0.02em; margin:0; color:var(--text);
+  }
+  .arc-sub, .sw-sub, .ref-sub, .dt-sub, .chk-sub {
+    font-size:13.5px; color:var(--text-muted); margin:4px 0 0;
+  }
+
+  /* ── LOADING ───────────────────────────────────────────────────────────── */
+  /* Every remote call goes through jsonp(), so one counter there drives both
+     the top bar and the first-visit panel spinner. */
+  #net-bar {
+    position:fixed; top:0; left:0; right:0; height:2px; z-index:9999;
+    pointer-events:none; overflow:hidden; opacity:0; transition:opacity .18s;
+  }
+  #net-bar.on { opacity:1; }
+  #net-bar i {
+    display:block; height:100%; width:32%;
+    background:linear-gradient(90deg, transparent, var(--purple), transparent);
+    animation:net-slide 1.1s ease-in-out infinite;
+  }
+  @keyframes net-slide { 0% { transform:translateX(-110%); } 100% { transform:translateX(420%); } }
+
+  .tab-loading {
+    position:absolute; inset:0; z-index:20; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:12px; background:var(--bg);
+  }
+  .tab-loading .sp {
+    width:26px; height:26px; border-radius:50%;
+    border:2.5px solid var(--border); border-top-color:var(--purple);
+    animation:sp-spin .7s linear infinite;
+  }
+  @keyframes sp-spin { to { transform:rotate(360deg); } }
+  .tab-loading p { font-size:13px; color:var(--text-muted); margin:0; }
+  .chk-block {
+    position:absolute; inset:0; z-index:21; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:10px; background:var(--bg); padding:20px;
+  }
+  .chk-block .t { font-size:16px; font-weight:700; margin:0; color:var(--text); }
+  .chk-block .m { font-size:13.5px; color:var(--text-muted); margin:0 0 6px;
+                  max-width:360px; text-align:center; line-height:1.5; }
+  @media (prefers-reduced-motion:reduce) {
+    #net-bar i, .tab-loading .sp { animation-duration:2.6s; }
+  }
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -4102,6 +4166,7 @@
   </div>
 </div>
 
+<div id="net-bar"><i></i></div>
 <div class="toast" id="toast"></div>
 <div class="undo-bar" id="undo-bar">
   <span id="undo-msg"></span>
@@ -4137,7 +4202,7 @@
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+
 
 <!-- Settings Panel -->
 <div class="ne-overlay" id="ne-overlay" onclick="closeNotesEditModal()"></div>
@@ -4465,6 +4530,9 @@ function switchTab(tab) {
   try { history.replaceState(null, '', '#' + tab); } catch(e) {}
   window.scrollTo({ top: 0, behavior: 'auto' });
 
+  hideTabLoading();
+  tabSpinner(tab);
+
   // Per-tab lazy render hooks
   if (tab === 'todo' && typeof renderTasksTab === 'function') renderTasksTab();
   if (tab === 'daytracker' && typeof ensureDayTrackerLoaded === 'function') ensureDayTrackerLoaded();
@@ -4687,9 +4755,60 @@ function ensureChecklistsLoaded() {
   jsonp(SCRIPT_URL + '?action=getKV&key=checklists&_=' + Date.now(), d => {
     _chk = (d && d.value) ? d.value : {};
     _chkLoaded = true; chkStore();
-    if (chkMigrate()) chkSave();
+    if (chkNeedsMigration()) { chkBackupThenMigrate(); return; }
     chkRender();
   }, () => { _chk = {}; _chkLoaded = true; chkStore(); chkMigrate(); chkRender(); });
+}
+
+// Shown when the tab can't safely open. Reuses the loading overlay's geometry
+// but its own class, so the spinner teardown doesn't wipe it.
+function chkBlock(msg) {
+  const panel = document.getElementById('tab-checklists');
+  if (!panel || panel.querySelector('.chk-block')) return;
+  const el = document.createElement('div');
+  el.className = 'chk-block';
+  el.innerHTML = '<p class="t">Checklists not loaded</p><p class="m">' + esc(msg) + '</p>'
+    + '<button onclick="chkUnblock()">Try again</button>';
+  panel.appendChild(el);
+}
+function chkUnblock() {
+  document.querySelectorAll('.chk-block').forEach(el => el.remove());
+  _chkLoaded = false; _chk = null;
+  ensureChecklistsLoaded();
+}
+
+function chkNeedsMigration() {
+  const st = chkStore();
+  return !(st.v >= 2) && (st.items.length > 0 || Object.keys(st.show).length > 0);
+}
+
+// v1 -> v2 rewrites items in place and can't be undone, so the untouched blob is
+// copied to its own key first. If that copy can't be confirmed we don't migrate
+// at all — a tab that asks you to try again beats data with no way back.
+function chkBackupThenMigrate() {
+  const original = JSON.stringify(_chk);
+  const proceed = () => {
+    if (chkMigrate()) chkSave();
+    chkRender();
+    try { toast('Checklists upgraded — a copy of the old data was saved'); } catch(e){}
+  };
+  const giveUp = () => {
+    // The grid only understands v2, so we can't render un-migrated data — it
+    // would throw on the first row. Block the tab instead and offer a retry.
+    _chkLoaded = false;
+    chkBlock("Couldn't save a backup copy, so nothing was changed. Your checklists are safe. "
+           + "Check your connection and try again.");
+    try { toast("Checklists not loaded — backup failed"); } catch(e){}
+  };
+  const viaJsonp = () => {
+    jsonp(SCRIPT_URL + '?action=saveKV&key=checklists_v1&value='
+          + encodeURIComponent(original) + '&_=' + Date.now(), proceed, giveUp);
+  };
+  netStart();
+  fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'},
+    body: JSON.stringify({ action:'saveKV', key:'checklists_v1', value:_chk }) })
+    .then(() => { netEnd(); proceed(); })
+    .catch(() => { netEnd(); viaJsonp(); });
 }
 
 // v1 -> v2, run once and saved. Three jobs: turn `pos` into a list, fold each
@@ -8571,12 +8690,63 @@ function withTimeout(promise, ms, label) {
   });
 }
 
+// ── LOADING FEEDBACK ─────────────────────────────────────────────────────────
+// A thin bar for anything in flight, plus a full-panel spinner the first time
+// you open a tab — that's the only moment there's nothing on screen yet.
+var _netBusy = 0;
+var _tabSeen = {};
+var _spinGuard = null;
+
+function netPaint() {
+  const bar = document.getElementById('net-bar');
+  if (bar) bar.classList.toggle('on', _netBusy > 0);
+  if (_netBusy === 0) hideTabLoading();
+}
+function netStart() { _netBusy++; netPaint(); }
+function netEnd() {
+  _netBusy = Math.max(0, _netBusy - 1);
+  netPaint();
+}
+
+function showTabLoading(panel, label) {
+  if (!panel || panel.querySelector('.tab-loading')) return;
+  const el = document.createElement('div');
+  el.className = 'tab-loading';
+  el.innerHTML = '<div class="sp"></div><p>' + (label || 'Loading…') + '</p>';
+  panel.appendChild(el);
+  // If a request never resolves the overlay must still come down, or the tab
+  // is bricked until reload.
+  clearTimeout(_spinGuard);
+  _spinGuard = setTimeout(hideTabLoading, 15000);
+}
+function hideTabLoading() {
+  clearTimeout(_spinGuard);
+  document.querySelectorAll('.tab-loading').forEach(el => el.remove());
+}
+
+// Called from switchTab. The delay matters: the lazy hooks fire their requests
+// right after, and a tab served from cache shouldn't flash a spinner at all.
+function tabSpinner(tab) {
+  if (_tabSeen[tab]) return;
+  _tabSeen[tab] = true;
+  setTimeout(() => {
+    if (_netBusy <= 0) return;
+    const panel = document.querySelector('.tab-panel[data-tab="' + tab + '"]');
+    if (panel && panel.classList.contains('active')) showTabLoading(panel);
+  }, 140);
+}
+
 function jsonp(url, onSuccess, onError, timeoutMs) {
   const cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
   const script = document.createElement('script');
+  let done = false;
+  netStart();
   const timeout = setTimeout(() => { cleanup(); onError && onError('Timeout'); }, timeoutMs || 15000);
   window[cbName] = function(data) { cleanup(); onSuccess(data); };
   function cleanup() {
+    if (done) return;                       // a script can error after calling back
+    done = true;
+    netEnd();
     clearTimeout(timeout);
     delete window[cbName];
     if (script.parentNode) script.parentNode.removeChild(script);
