@@ -2666,11 +2666,16 @@
   .chk-sechead-in input.nm:hover { border-color:var(--border); }
   .chk-sechead-in input.nm:focus { outline:none; border-color:var(--purple);
                                    background:var(--surface); color:var(--text); }
-  .chk-grid tr.chk-band td { padding:0; border-bottom:0; }
-  .chk-grid tr.chk-band:hover td { background:none; }
-  .chk-band-in { font-size:10px; letter-spacing:.1em; text-transform:uppercase;
-                 font-weight:700; padding:10px 10px 3px 57px; color:var(--text-faint); }
-  .chk-band-in.every { color:var(--green); }
+  .chk-tabs { display:flex; gap:2px; margin:0 0 14px; border-bottom:1px solid var(--border); }
+  #tab-checklists button.chk-tab {
+    background:none; border:none; border-bottom:2px solid transparent; border-radius:0;
+    color:var(--text-muted); font-size:13.5px; font-weight:600; padding:9px 16px;
+    margin-bottom:-1px;
+  }
+  #tab-checklists button.chk-tab:hover { background:var(--bg); color:var(--text); }
+  #tab-checklists button.chk-tab.active { color:var(--purple); border-bottom-color:var(--purple); background:none; }
+  .chk-tab b { font-weight:500; opacity:.6; margin-left:6px; font-size:12px; }
+  .chk-tabnote { font-size:12px; color:var(--text-muted); margin:-6px 0 12px 2px; }
 
   /* reordering */
   .chk-gripcell { display:flex; align-items:center; justify-content:center; gap:1px; }
@@ -3342,7 +3347,7 @@
       <div class="chk-header">
         <div>
           <h2>Pre-Show Checklists</h2>
-          <p class="chk-sub">Tap who does each task. Shared duties group together under Everyone.</p>
+          <p class="chk-sub">Tap who does each task.</p>
         </div>
         <div class="chk-bar">
           <select id="chk-show" onchange="chkPickShow()"></select>
@@ -3353,6 +3358,9 @@
           <button onclick="chkPrint()">🖨 Print</button>
         </div>
       </div>
+
+      <div class="chk-tabs" id="chk-tabs"></div>
+      <p class="chk-tabnote" id="chk-tabnote"></p>
 
       <div class="chk-cov" id="chk-cov"></div>
 
@@ -4853,6 +4861,20 @@ function chkShared(i) {
   const all = chkPosList().length;
   return all > 0 && (i.pos || []).length === all;
 }
+// The three tabs are an exclusive partition, so a row is only ever in one of
+// them. Show-only rows leave the who-based split entirely — what makes them
+// worth separating is that they're the batch you review before each opening.
+const CHK_TABS = [
+  { id:'every',    label:'Everyone' },
+  { id:'position', label:'By position' },
+  { id:'show',     label:'This show' }
+];
+function chkBandOf(i) {
+  if (i.show) return 'show';
+  return chkShared(i) ? 'every' : 'position';
+}
+function chkBandRank(i) { return ['every','position','show'].indexOf(chkBandOf(i)); }
+var _chkTab = 'every';
 // Sections stay contiguous, and inside each one the shared duties bank to the
 // top. That's what makes the Everyone heading possible: it's a real boundary in
 // the list, not a colour you have to decode. filter() is stable, so the order
@@ -4865,9 +4887,13 @@ function chkNormalize() {
     if (!buckets[s]) { buckets[s] = []; order.push(s); }
     buckets[s].push(i);
   });
+  // Within a section: everyone's duties, then position-specific, then this
+  // show's additions — the same order as the tabs, and the order they print.
   st.items = order.reduce((out, s) => {
     const b = buckets[s];
-    return out.concat(b.filter(chkShared), b.filter(i => !chkShared(i)));
+    return out.concat(b.filter(i => chkBandOf(i) === 'every'),
+                      b.filter(i => chkBandOf(i) === 'position'),
+                      b.filter(i => chkBandOf(i) === 'show'));
   }, []);
 }
 function chkGroups() {
@@ -4887,26 +4913,39 @@ function chkSpan(sec) {
   return { from, to };
 }
 
-function chkPlace(from, to) {
-  if (!chkIsTD() || from === to) return;
+// Rows visible on the active tab, paired with their real index in the store.
+function chkTabRows() {
+  const showName = chkCurrentShow();
+  const out = [];
+  chkStore().items.forEach((it, idx) => {
+    if (it.show && it.show !== showName) return;
+    if (chkBandOf(it) !== _chkTab) return;
+    out.push({ item: it, idx });
+  });
+  return out;
+}
+// Positioning by object reference rather than index arithmetic — the array
+// shifts under a splice and the off-by-one that causes is easy to get wrong.
+function chkDropRow(from, targetIdx, after) {
+  if (!chkIsTD()) return;
   const items = chkStore().items;
+  const target = items[targetIdx];
+  if (!target || target === items[from]) return;
   const r = items.splice(from, 1)[0];
-  to = Math.max(0, Math.min(to, items.length));   // clamp, or r sits beside itself
-  items.splice(to, 0, r);
-  const above = items[to - 1], below = items[to + 1];
-  // Only relabel when the row actually left its own block — nudging to the top
-  // of its own section puts a foreign row above it, which isn't a move.
-  const stays = (above && above.section === r.section) || (below && below.section === r.section);
-  if (!stays) {
-    const adopt = above ? above.section : (below ? below.section : r.section);
-    if (adopt !== r.section) { r.section = adopt; try { toast('Moved to ' + (adopt || 'Other')); } catch(e){} }
+  const t = items.indexOf(target);
+  if (target.section !== r.section) {
+    r.section = target.section;
+    try { toast('Moved to ' + (r.section || 'Other')); } catch(e){}
   }
+  items.splice(after ? t + 1 : t, 0, r);
   chkNormalize(); chkRender(); chkSaveSoon();
 }
 function chkMoveRow(i, dir) {
-  const j = i + dir;
-  if (j < 0 || j >= chkStore().items.length) return;
-  chkPlace(i, j);
+  const rows = chkTabRows();
+  const at = rows.findIndex(r => r.idx === i);
+  const target = rows[at + dir];
+  if (at === -1 || !target) return;
+  chkDropRow(i, target.idx, dir > 0);
 }
 function chkMoveSection(g, dir) {
   if (!chkIsTD()) return;
@@ -4973,16 +5012,14 @@ document.addEventListener('drop', e => {
   }
 
   if (tr.classList.contains('chk-sechead')) {          // dropped on a heading: top of it
-    const at = items.findIndex(i => i.section === tr.dataset.sec);
-    chkPlace(d.i, d.i < at ? at - 1 : at);
+    const first = chkTabRows().find(r => r.item.section === tr.dataset.sec);
+    if (first) chkDropRow(d.i, first.idx, false);
+    else { const it = items[d.i]; if (it) { it.section = tr.dataset.sec; chkNormalize(); chkRender(); chkSaveSoon(); } }
     return;
   }
   if (tr.dataset.i === undefined) { chkRender(); return; }
   const box = tr.getBoundingClientRect();
-  const after = (e.clientY - box.top) > box.height / 2;
-  let at = +tr.dataset.i + (after ? 1 : 0);
-  if (d.i < at) at--;
-  chkPlace(d.i, at);
+  chkDropRow(d.i, +tr.dataset.i, (e.clientY - box.top) > box.height / 2);
 });
 document.addEventListener('dragend', () => { _chkDrag = null; chkClearMarks(); chkClearLift(); });
 
@@ -5066,14 +5103,37 @@ function chkRender() {
   const groups = chkGroups();
   const positions = chkPosList();
   const COLS = 5;
-  let lastSec = null, lastBand = null, html = '';
+
+  // Tab bar, with live counts so an empty tab is obvious before you open it.
+  const tally = { every:0, position:0, show:0 };
+  st.items.forEach(i => {
+    if (i.show && i.show !== showName) return;
+    tally[chkBandOf(i)]++;
+  });
+  const tabsEl = document.getElementById('chk-tabs');
+  if (tabsEl) {
+    tabsEl.innerHTML = CHK_TABS.map(t =>
+      `<button class="chk-tab${_chkTab === t.id ? ' active' : ''}" onclick="chkSetTab('${t.id}')">`
+      + `${esc(t.label)}<b>${tally[t.id]}</b></button>`).join('');
+  }
+  const noteEl = document.getElementById('chk-tabnote');
+  if (noteEl) {
+    noteEl.textContent = _chkTab === 'every'
+      ? 'Duties every position does. These print at the top of each section on every sheet.'
+      : (_chkTab === 'position'
+          ? 'Duties for some positions but not all. Tap the chips to change who.'
+          : 'Extra duties for ' + (showName || 'this production') + ' only. They print with a ◆ and never carry to the next show.');
+  }
+
+  let lastSec = null, html = '';
 
   st.items.forEach((r, idx) => {
     if (r.show && r.show !== showName) return;
+    if (chkBandOf(r) !== _chkTab) return;
     if (q && ((r.text || '') + ' ' + (r.section || '')).toLowerCase().indexOf(q) === -1) return;
 
     if (r.section !== lastSec) {
-      lastSec = r.section; lastBand = null;
+      lastSec = r.section;
       const g = groups.findIndex(x => x.sec === r.section);
       html += `<tr class="chk-sechead" data-sec="${esc(r.section)}">`
         + '<td class="chk-c-grip"><div class="chk-gripcell">'
@@ -5090,13 +5150,6 @@ function chkRender() {
                  onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">`
             : `<span class="nm">${esc(r.section || 'Other')}</span>`)
         + '</div></td></tr>';
-    }
-
-    const band = chkShared(r) ? 'every' : 'some';
-    if (band !== lastBand) {
-      lastBand = band;
-      html += `<tr class="chk-band"><td colspan="${COLS}"><div class="chk-band-in ${band}">`
-        + (band === 'every' ? 'Everyone' : 'Specific positions') + '</div></td></tr>';
     }
 
     const mode = chkApplies(r, showName);
@@ -5140,15 +5193,19 @@ function chkRender() {
   });
 
   if (td) {
+    const hint = _chkTab === 'every' ? 'Add a duty for everyone…'
+      : (_chkTab === 'position' ? 'Add a duty, then tap who…' : 'Add a duty for this show only…');
     html += `<tr class="chk-ghost"><td class="chk-c-grip"></td>`
-      + '<td><input type="text" placeholder="Type here to add an item…" oninput="chkGrow(this)" onkeydown="chkKey(event,this)" onpaste="chkPasteGhost(event)"></td>'
+      + `<td><input type="text" placeholder="${esc(hint)}" oninput="chkGrow(this)" onkeydown="chkKey(event,this)" onpaste="chkPasteGhost(event)"></td>`
       + `<td class="chk-c-who"></td><td class="chk-c-app"></td><td class="chk-c-act"></td></tr>`
       + `<tr class="chk-sechead"><td class="chk-c-grip"></td><td colspan="${COLS - 1}"><div class="chk-sechead-in">`
       + `<input class="nm" type="text" value="" placeholder="+ New section"
            onchange="chkAddSection(this.value)"
            onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div></td></tr>`;
-  } else if (!html) {
-    html = `<tr><td colspan="${COLS}" style="padding:26px;text-align:center;color:var(--text-muted);">Nothing here yet.</td></tr>`;
+  }
+  if (!html) {
+    html = `<tr><td colspan="${COLS}" style="padding:26px;text-align:center;color:var(--text-muted);">`
+      + (q ? 'Nothing matches that search.' : 'Nothing on this tab yet.') + '</td></tr>';
   }
 
   document.getElementById('chk-body').innerHTML = html;
@@ -5187,6 +5244,7 @@ function chkRenderCoverage(showName) {
     + (_chkFilter ? `<button class="chk-cchip" onclick="chkSetFilter('')">Clear</button>` : '');
 }
 function chkSetFilter(id) { _chkFilter = (_chkFilter === id) ? '' : id; chkRender(); }
+function chkSetTab(id) { _chkTab = id; chkRender(); }
 
 // ── undo ─────────────────────────────────────────────────────────────────────
 // Delete is one click and drag misfires, so deletions are recoverable.
@@ -5327,15 +5385,22 @@ function chkDel(i) {
 
 // New rows default to Everyone: most pre-show duties are, and unticking is
 // quicker than ticking six.
+// A new row belongs to the tab you added it on, so it doesn't vanish to another
+// one the moment you type. On By position it starts with nobody ticked, which
+// keeps it here until you say who.
 function chkGrow(input) {
   if (!chkIsTD()) return;
   const val = input.value;
   if (!val.trim()) return;
   const st = chkStore();
-  const prev = st.items.length ? st.items[st.items.length - 1] : null;
+  const rows = chkTabRows();
+  const prev = rows.length ? rows[rows.length - 1].item
+             : (st.items.length ? st.items[st.items.length - 1] : null);
   const id = chkNewId('i');
   st.items.push({ id, section: prev ? prev.section : (st.sections[0] || 'Preset'),
-                  text: val, pos: chkPosList().map(p => p.id), show:null });
+                  text: val,
+                  pos: _chkTab === 'position' ? [] : chkPosList().map(p => p.id),
+                  show: _chkTab === 'show' ? chkCurrentShow() : null });
   chkNormalize(); chkRender(); chkSaveSoon();
   const el = document.querySelector('#chk-body input[data-r="' + id + '"]');
   if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
@@ -5404,6 +5469,11 @@ function chkPasteGhost(e) {
 }
 
 // ── printing ─────────────────────────────────────────────────────────────────
+// A sheet is a fixed 8.5×11 box, so a long list used to be clipped at one page.
+// The document is written as one "source" block per position, then a script in
+// the print window measures and deals items onto as many sheets as they need.
+// Measuring beats estimating: font metrics and wrapping decide where a list
+// actually breaks, and only real layout knows that.
 function chkSheetCSS() {
   return `
   @page { size: letter portrait; margin: 0; }
@@ -5412,6 +5482,7 @@ function chkSheetCSS() {
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:#fff;font-family:'Helvetica Neue',Arial,sans-serif;
             -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .src{display:none}
   .sheet{width:8.5in;height:11in;padding:0 .47in .36in;position:relative;display:flex;
          flex-direction:column;overflow:hidden;page-break-after:always;background:var(--paper);color:var(--ink)}
   .sheet:last-child{page-break-after:auto}
@@ -5426,7 +5497,7 @@ function chkSheetCSS() {
   .frame i:nth-child(2){background:var(--blue)}
   .frame i:nth-child(3){background:var(--purple)}
   .head{display:flex;justify-content:space-between;align-items:flex-start;gap:.26in;
-        margin:.39in 0 .26in;}
+        margin:.39in 0 .26in;flex:0 0 auto}
   .tape{background:var(--ink);color:#fff;display:inline-block;padding:.14in .27in .12in;
         margin-left:-.29in;transform:rotate(-.5deg);
         clip-path:polygon(0 4%,2% 0,99% 2%,100% 96%,97% 100%,1% 98%)}
@@ -5434,28 +5505,33 @@ function chkSheetCSS() {
              display:block;font-weight:700}
   .tape .posmeta{font-size:8pt;letter-spacing:1.6pt;text-transform:uppercase;display:block;
                  margin-top:3pt;opacity:.72}
+  .head.cont{margin:.39in 0 .17in;align-items:center;border-bottom:1.6pt solid var(--ink);padding-bottom:.09in}
+  .head.cont .tape{padding:.07in .16in .06in;transform:none;clip-path:none;margin-left:-.2in}
+  .head.cont .tape .pos{font-size:14pt}
+  .head.cont .tape .posmeta{display:none}
+  .head.cont .contmeta{font-size:7.5pt;letter-spacing:1.2pt;text-transform:uppercase;color:var(--ink-soft)}
   .logo{flex:0 0 auto;width:1.2in;margin-top:.04in}
   .logo img{width:100%;height:auto;display:block}
-  .slug{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.17in;
+  .slug{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.17in;flex:0 0 auto;
         border-top:2.4pt solid var(--ink);border-bottom:.6pt solid var(--rule);
         padding:.11in 0;margin-bottom:.25in}
   .slug span{display:block;letter-spacing:1.5pt;text-transform:uppercase;color:var(--ink-soft);font-size:6.5pt}
   .slug b{font-weight:700;font-size:10pt}
+  .body{flex:1 1 auto;overflow:hidden;min-height:0}
   .sec{margin-bottom:.19in}
-  .sec:nth-of-type(3n+1){--accent:var(--green)}
-  .sec:nth-of-type(3n+2){--accent:var(--blue)}
-  .sec:nth-of-type(3n+3){--accent:var(--purple)}
   .sec-h{font-size:10.5pt;font-weight:700;letter-spacing:1.4pt;text-transform:uppercase;
          color:var(--accent);display:flex;align-items:center;gap:.11in;margin:0 0 .09in}
   .sec-h::after{content:"";flex:1;height:1.6pt;background:var(--accent);opacity:.32}
+  .sec-h em{font-style:normal;font-size:7pt;letter-spacing:1pt;opacity:.7}
   ul.items{list-style:none;margin:0;padding:0}
   ul.items li{display:grid;grid-template-columns:.24in 1fr;gap:.11in;align-items:start;
               font-size:10.5pt;line-height:1.42;padding:3.2pt 0;border-bottom:.5pt dotted #DADDE1}
   .box{width:.18in;height:.18in;border:1.4pt solid var(--ink);margin-top:1.4pt;border-radius:1.5pt}
   .showadd::before{content:"\\25C6 ";color:var(--accent)}
-  .foot{margin-top:auto;padding-top:.13in;border-top:2.4pt solid var(--ink)}
+  .foot{margin-top:auto;padding-top:.13in;border-top:2.4pt solid var(--ink);flex:0 0 auto}
   .foot .cap{display:flex;justify-content:space-between;align-items:baseline;gap:.17in;
              font-size:7pt;color:var(--ink-soft);letter-spacing:.8pt;text-transform:uppercase}
+  .foot.slim{border-top:.6pt solid var(--rule);padding-top:.09in}
   .runs{display:grid;grid-template-columns:.78in repeat(var(--cols),1fr);gap:.06in;
         margin-top:.09in;align-items:center}
   .runs .hd{font-size:6.5pt;letter-spacing:1pt;text-transform:uppercase;color:var(--ink-soft);text-align:center}
@@ -5476,49 +5552,134 @@ function chkFmtRange(a, b) {
   } catch (e) { return '—'; }
 }
 
-function chkSheetHTML(pos, show, showName) {
+// One block per position holding every item. The print window turns each of
+// these into however many sheets it takes.
+function chkSourceHTML(pos, show, showName) {
   const secs = chkResolve(pos.id, showName);
   const weekends = chkWeekends(show);
-  const cols = weekends.length || 4;
-
-  const body = secs.map(s => `<div class="sec">
-      <p class="sec-h">${esc(s.section)}</p>
-      <ul class="items">${s.items.map(i =>
-        `<li><span class="box"></span><span class="${i.isNew ? 'showadd' : ''}">${esc(i.text)}</span></li>`
-      ).join('')}</ul>
-    </div>`).join('');
-
-  const rows = [['Fri 8:00',''],['Sat 2:00',''],['Sat 8:00',''],['Sun 2:00','']];
-  let chart = '<div></div>' + weekends.map(w => `<div class="hd">${esc(w)}</div>`).join('');
-  rows.forEach(r => {
-    chart += `<div class="rl">${r[0]}</div>` + weekends.map(() => '<div><div class="b"></div></div>').join('');
-  });
-
   const runLabel = show
     ? chkFmtRange(show.start, show.end) + ' · ' + (weekends.length * 4) + ' performances'
     : '—';
   const logo = (typeof LOGO_URL !== 'undefined' && LOGO_URL) ? `<div class="logo"><img src="${LOGO_URL}"></div>` : '';
 
-  return `<div class="sheet">
-    <div class="frame">
-      <div class="fr t"><i></i><i></i><i></i></div><div class="fr r"><i></i><i></i><i></i></div>
-      <div class="fr b"><i></i><i></i><i></i></div><div class="fr l"><i></i><i></i><i></i></div>
-    </div>
-    <div class="head">
-      <div class="tape"><span class="pos">${esc(pos.name)}</span><span class="posmeta">Call Sheet</span></div>
-      ${logo}
-    </div>
-    <div class="slug">
-      <div><span>Production</span><b>${esc(showName || '—')}</b></div>
-      <div><span>Run</span><b>${esc(runLabel)}</b></div>
-      <div><span>Position</span><b>${esc(pos.name)}</b></div>
-    </div>
+  const rows = ['Fri 8:00','Sat 2:00','Sat 8:00','Sun 2:00'];
+  let chart = '<div></div>' + weekends.map(w => `<div class="hd">${esc(w)}</div>`).join('');
+  rows.forEach(r => {
+    chart += `<div class="rl">${r}</div>` + weekends.map(() => '<div><div class="b"></div></div>').join('');
+  });
+
+  const body = secs.map((s, n) => `<div class="sec" data-name="${esc(s.section)}" data-accent="${n % 3}">
+      <ul class="items">${s.items.map(i =>
+        `<li><span class="box"></span><span class="${i.isNew ? 'showadd' : ''}">${esc(i.text)}</span></li>`
+      ).join('')}</ul></div>`).join('');
+
+  return `<div class="src" data-pos="${esc(pos.name)}" data-show="${esc(showName || '—')}"
+       data-run="${esc(runLabel)}" data-cols="${weekends.length || 4}"
+       data-logo="${logo ? '1' : ''}">
+    <template class="chart">${chart}</template>
     ${body}
-    <div class="foot">
-      <div class="cap"><span>&#9670; show-specific</span><span>Initial each performance</span></div>
-      <div class="runs" style="--cols:${cols};">${chart}</div>
-    </div>
   </div>`;
+}
+
+// Runs inside the print window, where real layout exists.
+function chkPaginatorJS() {
+  return `
+  var ACCENT = ['var(--green)','var(--blue)','var(--purple)'];
+  var FRAME = '<div class="frame">'
+    + '<div class="fr t"><i></i><i></i><i></i></div><div class="fr r"><i></i><i></i><i></i></div>'
+    + '<div class="fr b"><i></i><i></i><i></i></div><div class="fr l"><i></i><i></i><i></i></div></div>';
+
+  function head(first, d) {
+    var logo = d.logo ? '<div class="logo"><img src="' + d.logoSrc + '"></div>' : '';
+    if (first) return '<div class="head"><div class="tape"><span class="pos">' + d.pos
+      + '</span><span class="posmeta">Call Sheet</span></div>' + logo + '</div>';
+    return '<div class="head cont"><div class="tape"><span class="pos">' + d.pos
+      + '</span></div><span class="contmeta">' + d.show + ' · continued</span></div>';
+  }
+  function slug(d) {
+    return '<div class="slug"><div><span>Production</span><b>' + d.show + '</b></div>'
+      + '<div><span>Run</span><b>' + d.run + '</b></div>'
+      + '<div><span>Position</span><b>' + d.pos + '</b></div></div>';
+  }
+  function foot(first, d, chart) {
+    if (!first) return '<div class="foot slim"><div class="cap"><span>' + d.pos
+      + '</span><span class="pgs"></span></div></div>';
+    return '<div class="foot"><div class="cap"><span>&#9670; show-specific</span>'
+      + '<span class="pgs"></span><span>Initial each performance</span></div>'
+      + '<div class="runs" style="--cols:' + d.cols + ';">' + chart + '</div></div>';
+  }
+  function mkSec(name, cont, accent) {
+    var el = document.createElement('div');
+    el.className = 'sec';
+    el.style.setProperty('--accent', ACCENT[accent % 3]);
+    el.innerHTML = '<p class="sec-h">' + name + (cont ? ' <em>(cont.)</em>' : '') + '</p><ul class="items"></ul>';
+    return el;
+  }
+
+  function paginate() {
+    var srcs = [].slice.call(document.querySelectorAll('.src'));
+    srcs.forEach(function (src) {
+      var d = {
+        pos: src.dataset.pos, show: src.dataset.show, run: src.dataset.run,
+        cols: src.dataset.cols, logo: src.dataset.logo,
+        logoSrc: (src.dataset.logo ? (document.querySelector('.src img') || {}).src || '' : '')
+      };
+      var chart = (src.querySelector('template.chart') || {}).innerHTML || '';
+      var pages = [], page, body;
+
+      function newPage() {
+        var first = pages.length === 0;
+        page = document.createElement('div');
+        page.className = 'sheet';
+        page.innerHTML = FRAME + head(first, d) + (first ? slug(d) : '')
+          + '<div class="body"></div>' + foot(first, d, chart);
+        src.parentNode.insertBefore(page, src);
+        pages.push(page);
+        body = page.querySelector('.body');
+      }
+      function fits() { return body.scrollHeight <= body.clientHeight; }
+
+      newPage();
+      [].slice.call(src.querySelectorAll('.sec')).forEach(function (secSrc) {
+        var accent = +secSrc.dataset.accent || 0;
+        var sec = mkSec(secSrc.dataset.name, false, accent);
+        body.appendChild(sec);
+        var ul = sec.querySelector('ul');
+        // A heading landing alone at the foot of a page is a widow; push it over.
+        if (!fits()) {
+          sec.remove(); newPage();
+          sec = mkSec(secSrc.dataset.name, false, accent);
+          body.appendChild(sec); ul = sec.querySelector('ul');
+        }
+        [].slice.call(secSrc.querySelectorAll('li')).forEach(function (li) {
+          var item = li.cloneNode(true);
+          ul.appendChild(item);
+          if (!fits()) {
+            item.remove();
+            newPage();
+            sec = mkSec(secSrc.dataset.name, true, accent);
+            body.appendChild(sec); ul = sec.querySelector('ul');
+            ul.appendChild(item);
+            // One item taller than a whole page can't be helped — leave it
+            // rather than loop forever placing and removing it.
+          }
+        });
+      });
+
+      // A heading whose items all moved on would otherwise print empty.
+      pages.forEach(function (p) {
+        [].slice.call(p.querySelectorAll('.sec')).forEach(function (s) {
+          if (!s.querySelector('li')) s.remove();
+        });
+      });
+      pages.forEach(function (p, n) {
+        var el = p.querySelector('.pgs');
+        if (el) el.textContent = 'Page ' + (n + 1) + ' of ' + pages.length;
+      });
+      src.remove();
+    });
+  }
+  `;
 }
 
 function chkPrint() {
@@ -5532,16 +5693,18 @@ function chkPrint() {
   positions = positions.filter(p => chkResolve(p.id, showName).length);
   if (!positions.length) { try { toast('Nothing to print'); } catch(e){} return; }
 
-  const sheets = positions.map(p => chkSheetHTML(p, show, showName)).join('\n');
-  const doc = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
-    '<title>Pre-show checklists — ' + esc(showName || '') + '</title>' +
-    '<style>' + chkSheetCSS() + '</style></head><body>' + sheets + '</body></html>';
+  const src = positions.map(p => chkSourceHTML(p, show, showName)).join('\n');
+  const doc = '<!DOCTYPE html><html><head><meta charset="utf-8">'
+    + '<title>Pre-show checklists — ' + esc(showName || '') + '</title>'
+    + '<style>' + chkSheetCSS() + '</style></head><body>' + src
+    + '<script>' + chkPaginatorJS()
+    + 'function go(){ paginate(); setTimeout(function(){ window.focus(); window.print(); }, 120); }'
+    + 'if (document.readyState === "complete") go(); else window.addEventListener("load", go);'
+    + '<\/script></body></html>';
 
   const w = window.open('', '_blank');
   if (!w) { try { toast('Allow pop-ups to print'); } catch(e){} return; }
   w.document.open(); w.document.write(doc); w.document.close();
-  w.onload = () => { try { w.focus(); w.print(); } catch(e){} };
-  setTimeout(() => { try { if (!w.closed) { w.focus(); w.print(); } } catch(e){} }, 700);
 }
 
 // ── TV MODE ──────────────────────────────────────────────────────────────────
