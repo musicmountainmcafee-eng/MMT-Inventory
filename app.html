@@ -2588,6 +2588,57 @@
   }
   #tab-checklists button.chk-btn2:hover { border-color:var(--purple); color:var(--purple); }
 
+  /* section strip: which sections this position uses */
+  .chk-strip { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 14px; align-items:center; }
+  .chk-strip-lbl { font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+                   color:var(--text-faint); margin-right:4px; font-weight:700; }
+  #tab-checklists button.chk-sc {
+    font-size:12.5px; font-weight:600; padding:5px 12px; border-radius:999px;
+    border:1px solid var(--border); background:var(--surface); color:var(--text-faint);
+    white-space:nowrap;
+  }
+  #tab-checklists button.chk-sc:hover { border-color:var(--purple); color:var(--purple); background:var(--surface); }
+  #tab-checklists button.chk-sc.on { background:var(--purple-light); border-color:var(--purple);
+                                     color:var(--purple-dark); }
+  .chk-sc b { font-weight:500; opacity:.7; margin-left:5px; }
+
+  /* matrix: sections down, positions across */
+  .chk-matrix { background:var(--surface); border:1px solid var(--border);
+                border-radius:var(--radius); overflow-x:auto; margin-bottom:14px; }
+  .chk-mx { width:100%; border-collapse:collapse; font-size:13.5px; }
+  .chk-mx th {
+    font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; font-weight:700;
+    color:var(--text-faint); padding:11px 6px; border-bottom:1.5px solid var(--border);
+    white-space:nowrap; text-align:center;
+  }
+  .chk-mx th.chk-mx-name { text-align:left; padding-left:12px; min-width:190px; }
+  .chk-mx td { border-bottom:1px solid var(--border); padding:0; text-align:center; }
+  .chk-mx tbody tr:hover td { background:var(--bg); }
+  .chk-mx td.chk-mx-name { text-align:left; }
+  .chk-mx-namecell { display:flex; align-items:center; gap:4px; padding:4px 6px 4px 8px; }
+  .chk-mx input.nm {
+    flex:1; min-width:0; font-size:13.5px; color:var(--text); background:none;
+    border:1px solid transparent; border-radius:5px; padding:6px 6px;
+    font-family:'DM Sans',sans-serif;
+  }
+  .chk-mx input.nm:hover { border-color:var(--border); }
+  .chk-mx input.nm:focus { outline:none; border-color:var(--purple); background:var(--surface);
+                           box-shadow:0 0 0 2px var(--purple-light); }
+  #tab-checklists button.chk-box {
+    width:26px; height:26px; padding:0; border-radius:6px; font-size:11.5px; font-weight:700;
+    border:1.5px solid var(--border); background:var(--surface); color:var(--text-faint);
+    line-height:1;
+  }
+  #tab-checklists button.chk-box:hover { border-color:var(--purple); background:var(--surface); }
+  #tab-checklists button.chk-box.on { background:var(--purple); border-color:var(--purple); color:#fff; }
+  .chk-mx-foot { padding:8px 12px 10px; }
+  .chk-mx-foot input {
+    width:100%; max-width:280px; font-size:13px; padding:7px 9px; color:var(--text);
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm);
+    font-family:'DM Sans',sans-serif;
+  }
+  .chk-mx-note { font-size:12px; color:var(--text-muted); margin:0 0 12px 2px; }
+
   .chk-card { background:var(--surface); border:1px solid var(--border);
               border-radius:var(--radius); overflow:hidden; }
   .chk-grid { width:100%; border-collapse:collapse; font-size:13.5px; table-layout:fixed; }
@@ -2634,7 +2685,6 @@
   #tab-checklists button.chk-tab:hover { background:var(--bg); color:var(--text); }
   #tab-checklists button.chk-tab.active { color:var(--purple); border-bottom-color:var(--purple); background:none; }
   .chk-tab b { font-weight:500; opacity:.6; margin-left:6px; font-size:12px; }
-  .chk-tabnote { font-size:12px; color:var(--text-muted); margin:-6px 0 12px 2px; }
   #tab-checklists button.chk-tab.chk-tab-add {
     color:var(--text-faint); font-weight:700; padding:9px 12px;
   }
@@ -3378,13 +3428,18 @@
         </div>
         <div class="chk-bar">
           <input type="search" id="chk-q" placeholder="Search…" style="width:130px" oninput="chkRender()">
+          <button class="chk-btn2" id="chk-viewbtn" onclick="chkToggleView()">⊞ Sections</button>
           <button onclick="chkPrint()">🖨 Print</button>
         </div>
       </div>
 
       <div class="chk-tabs" id="chk-tabs"></div>
 
-      <div class="chk-card">
+      <div class="chk-strip" id="chk-strip"></div>
+
+      <div class="chk-matrix" id="chk-matrix" hidden></div>
+
+      <div class="chk-card" id="chk-card">
         <table class="chk-grid">
           <thead>
             <tr>
@@ -3403,7 +3458,6 @@
         </div>
       </div>
 
-      <datalist id="chk-sections"></datalist>
     </div>
   </div>
 
@@ -4605,19 +4659,28 @@ function saveSideWork() {
 
 // ── PRE-SHOW CHECKLISTS ──────────────────────────────────────────────────────
 // One tab per position. Each tab is its own flat list of rows — the tab you're
-// on IS the position, so a row never needs to say who it belongs to. Sections
-// group the rows within a tab, and because rows of a section are kept
-// contiguous, the order on screen is exactly the order on paper.
+// on IS the position, so a row never needs to say who it belongs to.
 //
-// Storage shape (v3):
+// Sections are a single canonical, ordered list shared by every position, and
+// each position ticks the ones it actually has duties in. That's what keeps six
+// printed sheets reading in the same sequence: the order lives in one array, not
+// six. Two views of the same booleans — a chip strip on each tab for while
+// you're writing, and a sections × positions matrix for setting up a season.
+//
+// Storage shape (v4):
 //   _chk.positions = [{ id, name, short, sort, active }, …]
-//   _chk.items = [{ id, position:posId, section, text }]
-// Nothing here is show-specific and nothing carries a date — this is the
-// standing list of duties done every single time, for whoever holds that job.
+//   _chk.sections  = ['House & safety', 'Preset', …]        ← order is global
+//   _chk.posSec    = { posId: ['Preset', …] }               ← which are ticked
+//   _chk.items     = [{ id, position, section, text }]
+// Unticking a section hides it and stops it printing; the rows underneath are
+// kept, so a mis-click can't lose work. Nothing here is show-specific and
+// nothing carries a date — this is the standing list, done every single time.
 var _chk = null;
 var _chkLoaded = false;
 var _chkSeq = 0;
 var _chkDrag = null;
+var _chkTab = '';
+var _chkView = 'grid';        // 'grid' = the position's list, 'matrix' = setup
 
 // `name` is the title printed on the sheet; `short` is what shows on the tab,
 // because six full job titles across one tab bar is unreadable.
@@ -4635,6 +4698,7 @@ function chkStore() {
   if (!_chk || typeof _chk !== 'object') _chk = {};
   if (!Array.isArray(_chk.positions) || !_chk.positions.length) _chk.positions = JSON.parse(JSON.stringify(CHK_DEFAULT_POSITIONS));
   if (!Array.isArray(_chk.sections) || !_chk.sections.length) _chk.sections = CHK_DEFAULT_SECTIONS.slice();
+  if (!_chk.posSec || typeof _chk.posSec !== 'object') _chk.posSec = {};
   if (!Array.isArray(_chk.items)) _chk.items = [];
   return _chk;
 }
@@ -4653,6 +4717,33 @@ function chkPosList() {
 function chkPosById(id) { return chkStore().positions.find(p => p.id === id) || null; }
 function chkPosShort(p) { return p.short || p.name || p.id; }
 
+// ── sections ─────────────────────────────────────────────────────────────────
+// A position with no entry yet gets everything ticked: a new position almost
+// always does the usual rounds, and unticking three is quicker than ticking six.
+function chkPosSec(posId) {
+  const st = chkStore();
+  if (!Array.isArray(st.posSec[posId])) st.posSec[posId] = st.sections.slice();
+  return st.posSec[posId];
+}
+function chkHasSec(posId, sec) { return chkPosSec(posId).indexOf(sec) !== -1; }
+// Ticked sections for a position, in canonical order — this is the print order
+// and the on-screen order, which is the whole point of keeping one list.
+function chkSecOn(posId) {
+  const on = chkPosSec(posId);
+  return chkStore().sections.filter(s => on.indexOf(s) !== -1);
+}
+function chkCountIn(posId, sec) {
+  return chkStore().items.filter(i => i.position === posId && i.section === sec
+                                   && (i.text || '').trim()).length;
+}
+function chkToggleSec(posId, sec) {
+  if (!chkIsTD()) return;
+  const list = chkPosSec(posId);
+  const n = list.indexOf(sec);
+  if (n === -1) list.push(sec); else list.splice(n, 1);
+  chkNormalize(); chkRender(); chkSave();
+}
+
 // ── loading, migration, saving ───────────────────────────────────────────────
 function ensureChecklistsLoaded() {
   if (_chkLoaded) { chkRender(); return; }
@@ -4660,9 +4751,11 @@ function ensureChecklistsLoaded() {
     _chk = (d && d.value) ? d.value : {};
     _chkLoaded = true; chkStore();
     if (chkNeedsMigration()) { chkBackupThenMigrate(); return; }
-    if (!_chkTab || !chkPosById(_chkTab)) _chkTab = (chkPosList()[0] || {}).id || '';
-    chkRender();
-  }, () => { _chk = {}; _chkLoaded = true; chkStore(); chkMigrate(); _chkTab = (chkPosList()[0] || {}).id || ''; chkRender(); });
+    chkPickFirstTab(); chkRender();
+  }, () => { _chk = {}; _chkLoaded = true; chkStore(); chkMigrate(); chkPickFirstTab(); chkRender(); });
+}
+function chkPickFirstTab() {
+  if (!_chkTab || !chkPosById(_chkTab)) _chkTab = (chkPosList()[0] || {}).id || '';
 }
 
 // Shown when the tab can't safely open. Reuses the loading overlay's geometry
@@ -4684,23 +4777,21 @@ function chkUnblock() {
 
 function chkNeedsMigration() {
   const st = chkStore();
-  return !(st.v >= 3) && (st.items.length > 0);
+  return !(st.v >= 4) && (st.items.length > 0);
 }
 
-// v1/v2 -> v3 rewrites items in place and can't be undone, so the untouched
-// blob is copied to its own key first. If that copy can't be confirmed we
-// don't migrate at all — a tab that asks you to try again beats data with no
-// way back.
+// Migration rewrites items in place and can't be undone, so the untouched blob
+// is copied to its own key first. If that copy can't be confirmed we don't
+// migrate at all — a tab that asks you to try again beats data with no way back.
 function chkBackupThenMigrate() {
   const original = JSON.stringify(_chk);
   const proceed = () => {
     if (chkMigrate()) chkSave();
-    if (!_chkTab || !chkPosById(_chkTab)) _chkTab = (chkPosList()[0] || {}).id || '';
-    chkRender();
+    chkPickFirstTab(); chkRender();
     try { toast('Checklists upgraded — a copy of the old data was saved'); } catch(e){}
   };
   const giveUp = () => {
-    // The grid only understands v3, so we can't render un-migrated data — it
+    // The grid only understands v4, so we can't render un-migrated data — it
     // would throw on the first row. Block the tab instead and offer a retry.
     _chkLoaded = false;
     chkBlock("Couldn't save a backup copy, so nothing was changed. Your checklists are safe. "
@@ -4708,39 +4799,61 @@ function chkBackupThenMigrate() {
     try { toast("Checklists not loaded — backup failed"); } catch(e){}
   };
   const viaJsonp = () => {
-    jsonp(SCRIPT_URL + '?action=saveKV&key=checklists_v2&value='
+    jsonp(SCRIPT_URL + '?action=saveKV&key=checklists_prev&value='
           + encodeURIComponent(original) + '&_=' + Date.now(), proceed, giveUp);
   };
   netStart();
   fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'},
-    body: JSON.stringify({ action:'saveKV', key:'checklists_v2', value:_chk }) })
+    body: JSON.stringify({ action:'saveKV', key:'checklists_prev', value:_chk }) })
     .then(() => { netEnd(); proceed(); })
     .catch(() => { netEnd(); viaJsonp(); });
 }
 
-// v1/v2 -> v3. Every row becomes single-position: a task that used to sit on
-// several positions' sheets is split into one row per position it applied to,
-// so each tab stays fully independent from here on. Anything tagged to a
-// specific show is dropped — that's a separate concern for a future tab, not
-// something this standing list carries.
+// Handles anything older than v4 in one pass.
+//   → v3: every row becomes single-position. A task that used to sit on several
+//     positions' sheets is split into one row per position, so each tab is
+//     independent. Show-tagged rows are dropped — a separate concern, not part
+//     of a standing list.
+//   → v4: section names found in the rows are folded into the canonical list,
+//     and each position ticks the sections it already had rows in.
 function chkMigrate() {
   const st = chkStore();
-  if (st.v >= 3) return false;
+  if (st.v >= 4) return false;
 
-  const out = [];
-  st.items.forEach(i => {
-    if (i.show) return;                                    // show-specific: dropped
-    const pos = Array.isArray(i.pos) ? i.pos : (i.pos ? [i.pos] : []);
-    if (!pos.length) return;                                // orphaned: nobody owned it
-    if (!(i.text || '').trim() && !(i.section || '').trim()) return;
-    pos.forEach(posId => {
-      if (!chkPosById(posId)) return;
-      out.push({ id: chkNewId('i'), position: posId, section: i.section || '', text: i.text || '' });
+  if (!(st.v >= 3)) {
+    const out = [];
+    st.items.forEach(i => {
+      if (i.show) return;                                   // show-specific: dropped
+      const pos = Array.isArray(i.pos) ? i.pos : (i.pos ? [i.pos] : []);
+      if (!pos.length) return;                              // orphaned: nobody owned it
+      if (!(i.text || '').trim() && !(i.section || '').trim()) return;
+      pos.forEach(posId => {
+        if (!chkPosById(posId)) return;
+        out.push({ id: chkNewId('i'), position: posId, section: i.section || '', text: i.text || '' });
+      });
     });
+    st.items = out;
+    delete st.show;
+  }
+
+  // Any section a row actually uses joins the canonical list, keeping the order
+  // those rows already sat in so the sheets don't reshuffle under you.
+  st.items.forEach(i => {
+    const s = (i.section || '').trim();
+    i.section = s || (st.sections[0] || 'Other');
+    if (st.sections.indexOf(i.section) === -1) st.sections.push(i.section);
   });
-  st.items = out;
-  delete st.show;
-  st.v = 3;
+
+  // Tick, per position, exactly what it had rows in. Positions with no rows at
+  // all are left unset so they default to everything ticked.
+  st.posSec = {};
+  chkPosList().forEach(p => {
+    const used = st.sections.filter(s =>
+      st.items.some(i => i.position === p.id && i.section === s));
+    if (used.length) st.posSec[p.id] = used;
+  });
+
+  st.v = 4;
   chkNormalize();
   return true;
 }
@@ -4758,59 +4871,37 @@ var _chkSaveTimer = null;
 function chkSaveSoon() { clearTimeout(_chkSaveTimer); _chkSaveTimer = setTimeout(chkSave, 700); }
 
 // ── ordering ─────────────────────────────────────────────────────────────────
-// Printing groups by section name, so scattered rows would make the paper
-// disagree with the screen. Items are kept position-major (each tab's rows
-// contiguous) and section-major within that, so what you see is the order
-// that prints.
-var _chkTab = '';
+// Items are held position-major, then in canonical section order within each
+// position. Because section order is global, sorting by it here is what makes
+// the screen and the paper agree across all six sheets at once.
 function chkNormalize() {
   const st = chkStore();
-  const posOrder = chkPosList().map(p => p.id);
-  const byPos = {};
+  // A row pointing at a section nobody declared would sort into limbo, so the
+  // list adopts it rather than losing track of the row.
   st.items.forEach(i => {
-    const p = i.position;
-    if (!byPos[p]) byPos[p] = [];
-    byPos[p].push(i);
+    const s = (i.section || '').trim();
+    i.section = s || (st.sections[0] || 'Other');
+    if (st.sections.indexOf(i.section) === -1) st.sections.push(i.section);
   });
-  const out = [];
-  posOrder.forEach(pid => {
-    const rows = byPos[pid] || [];
-    const order = [], buckets = {};
-    rows.forEach(i => {
-      const s = i.section || '';
-      if (!buckets[s]) { buckets[s] = []; order.push(s); }
-      buckets[s].push(i);
-    });
-    order.forEach(s => out.push(...buckets[s]));
-    delete byPos[pid];
-  });
-  // Positions no longer in the list (deactivated, etc.) keep their rows at the
-  // end rather than losing them silently.
-  Object.keys(byPos).forEach(pid => out.push(...byPos[pid]));
-  st.items = out;
+
+  const posOrder = chkPosList().map(p => p.id);
+  const posRank = id => { const n = posOrder.indexOf(id); return n === -1 ? 9999 : n; };
+  const secRank = s => { const n = st.sections.indexOf(s); return n === -1 ? 9999 : n; };
+  st.items = st.items
+    .map((it, n) => ({ it, n }))
+    .sort((a, b) => (posRank(a.it.position) - posRank(b.it.position))
+                 || (secRank(a.it.section) - secRank(b.it.section))
+                 || (a.n - b.n))
+    .map(x => x.it);
 }
-// This tab's rows, in on-screen order, each paired with its real index into
+// This tab's rows in a given section, each paired with its real index into
 // st.items — reorder logic splices the real array by that index.
-function chkTabRows() {
+function chkRowsIn(sec) {
   const out = [];
-  chkStore().items.forEach((it, idx) => { if (it.position === _chkTab) out.push({ item: it, idx }); });
-  return out;
-}
-function chkGroups() {
-  const out = [];
-  chkTabRows().forEach(r => {
-    const last = out[out.length - 1];
-    if (last && last.sec === r.item.section) last.n++;
-    else out.push({ sec: r.item.section, n:1 });
+  chkStore().items.forEach((it, idx) => {
+    if (it.position === _chkTab && it.section === sec) out.push({ item: it, idx });
   });
   return out;
-}
-function chkSpan(sec) {
-  const rows = chkTabRows();
-  const from = rows.findIndex(r => r.item.section === sec);
-  let to = from;
-  while (to + 1 < rows.length && rows[to + 1].item.section === sec) to++;
-  return { from: rows[from] ? rows[from].idx : -1, to: rows[to] ? rows[to].idx : -1 };
 }
 // Positioning by object reference rather than index arithmetic — the array
 // shifts under a splice and the off-by-one that causes is easy to get wrong.
@@ -4829,36 +4920,37 @@ function chkDropRow(from, targetIdx, after) {
   chkNormalize(); chkRender(); chkSaveSoon();
 }
 function chkMoveRow(i, dir) {
-  const rows = chkTabRows();
+  const it = chkStore().items[i];
+  if (!it) return;
+  const rows = chkRowsIn(it.section);
   const at = rows.findIndex(r => r.idx === i);
   const target = rows[at + dir];
   if (at === -1 || !target) return;
   chkDropRow(i, target.idx, dir > 0);
 }
-function chkMoveSection(g, dir) {
+// Section order is global, so this moves the name in the canonical list and
+// every sheet follows. That's the trade for having them all agree.
+function chkMoveSection(sec, dir) {
   if (!chkIsTD()) return;
-  const items = chkStore().items;
-  const groups = chkGroups();
-  const me = groups[g], other = groups[g + dir];
-  if (!me || !other) return;
-  const a = chkSpan(me.sec), b = chkSpan(other.sec);
-  const block = items.splice(a.from, a.to - a.from + 1);
-  const at = dir < 0 ? b.from : b.from + (b.to - b.from + 1) - block.length;
-  items.splice(at, 0, ...block);
-  chkRender(); chkSaveSoon();
-  try { toast('Section moved'); } catch(e){}
+  const st = chkStore();
+  const at = st.sections.indexOf(sec);
+  const to = at + dir;
+  if (at === -1 || to < 0 || to >= st.sections.length) return;
+  st.sections.splice(to, 0, st.sections.splice(at, 1)[0]);
+  chkNormalize(); chkRender(); chkSaveSoon();
+  try { toast('Section moved — every position follows'); } catch(e){}
 }
 
 // ── drag and drop ────────────────────────────────────────────────────────────
 function chkClearMarks() {
-  document.querySelectorAll('#chk-body .chk-above, #chk-body .chk-below')
+  document.querySelectorAll('.chk-above, .chk-below')
     .forEach(el => el.classList.remove('chk-above', 'chk-below'));
 }
 function chkClearLift() {
-  document.querySelectorAll('#chk-body .chk-lifted').forEach(el => el.classList.remove('chk-lifted'));
+  document.querySelectorAll('.chk-lifted').forEach(el => el.classList.remove('chk-lifted'));
 }
 document.addEventListener('dragstart', e => {
-  const g = e.target.closest ? e.target.closest('#chk-body .chk-grip[draggable]') : null;
+  const g = e.target.closest ? e.target.closest('#tab-checklists .chk-grip[draggable]') : null;
   if (!g) return;
   _chkDrag = g.dataset.drag === 'sec' ? { kind:'sec', sec:g.dataset.sec } : { kind:'row', i:+g.dataset.i };
   e.dataTransfer.effectAllowed = 'move';
@@ -4867,42 +4959,42 @@ document.addEventListener('dragstart', e => {
 });
 document.addEventListener('dragover', e => {
   if (!_chkDrag) return;
-  const tr = e.target.closest ? e.target.closest('#chk-body tr') : null;
+  const tr = e.target.closest ? e.target.closest('#tab-checklists tr') : null;
   if (!tr || tr.classList.contains('chk-ghost')) return;
   e.preventDefault();
   chkClearMarks();
   const box = tr.getBoundingClientRect();
   const after = (e.clientY - box.top) > box.height / 2;
-  if (_chkDrag.kind === 'sec') tr.classList.add('chk-above');
+  if (_chkDrag.kind === 'sec') tr.classList.add(after ? 'chk-below' : 'chk-above');
   else tr.classList.add(after ? 'chk-below' : 'chk-above');
 });
 document.addEventListener('drop', e => {
   if (!_chkDrag) return;
   e.preventDefault();
-  const tr = e.target.closest ? e.target.closest('#chk-body tr') : null;
+  const tr = e.target.closest ? e.target.closest('#tab-checklists tr') : null;
   const d = _chkDrag; _chkDrag = null; chkClearMarks(); chkClearLift();
   if (!tr) { chkRender(); return; }
-  const items = chkStore().items;
+  const st = chkStore();
 
   if (d.kind === 'sec') {
-    const target = tr.dataset.sec !== undefined ? tr.dataset.sec
-                 : (tr.dataset.i !== undefined ? items[+tr.dataset.i].section : null);
-    if (target === null || target === d.sec) { chkRender(); return; }
-    const groups = chkGroups();
-    const from = groups.findIndex(g => g.sec === d.sec);
-    const to = groups.findIndex(g => g.sec === target);
-    const block = items.splice(chkSpan(d.sec).from, groups[from].n);
-    const anchor = items.findIndex(i => i.position === _chkTab && i.section === target);
-    items.splice(to < from ? anchor : anchor + groups[to].n, 0, ...block);
-    chkRender(); chkSaveSoon();
-    try { toast('Section moved'); } catch(e2){}
+    const target = tr.dataset.sec;
+    if (target === undefined || target === d.sec) { chkRender(); return; }
+    const from = st.sections.indexOf(d.sec);
+    let to = st.sections.indexOf(target);
+    if (from === -1 || to === -1) { chkRender(); return; }
+    const box = tr.getBoundingClientRect();
+    if ((e.clientY - box.top) > box.height / 2) to++;
+    if (to > from) to--;
+    st.sections.splice(to, 0, st.sections.splice(from, 1)[0]);
+    chkNormalize(); chkRender(); chkSaveSoon();
+    try { toast('Section moved — every position follows'); } catch(e2){}
     return;
   }
 
   if (tr.classList.contains('chk-sechead')) {          // dropped on a heading: top of it
-    const first = chkTabRows().find(r => r.item.section === tr.dataset.sec);
+    const first = chkRowsIn(tr.dataset.sec)[0];
     if (first) chkDropRow(d.i, first.idx, false);
-    else { const it = items[d.i]; if (it) { it.section = tr.dataset.sec; chkNormalize(); chkRender(); chkSaveSoon(); } }
+    else { const it = st.items[d.i]; if (it) { it.section = tr.dataset.sec; chkNormalize(); chkRender(); chkSaveSoon(); } }
     return;
   }
   if (tr.dataset.i === undefined) { chkRender(); return; }
@@ -4912,16 +5004,14 @@ document.addEventListener('drop', e => {
 document.addEventListener('dragend', () => { _chkDrag = null; chkClearMarks(); chkClearLift(); });
 
 // ── assembling a position's printed list ─────────────────────────────────────
+// Only ticked sections print, and they print in canonical order.
 function chkResolve(posId) {
-  const st = chkStore();
   const out = [];
-  st.items.forEach(i => {
-    if (i.position !== posId) return;
-    if (!(i.text || '').trim()) return;                // half-typed row, don't print it
-    const s = (i.section || '').trim() || 'Other';
-    let b = out.find(x => x.section === s);
-    if (!b) { b = { section:s, items:[] }; out.push(b); }
-    b.items.push({ id:i.id, text:i.text });
+  chkSecOn(posId).forEach(sec => {
+    const items = chkStore().items
+      .filter(i => i.position === posId && i.section === sec && (i.text || '').trim())
+      .map(i => ({ id:i.id, text:i.text }));
+    if (items.length) out.push({ section: sec, items });
   });
   return out;
 }
@@ -4934,13 +5024,14 @@ function chkGrabFocus() {
 }
 function chkPutFocus(k) {
   if (!k) return;
-  const el = document.querySelector('#chk-body input[data-r="' + k.r + '"]');
+  const el = document.querySelector('#tab-checklists [data-r="' + k.r + '"]');
   if (!el) return;
   el.focus();
   try { el.setSelectionRange(k.at, k.at); } catch (e) {}
 }
 
-function chkSetTab(id) { _chkTab = id; chkRender(); }
+function chkSetTab(id) { _chkTab = id; _chkView = 'grid'; chkRender(); }
+function chkToggleView() { _chkView = (_chkView === 'matrix') ? 'grid' : 'matrix'; chkRender(); }
 
 // New position tabs are cheap to add and rare to need, so a prompt is enough —
 // no separate settings screen for something you'll do once or twice a season.
@@ -4953,106 +5044,184 @@ function chkAddPositionTab() {
   if (chkPosById(id)) id = chkNewId('POS');
   const sort = Math.max(0, ...st.positions.map(p => p.sort || 0)) + 10;
   st.positions.push({ id, name, short: name.length > 8 ? name.slice(0, 8) : name, sort, active:true });
-  _chkTab = id;
+  _chkTab = id; _chkView = 'grid';
   chkRender(); chkSave();
 }
 
 function chkRender() {
   const st = chkStore();
-  if (!document.getElementById('chk-body')) return;
+  if (!document.getElementById('chk-body') && !document.getElementById('chk-matrix')) return;
 
   const td = chkIsTD();
   const positions = chkPosList();
-  if (!_chkTab || !chkPosById(_chkTab)) _chkTab = (positions[0] || {}).id || '';
+  chkPickFirstTab();
 
-  const qEl = document.getElementById('chk-q');
-  const q = qEl ? qEl.value.trim().toLowerCase() : '';
   const keep = chkGrabFocus();
-  const groups = chkGroups();
-  const COLS = 3;
 
   // Tab bar: one per position, with live counts, plus a "+" to add one.
   const tally = {};
-  st.items.forEach(i => { tally[i.position] = (tally[i.position] || 0) + 1; });
+  st.items.forEach(i => { if ((i.text || '').trim()) tally[i.position] = (tally[i.position] || 0) + 1; });
   const tabsEl = document.getElementById('chk-tabs');
   if (tabsEl) {
     tabsEl.innerHTML = positions.map(p =>
-      `<button class="chk-tab${_chkTab === p.id ? ' active' : ''}" onclick="chkSetTab('${esc(p.id)}')">`
+      `<button class="chk-tab${_chkTab === p.id && _chkView === 'grid' ? ' active' : ''}" onclick="chkSetTab('${esc(p.id)}')">`
       + `${esc(p.name)}<b>${tally[p.id] || 0}</b></button>`).join('')
       + (td ? `<button class="chk-tab chk-tab-add" onclick="chkAddPositionTab()" title="Add a position">+</button>` : '');
   }
 
-  let lastSec = null, html = '';
+  const vb = document.getElementById('chk-viewbtn');
+  if (vb) vb.textContent = _chkView === 'matrix' ? '↩ Back to list' : '⊞ Sections';
 
-  chkStore().items.forEach((r, idx) => {
-    if (r.position !== _chkTab) return;
-    if (q && ((r.text || '') + ' ' + (r.section || '')).toLowerCase().indexOf(q) === -1) return;
+  const matrixEl = document.getElementById('chk-matrix');
+  const stripEl = document.getElementById('chk-strip');
+  const cardEl = document.getElementById('chk-card');
 
-    if (r.section !== lastSec) {
-      lastSec = r.section;
-      const g = groups.findIndex(x => x.sec === r.section);
-      html += `<tr class="chk-sechead" data-sec="${esc(r.section)}">`
-        + '<td class="chk-c-grip"><div class="chk-gripcell">'
-        + (td && !q
-            ? `<span class="chk-grip" draggable="true" data-drag="sec" data-sec="${esc(r.section)}" title="Drag to move this whole section">&#8942;&#8942;</span>`
-              + `<span><button class="chk-nudge" onclick="chkMoveSection(${g},-1)"${g === 0 ? ' disabled' : ''} title="Move section up">&#9650;</button>`
-              + `<button class="chk-nudge" onclick="chkMoveSection(${g},1)"${g === groups.length - 1 ? ' disabled' : ''} title="Move section down">&#9660;</button></span>`
-            : '')
-        + '</div></td>'
-        + `<td colspan="${COLS - 1}"><div class="chk-sechead-in">`
-        + (td
-            ? `<input class="nm" type="text" value="${esc(r.section || '')}" placeholder="Section"
-                 onchange="chkRenameSection(this.defaultValue, this.value)"
-                 onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">`
-            : `<span class="nm">${esc(r.section || 'Other')}</span>`)
-        + '</div></td></tr>';
-    }
+  if (_chkView === 'matrix') {
+    if (stripEl) stripEl.hidden = true;
+    if (cardEl) cardEl.hidden = true;
+    if (matrixEl) { matrixEl.hidden = false; chkRenderMatrix(matrixEl, td); }
+    chkPutFocus(keep);
+    return;
+  }
+  if (matrixEl) matrixEl.hidden = true;
+  if (stripEl) stripEl.hidden = false;
+  if (cardEl) cardEl.hidden = false;
 
-    html += `<tr data-i="${idx}" data-id="${esc(r.id)}">`
+  chkRenderStrip(stripEl, td);
+  chkRenderGrid(td);
+  chkPutFocus(keep);
+}
+
+// The strip: every canonical section as a chip, ticked ones lit, with the count
+// of duties underneath it. Tick to add the section to this sheet, untick to
+// take it off — the rows stay put either way.
+function chkRenderStrip(el, td) {
+  if (!el) return;
+  const st = chkStore();
+  el.innerHTML = '<span class="chk-strip-lbl">Sections</span>'
+    + st.sections.map(s => {
+        const on = chkHasSec(_chkTab, s);
+        const n = chkCountIn(_chkTab, s);
+        if (!td && !on) return '';
+        return `<button class="chk-sc${on ? ' on' : ''}"${td ? ` onclick="chkToggleSec('${esc(_chkTab)}','${esc(s)}')"` : ' disabled'}`
+             + ` title="${on ? 'On this sheet' : 'Not on this sheet'}">${esc(s)}`
+             + (n ? `<b>${n}</b>` : '') + '</button>';
+      }).join('')
+    + (td ? `<button class="chk-sc" onclick="chkToggleView()" title="Add, rename, or reorder sections">⊞ Edit list</button>` : '');
+}
+
+// The grid: one block per ticked section, each with its own add-a-row line, so
+// you never have to retype a section name to file something under it.
+function chkRenderGrid(td) {
+  const body = document.getElementById('chk-body');
+  if (!body) return;
+  const st = chkStore();
+  const qEl = document.getElementById('chk-q');
+  const q = qEl ? qEl.value.trim().toLowerCase() : '';
+  const secs = chkSecOn(_chkTab);
+  const COLS = 3;
+  let html = '';
+
+  secs.forEach((sec, n) => {
+    const rows = chkRowsIn(sec).filter(r =>
+      !q || ((r.item.text || '') + ' ' + sec).toLowerCase().indexOf(q) !== -1);
+    if (q && !rows.length) return;
+
+    html += `<tr class="chk-sechead" data-sec="${esc(sec)}">`
       + '<td class="chk-c-grip"><div class="chk-gripcell">'
       + (td && !q
-          ? `<span class="chk-grip" draggable="true" data-drag="row" data-i="${idx}" title="Drag to reorder">&#8942;&#8942;</span>`
-            + `<span><button class="chk-nudge" onclick="chkMoveRow(${idx},-1)" title="Move up (Alt+Up)">&#9650;</button>`
-            + `<button class="chk-nudge" onclick="chkMoveRow(${idx},1)" title="Move down (Alt+Down)">&#9660;</button></span>`
+          ? `<span class="chk-grip" draggable="true" data-drag="sec" data-sec="${esc(sec)}" title="Drag to reorder — applies to every position">&#8942;&#8942;</span>`
+            + `<span><button class="chk-nudge" onclick="chkMoveSection('${esc(sec)}',-1)"${n === 0 ? ' disabled' : ''} title="Move up (every position)">&#9650;</button>`
+            + `<button class="chk-nudge" onclick="chkMoveSection('${esc(sec)}',1)"${n === secs.length - 1 ? ' disabled' : ''} title="Move down (every position)">&#9660;</button></span>`
           : '')
       + '</div></td>'
-      + `<td><input type="text" value="${esc(r.text || '')}" placeholder="Checklist item"${td ? '' : ' readonly'}`
-      +   ` data-r="${esc(r.id)}" oninput="chkCell(${idx},this.value)" onkeydown="chkKey(event,this)"`
-      +   ` onpaste="chkPaste(event,${idx})"></td>`
-      + `<td class="chk-c-act">${td
-          ? `<span style="display:flex;justify-content:center">`
-            + `<button class="chk-act" onclick="chkDup(${idx})" title="Duplicate">&#10697;</button>`
-            + `<button class="chk-act del" onclick="chkDel(${idx})" title="Delete">&times;</button></span>`
-          : ''}</td>`
-      + '</tr>';
+      + `<td colspan="${COLS - 1}"><div class="chk-sechead-in">`
+      + `<span class="nm">${esc(sec)}</span>`
+      + (td ? `<button class="chk-act" onclick="chkToggleSec('${esc(_chkTab)}','${esc(sec)}')" title="Take this section off this sheet">&times;</button>` : '')
+      + '</div></td></tr>';
+
+    rows.forEach(r => {
+      const idx = r.idx;
+      html += `<tr data-i="${idx}" data-id="${esc(r.item.id)}">`
+        + '<td class="chk-c-grip"><div class="chk-gripcell">'
+        + (td && !q
+            ? `<span class="chk-grip" draggable="true" data-drag="row" data-i="${idx}" title="Drag to reorder">&#8942;&#8942;</span>`
+              + `<span><button class="chk-nudge" onclick="chkMoveRow(${idx},-1)" title="Move up (Alt+Up)">&#9650;</button>`
+              + `<button class="chk-nudge" onclick="chkMoveRow(${idx},1)" title="Move down (Alt+Down)">&#9660;</button></span>`
+            : '')
+        + '</div></td>'
+        + `<td><input type="text" value="${esc(r.item.text || '')}" placeholder="Checklist item"${td ? '' : ' readonly'}`
+        +   ` data-r="${esc(r.item.id)}" oninput="chkCell(${idx},this.value)" onkeydown="chkKey(event,this)"`
+        +   ` onpaste="chkPaste(event,${idx})"></td>`
+        + `<td class="chk-c-act">${td
+            ? `<span style="display:flex;justify-content:center">`
+              + `<button class="chk-act" onclick="chkDup(${idx})" title="Duplicate">&#10697;</button>`
+              + `<button class="chk-act del" onclick="chkDel(${idx})" title="Delete">&times;</button></span>`
+            : ''}</td>`
+        + '</tr>';
+    });
+
+    if (td && !q) {
+      html += `<tr class="chk-ghost"><td class="chk-c-grip"></td>`
+        + `<td><input type="text" placeholder="Add a duty…" oninput="chkGrow(this,'${esc(sec)}')" onkeydown="chkKey(event,this)" onpaste="chkPasteGhost(event,'${esc(sec)}')"></td>`
+        + `<td class="chk-c-act"></td></tr>`;
+    }
   });
 
-  if (td) {
-    html += `<tr class="chk-ghost"><td class="chk-c-grip"></td>`
-      + `<td><input type="text" placeholder="Add a duty…" oninput="chkGrow(this)" onkeydown="chkKey(event,this)" onpaste="chkPasteGhost(event)"></td>`
-      + `<td class="chk-c-act"></td></tr>`
-      + `<tr class="chk-sechead"><td class="chk-c-grip"></td><td colspan="${COLS - 1}"><div class="chk-sechead-in">`
-      + `<input class="nm" type="text" value="" placeholder="+ New section"
-           onchange="chkAddSection(this.value)"
-           onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div></td></tr>`;
-  }
   if (!html) {
     html = `<tr><td colspan="${COLS}" style="padding:26px;text-align:center;color:var(--text-muted);">`
-      + (q ? 'Nothing matches that search.' : 'Nothing on this tab yet.') + '</td></tr>';
+      + (q ? 'Nothing matches that search.'
+           : 'No sections on this sheet yet — tick one above to start.') + '</td></tr>';
   }
+  body.innerHTML = html;
 
-  document.getElementById('chk-body').innerHTML = html;
-  chkPutFocus(keep);
-
-  const dl = document.getElementById('chk-sections');
-  if (dl) {
-    const secs = [...new Set(st.items.map(i => i.section).filter(Boolean))];
-    dl.innerHTML = secs.map(s => `<option value="${esc(s)}">`).join('');
-  }
-
-  const live = chkStore().items.filter(i => i.position === _chkTab && (i.text || '').trim()).length;
+  const live = chkStore().items.filter(i => i.position === _chkTab && (i.text || '').trim()
+                                         && chkHasSec(_chkTab, i.section)).length;
   const cEl = document.getElementById('chk-count');
-  if (cEl) cEl.textContent = live + ' item' + (live === 1 ? '' : 's');
+  if (cEl) cEl.textContent = live + ' item' + (live === 1 ? '' : 's') + ' printing';
+}
+
+// The matrix: sections down, positions across. Same booleans as the strip, but
+// the whole season in one screen — a gap in a row is a position with nothing to
+// do at that moment, which is exactly the thing you want to catch before print.
+function chkRenderMatrix(el, td) {
+  const st = chkStore();
+  const positions = chkPosList();
+  let html = '<p class="chk-mx-note">Tick which sections each position uses. Drag a row to reorder — '
+           + 'section order is the same on every sheet.</p>'
+           + '<table class="chk-mx"><thead><tr><th class="chk-mx-name">Section</th>'
+           + positions.map(p => `<th title="${esc(p.name)}">${esc(chkPosShort(p))}</th>`).join('')
+           + '</tr></thead><tbody>';
+
+  st.sections.forEach((sec, n) => {
+    html += `<tr data-sec="${esc(sec)}"><td class="chk-mx-name"><div class="chk-mx-namecell">`
+      + (td
+          ? `<span class="chk-grip" draggable="true" data-drag="sec" data-sec="${esc(sec)}" title="Drag to reorder">&#8942;&#8942;</span>`
+            + `<span><button class="chk-nudge" onclick="chkMoveSection('${esc(sec)}',-1)"${n === 0 ? ' disabled' : ''} title="Move up">&#9650;</button>`
+            + `<button class="chk-nudge" onclick="chkMoveSection('${esc(sec)}',1)"${n === st.sections.length - 1 ? ' disabled' : ''} title="Move down">&#9660;</button></span>`
+            + `<input class="nm" type="text" value="${esc(sec)}" data-r="sec_${esc(sec)}"
+                 onchange="chkRenameSection(this.defaultValue, this.value)"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">`
+            + `<button class="chk-act del" onclick="chkDelSection('${esc(sec)}')" title="Delete section everywhere">&times;</button>`
+          : `<span class="nm">${esc(sec)}</span>`)
+      + '</div></td>';
+    positions.forEach(p => {
+      const on = chkHasSec(p.id, sec);
+      const c = chkCountIn(p.id, sec);
+      html += '<td>'
+        + `<button class="chk-box${on ? ' on' : ''}"${td ? ` onclick="chkToggleSec('${esc(p.id)}','${esc(sec)}')"` : ' disabled'}`
+        + ` title="${esc(p.name)} · ${esc(sec)}">${on ? (c || '&#10003;') : ''}</button></td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  if (td) {
+    html += '<div class="chk-mx-foot"><input type="text" placeholder="+ New section"'
+          + ' onchange="chkAddSection(this.value)"'
+          + " onkeydown=\"if(event.key==='Enter'){event.preventDefault();this.blur();}\"></div>";
+  }
+  el.innerHTML = html;
 }
 
 // ── undo ─────────────────────────────────────────────────────────────────────
@@ -5061,8 +5230,16 @@ var _chkTrash = [];
 function chkUndo() {
   if (!chkIsTD() || !_chkTrash.length) { try { toast('Nothing to undo'); } catch(e){} return; }
   const last = _chkTrash.pop();
-  const items = chkStore().items;
-  items.splice(Math.min(last.at, items.length), 0, last.item);
+  const st = chkStore();
+  if (last.kind === 'section') {
+    st.sections.splice(Math.min(last.at, st.sections.length), 0, last.sec);
+    Object.keys(last.posSec || {}).forEach(pid => { st.posSec[pid] = last.posSec[pid]; });
+    last.items.forEach(it => st.items.push(it));
+    chkNormalize(); chkRender(); chkSave();
+    try { toast('Restored "' + last.sec + '"'); } catch(e){}
+    return;
+  }
+  st.items.splice(Math.min(last.at, st.items.length), 0, last.item);
   chkNormalize(); chkRender(); chkSave();
   try { toast('Restored "' + (last.item.text || 'row').slice(0, 30) + '"'); } catch(e){}
 }
@@ -5103,30 +5280,77 @@ function chkCell(i, val) {
   chkSaveSoon();
   const cEl = document.getElementById('chk-count');
   if (cEl) {
-    const live = chkStore().items.filter(x => x.position === _chkTab && (x.text || '').trim()).length;
-    cEl.textContent = live + ' item' + (live === 1 ? '' : 's');
+    const live = chkStore().items.filter(x => x.position === _chkTab && (x.text || '').trim()
+                                            && chkHasSec(_chkTab, x.section)).length;
+    cEl.textContent = live + ' item' + (live === 1 ? '' : 's') + ' printing';
   }
 }
+// One name, one place — renaming here carries to every position's sheet, which
+// is the reason the list is canonical in the first place.
 function chkRenameSection(from, to) {
   if (!chkIsTD()) return;
   to = String(to || '').trim();
   if (!to || to === from) { chkRender(); return; }
-  let n = 0;
-  chkStore().items.forEach(i => { if (i.position === _chkTab && i.section === from) { i.section = to; n++; } });
+  const st = chkStore();
+  if (st.sections.indexOf(to) !== -1) {
+    try { toast('There\'s already a section called ' + to); } catch(e){}
+    chkRender(); return;
+  }
+  const at = st.sections.indexOf(from);
+  if (at !== -1) st.sections[at] = to;
+  st.items.forEach(i => { if (i.section === from) i.section = to; });
+  Object.keys(st.posSec).forEach(pid => {
+    const n = st.posSec[pid].indexOf(from);
+    if (n !== -1) st.posSec[pid][n] = to;
+  });
   chkNormalize(); chkRender(); chkSave();
-  try { toast('Renamed ' + n + ' row' + (n === 1 ? '' : 's') + ' to ' + to); } catch(e){}
+  try { toast('Renamed to ' + to + ' on every sheet'); } catch(e){}
 }
-// Sections exist only as a property of their rows, so a new one arrives with a
-// blank row attached and the cursor already in it.
+// A new section joins the canonical list and is ticked on the tab you added it
+// from, but nobody else's — adding "Wardrobe pre-set" shouldn't quietly appear
+// on six sheets.
 function chkAddSection(name) {
   if (!chkIsTD()) return;
   name = String(name || '').trim();
   if (!name) { chkRender(); return; }
-  const id = chkNewId('i');
-  chkStore().items.push({ id, position:_chkTab, section:name, text:'' });
+  const st = chkStore();
+  if (st.sections.indexOf(name) !== -1) {
+    if (_chkTab && !chkHasSec(_chkTab, name)) chkPosSec(_chkTab).push(name);
+    chkRender(); chkSave();
+    try { toast('That section already existed — ticked it here'); } catch(e){}
+    return;
+  }
+  st.sections.push(name);
+  if (_chkTab) chkPosSec(_chkTab).push(name);
   chkNormalize(); chkRender(); chkSave();
-  const el = document.querySelector('#chk-body input[data-r="' + id + '"]');
-  if (el) el.focus();
+}
+// Removing a section outright takes its rows on every sheet with it, so the
+// count goes in the confirm and the whole lot goes to the undo stack.
+function chkDelSection(sec) {
+  if (!chkIsTD()) return;
+  const st = chkStore();
+  const doomed = st.items.filter(i => i.section === sec && (i.text || '').trim());
+  if (doomed.length && !confirm('Delete "' + sec + '" from every position? '
+      + doomed.length + ' item' + (doomed.length === 1 ? '' : 's') + ' will go with it.')) return;
+
+  const at = st.sections.indexOf(sec);
+  const posSecCopy = {};
+  Object.keys(st.posSec).forEach(pid => {
+    if (st.posSec[pid].indexOf(sec) !== -1) posSecCopy[pid] = st.posSec[pid].slice();
+  });
+  const items = st.items.filter(i => i.section === sec);
+
+  _chkTrash.push({ kind:'section', sec, at: at === -1 ? st.sections.length : at, posSec: posSecCopy, items });
+  if (_chkTrash.length > 20) _chkTrash.shift();
+
+  if (at !== -1) st.sections.splice(at, 1);
+  st.items = st.items.filter(i => i.section !== sec);
+  Object.keys(st.posSec).forEach(pid => {
+    const n = st.posSec[pid].indexOf(sec);
+    if (n !== -1) st.posSec[pid].splice(n, 1);
+  });
+  chkNormalize(); chkRender(); chkSave();
+  try { toast('Deleted — Ctrl+Z to undo'); } catch(e){}
 }
 function chkDup(i) {
   if (!chkIsTD()) return;
@@ -5149,17 +5373,14 @@ function chkDel(i) {
   try { toast('Deleted — Ctrl+Z to undo'); } catch(e){}
 }
 
-// New rows are added to the tab you're on, so they land on that position's
-// sheet and nowhere else.
-function chkGrow(input) {
+// Each section has its own add line, so a new row already knows where it goes.
+function chkGrow(input, sec) {
   if (!chkIsTD()) return;
   const val = input.value;
   if (!val.trim()) return;
   const st = chkStore();
-  const rows = chkTabRows();
-  const prev = rows.length ? rows[rows.length - 1].item : null;
   const id = chkNewId('i');
-  st.items.push({ id, position:_chkTab, section: prev ? prev.section : (st.sections[0] || 'Preset'), text: val });
+  st.items.push({ id, position:_chkTab, section: sec, text: val });
   chkNormalize(); chkRender(); chkSaveSoon();
   const el = document.querySelector('#chk-body input[data-r="' + id + '"]');
   if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
@@ -5171,12 +5392,8 @@ function chkKey(e, input) {
     if (!tr || tr.classList.contains('chk-ghost') || tr.dataset.i === undefined) return;
     e.preventDefault();
     const dir = e.key === 'ArrowUp' ? -1 : 1;
-    if (e.shiftKey) {
-      const g = chkGroups().findIndex(x => x.sec === chkStore().items[+tr.dataset.i].section);
-      chkMoveSection(g, dir);
-    } else {
-      chkMoveRow(+tr.dataset.i, dir);
-    }
+    if (e.shiftKey) chkMoveSection(chkStore().items[+tr.dataset.i].section, dir);
+    else chkMoveRow(+tr.dataset.i, dir);
     return;
   }
   if (e.key !== 'Enter') return;
@@ -5188,38 +5405,34 @@ function chkKey(e, input) {
 }
 
 // ── paste ────────────────────────────────────────────────────────────────────
-// A block out of a spreadsheet still lands as rows. One column is Item, two is
-// Section + Item — the shape tells us which.
+// A block out of a spreadsheet still lands as rows, all filed under the section
+// you pasted into. Only the first column is read — the section is already known.
 function chkGrab(e) {
   const t = ((e.clipboardData || window.clipboardData).getData('text') || '').replace(/\r/g, '');
-  return t.split('\n').filter(l => l.trim()).map(l => l.split('\t'));
-}
-function chkMkRow(cols, ref) {
-  const wide = cols.length >= 2;
-  return { id: chkNewId('i'), position: _chkTab,
-           section: wide ? String(cols[0] || '').trim() : ((ref && ref.section) || ''),
-           text: String(cols[wide ? 1 : 0] || '').trim() };
+  return t.split('\n').map(l => l.split('\t')[0].trim()).filter(Boolean);
 }
 function chkPaste(e, i) {
   if (!chkIsTD()) return;
-  const cells = chkGrab(e);
-  if (cells.length < 2 && cells[0] && cells[0].length < 2) return;   // single value, let it through
+  const lines = chkGrab(e);
+  if (lines.length < 2) return;                       // single value, let it through
   e.preventDefault();
   const st = chkStore();
-  const made = cells.map(c => chkMkRow(c, st.items[i]));
+  const ref = st.items[i];
+  if (!ref) return;
+  const made = lines.map(t => ({ id: chkNewId('i'), position: ref.position, section: ref.section, text: t }));
   st.items.splice(i, 1, ...made);
   chkNormalize(); chkRender(); chkSave();
-  try { toast('Pasted ' + made.length + ' row' + (made.length === 1 ? '' : 's')); } catch(err){}
+  try { toast('Pasted ' + made.length + ' rows'); } catch(err){}
 }
-function chkPasteGhost(e) {
+function chkPasteGhost(e, sec) {
   if (!chkIsTD()) return;
-  const cells = chkGrab(e);
-  if (cells.length < 2 && cells[0] && cells[0].length < 2) return;
+  const lines = chkGrab(e);
+  if (lines.length < 2) return;
   e.preventDefault();
   const st = chkStore();
-  cells.forEach(c => st.items.push(chkMkRow(c, st.items[st.items.length - 1])));
+  lines.forEach(t => st.items.push({ id: chkNewId('i'), position:_chkTab, section: sec, text: t }));
   chkNormalize(); chkRender(); chkSave();
-  try { toast('Pasted ' + cells.length + ' row' + (cells.length === 1 ? '' : 's')); } catch(err){}
+  try { toast('Pasted ' + lines.length + ' rows'); } catch(err){}
 }
 
 // ── printing ─────────────────────────────────────────────────────────────────
