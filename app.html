@@ -2631,9 +2631,9 @@
   }
   #tab-checklists button.chk-box:hover { border-color:var(--purple); background:var(--surface); }
   #tab-checklists button.chk-box.on { background:var(--purple); border-color:var(--purple); color:#fff; }
-  .chk-mx-foot { padding:8px 12px 10px; }
+  .chk-mx-foot { padding:8px 12px 10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .chk-mx-foot input {
-    width:100%; max-width:280px; font-size:13px; padding:7px 9px; color:var(--text);
+    flex:0 1 280px; min-width:0; font-size:13px; padding:7px 9px; color:var(--text);
     background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm);
     font-family:'DM Sans',sans-serif;
   }
@@ -4744,6 +4744,43 @@ function chkToggleSec(posId, sec) {
   chkNormalize(); chkRender(); chkSave();
 }
 
+// A row with no text carries no information — the section tick already records
+// that the position uses that moment. The old app created one such row every
+// time you named a section, which is how half-typed names ("A", "At", "At C")
+// became permanent. This drops empty rows and then any section left with
+// nothing in it on any sheet, keeping the six standard ones regardless so a
+// clean-out never leaves you staring at a blank list.
+function chkPrune() {
+  const st = chkStore();
+  const rows = st.items.filter(i => !(i.text || '').trim()).length;
+  st.items = st.items.filter(i => (i.text || '').trim());
+
+  const used = {};
+  st.items.forEach(i => { used[i.section] = true; });
+  const before = st.sections.length;
+  st.sections = st.sections.filter(s => used[s] || CHK_DEFAULT_SECTIONS.indexOf(s) !== -1);
+  if (!st.sections.length) st.sections = CHK_DEFAULT_SECTIONS.slice();
+
+  Object.keys(st.posSec).forEach(pid => {
+    st.posSec[pid] = st.posSec[pid].filter(s => st.sections.indexOf(s) !== -1);
+    // A position left with nothing ticked reads as broken. Dropping the entry
+    // sends it back to the default of everything ticked.
+    if (!st.posSec[pid].length) delete st.posSec[pid];
+  });
+  return { sections: before - st.sections.length, rows };
+}
+// The same clean-out on demand, for debris that arrives later.
+function chkCleanUp() {
+  if (!chkIsTD()) return;
+  const n = chkPrune();
+  if (!n.sections && !n.rows) { try { toast('Nothing to clean up'); } catch(e){} chkRender(); return; }
+  chkNormalize(); chkRender(); chkSave();
+  try {
+    toast('Removed ' + n.sections + ' unused section' + (n.sections === 1 ? '' : 's')
+        + (n.rows ? ' and ' + n.rows + ' blank row' + (n.rows === 1 ? '' : 's') : ''));
+  } catch(e){}
+}
+
 // ── loading, migration, saving ───────────────────────────────────────────────
 function ensureChecklistsLoaded() {
   if (_chkLoaded) { chkRender(); return; }
@@ -4777,7 +4814,7 @@ function chkUnblock() {
 
 function chkNeedsMigration() {
   const st = chkStore();
-  return !(st.v >= 4) && (st.items.length > 0);
+  return !(st.v >= 5) && (st.items.length > 0 || st.sections.length > 0);
 }
 
 // Migration rewrites items in place and can't be undone, so the untouched blob
@@ -4809,16 +4846,17 @@ function chkBackupThenMigrate() {
     .catch(() => { netEnd(); viaJsonp(); });
 }
 
-// Handles anything older than v4 in one pass.
+// Handles anything older than v5 in one pass.
 //   → v3: every row becomes single-position. A task that used to sit on several
 //     positions' sheets is split into one row per position, so each tab is
 //     independent. Show-tagged rows are dropped — a separate concern, not part
 //     of a standing list.
-//   → v4: section names found in the rows are folded into the canonical list,
-//     and each position ticks the sections it already had rows in.
+//   → v4: section names that rows actually have text under are folded into the
+//     canonical list, and each position ticks the sections it had real rows in.
+//   → v5: blank rows and the phantom sections they created are cleared out.
 function chkMigrate() {
   const st = chkStore();
-  if (st.v >= 4) return false;
+  if (st.v >= 5) return false;
 
   if (!(st.v >= 3)) {
     const out = [];
@@ -4836,24 +4874,33 @@ function chkMigrate() {
     delete st.show;
   }
 
-  // Any section a row actually uses joins the canonical list, keeping the order
-  // those rows already sat in so the sheets don't reshuffle under you.
-  st.items.forEach(i => {
-    const s = (i.section || '').trim();
-    i.section = s || (st.sections[0] || 'Other');
-    if (st.sections.indexOf(i.section) === -1) st.sections.push(i.section);
-  });
+  if (!(st.v >= 4)) {
+    // Only a section that some row actually has text in earns a place in the
+    // canonical list. Adopting every name found on a row is what let the old
+    // app's blank placeholder rows turn into 45 phantom sections.
+    st.items.forEach(i => {
+      const s = (i.section || '').trim();
+      i.section = s || (st.sections[0] || 'Other');
+    });
+    st.items.forEach(i => {
+      if (!(i.text || '').trim()) return;
+      if (st.sections.indexOf(i.section) === -1) st.sections.push(i.section);
+    });
 
-  // Tick, per position, exactly what it had rows in. Positions with no rows at
-  // all are left unset so they default to everything ticked.
-  st.posSec = {};
-  chkPosList().forEach(p => {
-    const used = st.sections.filter(s =>
-      st.items.some(i => i.position === p.id && i.section === s));
-    if (used.length) st.posSec[p.id] = used;
-  });
+    // Tick, per position, exactly what it had real rows in. Positions with no
+    // rows at all are left unset so they default to everything ticked.
+    st.posSec = {};
+    chkPosList().forEach(p => {
+      const used = st.sections.filter(s =>
+        st.items.some(i => i.position === p.id && i.section === s && (i.text || '').trim()));
+      if (used.length) st.posSec[p.id] = used;
+    });
+  }
 
-  st.v = 4;
+  // v5: clear out the blank rows and phantom sections left by the old app.
+  chkPrune();
+
+  st.v = 5;
   chkNormalize();
   return true;
 }
@@ -5219,7 +5266,9 @@ function chkRenderMatrix(el, td) {
   if (td) {
     html += '<div class="chk-mx-foot"><input type="text" placeholder="+ New section"'
           + ' onchange="chkAddSection(this.value)"'
-          + " onkeydown=\"if(event.key==='Enter'){event.preventDefault();this.blur();}\"></div>";
+          + " onkeydown=\"if(event.key==='Enter'){event.preventDefault();this.blur();}\">"
+          + '<button class="chk-btn2" style="margin-left:8px" onclick="chkCleanUp()"'
+          + ' title="Remove sections nothing is filed under, and any blank rows">Clean up unused</button></div>';
   }
   el.innerHTML = html;
 }
