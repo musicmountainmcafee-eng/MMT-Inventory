@@ -708,24 +708,32 @@ function pointAtAxis(pts, axis, v){
   return null;
 }
 
-/* lay holes on the shared grid lines that cross this edge, then guarantee the corners */
-function placeAxis(seg, axis, pitch, origin){
+/* Sit on the shared rows that cross this edge. The row set is fitted to the inset
+   artwork, so letter tops and bottoms land on rows exactly and every straight edge
+   agrees with every other. A corner only earns its own bulb when skipping it would
+   leave a real hole in the run. */
+function placeAxis(seg, axis, rows, pitch){
   var pts=seg.pts, lo=Infinity, hi=-Infinity;
   pts.forEach(function(p){ if(p[axis]<lo)lo=p[axis]; if(p[axis]>hi)hi=p[axis]; });
-  var out=[], k0=Math.ceil((lo-origin)/pitch-1e-9), k1=Math.floor((hi-origin)/pitch+1e-9);
-  for(var k=k0;k<=k1;k++){
-    var p=pointAtAxis(pts, axis, origin+k*pitch);
-    if(p) out.push(p);
+  var L=hi-lo, e=pitch*1e-4, at=function(v){ return pointAtAxis(pts,axis,v); };
+  if(L < pitch*0.25) return [];          // wrap-around slivers, not real edges
+  if(L < pitch*0.55){
+    var m=at((lo+hi)/2)||pts[Math.floor(pts.length/2)];
+    return m?[m]:[];
   }
-  [pts[0], pts[pts.length-1]].forEach(function(e){
-    var best=Infinity;
-    for(var i=0;i<out.length;i++){
-      var d=Math.hypot(out[i][0]-e[0], out[i][1]-e[1]);
-      if(d<best) best=d;
-    }
-    if(best>pitch*0.55) out.push(e);
-  });
-  if(!out.length) out.push(pts[Math.floor(pts.length/2)]);
+  var hit=[];
+  for(var i=0;i<rows.length;i++) if(rows[i]>=lo-e && rows[i]<=hi+e) hit.push(rows[i]);
+  var vals=[];
+  if(!hit.length){
+    var n=Math.max(1, Math.round(L/pitch));
+    for(var k=0;k<=n;k++) vals.push(lo + L*k/n);
+  } else {
+    vals=hit.slice();
+    if(hit[0]-lo >= pitch*0.6) vals.unshift(lo);
+    if(hi-hit[hit.length-1] >= pitch*0.6) vals.push(hi);
+  }
+  var out=[];
+  vals.forEach(function(v){ var q=at(v); if(q) out.push(q); });
   return out;
 }
 
@@ -763,6 +771,14 @@ function recompute(){
     insetRuns(rc, inset, coarse, grid, probe).forEach(function(r){ runs.push(r); });
   });
 
+  // shared rows and columns, sized off the inset artwork so the pitch lands evenly
+  var ib=bboxOf(runs.length?runs:coarse);
+  var rowN=Math.max(1,Math.round(ib.h/spacing)), rowPitch=ib.h/rowN;
+  var colN=Math.max(1,Math.round(ib.w/spacing)), colPitch=ib.w/colN;
+  var rowsY=[], rowsX=[], q;
+  for(q=0;q<=rowN;q++) rowsY.push(ib.y+q*rowPitch);
+  for(q=0;q<=colN;q++) rowsX.push(ib.x+q*colPitch);
+
   // break each ring at its corners so straight edges can share one grid
   var align=$('align').checked;
   var segs=[];
@@ -780,8 +796,8 @@ function recompute(){
   segs.forEach(function(sg){
     var pts, axis = align ? axisOf(sg, tolStraight) : null;
     if(axis===0 || axis===1){
-      pts = placeAxis(sg, axis, spacing, axis===0 ? bb.x : bb.y);
-      steps.push(spacing*scale);
+      pts = placeAxis(sg, axis, axis===0?rowsX:rowsY, axis===0?colPitch:rowPitch);
+      steps.push((axis===0?colPitch:rowPitch)*scale);
     } else {
       var res=placeOnRun(sg, spacing);
       pts=res.pts;
