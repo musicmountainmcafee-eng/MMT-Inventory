@@ -222,6 +222,7 @@
           <input type="number" id="gN" value="0.9" step="0.05" min="0">
         </div>
       </label>
+      <label class="check" style="margin-top:2px"><input type="checkbox" id="align" checked> Line holes up on a shared grid</label>
       <p class="note">Bulbs are spaced along the inset ring itself, not the letter edge, so tight curves and corners stay even. Where the ring collapses on itself — the throat of a C, the crotch of a K — that stretch is dropped rather than doubled up.</p>
     </section>
 
@@ -641,6 +642,93 @@ function placeOnRun(run, spacing){
   return {pts:out, step:step};
 }
 
+/* split a run at corners so each straight edge can be gridded on its own */
+function splitAtCorners(run, thresh){
+  var pts=run.pts, n=pts.length;
+  if(n<8) return [run];
+  var w=3, flag=new Array(n);
+  for(var i=0;i<n;i++){
+    if(!run.closed && (i<w || i>=n-w)){ flag[i]=false; continue; }
+    var a=pts[(i-w+n)%n], b=pts[i], c=pts[(i+w)%n];
+    var v1x=b[0]-a[0], v1y=b[1]-a[1], v2x=c[0]-b[0], v2y=c[1]-b[1];
+    var l1=Math.hypot(v1x,v1y), l2=Math.hypot(v2x,v2y);
+    if(!l1||!l2){ flag[i]=false; continue; }
+    var dp=(v1x*v2x+v1y*v2y)/(l1*l2);
+    flag[i]=Math.acos(Math.max(-1,Math.min(1,dp)))>thresh;
+  }
+  var corners=[], i2=0;
+  while(i2<n){
+    if(flag[i2]){ var j=i2; while(j<n && flag[j]) j++; corners.push(Math.floor((i2+j-1)/2)); i2=j; }
+    else i2++;
+  }
+  if(!corners.length) return [run];
+  var segs=[];
+  if(run.closed){
+    for(var k=0;k<corners.length;k++){
+      var st=corners[k], en=corners[(k+1)%corners.length];
+      var sp=[pts[st]], idx=(st+1)%n;
+      while(idx!==en){ sp.push(pts[idx]); idx=(idx+1)%n; }
+      sp.push(pts[en]);
+      if(sp.length>1) segs.push({pts:sp, closed:false});
+    }
+  } else {
+    var bounds=[0].concat(corners).concat([n-1]);
+    for(var k2=0;k2<bounds.length-1;k2++){
+      var sp2=pts.slice(bounds[k2], bounds[k2+1]+1);
+      if(sp2.length>1) segs.push({pts:sp2, closed:false});
+    }
+  }
+  return segs.length?segs:[run];
+}
+
+/* 1 = runs vertically (grid the y), 0 = runs horizontally (grid the x), null = curve or diagonal */
+function axisOf(seg, tolStraight){
+  var pts=seg.pts, a=pts[0], b=pts[pts.length-1];
+  var dx=b[0]-a[0], dy=b[1]-a[1], L=Math.hypot(dx,dy);
+  if(L<1e-9) return null;
+  var ux=dx/L, uy=dy/L, maxd=0;
+  for(var i=1;i<pts.length-1;i++){
+    var d=Math.abs((pts[i][0]-a[0])*uy-(pts[i][1]-a[1])*ux);
+    if(d>maxd) maxd=d;
+  }
+  if(maxd>tolStraight) return null;
+  if(Math.abs(uy)>0.94) return 1;
+  if(Math.abs(ux)>0.94) return 0;
+  return null;
+}
+
+function pointAtAxis(pts, axis, v){
+  for(var i=0;i<pts.length-1;i++){
+    var a=pts[i][axis], b=pts[i+1][axis];
+    if(v>=Math.min(a,b)-1e-9 && v<=Math.max(a,b)+1e-9){
+      var f=(b-a)!==0?(v-a)/(b-a):0;
+      return [pts[i][0]+(pts[i+1][0]-pts[i][0])*f, pts[i][1]+(pts[i+1][1]-pts[i][1])*f];
+    }
+  }
+  return null;
+}
+
+/* lay holes on the shared grid lines that cross this edge, then guarantee the corners */
+function placeAxis(seg, axis, pitch, origin){
+  var pts=seg.pts, lo=Infinity, hi=-Infinity;
+  pts.forEach(function(p){ if(p[axis]<lo)lo=p[axis]; if(p[axis]>hi)hi=p[axis]; });
+  var out=[], k0=Math.ceil((lo-origin)/pitch-1e-9), k1=Math.floor((hi-origin)/pitch+1e-9);
+  for(var k=k0;k<=k1;k++){
+    var p=pointAtAxis(pts, axis, origin+k*pitch);
+    if(p) out.push(p);
+  }
+  [pts[0], pts[pts.length-1]].forEach(function(e){
+    var best=Infinity;
+    for(var i=0;i<out.length;i++){
+      var d=Math.hypot(out[i][0]-e[0], out[i][1]-e[1]);
+      if(d<best) best=d;
+    }
+    if(best>pitch*0.55) out.push(e);
+  });
+  if(!out.length) out.push(pts[Math.floor(pts.length/2)]);
+  return out;
+}
+
 function recompute(){
   if(!state.contours.length){ render(); return; }
   var bb=state.bbox;
@@ -675,21 +763,38 @@ function recompute(){
     insetRuns(rc, inset, coarse, grid, probe).forEach(function(r){ runs.push(r); });
   });
 
-  // longest runs get first claim on space, so the main ring wins over stubs
-  runs.forEach(function(r){ r.len=polyLen(r.pts,r.closed); });
-  runs.sort(function(a,b){return b.len-a.len;});
-
-  var kept=[], skipped=0;
+  // break each ring at its corners so straight edges can share one grid
+  var align=$('align').checked;
+  var segs=[];
   runs.forEach(function(r){
-    var res=placeOnRun(r, spacing);
-    if(res.step) steps.push(res.step*scale);
-    res.pts.forEach(function(p){
+    if(align) splitAtCorners(r, 0.5).forEach(function(sg){ segs.push(sg); });
+    else segs.push(r);
+  });
+
+  // longest edges get first claim on space, so main runs win over stubs
+  segs.forEach(function(sg){ sg.len=polyLen(sg.pts,sg.closed); });
+  segs.sort(function(a,b){return b.len-a.len;});
+
+  var tolStraight=Math.max(spacing*0.06, inset*0.08, diag*1e-3);
+  var kept=[], skipped=0;
+  segs.forEach(function(sg){
+    var pts, axis = align ? axisOf(sg, tolStraight) : null;
+    if(axis===0 || axis===1){
+      pts = placeAxis(sg, axis, spacing, axis===0 ? bb.x : bb.y);
+      steps.push(spacing*scale);
+    } else {
+      var res=placeOnRun(sg, spacing);
+      pts=res.pts;
+      if(res.step) steps.push(res.step*scale);
+    }
+    pts.forEach(function(p){
       for(var j=0;j<kept.length;j++){
         if(Math.hypot(p[0]-kept[j][0],p[1]-kept[j][1]) < gap){ skipped++; return; }
       }
       kept.push(p);
     });
   });
+  runs=segs;
 
   state.holes = kept.map(function(p){
     return [ (p[0]-bb.x)*scale, (p[1]-bb.y)*scale ];
@@ -817,6 +922,7 @@ link('iR','iN',schedule);
 link('gR','gN',schedule);
 $('fitVal').addEventListener('input',schedule);
 $('fitMode').addEventListener('change',schedule);
+$('align').addEventListener('change',schedule);
 $('chase').addEventListener('change',render);
 $('showArt').addEventListener('change',render);
 
