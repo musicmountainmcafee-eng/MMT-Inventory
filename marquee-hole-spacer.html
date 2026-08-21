@@ -198,6 +198,12 @@
 
     <section class="sect">
       <h2>Bulbs</h2>
+      <label class="f"><span>Layout</span>
+        <select id="layout">
+          <option value="center">Centerline — one line per stroke</option>
+          <option value="ring">Outline ring</option>
+        </select>
+      </label>
       <label class="f"><span>Hole diameter (in)</span>
         <div class="slide">
           <input type="range" id="dR" min="0.125" max="2" step="0.005" value="0.472">
@@ -210,7 +216,7 @@
           <input type="number" id="sN" value="2" step="0.05" min="0.2">
         </div>
       </label>
-      <label class="f"><span>Inset from edge (in)</span>
+      <label class="f"><span>Inset from edge / stroke tip (in)</span>
         <div class="slide">
           <input type="range" id="iR" min="0" max="4" step="0.02" value="0.6">
           <input type="number" id="iN" value="0.6" step="0.02" min="0">
@@ -240,7 +246,7 @@
     <dl class="readout">
       <div class="stat"><dt>Bulbs</dt><dd id="stCount">—</dd></div>
       <div class="stat"><dt>Actual spacing</dt><dd id="stSpace">—</dd></div>
-      <div class="stat"><dt>Rings</dt><dd id="stPaths">—</dd></div>
+      <div class="stat"><dt>Runs</dt><dd id="stPaths">—</dd></div>
       <div class="stat plain"><dt>Finished size</dt><dd id="stSize">—</dd></div>
       <div class="stat plain"><dt>Drill time est.</dt><dd id="stTime">—</dd></div>
     </dl>
@@ -280,6 +286,7 @@ var state = {
   rawPaths:[],      // [{d:string, m:[a,b,c,d,e,f]}] for faithful export
   bbox:null,        // {x,y,w,h} in source units
   font:null,
+  skel:undefined,
   holes:[],         // in inches, origin at bbox top-left
   actualSpacing:0
 };
@@ -374,6 +381,7 @@ function ingestSvg(text){
 
   state.rawPaths=raws;
   state.contours=contours;
+  state.skel=undefined;
   state.bbox=bboxOf(contours);
   recompute();
 }
@@ -505,6 +513,7 @@ function buildFromFont(){
   if(!d || !d.trim()){ msg('That text produced no outlines.',true); return; }
   var m=[1,0,0,1,0,0];
   state.rawPaths=[{d:d,m:m}];
+  state.skel=undefined;
   var contours=[];
   splitSubpaths(d).forEach(function(sub){
     var c=sampleSub(sub,m);
@@ -737,6 +746,255 @@ function placeAxis(seg, axis, rows, pitch){
   return out;
 }
 
+/* ============ CENTERLINE ENGINE ============
+   Real marquee letters put one line of bulbs down the middle of every stroke.
+   That line is the shape's medial axis, so: rasterise the letter, measure how far
+   every pixel sits from the nearest edge, thin the shape to a one-pixel spine,
+   then trace the spine into polylines. Cached, since it only depends on artwork. */
+
+function rasterMask(){
+  var bb=state.bbox;
+  var targetW=560;
+  var pxPerUnit=targetW/bb.w;
+  var pad=6;
+  var cw=Math.round(bb.w*pxPerUnit)+pad*2, chh=Math.round(bb.h*pxPerUnit)+pad*2;
+  if(!isFinite(cw)||!isFinite(chh)||cw<8||chh<8) return null;
+  var cv=document.createElement('canvas'); cv.width=cw; cv.height=chh;
+  var ctx=cv.getContext('2d',{willReadFrequently:true});
+  if(!ctx || typeof Path2D==='undefined') return null;
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,cw,chh);
+  var big;
+  try{
+    big=new Path2D();
+    state.rawPaths.forEach(function(rp){
+      big.addPath(new Path2D(rp.d), new DOMMatrix([rp.m[0],rp.m[1],rp.m[2],rp.m[3],rp.m[4],rp.m[5]]));
+    });
+  }catch(e){ return null; }
+  ctx.setTransform(pxPerUnit,0,0,pxPerUnit, pad-bb.x*pxPerUnit, pad-bb.y*pxPerUnit);
+  ctx.fillStyle='#fff';
+  try{ ctx.fill(big,'evenodd'); }catch(e){ return null; }
+  ctx.setTransform(1,0,0,1,0,0);
+  var data=ctx.getImageData(0,0,cw,chh).data;
+  var mask=new Uint8Array(cw*chh), on=0;
+  for(var i=0;i<cw*chh;i++){ if(data[i*4]>127){ mask[i]=1; on++; } }
+  if(on<20) return null;
+  return {mask:mask, cw:cw, ch:chh, pad:pad, pxPerUnit:pxPerUnit};
+}
+
+/* exact squared euclidean distance transform, Felzenszwalb & Huttenlocher */
+function edt1d(f,n,d,v,z){
+  var k=0; v[0]=0; z[0]=-1e20; z[1]=1e20;
+  for(var q=1;q<n;q++){
+    var s=((f[q]+q*q)-(f[v[k]]+v[k]*v[k]))/(2*q-2*v[k]);
+    while(s<=z[k]){ k--; s=((f[q]+q*q)-(f[v[k]]+v[k]*v[k]))/(2*q-2*v[k]); }
+    k++; v[k]=q; z[k]=s; z[k+1]=1e20;
+  }
+  k=0;
+  for(q=0;q<n;q++){
+    while(z[k+1]<q) k++;
+    d[q]=(q-v[k])*(q-v[k])+f[v[k]];
+  }
+}
+function distanceMap(mask,cw,ch){
+  var INF=1e20, g=new Float64Array(cw*ch);
+  var n=Math.max(cw,ch);
+  var f=new Float64Array(n), d=new Float64Array(n), v=new Int32Array(n), z=new Float64Array(n+1);
+  var x,y;
+  for(x=0;x<cw;x++){
+    for(y=0;y<ch;y++) f[y]=mask[y*cw+x]?INF:0;
+    edt1d(f,ch,d,v,z);
+    for(y=0;y<ch;y++) g[y*cw+x]=d[y];
+  }
+  for(y=0;y<ch;y++){
+    for(x=0;x<cw;x++) f[x]=g[y*cw+x];
+    edt1d(f,cw,d,v,z);
+    for(x=0;x<cw;x++) g[y*cw+x]=Math.sqrt(d[x]);
+  }
+  return g;
+}
+
+/* Zhang-Suen thinning */
+function thin(mask,cw,ch){
+  var img=new Uint8Array(mask), del=new Int32Array(cw*ch), changed=true, guard=0;
+  while(changed && guard++<80){
+    changed=false;
+    for(var step=0;step<2;step++){
+      var nd=0;
+      for(var y=1;y<ch-1;y++){
+        var row=y*cw;
+        for(var x=1;x<cw-1;x++){
+          if(!img[row+x]) continue;
+          var p2=img[row-cw+x], p3=img[row-cw+x+1], p4=img[row+x+1], p5=img[row+cw+x+1],
+              p6=img[row+cw+x], p7=img[row+cw+x-1], p8=img[row+x-1], p9=img[row-cw+x-1];
+          var B=p2+p3+p4+p5+p6+p7+p8+p9;
+          if(B<2||B>6) continue;
+          var A=0;
+          if(!p2&&p3)A++; if(!p3&&p4)A++; if(!p4&&p5)A++; if(!p5&&p6)A++;
+          if(!p6&&p7)A++; if(!p7&&p8)A++; if(!p8&&p9)A++; if(!p9&&p2)A++;
+          if(A!==1) continue;
+          if(step===0){ if(p2&&p4&&p6) continue; if(p4&&p6&&p8) continue; }
+          else       { if(p2&&p4&&p8) continue; if(p2&&p6&&p8) continue; }
+          del[nd++]=row+x;
+        }
+      }
+      if(nd){ changed=true; for(var i=0;i<nd;i++) img[del[i]]=0; }
+    }
+  }
+  return img;
+}
+
+var NB8=[[-1,-1],[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0]];
+
+function traceSkeleton(sk,cw,ch){
+  var deg=new Uint8Array(cw*ch), x,y,k,id;
+  for(y=1;y<ch-1;y++) for(x=1;x<cw-1;x++){
+    id=y*cw+x; if(!sk[id]) continue;
+    var c=0;
+    for(k=0;k<8;k++) if(sk[(y+NB8[k][1])*cw+(x+NB8[k][0])]) c++;
+    deg[id]=c;
+  }
+  var used=new Uint8Array(cw*ch), out=[];
+  function walk(sx,sy,fx,fy){
+    var path=[[sx,sy],[fx,fy]], px=sx,py=sy, cx=fx,cy=fy;
+    used[cy*cw+cx]=1;
+    while(deg[cy*cw+cx]===2){
+      var nx=-1,ny=-1;
+      for(var k2=0;k2<8;k2++){
+        var ax=cx+NB8[k2][0], ay=cy+NB8[k2][1];
+        if(!sk[ay*cw+ax]) continue;
+        if(ax===px&&ay===py) continue;
+        nx=ax; ny=ay; break;
+      }
+      if(nx<0) break;
+      px=cx; py=cy; cx=nx; cy=ny;
+      used[cy*cw+cx]=1;
+      path.push([cx,cy]);
+      if(cx===sx&&cy===sy) break;
+    }
+    return path;
+  }
+  for(y=1;y<ch-1;y++) for(x=1;x<cw-1;x++){
+    id=y*cw+x;
+    if(!sk[id]||deg[id]===2) continue;
+    for(k=0;k<8;k++){
+      var nx3=x+NB8[k][0], ny3=y+NB8[k][1];
+      if(!sk[ny3*cw+nx3]) continue;
+      if(used[ny3*cw+nx3]) continue;
+      var p=walk(x,y,nx3,ny3);
+      if(p.length>2){
+        var e=p[p.length-1];
+        out.push({pts:p, closed:false, freeA:deg[id]===1, freeB:deg[e[1]*cw+e[0]]===1});
+      }
+    }
+  }
+  for(y=1;y<ch-1;y++) for(x=1;x<cw-1;x++){   // closed loops, every pixel degree 2
+    id=y*cw+x;
+    if(!sk[id]||used[id]||deg[id]!==2) continue;
+    for(k=0;k<8;k++){
+      var lx=x+NB8[k][0], ly=y+NB8[k][1];
+      if(sk[ly*cw+lx]){ var lp=walk(x,y,lx,ly); if(lp.length>3) out.push({pts:lp, closed:true, freeA:false, freeB:false}); break; }
+    }
+  }
+  return out;
+}
+
+function pxLen(pts){
+  var L=0;
+  for(var i=0;i<pts.length-1;i++) L+=Math.hypot(pts[i+1][0]-pts[i][0], pts[i+1][1]-pts[i][1]);
+  return L;
+}
+
+/* thinning throws diagonal spurs into every corner — cut anything shorter than the
+   local stroke half-width, which is exactly what those spurs are */
+function pruneBranches(brs, D, cw){
+  var keep=[];
+  for(var i=0;i<brs.length;i++){
+    var b=brs[i], L=pxLen(b.pts);
+    if(b.closed){ keep.push(b); continue; }
+    var a=b.pts[0], z=b.pts[b.pts.length-1];
+    var da=D[a[1]*cw+a[0]], dz=D[z[1]*cw+z[0]];
+    var thick=Math.max(da,dz);
+    if(L < thick*1.35) continue;
+    keep.push(b);
+  }
+  return keep.length?keep:brs;
+}
+
+function smoothPts(pts, win, closed){
+  var n=pts.length;
+  if(n<5||win<2) return pts;
+  var out=new Array(n), h=Math.floor(win/2);
+  for(var i=0;i<n;i++){
+    if(!closed && (i<h || i>=n-h)){ out[i]=pts[i]; continue; }
+    var sx=0, sy=0, c=0;
+    for(var j=-h;j<=h;j++){
+      var k=closed ? ((i+j)%n+n)%n : i+j;
+      sx+=pts[k][0]; sy+=pts[k][1]; c++;
+    }
+    out[i]=[sx/c, sy/c];
+  }
+  return out;
+}
+
+function buildCenterlines(){
+  var r=rasterMask();
+  if(!r) return null;
+  var D=distanceMap(r.mask, r.cw, r.ch);
+  var sk=thin(r.mask, r.cw, r.ch);
+  var brs=traceSkeleton(sk, r.cw, r.ch);
+  brs=pruneBranches(brs, D, r.cw);
+  brs=pruneBranches(brs, D, r.cw);
+  if(!brs.length) return null;
+  var bb=state.bbox, s=r.pxPerUnit, pad=r.pad;
+  var maxD=0;
+  for(var i=0;i<D.length;i++) if(r.mask[i] && D[i]>maxD) maxD=D[i];
+  var win=Math.max(3, Math.round(maxD*0.9));
+  var runs=brs.map(function(b){
+    var sm=smoothPts(b.pts, win, b.closed);
+    return {
+      pts: sm.map(function(p){ return [ (p[0]-pad)/s + bb.x, (p[1]-pad)/s + bb.y ]; }),
+      closed: b.closed, freeA:b.freeA, freeB:b.freeB
+    };
+  });
+  return {runs:runs, D:D, cw:r.cw, ch:r.ch, pad:pad, pxPerUnit:s, maxD:maxD};
+}
+
+function ensureCenterlines(){
+  if(state.skel!==undefined && state.skel!==null) return state.skel;
+  if(state.skel===null) return null;
+  state.skel = buildCenterlines();
+  return state.skel;
+}
+
+/* push each free end out toward the tip of its stroke, stopping `endInset` short */
+function extendEnds(run, sk, endInsetSrc){
+  if(run.closed || run.pts.length<3) return run;
+  var stepSrc = 1/sk.pxPerUnit, bb=state.bbox;
+  var distAt=function(p){
+    var x=Math.round((p[0]-bb.x)*sk.pxPerUnit+sk.pad), y=Math.round((p[1]-bb.y)*sk.pxPerUnit+sk.pad);
+    if(x<0||y<0||x>=sk.cw||y>=sk.ch) return 0;
+    return sk.D[y*sk.cw+x]/sk.pxPerUnit;
+  };
+  var pts=run.pts.slice();
+  [0,1].forEach(function(side){
+    if(side===0 && !run.freeA) return;
+    if(side===1 && !run.freeB) return;
+    var a = side ? pts[pts.length-1] : pts[0];
+    var b = side ? pts[Math.max(0,pts.length-6)] : pts[Math.min(pts.length-1,5)];
+    var dx=a[0]-b[0], dy=a[1]-b[1], L=Math.hypot(dx,dy);
+    if(!L) return;
+    dx/=L; dy/=L;
+    var cur=[a[0],a[1]], added=[], guard=0;
+    while(guard++ < 400){
+      var nxt=[cur[0]+dx*stepSrc, cur[1]+dy*stepSrc];
+      if(distAt(nxt) < endInsetSrc) break;
+      added.push(nxt); cur=nxt;
+    }
+    if(added.length){ if(side) pts=pts.concat(added); else pts=added.reverse().concat(pts); }
+  });
+  return {pts:pts, closed:false, freeA:run.freeA, freeB:run.freeB};
+}
+
 function recompute(){
   if(!state.contours.length){ render(); return; }
   var bb=state.bbox;
@@ -766,10 +1024,17 @@ function recompute(){
   var grid = edgeGrid(state.contours, Math.max(inset*0.8, diag*0.01));
 
   var runs=[], steps=[];
-  coarse.forEach(function(rc){
-    if(inset<=0){ runs.push({pts:rc.pts, closed:rc.closed}); return; }
-    insetRuns(rc, inset, coarse, grid, probe).forEach(function(r){ runs.push(r); });
-  });
+  var layout=$('layout').value;
+  var sk = layout==='center' ? ensureCenterlines() : null;
+  if(layout==='center' && sk){
+    sk.runs.forEach(function(r){ runs.push(extendEnds(r, sk, inset)); });
+  } else {
+    if(layout==='center') msg('Could not read a filled shape — using the outline ring.', true);
+    coarse.forEach(function(rc){
+      if(inset<=0){ runs.push({pts:rc.pts, closed:rc.closed}); return; }
+      insetRuns(rc, inset, coarse, grid, probe).forEach(function(r){ runs.push(r); });
+    });
+  }
 
   // shared rows and columns, sized off the inset artwork so the pitch lands evenly
   var ib=bboxOf(runs.length?runs:coarse);
@@ -939,6 +1204,7 @@ link('gR','gN',schedule);
 $('fitVal').addEventListener('input',schedule);
 $('fitMode').addEventListener('change',schedule);
 $('align').addEventListener('change',schedule);
+$('layout').addEventListener('change',schedule);
 $('chase').addEventListener('change',render);
 $('showArt').addEventListener('change',render);
 
