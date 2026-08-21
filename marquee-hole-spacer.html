@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Marquee Hole Spacer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
+<style>
+  :root{
+    --board:#11181B;
+    --panel:#182125;
+    --panel-2:#1E2A2E;
+    --line:#2C3A3F;
+    --ink:#E8EDEB;
+    --muted:#8A9A9C;
+    --bulb:#FFC96B;
+    --bulb-hot:#FFF2D2;
+    --red:#E2574C;
+    --disp:"Arial Narrow","Helvetica Neue Condensed","Roboto Condensed",Impact,sans-serif;
+    --body:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--board);color:var(--ink);
+    font-family:var(--body);font-size:14px;line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{display:flex;min-height:100vh}
+  /* ---------- rail ---------- */
+  .rail{
+    width:340px;flex:0 0 340px;background:var(--panel);
+    border-right:1px solid var(--line);
+    display:flex;flex-direction:column;max-height:100vh;overflow-y:auto;
+  }
+  .brand{padding:18px 18px 14px;border-bottom:1px solid var(--line)}
+  .brand h1{
+    margin:0;font-family:var(--disp);font-weight:700;text-transform:uppercase;
+    font-size:26px;letter-spacing:.14em;line-height:1;
+  }
+  .brand h1 span{color:var(--bulb)}
+  .brand p{margin:6px 0 0;color:var(--muted);font-size:12px;letter-spacing:.03em}
+
+  .sect{border-bottom:1px solid var(--line);padding:16px 18px}
+  .sect > h2{
+    margin:0 0 12px;font-family:var(--disp);text-transform:uppercase;
+    letter-spacing:.18em;font-size:12px;font-weight:700;color:var(--muted);
+    display:flex;align-items:center;gap:8px;
+  }
+  .sect > h2::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  .tabs{display:flex;gap:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-bottom:12px}
+  .tabs button{
+    flex:1;background:transparent;border:0;color:var(--muted);padding:8px 6px;
+    font-family:var(--disp);text-transform:uppercase;letter-spacing:.12em;font-size:12px;
+    cursor:pointer;
+  }
+  .tabs button[aria-selected="true"]{background:var(--panel-2);color:var(--bulb)}
+  .tabs button:focus-visible{outline:2px solid var(--bulb);outline-offset:-2px}
+
+  label.f{display:block;margin-bottom:10px}
+  label.f > span{display:block;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+  input[type=text],input[type=number],select{
+    width:100%;background:var(--board);border:1px solid var(--line);color:var(--ink);
+    border-radius:5px;padding:7px 9px;font-family:var(--mono);font-size:13px;
+  }
+  input:focus,select:focus{outline:2px solid var(--bulb);outline-offset:-1px;border-color:var(--bulb)}
+  .row{display:flex;gap:10px}
+  .row > *{flex:1;min-width:0}
+
+  .drop{
+    border:1px dashed var(--line);border-radius:6px;padding:14px;text-align:center;
+    color:var(--muted);font-size:12px;cursor:pointer;background:var(--board);
+  }
+  .drop:hover,.drop.over{border-color:var(--bulb);color:var(--ink)}
+  .drop b{display:block;color:var(--ink);font-size:13px;margin-bottom:2px}
+  input[type=file]{display:none}
+
+  .slide{display:flex;align-items:center;gap:10px}
+  .slide input[type=range]{flex:1;accent-color:var(--bulb);background:transparent}
+  .slide input[type=number]{width:78px;flex:0 0 78px}
+
+  .check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);margin-bottom:8px;cursor:pointer}
+  .check input{accent-color:var(--bulb);width:16px;height:16px}
+
+  .btn{
+    display:block;width:100%;padding:10px;border-radius:6px;cursor:pointer;
+    font-family:var(--disp);text-transform:uppercase;letter-spacing:.14em;font-size:13px;
+    background:var(--bulb);color:#20160A;border:1px solid var(--bulb);font-weight:700;
+  }
+  .btn:hover{background:var(--bulb-hot);border-color:var(--bulb-hot)}
+  .btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+  .btn.ghost:hover{border-color:var(--bulb);color:var(--bulb);background:transparent}
+  .btn + .btn{margin-top:8px}
+  .btn:focus-visible{outline:2px solid var(--bulb-hot);outline-offset:2px}
+
+  .note{font-size:11.5px;color:var(--muted);margin:10px 0 0}
+  .warn{color:var(--red)}
+
+  /* ---------- stage ---------- */
+  .stage{flex:1;display:flex;flex-direction:column;min-width:0}
+  .readout{
+    display:flex;gap:0;border-bottom:1px solid var(--line);background:var(--panel);
+    flex-wrap:wrap;
+  }
+  .stat{padding:12px 18px;border-right:1px solid var(--line);min-width:104px}
+  .stat dt{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0}
+  .stat dd{margin:2px 0 0;font-family:var(--mono);font-size:19px;color:var(--bulb)}
+  .stat.plain dd{color:var(--ink);font-size:15px;padding-top:3px}
+
+  .board{flex:1;position:relative;overflow:auto;background:
+    radial-gradient(120% 90% at 50% 0%, #1A2429 0%, var(--board) 70%);}
+  .board svg{display:block;width:100%;height:100%}
+  .empty{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    text-align:center;padding:30px;color:var(--muted);
+  }
+  .empty div{max-width:380px}
+  .empty h3{font-family:var(--disp);text-transform:uppercase;letter-spacing:.18em;color:var(--ink);font-size:16px;margin:0 0 8px}
+
+  .letterfill{fill:#20292D;stroke:#3C4C51;stroke-width:.02}
+  .bulb{fill:var(--bulb-hot);stroke:var(--bulb);stroke-width:.012}
+  .bulb.glow{filter:drop-shadow(0 0 .06px var(--bulb))}
+  @keyframes chase{0%,100%{opacity:.28}18%{opacity:1}}
+  .chasing .bulb{animation:chase 1.35s linear infinite}
+  @media (prefers-reduced-motion:reduce){.chasing .bulb{animation:none;opacity:1}}
+
+  .bar{padding:10px 18px;border-top:1px solid var(--line);background:var(--panel);
+       display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .bar .check{margin:0}
+  .bar .spacer{flex:1}
+  .msg{font-size:12px;color:var(--muted);font-family:var(--mono)}
+
+  @media (max-width:820px){
+    .wrap{flex-direction:column}
+    .rail{width:100%;flex:none;max-height:none;border-right:0;border-bottom:1px solid var(--line)}
+    .board{min-height:60vh}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ CONTROL RAIL ============ -->
+  <aside class="rail">
+    <div class="brand">
+      <h1>Marquee<br><span>Hole Spacer</span></h1>
+      <p>Bulb layout for CNC letters · MMT shop</p>
+    </div>
+
+    <section class="sect">
+      <h2>Artwork</h2>
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tab-svg" aria-selected="true">SVG file</button>
+        <button role="tab" id="tab-font" aria-selected="false">Type text</button>
+      </div>
+
+      <div id="pane-svg">
+        <div class="drop" id="dropSvg" tabindex="0" role="button">
+          <b>Drop an SVG</b>Letter outlines from Vectorworks or Easel
+        </div>
+        <input type="file" id="fileSvg" accept=".svg,image/svg+xml">
+      </div>
+
+      <div id="pane-font" hidden>
+        <div class="drop" id="dropFont" tabindex="0" role="button">
+          <b id="fontName">Drop a font</b>.ttf or .otf from your machine
+        </div>
+        <input type="file" id="fileFont" accept=".ttf,.otf,font/ttf,font/otf">
+        <label class="f" style="margin-top:10px"><span>Text</span>
+          <input type="text" id="textIn" value="FOLLIES" autocomplete="off">
+        </label>
+        <label class="f"><span>Letter spacing (tracking)</span>
+          <div class="slide">
+            <input type="range" id="trackR" min="-10" max="40" step="1" value="0">
+            <input type="number" id="trackN" value="0" step="1">
+          </div>
+        </label>
+      </div>
+    </section>
+
+    <section class="sect">
+      <h2>Size</h2>
+      <div class="row">
+        <label class="f"><span>Fit to</span>
+          <select id="fitMode">
+            <option value="w">Width</option>
+            <option value="h">Height</option>
+          </select>
+        </label>
+        <label class="f"><span>Inches</span>
+          <input type="number" id="fitVal" value="24" min="1" step="0.25">
+        </label>
+      </div>
+      <p class="note" id="sizeNote">Load artwork to see finished size.</p>
+    </section>
+
+    <section class="sect">
+      <h2>Bulbs</h2>
+      <label class="f"><span>Hole diameter (in)</span>
+        <div class="slide">
+          <input type="range" id="dR" min="0.125" max="2" step="0.005" value="0.472">
+          <input type="number" id="dN" value="0.472" step="0.005" min="0.05">
+        </div>
+      </label>
+      <label class="f"><span>Spacing, center to center (in)</span>
+        <div class="slide">
+          <input type="range" id="sR" min="0.5" max="12" step="0.05" value="2">
+          <input type="number" id="sN" value="2" step="0.05" min="0.2">
+        </div>
+      </label>
+      <label class="f"><span>Inset from edge (in)</span>
+        <div class="slide">
+          <input type="range" id="iR" min="0" max="4" step="0.02" value="0.6">
+          <input type="number" id="iN" value="0.6" step="0.02" min="0">
+        </div>
+      </label>
+      <label class="f"><span>Minimum gap between holes (in)</span>
+        <div class="slide">
+          <input type="range" id="gR" min="0" max="6" step="0.05" value="0.9">
+          <input type="number" id="gN" value="0.9" step="0.05" min="0">
+        </div>
+      </label>
+      <p class="note">Spacing evens out around each closed contour, so the first and last bulb never collide. Counters (the hole in an O or A) get their own ring.</p>
+    </section>
+
+    <section class="sect">
+      <h2>Export</h2>
+      <button class="btn" id="expAll">Save SVG — letters + holes</button>
+      <button class="btn ghost" id="expHoles">Save SVG — holes only</button>
+      <button class="btn ghost" id="expCsv">Save CSV — hole centers</button>
+      <p class="note">Inches, 1 unit = 1 inch. Layers are named <span style="font-family:var(--mono)">LETTERS</span> and <span style="font-family:var(--mono)">HOLES</span>. Origin is the top-left of the artwork bounding box.</p>
+    </section>
+  </aside>
+
+  <!-- ============ STAGE ============ -->
+  <main class="stage">
+    <dl class="readout">
+      <div class="stat"><dt>Bulbs</dt><dd id="stCount">—</dd></div>
+      <div class="stat"><dt>Actual spacing</dt><dd id="stSpace">—</dd></div>
+      <div class="stat"><dt>Contours</dt><dd id="stPaths">—</dd></div>
+      <div class="stat plain"><dt>Finished size</dt><dd id="stSize">—</dd></div>
+      <div class="stat plain"><dt>Drill time est.</dt><dd id="stTime">—</dd></div>
+    </dl>
+
+    <div class="board" id="board">
+      <svg id="prev" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="empty" id="empty">
+        <div>
+          <h3>No artwork yet</h3>
+          <p>Drop an SVG of your letter outlines, or load a font and type the word. Holes get placed inside each contour at even spacing, ready to drop onto the sheet in Easel.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bar">
+      <label class="check"><input type="checkbox" id="chase" checked> Run the chase</label>
+      <label class="check"><input type="checkbox" id="showArt" checked> Show letter fill</label>
+      <span class="spacer"></span>
+      <span class="msg" id="msg"></span>
+    </div>
+  </main>
+</div>
+
+<svg id="scratch" width="0" height="0" style="position:absolute;left:-9999px" xmlns="http://www.w3.org/2000/svg"></svg>
+
+<script>
+(function(){
+"use strict";
+
+var $ = function(id){return document.getElementById(id);};
+var scratch = $('scratch');
+
+/* ---------- state ---------- */
+var state = {
+  mode:'svg',
+  contours:[],      // [{pts:[[x,y]...], closed:bool}]  in source units
+  rawPaths:[],      // [{d:string, m:[a,b,c,d,e,f]}] for faithful export
+  bbox:null,        // {x,y,w,h} in source units
+  font:null,
+  holes:[],         // in inches, origin at bbox top-left
+  actualSpacing:0
+};
+
+/* ---------- number/slider pairs ---------- */
+function link(rId,nId,fn){
+  var r=$(rId),n=$(nId);
+  r.addEventListener('input',function(){n.value=r.value;fn();});
+  n.addEventListener('input',function(){
+    var v=parseFloat(n.value); if(isNaN(v))return;
+    r.value=v; fn();
+  });
+}
+
+/* ---------- tabs ---------- */
+$('tab-svg').addEventListener('click',function(){setMode('svg');});
+$('tab-font').addEventListener('click',function(){setMode('font');});
+function setMode(m){
+  state.mode=m;
+  $('tab-svg').setAttribute('aria-selected', m==='svg');
+  $('tab-font').setAttribute('aria-selected', m==='font');
+  $('pane-svg').hidden = m!=='svg';
+  $('pane-font').hidden = m!=='font';
+  if(m==='font' && state.font) buildFromFont(); 
+  else if(m==='svg') { /* keep whatever svg was loaded */ }
+}
+
+/* ---------- file drops ---------- */
+function wireDrop(dropId,inputId,handler){
+  var d=$(dropId), i=$(inputId);
+  d.addEventListener('click',function(){i.click();});
+  d.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();i.click();}});
+  ['dragenter','dragover'].forEach(function(ev){
+    d.addEventListener(ev,function(e){e.preventDefault();d.classList.add('over');});
+  });
+  ['dragleave','drop'].forEach(function(ev){
+    d.addEventListener(ev,function(e){e.preventDefault();d.classList.remove('over');});
+  });
+  d.addEventListener('drop',function(e){
+    if(e.dataTransfer.files && e.dataTransfer.files[0]) handler(e.dataTransfer.files[0]);
+  });
+  i.addEventListener('change',function(){ if(i.files[0]) handler(i.files[0]); });
+}
+wireDrop('dropSvg','fileSvg',loadSvgFile);
+wireDrop('dropFont','fileFont',loadFontFile);
+
+/* ================= SVG INGEST ================= */
+function loadSvgFile(file){
+  var fr=new FileReader();
+  fr.onload=function(){
+    try{ ingestSvg(fr.result); msg('Loaded '+file.name); }
+    catch(err){ msg('Could not read that SVG: '+err.message, true); }
+  };
+  fr.readAsText(file);
+}
+
+function ingestSvg(text){
+  var doc = new DOMParser().parseFromString(text,'image/svg+xml');
+  if(doc.querySelector('parsererror')) throw new Error('the file is not valid XML');
+  var src = doc.documentElement;
+  // mount a copy in the scratch svg so we can measure geometry
+  scratch.innerHTML='';
+  var host = document.createElementNS('http://www.w3.org/2000/svg','g');
+  // import children of the source root
+  for(var i=0;i<src.childNodes.length;i++){
+    host.appendChild(document.importNode(src.childNodes[i],true));
+  }
+  // preserve a viewBox->size transform if present, so units match the file's own scale
+  scratch.appendChild(host);
+
+  var geo = host.querySelectorAll('path,polygon,polyline,rect,circle,ellipse,line');
+  if(!geo.length) throw new Error('no cuttable shapes found — outline your text first');
+
+  var raws=[], contours=[];
+  for(var k=0;k<geo.length;k++){
+    var el = geo[k];
+    var d = toPathData(el);
+    if(!d) continue;
+    var p = document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d',d);
+    scratch.appendChild(p);
+    var m = matrixOf(el, host);
+    raws.push({d:d, m:m});
+    splitSubpaths(d).forEach(function(sub){
+      var c = sampleSub(sub, m);
+      if(c && c.pts.length>2) contours.push(c);
+    });
+    scratch.removeChild(p);
+  }
+  scratch.innerHTML='';
+  if(!contours.length) throw new Error('shapes found but nothing measurable');
+
+  state.rawPaths=raws;
+  state.contours=contours;
+  state.bbox=bboxOf(contours);
+  recompute();
+}
+
+function toPathData(el){
+  var t=el.tagName.toLowerCase(), g=function(a,dv){var v=el.getAttribute(a);return v==null?dv:parseFloat(v);};
+  if(t==='path') return el.getAttribute('d');
+  if(t==='line') return 'M'+g('x1',0)+' '+g('y1',0)+'L'+g('x2',0)+' '+g('y2',0);
+  if(t==='polyline'||t==='polygon'){
+    var pts=(el.getAttribute('points')||'').trim().split(/[\s,]+/).map(Number);
+    if(pts.length<4) return null;
+    var s='M'+pts[0]+' '+pts[1];
+    for(var i=2;i<pts.length-1;i+=2) s+='L'+pts[i]+' '+pts[i+1];
+    return s + (t==='polygon'?'Z':'');
+  }
+  if(t==='rect'){
+    var x=g('x',0),y=g('y',0),w=g('width',0),h=g('height',0);
+    if(!w||!h) return null;
+    return 'M'+x+' '+y+'H'+(x+w)+'V'+(y+h)+'H'+x+'Z';
+  }
+  if(t==='circle'){
+    var cx=g('cx',0),cy=g('cy',0),r=g('r',0); if(!r) return null;
+    return 'M'+(cx-r)+' '+cy+'a'+r+' '+r+' 0 1 0 '+(2*r)+' 0a'+r+' '+r+' 0 1 0 '+(-2*r)+' 0Z';
+  }
+  if(t==='ellipse'){
+    var ex=g('cx',0),ey=g('cy',0),rx=g('rx',0),ry=g('ry',0); if(!rx||!ry) return null;
+    return 'M'+(ex-rx)+' '+ey+'a'+rx+' '+ry+' 0 1 0 '+(2*rx)+' 0a'+rx+' '+ry+' 0 1 0 '+(-2*rx)+' 0Z';
+  }
+  return null;
+}
+
+// cumulative matrix of el relative to root container
+function matrixOf(el, root){
+  var m = scratch.createSVGMatrix();
+  var node = el;
+  var chain=[];
+  while(node && node!==root){ chain.unshift(node); node=node.parentNode; }
+  chain.forEach(function(n){
+    var list = n.transform && n.transform.baseVal;
+    if(list && list.numberOfItems){
+      m = m.multiply(list.consolidate().matrix);
+    }
+  });
+  return [m.a,m.b,m.c,m.d,m.e,m.f];
+}
+function applyM(m,x,y){ return [m[0]*x+m[2]*y+m[4], m[1]*x+m[3]*y+m[5]]; }
+
+/* split a d string into subpaths on M/m */
+function splitSubpaths(d){
+  var out=[], cur='', re=/[MmZzLlHhVvCcSsQqTtAa][^MmZzLlHhVvCcSsQqTtAa]*/g, tok;
+  while((tok=re.exec(d))!==null){
+    var c=tok[0][0];
+    if((c==='M'||c==='m') && cur.trim()){ out.push(cur); cur=''; }
+    cur+=tok[0];
+  }
+  if(cur.trim()) out.push(cur);
+  return out.map(function(s){return s.trim();}).filter(Boolean);
+}
+
+/* sample one subpath into a polyline, transformed by m */
+function sampleSub(d, m){
+  var p=document.createElementNS('http://www.w3.org/2000/svg','path');
+  p.setAttribute('d',d);
+  scratch.appendChild(p);
+  var L;
+  try{ L=p.getTotalLength(); }catch(e){ scratch.removeChild(p); return null; }
+  if(!L || !isFinite(L) || L<=0){ scratch.removeChild(p); return null; }
+  var n = Math.max(64, Math.min(3000, Math.ceil(L/0.6)));
+  var pts=[];
+  for(var i=0;i<=n;i++){
+    var pt=p.getPointAtLength(L*i/n);
+    pts.push(applyM(m, pt.x, pt.y));
+  }
+  scratch.removeChild(p);
+  var closed = /[Zz]\s*$/.test(d.trim());
+  if(!closed){
+    var a=pts[0], b=pts[pts.length-1];
+    if(Math.hypot(a[0]-b[0],a[1]-b[1]) < 1e-6) closed=true;
+  }
+  if(closed) pts.pop();
+  // strip duplicate consecutive points
+  var clean=[pts[0]];
+  for(var j=1;j<pts.length;j++){
+    var q=pts[j], r=clean[clean.length-1];
+    if(Math.hypot(q[0]-r[0],q[1]-r[1])>1e-9) clean.push(q);
+  }
+  return {pts:clean, closed:closed};
+}
+
+function bboxOf(cs){
+  var x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  cs.forEach(function(c){c.pts.forEach(function(p){
+    if(p[0]<x0)x0=p[0]; if(p[1]<y0)y0=p[1];
+    if(p[0]>x1)x1=p[0]; if(p[1]>y1)y1=p[1];
+  });});
+  return {x:x0,y:y0,w:x1-x0,h:y1-y0};
+}
+
+/* ================= FONT INGEST ================= */
+function loadFontFile(file){
+  if(typeof opentype==='undefined'){ msg('Font engine did not load — use the SVG tab.',true); return; }
+  var fr=new FileReader();
+  fr.onload=function(){
+    try{
+      state.font = opentype.parse(fr.result);
+      $('fontName').textContent = file.name;
+      setMode('font');
+      buildFromFont();
+      msg('Loaded '+file.name);
+    }catch(err){ msg('Could not parse that font: '+err.message,true); }
+  };
+  fr.readAsArrayBuffer(file);
+}
+
+function buildFromFont(){
+  if(!state.font) return;
+  var txt = $('textIn').value || '';
+  if(!txt.trim()){ msg('Type some text.',true); return; }
+  var size=200, track=parseFloat($('trackN').value)||0;
+  var full=new opentype.Path(), x=0;
+  for(var i=0;i<txt.length;i++){
+    var ch=txt[i];
+    var glyph=state.font.charToGlyph(ch);
+    var gp=glyph.getPath(x,0,size);
+    full.extend(gp);
+    x += glyph.advanceWidth*(size/state.font.unitsPerEm) + track;
+  }
+  var d=full.toPathData(3);
+  if(!d || !d.trim()){ msg('That text produced no outlines.',true); return; }
+  var m=[1,0,0,1,0,0];
+  state.rawPaths=[{d:d,m:m}];
+  var contours=[];
+  splitSubpaths(d).forEach(function(sub){
+    var c=sampleSub(sub,m);
+    if(c && c.pts.length>2) contours.push(c);
+  });
+  if(!contours.length){ msg('No contours in that text.',true); return; }
+  state.contours=contours;
+  state.bbox=bboxOf(contours);
+  recompute();
+}
+$('textIn').addEventListener('input',function(){ if(state.font) buildFromFont(); });
+link('trackR','trackN',function(){ if(state.font) buildFromFont(); });
+
+/* ================= GEOMETRY ================= */
+function polyLen(pts,closed){
+  var L=0;
+  for(var i=0;i<pts.length-1;i++) L+=Math.hypot(pts[i+1][0]-pts[i][0],pts[i+1][1]-pts[i][1]);
+  if(closed) L+=Math.hypot(pts[0][0]-pts[pts.length-1][0],pts[0][1]-pts[pts.length-1][1]);
+  return L;
+}
+function cumul(pts,closed){
+  var arr=[0],L=0;
+  for(var i=0;i<pts.length-1;i++){L+=Math.hypot(pts[i+1][0]-pts[i][0],pts[i+1][1]-pts[i][1]);arr.push(L);}
+  if(closed){L+=Math.hypot(pts[0][0]-pts[pts.length-1][0],pts[0][1]-pts[pts.length-1][1]);arr.push(L);}
+  return arr;
+}
+function atLen(pts,cum,closed,t){
+  var total=cum[cum.length-1];
+  if(closed) t=((t%total)+total)%total; else t=Math.max(0,Math.min(total,t));
+  var lo=0,hi=cum.length-1;
+  while(lo<hi-1){var mid=(lo+hi)>>1; if(cum[mid]<=t)lo=mid;else hi=mid;}
+  var a=pts[lo], b=pts[(lo+1)%pts.length];
+  var seg=cum[lo+1]-cum[lo];
+  var f= seg>0 ? (t-cum[lo])/seg : 0;
+  return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f];
+}
+/* even-odd point-in-shape across all contours */
+function inside(x,y,contours){
+  var c=false;
+  for(var k=0;k<contours.length;k++){
+    var pts=contours[k].pts, n=pts.length;
+    for(var i=0,j=n-1;i<n;j=i++){
+      var xi=pts[i][0],yi=pts[i][1],xj=pts[j][0],yj=pts[j][1];
+      if(((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c;
+    }
+  }
+  return c;
+}
+
+function recompute(){
+  if(!state.contours.length){ render(); return; }
+  var bb=state.bbox;
+  var fitVal=parseFloat($('fitVal').value)||24;
+  var mode=$('fitMode').value;
+  var scale = mode==='w' ? fitVal/bb.w : fitVal/bb.h;   // source units -> inches
+  if(!isFinite(scale)||scale<=0) scale=1;
+  state.scale=scale;
+  state.wIn=bb.w*scale; state.hIn=bb.h*scale;
+
+  var dia=parseFloat($('dN').value)||0.472;
+  var spacingIn=parseFloat($('sN').value)||2;
+  var insetIn=parseFloat($('iN').value)||0;
+  var gapIn=parseFloat($('gN').value)||0;
+
+  var spacing=spacingIn/scale, inset=insetIn/scale, gap=gapIn/scale;
+
+  var holes=[], skipped=0, spacings=[];
+  state.contours.forEach(function(c){
+    var L=polyLen(c.pts,c.closed);
+    if(L<spacing*0.75 && c.closed && L< spacing) { /* tiny contour: still try one */ }
+    var cum=cumul(c.pts,c.closed);
+    var n = Math.max(c.closed?3:2, Math.round(L/spacing));
+    var step = c.closed ? L/n : L/(n-1);
+    spacings.push(step*scale);
+    var count = c.closed ? n : n;
+    for(var i=0;i<count;i++){
+      var t=i*step;
+      var p=atLen(c.pts,cum,c.closed,t);
+      var pa=atLen(c.pts,cum,c.closed,t-Math.max(step*0.02,0.01));
+      var pb=atLen(c.pts,cum,c.closed,t+Math.max(step*0.02,0.01));
+      var tx=pb[0]-pa[0], ty=pb[1]-pa[1];
+      var tl=Math.hypot(tx,ty)||1;
+      var nx=-ty/tl, ny=tx/tl;
+      var q=p;
+      if(inset>0){
+        var c1=[p[0]+nx*inset,p[1]+ny*inset];
+        var c2=[p[0]-nx*inset,p[1]-ny*inset];
+        if(inside(c1[0],c1[1],state.contours)) q=c1;
+        else if(inside(c2[0],c2[1],state.contours)) q=c2;
+        else { skipped++; continue; }
+      }
+      holes.push(q);
+    }
+  });
+
+  // greedy minimum-gap cull
+  var kept=[];
+  for(var i=0;i<holes.length;i++){
+    var ok=true;
+    for(var j=0;j<kept.length;j++){
+      if(Math.hypot(holes[i][0]-kept[j][0],holes[i][1]-kept[j][1]) < gap){ ok=false; break; }
+    }
+    if(ok) kept.push(holes[i]); else skipped++;
+  }
+
+  state.holes = kept.map(function(p){
+    return [ (p[0]-bb.x)*scale, (p[1]-bb.y)*scale ];
+  });
+  state.actualSpacing = spacings.length ? spacings.reduce(function(a,b){return a+b;},0)/spacings.length : 0;
+  state.dia = dia;
+  state.skipped = skipped;
+  render();
+}
+
+/* ================= RENDER ================= */
+function render(){
+  var svg=$('prev');
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  if(!state.contours.length){
+    $('empty').style.display='flex';
+    ['stCount','stSpace','stPaths','stSize','stTime'].forEach(function(id){$(id).textContent='—';});
+    return;
+  }
+  $('empty').style.display='none';
+
+  var W=state.wIn, H=state.hIn, pad=Math.max(W,H)*0.06+state.dia;
+  svg.setAttribute('viewBox', (-pad)+' '+(-pad)+' '+(W+pad*2)+' '+(H+pad*2));
+  svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+  svg.classList.toggle('chasing', $('chase').checked);
+
+  var bb=state.bbox, s=state.scale;
+  if($('showArt').checked){
+    var g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','letterfill');
+    g.setAttribute('fill-rule','evenodd');
+    state.rawPaths.forEach(function(rp){
+      var p=document.createElementNS('http://www.w3.org/2000/svg','path');
+      p.setAttribute('d',rp.d);
+      p.setAttribute('transform', outerTransform(rp.m,s,bb));
+      g.appendChild(p);
+    });
+    svg.appendChild(g);
+  }
+
+  var gh=document.createElementNS('http://www.w3.org/2000/svg','g');
+  state.holes.forEach(function(h,i){
+    var c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',h[0].toFixed(4));
+    c.setAttribute('cy',h[1].toFixed(4));
+    c.setAttribute('r',(state.dia/2).toFixed(4));
+    c.setAttribute('class','bulb');
+    c.style.animationDelay = ((i%3)*0.45)+'s';
+    gh.appendChild(c);
+  });
+  svg.appendChild(gh);
+
+  $('stCount').textContent = state.holes.length;
+  $('stSpace').textContent = state.actualSpacing.toFixed(2)+'"';
+  $('stPaths').textContent = state.contours.length;
+  $('stSize').textContent = W.toFixed(2)+'" × '+H.toFixed(2)+'"';
+  var mins = state.holes.length*12/60;
+  $('stTime').textContent = mins<1 ? '<1 min' : Math.round(mins)+' min';
+  $('sizeNote').textContent = 'Finished: '+W.toFixed(2)+'" wide × '+H.toFixed(2)+'" tall.';
+  msg(state.skipped ? state.skipped+' hole(s) dropped — too tight for the inset or gap.' : '');
+}
+
+/* transform that maps source units into the inch coordinate system */
+function outerTransform(m,s,bb){
+  // scale about bbox origin, then translate to 0,0
+  return 'translate('+(-bb.x*s)+','+(-bb.y*s)+') scale('+s+') matrix('+m.join(',')+')';
+}
+
+/* ================= EXPORT ================= */
+function svgDoc(includeArt){
+  var W=state.wIn,H=state.hIn,s=state.scale,bb=state.bbox;
+  var out='<?xml version="1.0" encoding="UTF-8"?>\n';
+  out+='<svg xmlns="http://www.w3.org/2000/svg" width="'+W.toFixed(4)+'in" height="'+H.toFixed(4)+'in" '+
+       'viewBox="0 0 '+W.toFixed(4)+' '+H.toFixed(4)+'">\n';
+  if(includeArt){
+    out+='  <g id="LETTERS" fill="none" stroke="#000000" stroke-width="0.01" fill-rule="evenodd">\n';
+    state.rawPaths.forEach(function(rp){
+      out+='    <path d="'+rp.d.replace(/"/g,'')+'" transform="'+outerTransform(rp.m,s,bb)+'"/>\n';
+    });
+    out+='  </g>\n';
+  }
+  out+='  <g id="HOLES" fill="none" stroke="#000000" stroke-width="0.01">\n';
+  state.holes.forEach(function(h){
+    out+='    <circle cx="'+h[0].toFixed(4)+'" cy="'+h[1].toFixed(4)+'" r="'+(state.dia/2).toFixed(4)+'"/>\n';
+  });
+  out+='  </g>\n</svg>\n';
+  return out;
+}
+function download(name,text,type){
+  var b=new Blob([text],{type:type||'image/svg+xml'});
+  var u=URL.createObjectURL(b);
+  var a=document.createElement('a'); a.href=u; a.download=name; a.click();
+  setTimeout(function(){URL.revokeObjectURL(u);},2000);
+}
+$('expAll').addEventListener('click',function(){
+  if(!state.holes.length) return msg('Nothing to save yet.',true);
+  download('marquee-letters-and-holes.svg', svgDoc(true));
+  msg('Saved letters + holes.');
+});
+$('expHoles').addEventListener('click',function(){
+  if(!state.holes.length) return msg('Nothing to save yet.',true);
+  download('marquee-holes-only.svg', svgDoc(false));
+  msg('Saved holes only.');
+});
+$('expCsv').addEventListener('click',function(){
+  if(!state.holes.length) return msg('Nothing to save yet.',true);
+  var rows='index,x_in,y_in,diameter_in\n';
+  state.holes.forEach(function(h,i){
+    rows+=(i+1)+','+h[0].toFixed(4)+','+h[1].toFixed(4)+','+state.dia.toFixed(4)+'\n';
+  });
+  download('marquee-hole-centers.csv',rows,'text/csv');
+  msg('Saved '+state.holes.length+' centers.');
+});
+
+/* ================= WIRING ================= */
+link('dR','dN',recompute);
+link('sR','sN',recompute);
+link('iR','iN',recompute);
+link('gR','gN',recompute);
+$('fitVal').addEventListener('input',recompute);
+$('fitMode').addEventListener('change',recompute);
+$('chase').addEventListener('change',render);
+$('showArt').addEventListener('change',render);
+
+function msg(t,bad){
+  var m=$('msg'); m.textContent=t||''; m.className='msg'+(bad?' warn':'');
+}
+
+})();
+</script>
+</body>
+</html>
