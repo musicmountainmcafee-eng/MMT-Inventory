@@ -222,7 +222,7 @@
           <input type="number" id="gN" value="0.9" step="0.05" min="0">
         </div>
       </label>
-      <p class="note">Spacing evens out around each closed contour, so the first and last bulb never collide. Counters (the hole in an O or A) get their own ring.</p>
+      <p class="note">Bulbs are spaced along the inset ring itself, not the letter edge, so tight curves and corners stay even. Where the ring collapses on itself — the throat of a C, the crotch of a K — that stretch is dropped rather than doubled up.</p>
     </section>
 
     <section class="sect">
@@ -239,7 +239,7 @@
     <dl class="readout">
       <div class="stat"><dt>Bulbs</dt><dd id="stCount">—</dd></div>
       <div class="stat"><dt>Actual spacing</dt><dd id="stSpace">—</dd></div>
-      <div class="stat"><dt>Contours</dt><dd id="stPaths">—</dd></div>
+      <div class="stat"><dt>Rings</dt><dd id="stPaths">—</dd></div>
       <div class="stat plain"><dt>Finished size</dt><dd id="stSize">—</dd></div>
       <div class="stat plain"><dt>Drill time est.</dt><dd id="stTime">—</dd></div>
     </dl>
@@ -553,6 +553,94 @@ function inside(x,y,contours){
   return c;
 }
 
+/* resample a contour to evenly spaced vertices */
+function resample(c, step){
+  var cum=cumul(c.pts,c.closed), L=cum[cum.length-1];
+  if(!(L>0)) return null;
+  var n=Math.max(6, Math.ceil(L/step));
+  var st=L/n, out=[], count=c.closed?n:n+1;
+  for(var i=0;i<count;i++) out.push(atLen(c.pts,cum,c.closed,i*st));
+  return {pts:out, closed:c.closed, len:L};
+}
+
+/* uniform grid over boundary vertices for fast distance-to-edge queries */
+function edgeGrid(contours, cell){
+  var g={}, k;
+  contours.forEach(function(c){
+    c.pts.forEach(function(p){
+      k=Math.floor(p[0]/cell)+'|'+Math.floor(p[1]/cell);
+      (g[k]||(g[k]=[])).push(p);
+    });
+  });
+  return {
+    cell:cell,
+    near:function(x,y,limit){
+      var cx=Math.floor(x/cell), cy=Math.floor(y/cell), best=Infinity;
+      var r=Math.max(1,Math.ceil(limit/cell));
+      for(var i=cx-r;i<=cx+r;i++) for(var j=cy-r;j<=cy+r;j++){
+        var arr=g[i+'|'+j]; if(!arr) continue;
+        for(var m=0;m<arr.length;m++){
+          var d=Math.hypot(arr[m][0]-x, arr[m][1]-y);
+          if(d<best){ best=d; if(best<limit*0.02) return best; }
+        }
+      }
+      return best;
+    }
+  };
+}
+
+/* build the inward-offset polyline, pruned where the offset collapses */
+function insetRuns(rc, inset, coarse, grid, probe){
+  var pts=rc.pts, n=pts.length, cand=new Array(n);
+  for(var i=0;i<n;i++){
+    var prev, next;
+    if(rc.closed){ prev=pts[(i-1+n)%n]; next=pts[(i+1)%n]; }
+    else { prev=pts[Math.max(0,i-1)]; next=pts[Math.min(n-1,i+1)]; }
+    var tx=next[0]-prev[0], ty=next[1]-prev[1], tl=Math.hypot(tx,ty);
+    if(!tl){ cand[i]=null; continue; }
+    var nx=-ty/tl, ny=tx/tl, s=0;
+    if(inside(pts[i][0]+nx*probe, pts[i][1]+ny*probe, coarse)) s=1;
+    else if(inside(pts[i][0]-nx*probe, pts[i][1]-ny*probe, coarse)) s=-1;
+    if(!s){ cand[i]=null; continue; }
+    var q=[pts[i][0]+nx*inset*s, pts[i][1]+ny*inset*s];
+    // reject where the offset curve self-intersects or leaves the letter
+    if(!inside(q[0],q[1],coarse) || grid.near(q[0],q[1],inset) < inset*0.72) { cand[i]=null; continue; }
+    cand[i]=q;
+  }
+  // group survivors into runs
+  var runs=[], cur=null, allKept=true;
+  for(var j=0;j<n;j++){
+    if(cand[j]){ (cur||(cur=[])).push(cand[j]); }
+    else { allKept=false; if(cur){runs.push({pts:cur,closed:false}); cur=null;} }
+  }
+  if(cur) runs.push({pts:cur,closed:false});
+  if(rc.closed && allKept && runs.length===1){ runs[0].closed=true; }
+  else if(rc.closed && runs.length>1 && cand[0] && cand[n-1]){
+    // stitch the wrap-around run
+    var first=runs.shift(), last=runs.pop();
+    runs.push({pts:last.pts.concat(first.pts), closed:false});
+  }
+  return runs.filter(function(r){return r.pts.length>1;});
+}
+
+/* place evenly spaced points along one run */
+function placeOnRun(run, spacing){
+  var cum=cumul(run.pts,run.closed), L=cum[cum.length-1];
+  if(!(L>0)) return {pts:[], step:0};
+  var out=[], step;
+  if(run.closed){
+    var n=Math.max(3, Math.round(L/spacing));
+    step=L/n;
+    for(var i=0;i<n;i++) out.push(atLen(run.pts,cum,true,i*step));
+  } else {
+    if(L < spacing*0.6){ return {pts:[atLen(run.pts,cum,false,L/2)], step:0}; }
+    var m=Math.max(2, Math.round(L/spacing)+1);
+    step=L/(m-1);
+    for(var k=0;k<m;k++) out.push(atLen(run.pts,cum,false,k*step));
+  }
+  return {pts:out, step:step};
+}
+
 function recompute(){
   if(!state.contours.length){ render(); return; }
   var bb=state.bbox;
@@ -569,52 +657,47 @@ function recompute(){
   var gapIn=parseFloat($('gN').value)||0;
 
   var spacing=spacingIn/scale, inset=insetIn/scale, gap=gapIn/scale;
+  var diag=Math.hypot(bb.w,bb.h);
+  var probe=Math.max(diag*1e-4, 1e-6);
 
-  var holes=[], skipped=0, spacings=[];
+  // coarse copies for the point-in-shape test, fine ones for edge distance
+  var coarse=[];
   state.contours.forEach(function(c){
-    var L=polyLen(c.pts,c.closed);
-    if(L<spacing*0.75 && c.closed && L< spacing) { /* tiny contour: still try one */ }
-    var cum=cumul(c.pts,c.closed);
-    var n = Math.max(c.closed?3:2, Math.round(L/spacing));
-    var step = c.closed ? L/n : L/(n-1);
-    spacings.push(step*scale);
-    var count = c.closed ? n : n;
-    for(var i=0;i<count;i++){
-      var t=i*step;
-      var p=atLen(c.pts,cum,c.closed,t);
-      var pa=atLen(c.pts,cum,c.closed,t-Math.max(step*0.02,0.01));
-      var pb=atLen(c.pts,cum,c.closed,t+Math.max(step*0.02,0.01));
-      var tx=pb[0]-pa[0], ty=pb[1]-pa[1];
-      var tl=Math.hypot(tx,ty)||1;
-      var nx=-ty/tl, ny=tx/tl;
-      var q=p;
-      if(inset>0){
-        var c1=[p[0]+nx*inset,p[1]+ny*inset];
-        var c2=[p[0]-nx*inset,p[1]-ny*inset];
-        if(inside(c1[0],c1[1],state.contours)) q=c1;
-        else if(inside(c2[0],c2[1],state.contours)) q=c2;
-        else { skipped++; continue; }
-      }
-      holes.push(q);
-    }
+    var r=resample(c, Math.max(spacing/10, diag*1e-3));
+    if(r) coarse.push(r);
+  });
+  if(!coarse.length){ state.holes=[]; render(); return; }
+  var grid = edgeGrid(state.contours, Math.max(inset*0.8, diag*0.01));
+
+  var runs=[], steps=[];
+  coarse.forEach(function(rc){
+    if(inset<=0){ runs.push({pts:rc.pts, closed:rc.closed}); return; }
+    insetRuns(rc, inset, coarse, grid, probe).forEach(function(r){ runs.push(r); });
   });
 
-  // greedy minimum-gap cull
-  var kept=[];
-  for(var i=0;i<holes.length;i++){
-    var ok=true;
-    for(var j=0;j<kept.length;j++){
-      if(Math.hypot(holes[i][0]-kept[j][0],holes[i][1]-kept[j][1]) < gap){ ok=false; break; }
-    }
-    if(ok) kept.push(holes[i]); else skipped++;
-  }
+  // longest runs get first claim on space, so the main ring wins over stubs
+  runs.forEach(function(r){ r.len=polyLen(r.pts,r.closed); });
+  runs.sort(function(a,b){return b.len-a.len;});
+
+  var kept=[], skipped=0;
+  runs.forEach(function(r){
+    var res=placeOnRun(r, spacing);
+    if(res.step) steps.push(res.step*scale);
+    res.pts.forEach(function(p){
+      for(var j=0;j<kept.length;j++){
+        if(Math.hypot(p[0]-kept[j][0],p[1]-kept[j][1]) < gap){ skipped++; return; }
+      }
+      kept.push(p);
+    });
+  });
 
   state.holes = kept.map(function(p){
     return [ (p[0]-bb.x)*scale, (p[1]-bb.y)*scale ];
   });
-  state.actualSpacing = spacings.length ? spacings.reduce(function(a,b){return a+b;},0)/spacings.length : 0;
+  state.actualSpacing = steps.length ? steps.reduce(function(a,b){return a+b;},0)/steps.length : 0;
   state.dia = dia;
   state.skipped = skipped;
+  state.runCount = runs.length;
   render();
 }
 
@@ -662,7 +745,7 @@ function render(){
 
   $('stCount').textContent = state.holes.length;
   $('stSpace').textContent = state.actualSpacing.toFixed(2)+'"';
-  $('stPaths').textContent = state.contours.length;
+  $('stPaths').textContent = state.runCount || state.contours.length;
   $('stSize').textContent = W.toFixed(2)+'" × '+H.toFixed(2)+'"';
   var mins = state.holes.length*12/60;
   $('stTime').textContent = mins<1 ? '<1 min' : Math.round(mins)+' min';
@@ -723,12 +806,17 @@ $('expCsv').addEventListener('click',function(){
 });
 
 /* ================= WIRING ================= */
-link('dR','dN',recompute);
-link('sR','sN',recompute);
-link('iR','iN',recompute);
-link('gR','gN',recompute);
-$('fitVal').addEventListener('input',recompute);
-$('fitMode').addEventListener('change',recompute);
+var pending=false;
+function schedule(){
+  if(pending) return; pending=true;
+  requestAnimationFrame(function(){ pending=false; recompute(); });
+}
+link('dR','dN',schedule);
+link('sR','sN',schedule);
+link('iR','iN',schedule);
+link('gR','gN',schedule);
+$('fitVal').addEventListener('input',schedule);
+$('fitMode').addEventListener('change',schedule);
 $('chase').addEventListener('change',render);
 $('showArt').addEventListener('change',render);
 
