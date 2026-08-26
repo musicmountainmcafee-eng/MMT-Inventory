@@ -13854,43 +13854,49 @@ function changeShortNum(v) {
 }
 
 // ── SET CHANGE PLOT → SPREADSHEET EXPORT ─────────────────────────────────────
-// Same data as the printed plot, but as a workbook that can be edited after it
-// leaves the dashboard — a stage manager marking up a change, a crew head
-// re-sorting by WHO. So it's a flat table, not a picture of a table: SCENE, #
-// and PG repeat down every row of a change instead of printing once, which is
-// what makes filtering and sorting work in Excel. The blocks still read as
-// blocks because each one gets a heavy top border and alternating shading.
+// The same document as the printed plot — same columns, same scene bars, same
+// block rules and shading, same act-per-page breaks — but as cells you can edit
+// after it leaves the dashboard. Deliberately mirrors exportSetChangePlot rather
+// than flattening to a database table: the plot's structure IS the information,
+// and a change that reads as one block on paper has to read as one block here.
 
-// One row per move, in script order, with the identifying columns filled in on
-// every row. `first` marks the top row of a change so the styling can rule it off.
-function setChangeRowData() {
+// Grouped exactly the way the PDF groups it: one section per scene marker
+// (including scenes with no changes yet — an empty scene bar on the page is how
+// you see the gap), one block per SHIFT cue, one row per move.
+function setChangeSections() {
   const ordered = cuesInScriptOrder();
   const SCENE_LABELS = sceneLabels();
-  const rows = [];
-  let scene = '';
+  const sections = [];
+  let cur = null;
+
   ordered.forEach(c => {
-    if (isSceneCue(c)) { scene = SCENE_LABELS[c.id] || c.number || ''; return; }
+    if (isSceneCue(c)) {
+      cur = { label: SCENE_LABELS[c.id] || c.number || '', blocks: [] };
+      sections.push(cur);
+      return;
+    }
     if (c.type !== SHIFT_TYPE_ID) return;   // LX/SFX/FLY belong on the cue sheet
-    // A change with nothing entered yet still exports, so a blank row in the
+    // Changes placed above the first scene marker still need somewhere to live.
+    if (!cur) { cur = { label: '', blocks: [] }; sections.push(cur); }
+
+    // A change with nothing entered yet still exports, so a blank block in the
     // sheet tells you it needs filling rather than silently vanishing.
     const moves = (c.moves && c.moves.length) ? c.moves : [{}];
-    moves.forEach((m, i) => {
-      rows.push({
-        scene:  String(scene || ''),
-        num:    changeShortNum(c.number),
-        // m.trigger only survives on data a device hasn't migrated yet.
-        cue:    String(m.trigger || c.cueLine || ''),
-        pg:     String(c.page || ''),
-        piece:  String(m.piece  || ''),
-        action: String(m.action || ''),
-        who:    String(m.who    || ''),
-        spike:  String(m.spike  || ''),
-        notes:  String(m.notes  || ''),
-        first:  i === 0
-      });
-    });
+    cur.blocks.push(moves.map((m, i) => ({
+      // Number, cue line and page belong to the change, not the move, so they
+      // print once at the top of the block — same as the PDF.
+      num:    i === 0 ? changeShortNum(c.number) : '',
+      // m.trigger only survives on data a device hasn't migrated yet.
+      cue:    String(m.trigger || (i === 0 ? (c.cueLine || '') : '')),
+      pg:     i === 0 ? String(c.page || '') : '',
+      piece:  String(m.piece  || ''),
+      action: String(m.action || ''),
+      who:    String(m.who    || ''),
+      spike:  String(m.spike  || ''),
+      notes:  String(m.notes  || '')
+    })));
   });
-  return rows;
+  return sections;
 }
 
 // Every piece in the show and where it lives at top of show, unless it's been
@@ -13901,6 +13907,18 @@ function presetRowData() {
     .map(({ key, piece }) => ({ ...(presets[key] || {}), piece }))
     .filter(r => !r.hidden)
     .map(r => ({ piece: String(r.piece || ''), location: String(r.location || ''), notes: String(r.notes || '') }));
+}
+
+// Act number off the front of a scene name: "2-1" or "Act 2, Scene 1". Labels
+// with no act in them — PRE-SHOW, INTERMISSION — return null and don't disturb
+// the running act, so an intermission bar sits at the end of the act it follows
+// instead of triggering a page break of its own.
+function actOfSceneLabel(label) {
+  const t = String(label || '').trim();
+  let m = t.match(/^(\d+)\s*[-–—.:]/);
+  if (m) return m[1];
+  m = t.match(/^act\s*(\d+)/i);
+  return m ? m[1] : null;
 }
 
 function downloadBlob(blob, filename) {
@@ -13928,21 +13946,35 @@ function loadExcelJS() {
   return _exceljsPromise;
 }
 
+// Widths are the PDF's column widths in points, divided down to Excel's
+// character units, so the printed proportions survive the trip.
 const XLSX_COLS = [
-  { key: 'scene',  label: 'SCENE',         width: 18, wrap: false },
-  { key: 'num',    label: '#',             width: 6,  wrap: false },
-  { key: 'cue',    label: 'CUE / TRIGGER', width: 28, wrap: true  },
-  { key: 'pg',     label: 'PG',            width: 6,  wrap: false },
-  { key: 'piece',  label: 'PIECE',         width: 26, wrap: true  },
-  { key: 'action', label: 'ACTION',        width: 14, wrap: false },
-  { key: 'who',    label: 'WHO',           width: 18, wrap: true  },
-  { key: 'spike',  label: 'SPIKE',         width: 10, wrap: false },
-  { key: 'notes',  label: 'NOTES',         width: 42, wrap: true  },
+  { key: 'num',    label: '#',      width: 5,  wrap: false, bold: true  },
+  { key: 'cue',    label: 'CUE',    width: 21, wrap: true,  bold: false },
+  { key: 'pg',     label: 'PG',     width: 5,  wrap: false, bold: false },
+  { key: 'piece',  label: 'PIECE',  width: 21, wrap: true,  bold: true  },
+  { key: 'action', label: 'ACTION', width: 11, wrap: true,  bold: false },
+  { key: 'who',    label: 'WHO',    width: 14, wrap: true,  bold: false },
+  { key: 'spike',  label: 'SPIKE',  width: 8,  wrap: false, bold: false },
+  { key: 'notes',  label: 'NOTES',  width: 29, wrap: true,  bold: false },
 ];
 
+// Same palette as the PDF, as ARGB.
+const XL = {
+  GRID:   'FFCDCDD6',
+  HEAD:   'FFE8E8F0',
+  SCENE:  'FF26262E',   // black bar = scene
+  RULE:   'FF9696A2',   // grey rule = next change, same scene
+  TINT:   'FFEDEEF3',   // every other change, so blocks read as units
+  INK:    'FF16161C',
+  MUTED:  'FF9696A0',
+  HEADFG: 'FF5A5A69'
+};
+
 async function exportSetChangeXLSX() {
-  const rows = setChangeRowData();
-  if (!rows.length) { toast('No set changes to export'); return; }
+  const sections = setChangeSections();
+  const hasChanges = sections.some(s => s.blocks.length);
+  if (!hasChanges) { toast('No set changes to export'); return; }
 
   const showName = cleanShowName(document.getElementById('show-name').textContent || 'Untitled');
   const safe = showName.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') || 'Show';
@@ -13957,115 +13989,153 @@ async function exportSetChangeXLSX() {
   } catch (err) {
     // No network, or the CDN is having a day. A CSV still opens in Excel and is
     // still editable — better than sending someone away empty-handed.
-    exportSetChangeCSV(rows, safe);
+    exportSetChangeCSV(sections, safe);
     return;
   }
 
-  const GRID   = 'FFCDCDD6';
-  const HEAD   = 'FFE8E8F0';
-  const BAND   = 'FFEDEEF3';
-  const RULE   = 'FF8C8C9B';
-  const thin   = { style: 'thin',   color: { argb: GRID } };
-  const medium = { style: 'medium', color: { argb: RULE } };
+  const thin   = { style: 'thin',   color: { argb: XL.GRID } };
+  const rule   = { style: 'medium', color: { argb: XL.RULE } };
+  const titleR = { style: 'medium', color: { argb: XL.INK  } };
+  const headB  = { style: 'thin',   color: { argb: 'FF8C8C9B' } };
 
   const wb = new ExcelJS.Workbook();
   wb.creator = 'MMT Dashboard';
   wb.created = now;
 
+  // Title left, timestamp beneath it, a rule tying the block to the table —
+  // then the column header. All four rows repeat at the top of every printed
+  // page, the way drawTitle() runs again on each page of the PDF.
+  function titleBlock(ws, lastCol, heading, subheading) {
+    ws.mergeCells('A1:' + lastCol + '1');
+    ws.getCell('A1').value = {
+      richText: [
+        { font: { bold: true, size: 15, color: { argb: XL.INK }, name: 'Helvetica' }, text: heading },
+        { font: { size: 10, color: { argb: XL.MUTED }, name: 'Helvetica' }, text: '   ' + subheading }
+      ]
+    };
+    ws.getRow(1).height = 21;
+
+    ws.mergeCells('A2:' + lastCol + '2');
+    ws.getCell('A2').value = 'Updated ' + exportedStr;
+    ws.getCell('A2').font = { size: 8, color: { argb: XL.MUTED }, name: 'Helvetica' };
+    ws.getRow(2).height = 12;
+
+    // Row 3 is the rule under the title — an empty band carrying a bottom border.
+    ws.getRow(3).height = 5;
+    for (let i = 1; i <= XLSX_COLS.length; i++) {
+      const cell = ws.getRow(3).getCell(i);
+      if (cell.col > lastCol.charCodeAt(0) - 64) break;
+      cell.border = { bottom: titleR };
+    }
+  }
+
+  function headerRow(ws, rowNum, labels) {
+    const row = ws.getRow(rowNum);
+    labels.forEach((label, i) => {
+      const cell = row.getCell(i + 1);
+      cell.value = label;
+      cell.font = { bold: true, size: 8, color: { argb: XL.HEADFG }, name: 'Helvetica' };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.HEAD } };
+      cell.alignment = { vertical: 'middle' };
+      cell.border = { top: thin, left: thin, right: thin, bottom: headB };
+    });
+    row.height = 16;
+    return row;
+  }
+
+  // A scene bar: black band across the table, white bold caps. Merged, so it
+  // stays one band no matter how the columns get resized later.
+  function sceneBar(ws, rowNum, label, lastCol) {
+    ws.mergeCells('A' + rowNum + ':' + lastCol + rowNum);
+    const cell = ws.getCell('A' + rowNum);
+    cell.value = String(label || '').toUpperCase();
+    cell.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' }, name: 'Helvetica' };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.SCENE } };
+    cell.alignment = { vertical: 'middle', indent: 1 };
+    ws.getRow(rowNum).height = 16;
+  }
+
+  // ── Sheet 1: the plot ──────────────────────────────────────────────────────
+  const LAST = String.fromCharCode(64 + XLSX_COLS.length);   // 'H'
   const ws = wb.addWorksheet('Set Changes', {
     views: [{ state: 'frozen', ySplit: 4 }],
     pageSetup: {
       orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
-      printTitlesRow: '4:4',
+      printTitlesRow: '1:4',
       margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 }
     }
   });
   ws.columns = XLSX_COLS.map(c => ({ key: c.key, width: c.width }));
-  const LAST = String.fromCharCode(64 + XLSX_COLS.length);   // 'I'
+  titleBlock(ws, LAST, showName, 'Set Changes');
+  headerRow(ws, 4, XLSX_COLS.map(c => c.label));
 
-  // Title block. Kept above the header row rather than in it so the header row
-  // stays a clean single row for filtering and for repeating on printed pages.
-  ws.mergeCells('A1:' + LAST + '1');
-  const t = ws.getCell('A1');
-  t.value = showName + ' — Set Changes';
-  t.font = { bold: true, size: 15, color: { argb: 'FF16161C' } };
-  ws.getRow(1).height = 22;
+  let r = 5;
+  let lastAct = null;
+  let firstSection = true;
 
-  ws.mergeCells('A2:' + LAST + '2');
-  const sub = ws.getCell('A2');
-  sub.value = 'Updated ' + exportedStr;
-  sub.font = { size: 9, color: { argb: 'FF96969F' } };
+  sections.forEach(sec => {
+    const act = actOfSceneLabel(sec.label);
+    // Only a move between two KNOWN acts counts. Going from an unnumbered
+    // PRE-SHOW into 1-1 isn't an act change and shouldn't burn a page.
+    const actBreak = act !== null && lastAct !== null && act !== lastAct;
+    if (act !== null) lastAct = act;
+    if (actBreak && !firstSection) ws.getRow(r).addPageBreak();
 
-  const head = ws.getRow(4);
-  XLSX_COLS.forEach((c, i) => {
-    const cell = head.getCell(i + 1);
-    cell.value = c.label;
-    cell.font = { bold: true, size: 9, color: { argb: 'FF5A5A69' } };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEAD } };
-    cell.alignment = { vertical: 'middle' };
-    cell.border = { top: thin, left: thin, right: thin, bottom: medium };
-  });
-  head.height = 18;
-  ws.autoFilter = 'A4:' + LAST + '4';
+    if (sec.label) { sceneBar(ws, r, sec.label, LAST); r++; }
+    firstSection = false;
 
-  // Shading alternates per change, not per row, so a five-move change reads as
-  // one band rather than a zebra.
-  let band = false, lastNum = null;
-  rows.forEach(r => {
-    if (r.first) band = !band;
-    const row = ws.addRow(r);
-    row.alignment = { vertical: 'top', wrapText: false };
-    XLSX_COLS.forEach((c, i) => {
-      const cell = row.getCell(i + 1);
-      cell.font = { size: 10, bold: c.key === 'piece' || c.key === 'num' };
-      cell.alignment = { vertical: 'top', wrapText: c.wrap };
-      cell.border = {
-        left: thin, right: thin, bottom: thin,
-        top: r.first && lastNum !== null ? medium : thin
-      };
-      if (band) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BAND } };
+    let tint = false;
+    sec.blocks.forEach((block, bi) => {
+      block.forEach((mv, mi) => {
+        const row = ws.getRow(r);
+        XLSX_COLS.forEach((c, i) => {
+          const cell = row.getCell(i + 1);
+          cell.value = mv[c.key] || null;
+          cell.font = { size: 9.5, bold: c.bold, name: 'Helvetica' };
+          cell.alignment = { vertical: 'top', wrapText: c.wrap };
+          cell.border = {
+            left: thin, right: thin, bottom: thin,
+            // Grey rule between changes inside the same scene; plain grid
+            // everywhere else. This is what makes a block read as a block.
+            top: (mi === 0 && bi > 0) ? rule : thin
+          };
+          if (tint) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.TINT } };
+        });
+        r++;
+      });
+      tint = !tint;
     });
-    lastNum = r.num;
   });
 
-  // ── Preset sheet ───────────────────────────────────────────────────────────
-  // A standing reference, not part of the running order, so it gets its own tab
-  // instead of sitting at the top of the plot.
+  // ── Sheet 2: before house opens ────────────────────────────────────────────
+  // The PDF gives the presets their own page because they're a standing
+  // reference, not part of the running order. Here they get their own tab — a
+  // sheet has one set of column widths, and a three-column table doesn't want
+  // the plot's eight.
   const presetRows = presetRowData();
   if (presetRows.length) {
-    const ps = wb.addWorksheet('Preset — Top of Show', {
-      views: [{ state: 'frozen', ySplit: 4 }],
-      pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: '4:4' }
+    const ps = wb.addWorksheet('Before House Opens', {
+      views: [{ state: 'frozen', ySplit: 5 }],
+      pageSetup: {
+        orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+        printTitlesRow: '1:5',
+        margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 }
+      }
     });
-    ps.columns = [{ key:'piece', width:30 }, { key:'location', width:38 }, { key:'notes', width:46 }];
-    ps.mergeCells('A1:C1');
-    const pt = ps.getCell('A1');
-    pt.value = showName + ' — Before House Opens';
-    pt.font = { bold: true, size: 15, color: { argb: 'FF16161C' } };
-    ps.getRow(1).height = 22;
-    ps.mergeCells('A2:C2');
-    ps.getCell('A2').value = 'Updated ' + exportedStr;
-    ps.getCell('A2').font = { size: 9, color: { argb: 'FF96969F' } };
+    ps.columns = [{ key:'piece', width:28 }, { key:'location', width:38 }, { key:'notes', width:44 }];
+    titleBlock(ps, 'C', showName, 'Set Changes');
+    sceneBar(ps, 4, 'Before house opens', 'C');
+    headerRow(ps, 5, ['PIECE', 'PRESET LOCATION', 'NOTES']);
 
-    const ph = ps.getRow(4);
-    ['PIECE', 'PRESET LOCATION', 'NOTES'].forEach((label, i) => {
-      const cell = ph.getCell(i + 1);
-      cell.value = label;
-      cell.font = { bold: true, size: 9, color: { argb: 'FF5A5A69' } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEAD } };
-      cell.border = { top: thin, left: thin, right: thin, bottom: medium };
-    });
-    ph.height = 18;
-    ps.autoFilter = 'A4:C4';
-
-    presetRows.forEach((r, idx) => {
-      const row = ps.addRow(r);
-      [1, 2, 3].forEach(i => {
-        const cell = row.getCell(i);
-        cell.font = { size: 10, bold: i === 1 };
-        cell.alignment = { vertical: 'top', wrapText: i !== 1 };
+    presetRows.forEach((rec, idx) => {
+      const row = ps.getRow(6 + idx);
+      ['piece', 'location', 'notes'].forEach((k, i) => {
+        const cell = row.getCell(i + 1);
+        cell.value = rec[k] || null;
+        cell.font = { size: 9.5, bold: i === 0, name: 'Helvetica' };
+        cell.alignment = { vertical: 'top', wrapText: i !== 0 };
         cell.border = { top: thin, left: thin, right: thin, bottom: thin };
-        if (idx % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BAND } };
+        if (idx % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.TINT } };
       });
     });
   }
@@ -14077,25 +14147,34 @@ async function exportSetChangeXLSX() {
     }), safe + '_Set_Changes.xlsx');
     toast('Set changes exported to Excel');
   } catch (err) {
-    exportSetChangeCSV(rows, safe);
+    exportSetChangeCSV(sections, safe);
   }
 }
 
-// Fallback when ExcelJS can't be reached. No styling, but it opens in Excel,
-// Numbers and Sheets and every cell is editable — which is the whole point.
-function exportSetChangeCSV(rows, safe) {
+// Fallback when ExcelJS can't be reached. No bars or shading — a CSV has no
+// formatting to give — so the scene rides along in its own column instead, and
+// the identifying columns repeat down the block to make up for the lost
+// grouping. Opens in Excel, Numbers and Sheets, every cell editable.
+function exportSetChangeCSV(sections, safe) {
   const esc = v => {
     const s = String(v == null ? '' : v);
     return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   };
-  const lines = [XLSX_COLS.map(c => esc(c.label)).join(',')];
-  rows.forEach(r => lines.push(XLSX_COLS.map(c => esc(r[c.key])).join(',')));
+  const lines = [['SCENE'].concat(XLSX_COLS.map(c => c.label)).map(esc).join(',')];
+  sections.forEach(sec => {
+    sec.blocks.forEach(block => {
+      const head = block[0] || {};
+      block.forEach(mv => {
+        const rec = { ...mv, num: head.num, cue: mv.cue || head.cue, pg: head.pg };
+        lines.push([sec.label].concat(XLSX_COLS.map(c => rec[c.key])).map(esc).join(','));
+      });
+    });
+  });
   // BOM so Excel opens it as UTF-8 rather than mangling any curly quotes.
   downloadBlob(new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }),
     safe + '_Set_Changes.csv');
   toast('Offline — exported as CSV instead');
 }
-
 
 async function exportCueSheet() {
   const sorted = cuesInScriptOrder();
