@@ -3848,6 +3848,7 @@
       <button class="top-btn" onclick="exportCueSheet()">Export Cues</button>
       <button class="top-btn" onclick="openPresets()">Presets</button>
       <button class="top-btn" onclick="exportSetChangePlot()">Export Scene Change Plot</button>
+      <button class="top-btn" onclick="exportSetChangeXLSX()">Scene Changes → Excel</button>
       <button class="top-btn" onclick="exportAnnotatedPDF()">Export PDF</button>
       <button class="top-btn primary" onclick="goHome()">← Scripts</button>
     </div>
@@ -13496,19 +13497,7 @@ async function exportSetChangePlot() {
   // extension, any trailing "(2)", and the words that describe the file rather
   // than the production. Looped because they stack — "…Script (1).pdf".
   const rawName = document.getElementById('show-name').textContent || 'Untitled';
-  const cleanShowName = raw => {
-    let n = String(raw).trim();
-    for (let i = 0; i < 6; i++) {
-      const before = n;
-      n = n.replace(/\.(pdf|docx?|txt)$/i, '')
-           .replace(/\s*\(\s*\d+\s*\)\s*$/, '')
-           .replace(/\s*[-–—_]?\s*\b(script|libretto|final|draft|copy|rev\.?\s*\d*|v\d+)\b\s*$/i, '')
-           .trim();
-      if (n === before) break;
-    }
-    return n || String(raw).trim() || 'Untitled';
-  };
-  const showName = cleanShowName(rawName);
+  const showName = cleanShowName(rawName);   // shared helper, see above
   const now = new Date();
   const exportedStr = now.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
     + ' at ' + now.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
@@ -13837,6 +13826,276 @@ async function exportSetChangePlot() {
   doc.save(safe + '_Set_Changes.pdf');
   toast('Set change plot exported');
 }
+
+// ── SHARED EXPORT HELPERS ────────────────────────────────────────────────────
+// The header reads off the uploaded script's filename, which carries junk the
+// audience for these documents doesn't care about: "The Will Rogers Follies
+// Script (1)" is a Drive de-duplication artifact, not a show title. Strip the
+// extension, any trailing "(2)", and the words that describe the file rather
+// than the production. Looped because they stack — "…Script (1).pdf".
+function cleanShowName(raw) {
+  let n = String(raw).trim();
+  for (let i = 0; i < 6; i++) {
+    const before = n;
+    n = n.replace(/\.(pdf|docx?|txt)$/i, '')
+         .replace(/\s*\(\s*\d+\s*\)\s*$/, '')
+         .replace(/\s*[-–—_]?\s*\b(script|libretto|final|draft|copy|rev\.?\s*\d*|v\d+)\b\s*$/i, '')
+         .trim();
+    if (n === before) break;
+  }
+  return n || String(raw).trim() || 'Untitled';
+}
+
+// "SCENE CHANGE 12" -> "12". Falls back to the whole label so a change named
+// something without digits still exports something.
+function changeShortNum(v) {
+  const m = String(v || '').match(/(\d+[A-Za-z.]*)\s*$/);
+  return m ? m[1] : String(v || '').trim();
+}
+
+// ── SET CHANGE PLOT → SPREADSHEET EXPORT ─────────────────────────────────────
+// Same data as the printed plot, but as a workbook that can be edited after it
+// leaves the dashboard — a stage manager marking up a change, a crew head
+// re-sorting by WHO. So it's a flat table, not a picture of a table: SCENE, #
+// and PG repeat down every row of a change instead of printing once, which is
+// what makes filtering and sorting work in Excel. The blocks still read as
+// blocks because each one gets a heavy top border and alternating shading.
+
+// One row per move, in script order, with the identifying columns filled in on
+// every row. `first` marks the top row of a change so the styling can rule it off.
+function setChangeRowData() {
+  const ordered = cuesInScriptOrder();
+  const SCENE_LABELS = sceneLabels();
+  const rows = [];
+  let scene = '';
+  ordered.forEach(c => {
+    if (isSceneCue(c)) { scene = SCENE_LABELS[c.id] || c.number || ''; return; }
+    if (c.type !== SHIFT_TYPE_ID) return;   // LX/SFX/FLY belong on the cue sheet
+    // A change with nothing entered yet still exports, so a blank row in the
+    // sheet tells you it needs filling rather than silently vanishing.
+    const moves = (c.moves && c.moves.length) ? c.moves : [{}];
+    moves.forEach((m, i) => {
+      rows.push({
+        scene:  String(scene || ''),
+        num:    changeShortNum(c.number),
+        // m.trigger only survives on data a device hasn't migrated yet.
+        cue:    String(m.trigger || c.cueLine || ''),
+        pg:     String(c.page || ''),
+        piece:  String(m.piece  || ''),
+        action: String(m.action || ''),
+        who:    String(m.who    || ''),
+        spike:  String(m.spike  || ''),
+        notes:  String(m.notes  || ''),
+        first:  i === 0
+      });
+    });
+  });
+  return rows;
+}
+
+// Every piece in the show and where it lives at top of show, unless it's been
+// turned off in the Presets dialog. A blank location is a gap someone should
+// fill, so it exports rather than being hidden.
+function presetRowData() {
+  return allPieces()
+    .map(({ key, piece }) => ({ ...(presets[key] || {}), piece }))
+    .filter(r => !r.hidden)
+    .map(r => ({ piece: String(r.piece || ''), location: String(r.location || ''), notes: String(r.notes || '') }));
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  // Revoking immediately cancels the download in some browsers; give it a beat.
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+// Loaded on demand rather than in a <script> tag — it's most of a megabyte and
+// this export gets used once a production, not once a session.
+let _exceljsPromise = null;
+function loadExcelJS() {
+  if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  if (_exceljsPromise) return _exceljsPromise;
+  _exceljsPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+    s.onload = () => window.ExcelJS ? resolve(window.ExcelJS) : reject(new Error('ExcelJS missing'));
+    s.onerror = () => { _exceljsPromise = null; reject(new Error('ExcelJS failed to load')); };
+    document.head.appendChild(s);
+  });
+  return _exceljsPromise;
+}
+
+const XLSX_COLS = [
+  { key: 'scene',  label: 'SCENE',         width: 18, wrap: false },
+  { key: 'num',    label: '#',             width: 6,  wrap: false },
+  { key: 'cue',    label: 'CUE / TRIGGER', width: 28, wrap: true  },
+  { key: 'pg',     label: 'PG',            width: 6,  wrap: false },
+  { key: 'piece',  label: 'PIECE',         width: 26, wrap: true  },
+  { key: 'action', label: 'ACTION',        width: 14, wrap: false },
+  { key: 'who',    label: 'WHO',           width: 18, wrap: true  },
+  { key: 'spike',  label: 'SPIKE',         width: 10, wrap: false },
+  { key: 'notes',  label: 'NOTES',         width: 42, wrap: true  },
+];
+
+async function exportSetChangeXLSX() {
+  const rows = setChangeRowData();
+  if (!rows.length) { toast('No set changes to export'); return; }
+
+  const showName = cleanShowName(document.getElementById('show-name').textContent || 'Untitled');
+  const safe = showName.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') || 'Show';
+  const now = new Date();
+  const exportedStr = now.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
+    + ' at ' + now.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+
+  let ExcelJS;
+  try {
+    toast('Building spreadsheet…');
+    ExcelJS = await loadExcelJS();
+  } catch (err) {
+    // No network, or the CDN is having a day. A CSV still opens in Excel and is
+    // still editable — better than sending someone away empty-handed.
+    exportSetChangeCSV(rows, safe);
+    return;
+  }
+
+  const GRID   = 'FFCDCDD6';
+  const HEAD   = 'FFE8E8F0';
+  const BAND   = 'FFEDEEF3';
+  const RULE   = 'FF8C8C9B';
+  const thin   = { style: 'thin',   color: { argb: GRID } };
+  const medium = { style: 'medium', color: { argb: RULE } };
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'MMT Dashboard';
+  wb.created = now;
+
+  const ws = wb.addWorksheet('Set Changes', {
+    views: [{ state: 'frozen', ySplit: 4 }],
+    pageSetup: {
+      orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+      printTitlesRow: '4:4',
+      margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 }
+    }
+  });
+  ws.columns = XLSX_COLS.map(c => ({ key: c.key, width: c.width }));
+  const LAST = String.fromCharCode(64 + XLSX_COLS.length);   // 'I'
+
+  // Title block. Kept above the header row rather than in it so the header row
+  // stays a clean single row for filtering and for repeating on printed pages.
+  ws.mergeCells('A1:' + LAST + '1');
+  const t = ws.getCell('A1');
+  t.value = showName + ' — Set Changes';
+  t.font = { bold: true, size: 15, color: { argb: 'FF16161C' } };
+  ws.getRow(1).height = 22;
+
+  ws.mergeCells('A2:' + LAST + '2');
+  const sub = ws.getCell('A2');
+  sub.value = 'Updated ' + exportedStr;
+  sub.font = { size: 9, color: { argb: 'FF96969F' } };
+
+  const head = ws.getRow(4);
+  XLSX_COLS.forEach((c, i) => {
+    const cell = head.getCell(i + 1);
+    cell.value = c.label;
+    cell.font = { bold: true, size: 9, color: { argb: 'FF5A5A69' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEAD } };
+    cell.alignment = { vertical: 'middle' };
+    cell.border = { top: thin, left: thin, right: thin, bottom: medium };
+  });
+  head.height = 18;
+  ws.autoFilter = 'A4:' + LAST + '4';
+
+  // Shading alternates per change, not per row, so a five-move change reads as
+  // one band rather than a zebra.
+  let band = false, lastNum = null;
+  rows.forEach(r => {
+    if (r.first) band = !band;
+    const row = ws.addRow(r);
+    row.alignment = { vertical: 'top', wrapText: false };
+    XLSX_COLS.forEach((c, i) => {
+      const cell = row.getCell(i + 1);
+      cell.font = { size: 10, bold: c.key === 'piece' || c.key === 'num' };
+      cell.alignment = { vertical: 'top', wrapText: c.wrap };
+      cell.border = {
+        left: thin, right: thin, bottom: thin,
+        top: r.first && lastNum !== null ? medium : thin
+      };
+      if (band) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BAND } };
+    });
+    lastNum = r.num;
+  });
+
+  // ── Preset sheet ───────────────────────────────────────────────────────────
+  // A standing reference, not part of the running order, so it gets its own tab
+  // instead of sitting at the top of the plot.
+  const presetRows = presetRowData();
+  if (presetRows.length) {
+    const ps = wb.addWorksheet('Preset — Top of Show', {
+      views: [{ state: 'frozen', ySplit: 4 }],
+      pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: '4:4' }
+    });
+    ps.columns = [{ key:'piece', width:30 }, { key:'location', width:38 }, { key:'notes', width:46 }];
+    ps.mergeCells('A1:C1');
+    const pt = ps.getCell('A1');
+    pt.value = showName + ' — Before House Opens';
+    pt.font = { bold: true, size: 15, color: { argb: 'FF16161C' } };
+    ps.getRow(1).height = 22;
+    ps.mergeCells('A2:C2');
+    ps.getCell('A2').value = 'Updated ' + exportedStr;
+    ps.getCell('A2').font = { size: 9, color: { argb: 'FF96969F' } };
+
+    const ph = ps.getRow(4);
+    ['PIECE', 'PRESET LOCATION', 'NOTES'].forEach((label, i) => {
+      const cell = ph.getCell(i + 1);
+      cell.value = label;
+      cell.font = { bold: true, size: 9, color: { argb: 'FF5A5A69' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEAD } };
+      cell.border = { top: thin, left: thin, right: thin, bottom: medium };
+    });
+    ph.height = 18;
+    ps.autoFilter = 'A4:C4';
+
+    presetRows.forEach((r, idx) => {
+      const row = ps.addRow(r);
+      [1, 2, 3].forEach(i => {
+        const cell = row.getCell(i);
+        cell.font = { size: 10, bold: i === 1 };
+        cell.alignment = { vertical: 'top', wrapText: i !== 1 };
+        cell.border = { top: thin, left: thin, right: thin, bottom: thin };
+        if (idx % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BAND } };
+      });
+    });
+  }
+
+  try {
+    const buf = await wb.xlsx.writeBuffer();
+    downloadBlob(new Blob([buf], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    }), safe + '_Set_Changes.xlsx');
+    toast('Set changes exported to Excel');
+  } catch (err) {
+    exportSetChangeCSV(rows, safe);
+  }
+}
+
+// Fallback when ExcelJS can't be reached. No styling, but it opens in Excel,
+// Numbers and Sheets and every cell is editable — which is the whole point.
+function exportSetChangeCSV(rows, safe) {
+  const esc = v => {
+    const s = String(v == null ? '' : v);
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const lines = [XLSX_COLS.map(c => esc(c.label)).join(',')];
+  rows.forEach(r => lines.push(XLSX_COLS.map(c => esc(r[c.key])).join(',')));
+  // BOM so Excel opens it as UTF-8 rather than mangling any curly quotes.
+  downloadBlob(new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }),
+    safe + '_Set_Changes.csv');
+  toast('Offline — exported as CSV instead');
+}
+
 
 async function exportCueSheet() {
   const sorted = cuesInScriptOrder();
