@@ -39,6 +39,86 @@
     --safe-b: env(safe-area-inset-bottom, 0px);
     --hdr: 128px;
   }
+  /* Dark theme — same token names, same structure. The sheet stops pretending
+     to be paper and becomes the cue editor's dark surface, so the page can sit
+     in a dark wing without lighting up the whole booth. Uses the dashboard's
+     own data-theme attribute and mmt_theme key. */
+  [data-theme="dark"] {
+    --bg: #161625; --surface: #1e1e32;
+    --border: rgba(255,255,255,0.1);
+    --text: #e4e4ec; --text-muted: #9494ae; --text-faint: #5e5e78;
+    --purple-light: #2a2745; --purple-dark: #b0a8f4;
+
+    --paper:   #1a1a2e;
+    --band:    #21213a;
+    --grid:    rgba(255,255,255,0.11);
+    --head-bg: #262642;
+    --head-ink:#9494ae;
+    --rule:    #4a4a70;
+    --ink:     #e4e4ec;
+    --ink-2:   #d2d2de;
+    --ink-3:   #b9b9c9;
+    --ink-4:   #a6a6b8;
+    --ink-meta:#6e6e8a;
+    --scene-bg:#2e2a55;
+  }
+  /* Red mode — for standing in the wings. Everything emissive is pushed into
+     the long wavelengths so the screen doesn't wreck night vision or throw
+     white light onto the deck. Type-colour chips get desaturated for the same
+     reason; the label still names the type. */
+  [data-theme="red"] {
+    --bg: #0a0000; --surface: #140303;
+    --border: rgba(255,80,80,0.18);
+    --text: #ff8a80; --text-muted: #c25555; --text-faint: #8a3a3a;
+    --purple: #b03030; --purple-light: #260707; --purple-dark: #ff8a80;
+
+    --paper:   #0d0202;
+    --band:    #170404;
+    --grid:    rgba(255,80,80,0.16);
+    --head-bg: #1e0505;
+    --head-ink:#c25555;
+    --rule:    #7a2020;
+    --ink:     #ff9a90;
+    --ink-2:   #ef8378;
+    --ink-3:   #d97068;
+    --ink-4:   #c26058;
+    --ink-meta:#8a3a3a;
+    --scene-bg:#260707;
+  }
+  [data-theme="red"] .cs-chip { filter: saturate(0.3) brightness(0.55); }
+  [data-theme="red"] .type-color { filter: saturate(0.3) brightness(0.7); }
+  [data-theme="red"] .sheet { box-shadow: none; }
+  [data-theme="red"] .cs-crop { filter: invert(1) sepia(1) saturate(6) hue-rotate(-38deg) brightness(0.45); }
+  [data-theme="red"] .cs-crop.zoom { filter: invert(1) sepia(1) saturate(4) hue-rotate(-38deg) brightness(0.6); }
+  [data-theme="red"] tr.changed td { animation: flash-red 2.6s ease-out; }
+  @keyframes flash-red { 0% { background: rgba(176,48,48,0.45); } 100% { background: transparent; } }
+
+  [data-theme="red"] .pin-card, [data-theme="dark"] .pin-card { background: var(--surface); color: var(--text); }
+  [data-theme="red"] .pin-btn, [data-theme="dark"] .pin-btn { background: var(--bg); color: var(--text); border-color: var(--border); }
+  [data-theme="red"] .pin-btn:hover, [data-theme="dark"] .pin-btn:hover { background: var(--purple-light); }
+  [data-theme="red"] .modal, [data-theme="dark"] .modal { background: var(--surface); }
+  [data-theme="red"] .search-wrap input, [data-theme="red"] .script-opt,
+  [data-theme="red"] .size-row button, [data-theme="red"] .type-row,
+  [data-theme="red"] .top-btn, [data-theme="red"] #page-jump,
+  [data-theme="dark"] .search-wrap input, [data-theme="dark"] .script-opt,
+  [data-theme="dark"] .size-row button, [data-theme="dark"] .type-row,
+  [data-theme="dark"] .top-btn, [data-theme="dark"] #page-jump { background: var(--bg); color: var(--text-muted); }
+  [data-theme="red"] .top-btn.primary, [data-theme="dark"] .top-btn.primary { background: var(--purple); color: #fff; }
+  [data-theme="red"] .type-row.on, [data-theme="dark"] .type-row.on { color: #fff; }
+  [data-theme="red"] .script-opt, [data-theme="dark"] .script-opt { color: var(--text); }
+  [data-theme="red"] .script-opt.sel, [data-theme="red"] .size-row button.on,
+  [data-theme="dark"] .script-opt.sel, [data-theme="dark"] .size-row button.on { background: var(--purple-light); }
+  [data-theme="red"] tr.scene td, [data-theme="dark"] tr.scene td { color: var(--purple-dark); }
+  [data-theme="red"] .moves-tag, [data-theme="dark"] .moves-tag { color: var(--purple-dark); background: transparent; }
+  [data-theme="red"] .view-tab.on, [data-theme="dark"] .view-tab.on { color: var(--purple-dark); }
+  [data-theme="dark"] .sheet { box-shadow: none; }
+  /* Crops are photos of white script pages — knock them back so a row of them
+     doesn't glare in a blackout. */
+  [data-theme="dark"] .cs-crop { filter: invert(1) hue-rotate(180deg) brightness(0.92); }
+  [data-theme="dark"] .cs-crop.zoom { filter: none; }
+  [data-theme="dark"] tr.changed td { animation: flash-dark 2.6s ease-out; }
+  @keyframes flash-dark { 0% { background: rgba(83,74,183,0.45); } 100% { background: transparent; } }
+
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; padding: 0; min-height: 100%; }
   body {
@@ -129,6 +209,25 @@
     display: none; padding: 2px 6px;
   }
 
+  .view-tabs { display: flex; gap: 18px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+  .view-tab {
+    background: none; border: none; padding: 8px 0 9px; font-size: 13.5px; font-weight: 600;
+    color: var(--text-faint); border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .view-tab.on { color: var(--purple); border-bottom-color: var(--purple); }
+
+  .search-row { display: flex; gap: 8px; align-items: center; padding: 10px 16px; }
+  .search-row .search-wrap { flex: 1; padding: 0; }
+  #page-jump {
+    flex: none; padding: 9px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface); color: var(--text-muted); font-size: 13px;
+    font-family: 'DM Mono', monospace; max-width: 116px;
+  }
+
+  .strip-label {
+    flex: none; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-faint); align-self: center; padding-right: 2px;
+  }
   .type-strip { display: flex; gap: 6px; overflow-x: auto; padding: 0 16px 10px; scrollbar-width: none; }
   .type-strip::-webkit-scrollbar { display: none; }
   .type-row {
@@ -196,6 +295,13 @@
   }
   tr.scene:hover td { background: var(--scene-bg); }
 
+  .photo-chip {
+    font-size: 0.76em; font-weight: 600; color: var(--ink-meta);
+    border: 1px dashed var(--grid); border-radius: 999px;
+    padding: 2px 9px; background: transparent;
+  }
+  .photo-chip:hover { color: var(--purple); border-color: var(--purple); border-style: solid; }
+
   .moves-tag {
     display: inline-block; margin-top: 4px; font-size: 0.72em; font-weight: 600;
     color: var(--purple); border: 1px solid var(--grid); border-radius: 999px;
@@ -216,6 +322,9 @@
   table.mv th:first-child, table.mv td:first-child { border-left: none; }
   table.mv tr:last-child td { border-bottom: none; }
   .mv-piece { font-weight: 700; color: var(--ink); }
+  /* With a who filter on, the other moves in the same change stay visible —
+     you still need to know what else is happening around you — but recede. */
+  tr.mv-dim td { opacity: 0.42; }
   .mv-note { color: var(--ink-4); }
   .mv-label {
     display: inline-block; margin-right: 7px; font-size: 0.8em; font-weight: 700;
@@ -230,6 +339,7 @@
     padding: 12px 20px 16px; font-size: 0.72em; color: var(--ink-meta);
   }
   .cs-empty { padding: 44px 20px; text-align: center; color: var(--text-muted); font-size: 13px; line-height: 1.7; }
+  .gap { color: var(--ink-meta); font-style: italic; }
   .cs-empty b { display: block; color: var(--ink); font-weight: 600; margin-bottom: 4px; }
 
   /* ── SHEET (script picker + display) ─────────────────────────────────────── */
@@ -305,15 +415,24 @@
           <span id="status-count"></span><span id="status">connecting</span>
         </div>
       </div>
-      <button class="top-btn" id="awake-btn" onclick="toggleAwake()" title="Keep screen awake">☾</button>
+      <button class="top-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Dark mode">🌙</button>
+      <button class="top-btn" id="awake-btn" onclick="toggleAwake()" title="Keep the screen on">Awake</button>
       <button class="top-btn" onclick="openSheet()">Script</button>
     </div>
-    <div class="search-wrap">
-      <input id="search" type="search" placeholder="Search cues, lines, notes…" autocomplete="off"
-             autocorrect="off" autocapitalize="off" spellcheck="false" oninput="onSearch()">
-      <button id="search-clear" onclick="clearSearch()">×</button>
+    <div class="view-tabs">
+      <button class="view-tab on" id="tab-cues"    onclick="setView('cues')">Cue Sheet</button>
+      <button class="view-tab"    id="tab-presets" onclick="setView('presets')">Before House</button>
+    </div>
+    <div class="search-row">
+      <div class="search-wrap">
+        <input id="search" type="search" placeholder="Search cues, lines, notes…" autocomplete="off"
+               autocorrect="off" autocapitalize="off" spellcheck="false" oninput="onSearch()">
+        <button id="search-clear" onclick="clearSearch()">×</button>
+      </div>
+      <select id="page-jump" onchange="jumpToPage(this.value)"><option value="">Page…</option></select>
     </div>
     <div class="type-strip" id="type-strip"></div>
+    <div class="type-strip" id="who-strip"></div>
   </header>
 
   <div class="sheet-wrap"><div class="sheet" id="sheet-body"></div></div>
@@ -328,6 +447,19 @@
     <label>Script</label>
     <div id="script-list"><div class="note">Loading scripts…</div></div>
 
+    <label style="margin-top:18px;">Theme</label>
+    <div class="size-row" id="theme-row">
+      <button data-th="light" onclick="applyTheme('light')">Light</button>
+      <button data-th="dark"  onclick="applyTheme('dark')">Dark</button>
+      <button data-th="red"   onclick="applyTheme('red')">Red</button>
+    </div>
+
+    <label style="margin-top:18px;">Line photos</label>
+    <div class="size-row" id="photo-row">
+      <button data-ph="1" onclick="setPhotos(true)">Show</button>
+      <button data-ph="0" onclick="setPhotos(false)">Hide</button>
+    </div>
+
     <label style="margin-top:18px;">Text size</label>
     <div class="size-row" id="size-row">
       <button data-sz="12" onclick="setSize(12)">Small</button>
@@ -340,6 +472,15 @@
   </div>
 </div>
 
+<script>
+// Applied before anything renders, so a dark-set device never flashes white.
+try {
+  var _own = localStorage.getItem('mmt_cuelist_theme');
+  var _t = (_own === 'light' || _own === 'dark' || _own === 'red')
+    ? _own : (localStorage.getItem('mmt_theme') === 'dark' ? 'dark' : 'light');
+  if (_t !== 'light') document.documentElement.setAttribute('data-theme', _t);
+} catch(e) {}
+</script>
 <script>
 /* ═══════════════════════════════════════════════════════════════════════════
    MMT Cue Sheet — read-only companion to the Scripts tab in app.html
@@ -379,7 +520,14 @@ let scriptId    = null;
 let scriptName  = '';
 let activeType  = null;
 let query       = '';
-let expanded    = {};
+let presets     = {};
+let view        = 'cues';
+let activeWho   = null;
+let lastHash    = '';
+let pendingScroll = null;
+let expanded    = {};   // per-cue override; set changes default to open
+let revealed    = {};   // per-cue "show this one photo" while photos are off
+let showPhotos  = true;
 let lastSig     = {};
 let changedIds  = new Set();
 let lastOk      = 0;
@@ -447,6 +595,11 @@ function unlock(){
 // ── Boot ────────────────────────────────────────────────────────────────────
 function start(){
   setSize(parseInt(lsGet('mmt_cuelist_size','13'),10) || 13);
+  setPhotos(lsGet('mmt_cuelist_photos','1') !== '0');
+  applyTheme(currentTheme(), false);
+  const savedView = lsGet('mmt_cuelist_view','cues');
+  if (savedView === 'presets') setView('presets');
+  pendingScroll = parseInt(lsGet(scrollKey(), '0'), 10) || 0;
   scriptId   = lsGet('mmt_cuelist_script', null);
   scriptName = lsGet('mmt_cuelist_scriptname', '');
   if (scriptName) document.getElementById('show-name').textContent = cleanShowName(scriptName);
@@ -500,7 +653,8 @@ function pickScript(id, name, silent){
   lsSet('mmt_cuelist_script', id);
   lsSet('mmt_cuelist_scriptname', name);
   document.getElementById('show-name').textContent = cleanShowName(name);
-  cues = []; annotations = {}; lastSig = {}; expanded = {}; firstPaint = true;
+  cues = []; annotations = {}; presets = {}; lastSig = {}; expanded = {};
+  revealed = {}; activeWho = null; lastHash = ''; firstPaint = true;
   renderCachedIfAny();
   renderScriptList();
   fetchCues(true);
@@ -513,10 +667,14 @@ function fetchCues(showLoading){
   jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(),
     d => {
       if (!d || !d.success || !d.cueData){ setStatus('no cue data', 'stale'); render(); return; }
+      const hash = JSON.stringify([d.cueData.cues, d.cueData.cueTypes, d.cueData.presets]);
+      const same = hash === lastHash;
       applyPayload(d.cueData);
+      lastHash = hash;
       try { lsSet('mmt_cuelist_cache_' + scriptId, JSON.stringify(d.cueData)); } catch(e){}
       lastOk = Date.now();
-      render(); tickStatus();
+      if (!same) render();
+      tickStatus();
     },
     () => setStatus(lastOk ? 'offline — last copy' : 'could not connect', lastOk ? 'stale' : 'dead')
   );
@@ -530,10 +688,53 @@ function renderCachedIfAny(){
   } catch(e){}
 }
 
+function normalizePresets(v){
+  const out = {};
+  if (v && typeof v === 'object'){
+    Object.keys(v).forEach(k => {
+      const e = v[k];
+      if (!e || typeof e !== 'object') return;
+      out[k] = { piece: String(e.piece || k), location: String(e.location || ''),
+                 notes: String(e.notes || ''), hidden: !!e.hidden };
+    });
+  }
+  return out;
+}
+
+// Every distinct piece used anywhere in the show, first spelling wins — the
+// piece list is derived from the plot, not stored, same as in the dashboard.
+function allPieces(){
+  const seen = new Map();
+  cuesInScriptOrder().forEach(c => {
+    if (c.type !== SHIFT_TYPE_ID) return;
+    (c.moves || []).forEach(m => {
+      const v = String(m.piece || '').trim();
+      if (!v) return;
+      const k = v.toLowerCase();
+      if (!seen.has(k)) seen.set(k, v);
+    });
+  });
+  return [...seen.entries()].map(([key, piece]) => ({ key, piece }))
+    .sort((a,b) => a.piece.localeCompare(b.piece));
+}
+
+// Everyone named on a move, for the who filter.
+function allWho(){
+  const seen = new Map();
+  cues.forEach(c => (c.moves || []).forEach(m => {
+    const v = String(m.who || '').trim();
+    if (!v) return;
+    const k = v.toLowerCase();
+    if (!seen.has(k)) seen.set(k, v);
+  }));
+  return [...seen.values()].sort((a,b) => a.localeCompare(b));
+}
+
 function applyPayload(data){
   cueTypes = mergeCueTypes(data.cueTypes);
   const incoming = Array.isArray(data.cues) ? data.cues : [];
   annotations = data.annotations || {};
+  presets = normalizePresets(data.presets);
 
   changedIds = new Set();
   const nextSig = {};
@@ -589,8 +790,13 @@ function haystack(c){
   (c.moves || []).forEach(m => parts.push(m.piece, m.action, m.who, m.spike, m.notes));
   return parts.filter(Boolean).join(' ').toLowerCase();
 }
+const onMove = (m, who) => String(m.who || '').trim().toLowerCase() === who;
+
 function matches(c){
   if (activeType && c.type !== activeType) return false;
+  // A who filter is a question about set changes, so it excludes everything
+  // that isn't one rather than silently passing cues with no moves.
+  if (activeWho && !(c.moves || []).some(m => onMove(m, activeWho))) return false;
   if (!query) return true;
   const h = haystack(c);
   return query.split(/\s+/).filter(Boolean).every(tok => h.includes(tok));
@@ -612,10 +818,33 @@ function setType(id){
   render();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+function setWho(who){
+  activeWho = (activeWho === who) ? null : who;
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function setView(v){
+  if (view === v) return;
+  saveScroll();
+  view = v;
+  document.getElementById('tab-cues').classList.toggle('on', v === 'cues');
+  document.getElementById('tab-presets').classList.toggle('on', v === 'presets');
+  document.getElementById('search').placeholder = v === 'presets'
+    ? 'Search pieces, locations, notes…' : 'Search cues, lines, notes…';
+  lsSet('mmt_cuelist_view', v);
+  pendingScroll = parseInt(lsGet(scrollKey(), '0'), 10) || 0;
+  render();
+}
 
 // ── Render ──────────────────────────────────────────────────────────────────
 function render(){
   renderTypeStrip();
+  renderWhoStrip();
+  const isCues = view === 'cues';
+  document.getElementById('type-strip').style.display = isCues ? 'flex' : 'none';
+  document.getElementById('page-jump').style.display  = isCues ? 'block' : 'none';
+  if (!isCues) return renderPresetSheet();
+
   const el = document.getElementById('sheet-body');
   const title = `<div class="sheet-title">
       <h2>${esc(cleanShowName(scriptName))} — Cue Sheet</h2>
@@ -671,8 +900,65 @@ function render(){
   }
 
   document.getElementById('status-count').textContent = shown + ' of ' + total + ' cues ·';
+  renderPageJump();
   stampUpdated();
   measureHeader();
+  restoreScroll();
+}
+
+// "Before house opens" — what's onstage or standing by when the doors open.
+// Mirrors the section the set change plot prints: every piece in the show
+// appears unless it's been switched off in the dashboard's Presets dialog, and
+// a blank location is left visible because it's a gap someone should fill.
+function renderPresetSheet(){
+  const el = document.getElementById('sheet-body');
+  const title = `<div class="sheet-title">
+      <h2>${esc(cleanShowName(scriptName))} — Before House Opens</h2>
+      <div class="upd" id="upd">—</div>
+    </div>`;
+
+  const rows = allPieces()
+    .map(({ key, piece }) => ({ ...(presets[key] || {}), piece }))
+    .filter(r => !r.hidden)
+    .filter(r => {
+      if (!query) return true;
+      const h = [r.piece, r.location, r.notes].filter(Boolean).join(' ').toLowerCase();
+      return query.split(/\s+/).filter(Boolean).every(tok => h.includes(tok));
+    });
+
+  if (!rows.length){
+    const empty = query
+      ? '<b>Nothing matches that search.</b>Try fewer words.'
+      : '<b>No pieces yet.</b>Pieces appear here once set changes have moves.';
+    el.innerHTML = title + `<div class="cs-empty">${empty}</div>`;
+    document.getElementById('status-count').textContent = '';
+    stampUpdated(); measureHeader(); return;
+  }
+
+  const gaps = rows.filter(r => !String(r.location || '').trim()).length;
+  let band = false;
+  el.innerHTML = title + `<table class="cs">
+    <colgroup><col style="width:26%"><col style="width:34%"><col style="width:40%"></colgroup>
+    <thead><tr><th>Piece</th><th>Preset Location</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr class="scene"><td colspan="3">Before house opens</td></tr>
+      ${rows.map(r => {
+        const cls = band ? ' class="band"' : '';
+        band = !band;
+        const loc = String(r.location || '').trim();
+        return `<tr${cls}>
+          <td class="mv-piece">${esc(r.piece)}</td>
+          <td class="cs-action">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
+          <td class="cs-notes">${esc(r.notes || '')}</td>
+        </tr>`;
+      }).join('')}
+    </tbody></table>
+    <div class="sheet-foot"><span>Music Mountain Theatre</span>
+      <span>${rows.length} piece${rows.length !== 1 ? 's' : ''}${gaps ? ' · ' + gaps + ' with no location' : ''}</span></div>`;
+
+  document.getElementById('status-count').textContent =
+    rows.length + ' piece' + (rows.length !== 1 ? 's' : '') + ' ·';
+  stampUpdated(); measureHeader(); restoreScroll();
 }
 
 function cueRow(c, band){
@@ -680,26 +966,31 @@ function cueRow(c, band){
   const notes = c.notes || c.description || '';
   const isShift = c.type === SHIFT_TYPE_ID;
   const nMoves = (c.moves || []).length;
-  const open = !!expanded[c.id];
+  // Set changes carry the information the deck actually needs, so they open on
+  // their own; tapping collapses one and that choice sticks for the session.
+  const open = (c.id in expanded) ? expanded[c.id] : true;
   const hasDetail = isShift && nMoves > 0;
 
   // Cue Line is TEXT FIRST — the typed line is the source of truth. The cropped
   // script photo is only a fallback for cues that never got one typed in.
   const useCrop = !c.cueLine && c.lineCrop && !/^data:/.test(c.lineCrop);
-  const lineCell = c.cueLine
-    ? esc(c.cueLine)
-    : (useCrop
-        ? `<img class="cs-crop" src="${esc(c.lineCrop)}" alt="Script line" loading="lazy"
-                onclick="event.stopPropagation(); this.classList.toggle('zoom');"
-                onerror="this.style.display='none'">`
-        : '');
+  const cropOn = showPhotos || revealed[c.id];
+  let lineCell = '';
+  if (c.cueLine) lineCell = esc(c.cueLine);
+  else if (useCrop && cropOn) {
+    lineCell = `<img class="cs-crop" src="${esc(c.lineCrop)}" alt="Script line" loading="lazy"
+                     onclick="event.stopPropagation(); this.classList.toggle('zoom');"
+                     onerror="this.style.display='none'">`;
+  } else if (useCrop) {
+    lineCell = `<button class="photo-chip" onclick="event.stopPropagation(); revealPhoto('${esc(c.id)}')">Show line photo</button>`;
+  }
 
   const cls = ['cue-r'];
   if (band) cls.push('band');
   if (changedIds.has(c.id)) cls.push('changed');
   if (hasDetail) cls.push('has-detail');
 
-  let row = `<tr class="${cls.join(' ')}"${hasDetail ? ` onclick="toggle('${esc(c.id)}')"` : ''}>
+  let row = `<tr class="${cls.join(' ')}" data-page="${esc(c.page || '')}"${hasDetail ? ` onclick="toggle('${esc(c.id)}')"` : ''}>
     <td>
       <span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span><span class="cs-num">${esc(shortNumber(c, t.name))}</span>
       <span class="cs-pg">p.${esc(c.page || '?')}</span>
@@ -713,7 +1004,7 @@ function cueRow(c, band){
     row += `<tr class="detail${band ? ' band' : ''}"><td colspan="4">
       <table class="mv">
         <thead><tr><th>Piece</th><th>Action</th><th>Who</th><th>Spike</th></tr></thead>
-        <tbody>${(c.moves || []).map(m => `<tr>
+        <tbody>${(c.moves || []).map(m => `<tr${activeWho && !onMove(m, activeWho) ? ' class="mv-dim"' : ''}>
           <td class="mv-piece">${esc(m.piece || '')}</td>
           <td>${esc(m.action || '')}</td>
           <td>${esc(m.who || '')}</td>
@@ -746,6 +1037,62 @@ function renderTypeStrip(){
     }).join('');
 
   document.getElementById('type-strip').innerHTML = html;
+}
+
+function renderWhoStrip(){
+  const strip = document.getElementById('who-strip');
+  const who = view === 'cues' ? allWho() : [];
+  if (!who.length){ strip.style.display = 'none'; strip.innerHTML = ''; return; }
+  strip.style.display = 'flex';
+  strip.innerHTML = '<span class="strip-label">Who</span>' + who.map(w => {
+    const on = activeWho === w.toLowerCase();
+    const n = cues.filter(c => (c.moves || []).some(m => onMove(m, w.toLowerCase()))).length;
+    return `<button class="type-row${on ? ' on' : ''}" style="${on ? 'background:var(--purple);' : ''}"
+      onclick="setWho('${esc(w.toLowerCase())}')">${esc(w)} <span class="type-n">${n}</span></button>`;
+  }).join('');
+}
+
+function renderPageJump(){
+  const sel = document.getElementById('page-jump');
+  const pages = [...new Set(cues.filter(c => !isScene(c)).map(c => c.page))]
+    .filter(p => p != null).sort((a,b) => a - b);
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Page…</option>' +
+    pages.map(p => `<option value="${esc(p)}">p. ${esc(p)}</option>`).join('');
+  if (pages.map(String).includes(cur)) sel.value = cur;
+}
+
+// scrollIntoView would tuck the row under the sticky toolbar, so offset by the
+// measured header height.
+function jumpToPage(p){
+  if (!p) return;
+  const row = document.querySelector('tr[data-page="' + CSS.escape(String(p)) + '"]');
+  if (!row) return;
+  const hdr = document.querySelector('header');
+  const off = (hdr ? hdr.offsetHeight : 0) + 8;
+  window.scrollTo({ top: row.getBoundingClientRect().top + window.scrollY - off, behavior: 'smooth' });
+}
+
+// ── Scroll memory ───────────────────────────────────────────────────────────
+// Forty cues into Act 2, losing your place to a refresh or an app-switch is the
+// difference between glancing and hunting. Kept per script and per view.
+function scrollKey(){ return 'mmt_cuelist_scroll_' + (scriptId || 'none') + '_' + view; }
+let scrollTimer = null;
+function saveScroll(){ lsSet(scrollKey(), String(Math.round(window.scrollY))); }
+window.addEventListener('scroll', () => {
+  clearTimeout(scrollTimer);
+  scrollTimer = setTimeout(saveScroll, 400);
+}, { passive: true });
+window.addEventListener('pagehide', saveScroll);
+
+// Only ever restores a position that was explicitly queued (boot or a view
+// switch) — never on a poll, which would yank the page while it's being read.
+function restoreScroll(){
+  if (pendingScroll == null) return;
+  const y = pendingScroll;
+  pendingScroll = null;
+  if (!y) return;
+  requestAnimationFrame(() => window.scrollTo(0, y));
 }
 
 function renderScriptList(err){
@@ -788,6 +1135,20 @@ function measureHeader(){
   if (h) document.documentElement.style.setProperty('--hdr', h.offsetHeight + 'px');
 }
 
+// Crops are only a fallback for cues with no typed line, but on a script that
+// leans on them they dominate the sheet. Off, each one collapses to a chip that
+// reveals just that photo — so a single line can be checked without the rest
+// of the page turning back into a contact sheet.
+function setPhotos(on){
+  showPhotos = !!on;
+  lsSet('mmt_cuelist_photos', on ? '1' : '0');
+  if (on) revealed = {};
+  document.querySelectorAll('#photo-row button').forEach(b =>
+    b.classList.toggle('on', (b.dataset.ph === '1') === showPhotos));
+  render();
+}
+function revealPhoto(id){ revealed[id] = true; render(); }
+
 function setSize(px){
   document.documentElement.style.setProperty('--ct-fs', px + 'px');
   lsSet('mmt_cuelist_size', String(px));
@@ -801,24 +1162,52 @@ async function toggleAwake(){
   const btn = document.getElementById('awake-btn');
   if (wakeLock){
     try { await wakeLock.release(); } catch(e){}
-    wakeLock = null; btn.classList.remove('primary'); btn.textContent = '☾';
+    wakeLock = null; btn.classList.remove('primary'); btn.textContent = 'Awake';
     return;
   }
   try {
     wakeLock = await navigator.wakeLock.request('screen');
     wakeLock.addEventListener('release', () => {
-      wakeLock = null; btn.classList.remove('primary'); btn.textContent = '☾';
+      wakeLock = null; btn.classList.remove('primary'); btn.textContent = 'Awake';
     });
-    btn.classList.add('primary'); btn.textContent = '☀';
+    btn.classList.add('primary'); btn.textContent = 'Awake ✓';
   } catch(e){
-    btn.textContent = '✕';
-    setTimeout(() => { btn.textContent = '☾'; }, 1500);
+    btn.textContent = 'No';
+    setTimeout(() => { btn.textContent = 'Awake'; }, 1500);
   }
 }
 async function reacquireWake(){
   const btn = document.getElementById('awake-btn');
   if (!btn.classList.contains('primary') || wakeLock) return;
   try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+}
+
+// Same shape as toggleDarkMode() in app.html, down to the mmt_theme key — so a
+// device that has the dashboard set to dark opens this page dark too.
+const THEMES = ['light', 'dark', 'red'];
+const THEME_ICON = { light: '☀️', dark: '🌙', red: '🔴' };
+
+function applyTheme(t, persist){
+  if (THEMES.indexOf(t) === -1) t = 'light';
+  document.documentElement.setAttribute('data-theme', t === 'light' ? '' : t);
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = THEME_ICON[t];
+  document.querySelectorAll('#theme-row button').forEach(b => b.classList.toggle('on', b.dataset.th === t));
+  if (persist !== false){
+    lsSet('mmt_cuelist_theme', t);
+    // Keep the dashboard in step for the two themes it knows about; Red is
+    // this page's own, so it leaves mmt_theme alone rather than writing a
+    // value app.html would read as light.
+    if (t !== 'red') { try { localStorage.setItem('mmt_theme', t); } catch(e){} }
+  }
+}
+function currentTheme(){
+  const own = lsGet('mmt_cuelist_theme', '');
+  if (THEMES.indexOf(own) !== -1) return own;
+  return lsGet('mmt_theme','') === 'dark' ? 'dark' : 'light';   // follow the dashboard
+}
+function toggleDarkMode(){
+  applyTheme(THEMES[(THEMES.indexOf(currentTheme()) + 1) % THEMES.length]);
 }
 
 function openSheet(){ document.getElementById('settings').classList.add('open'); }
@@ -830,6 +1219,7 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'Backspace') pinPress('back');
 });
 
+applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
 </body>
