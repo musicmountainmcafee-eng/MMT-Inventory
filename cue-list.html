@@ -4,38 +4,45 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Cue Sheet — MMT</title>
-<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTU1UIEN1ZSBTaGVldCIsInNob3J0X25hbWUiOiJDdWVzIiwic3RhcnRfdXJsIjoiLi9jdWUtbGlzdC5odG1sIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiIzFhMWEyZSIsInRoZW1lX2NvbG9yIjoiIzFhMWEyZSJ9">
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTU1UIEN1ZSBTaGVldCIsInNob3J0X25hbWUiOiJDdWVzIiwic3RhcnRfdXJsIjoiLi9jdWUtbGlzdC5odG1sIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiI2ZmZmZmZiIsInRoZW1lX2NvbG9yIjoiI2ZmZmZmZiJ9">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   /* Global tokens — same values as app.html :root */
   :root {
-    --green: #3B6D11; --purple: #534AB7; --blue: #185FA5;
-    --purple-light: #EEEDFE; --purple-dark: #3C3489;
-    --red: #c0392b;
+    --purple: #534AB7; --purple-light: #EEEDFE; --purple-dark: #3C3489;
+    --blue: #185FA5; --red: #c0392b;
     --bg: #f8f7f4; --surface: #ffffff;
     --border: rgba(0,0,0,0.1);
     --text: #1a1a1a; --text-muted: #6b6b6b; --text-faint: #aaaaaa;
     --radius: 12px; --radius-sm: 8px;
 
-    /* Cue editor tokens — same values as #scripts-editor in app.html */
-    --cue-bg: #1a1a2e; --cue-surface: #232340; --cue-surface2: #2a2a4a;
-    --cue-border: rgba(255,255,255,0.1); --cue-border2: rgba(255,255,255,0.06);
-    --cue-text: #e4e4ec; --cue-text-muted: #9494ae; --cue-text-faint: #5e5e78;
-    --cue-red: #e74c3c; --cue-radius: 10px; --cue-radius-sm: 6px;
+    /* Cue sheet palette — the same values exportCueSheet() draws with */
+    --paper:   #ffffff;
+    --band:    #ececf2;   /* zebra fill on every other row */
+    --grid:    #c8c8d2;   /* cell borders */
+    --head-bg: #e8e8f0;   /* column header fill */
+    --head-ink:#5a5a69;
+    --rule:    #8c8c9b;   /* heavy rule under the header */
+    --ink:     #141414;
+    --ink-2:   #282828;
+    --ink-3:   #3c3c3c;
+    --ink-4:   #464646;
+    --ink-meta:#96969f;
+    --scene-bg:#e7e6f5;   /* tint(PURPLE, 0.86) */
 
-    --ct-fs: 12px;           /* cue table base size — driven by the text-size control */
+    --ct-fs: 13px;
     --safe-t: env(safe-area-inset-top, 0px);
     --safe-b: env(safe-area-inset-bottom, 0px);
-    --hdr: 128px;            /* measured toolbar height */
+    --hdr: 128px;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; padding: 0; min-height: 100%; }
   body {
-    background: var(--cue-bg); color: var(--cue-text);
+    background: var(--bg); color: var(--text);
     font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     -webkit-text-size-adjust: 100%;
     overscroll-behavior-y: contain;
@@ -66,174 +73,193 @@
   .pin-title { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
   .pin-subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 1.5rem; }
   .pin-dots { display: flex; justify-content: center; gap: 12px; margin-bottom: 1.5rem; }
-  .pin-dot {
-    width: 14px; height: 14px; border-radius: 50%;
-    border: 2px solid var(--purple); background: transparent;
-    transition: background 0.15s;
-  }
+  .pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--purple); background: transparent; transition: background 0.15s; }
   .pin-dot.filled { background: var(--purple); }
   .pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .pin-btn {
     padding: 14px; border-radius: var(--radius-sm);
     border: 1px solid var(--border); background: var(--bg);
-    font-size: 18px; font-weight: 600; cursor: pointer;
-    font-family: 'DM Sans', sans-serif; transition: all 0.1s;
+    font-size: 18px; font-weight: 600; cursor: pointer; transition: all 0.1s;
   }
   .pin-btn:hover { background: var(--purple-light); border-color: var(--purple); }
   .pin-btn:active { transform: scale(0.95); }
   .pin-btn.clear { color: var(--red); }
   .pin-error { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 20px; }
 
-  /* ── TOOLBAR — reads like the cue panel header ──────────────────────────── */
+  /* ── TOOLBAR ────────────────────────────────────────────────────────────── */
   #app { display: none; }
   header {
     position: sticky; top: 0; z-index: 20;
-    background: var(--cue-surface); border-bottom: 1px solid var(--cue-border);
+    background: var(--surface); border-bottom: 1px solid var(--border);
     padding-top: var(--safe-t);
   }
-  .cue-panel-header {
-    padding: 12px 16px; display: flex; align-items: center; gap: 10px;
-  }
-  .cph-title { flex: 1; min-width: 0; }
-  .cph-title h3 {
-    font-size: 14px; font-weight: 600; margin: 0;
+  .bar { padding: 12px 16px 10px; display: flex; align-items: center; gap: 10px; }
+  .bar-title { flex: 1; min-width: 0; }
+  .bar-title h1 {
+    font-size: 15px; font-weight: 700; margin: 0; color: var(--ink);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .cue-count {
-    font-size: 11px; color: var(--cue-text-faint);
-    font-family: 'DM Mono', monospace; display: flex; align-items: center; gap: 6px; margin-top: 2px;
+  .bar-sub {
+    font-size: 11px; color: var(--text-faint); font-family: 'DM Mono', monospace;
+    display: flex; align-items: center; gap: 6px; margin-top: 2px;
   }
-  .pulse { width: 6px; height: 6px; border-radius: 50%; background: #2ecc71; flex: none; animation: pulse 2.4s ease-in-out infinite; }
-  .pulse.stale { background: #f1c40f; animation: none; }
-  .pulse.dead { background: var(--cue-red); animation: none; }
+  .pulse { width: 6px; height: 6px; border-radius: 50%; background: #3B6D11; flex: none; animation: pulse 2.4s ease-in-out infinite; }
+  .pulse.stale { background: #f39c12; animation: none; }
+  .pulse.dead { background: var(--red); animation: none; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
 
   .top-btn {
-    flex: none; padding: 7px 12px; border: 1px solid var(--cue-border);
-    border-radius: var(--cue-radius-sm); background: none;
-    color: var(--cue-text-muted); font-size: 13px; font-weight: 500; cursor: pointer;
+    flex: none; padding: 7px 12px; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); background: var(--surface);
+    color: var(--text-muted); font-size: 13px; font-weight: 500;
   }
-  .top-btn:hover { background: var(--cue-surface2); }
+  .top-btn:hover { background: var(--bg); }
   .top-btn.primary { background: var(--purple); color: #fff; border-color: var(--purple); }
 
-  .cue-search { padding: 0 16px 10px; position: relative; }
-  .cue-search input {
-    width: 100%; padding: 8px 30px 8px 10px;
-    border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm);
-    background: var(--cue-surface2); color: var(--cue-text);
-    font-size: 13px; -webkit-appearance: none;
+  .search-wrap { padding: 0 16px 10px; position: relative; }
+  .search-wrap input {
+    width: 100%; padding: 9px 30px 9px 11px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--bg); color: var(--text); font-size: 14px; -webkit-appearance: none;
   }
-  .cue-search input:focus { outline: none; border-color: var(--purple); }
-  .cue-search button {
+  .search-wrap input:focus { outline: none; border-color: var(--purple); }
+  .search-wrap button {
     position: absolute; right: 22px; top: 50%; transform: translateY(-60%);
-    background: none; border: none; color: var(--cue-text-faint);
-    font-size: 16px; display: none; padding: 2px 6px;
+    background: none; border: none; color: var(--text-faint); font-size: 16px;
+    display: none; padding: 2px 6px;
   }
 
-  /* Type filters — the type-manager rows, laid out as a scrolling filter strip */
-  .type-strip {
-    display: flex; gap: 6px; overflow-x: auto;
-    padding: 0 16px 10px; scrollbar-width: none; -webkit-overflow-scrolling: touch;
-  }
+  .type-strip { display: flex; gap: 6px; overflow-x: auto; padding: 0 16px 10px; scrollbar-width: none; }
   .type-strip::-webkit-scrollbar { display: none; }
   .type-row {
     flex: none; display: flex; align-items: center; gap: 6px;
-    font-size: 12px; padding: 5px 10px;
-    border: 1px solid var(--cue-border); border-radius: 999px;
-    background: none; color: var(--cue-text-muted); white-space: nowrap;
+    font-size: 12px; font-weight: 500; padding: 5px 11px;
+    border: 1px solid var(--border); border-radius: 999px;
+    background: var(--surface); color: var(--text-muted); white-space: nowrap;
   }
-  .type-row:hover { background: var(--cue-surface2); }
+  .type-row:hover { background: var(--bg); }
   .type-row.on { color: #fff; border-color: transparent; }
-  .type-color { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .type-color { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
   .type-n { font-family: 'DM Mono', monospace; font-size: 10px; opacity: .75; }
 
-  /* ── CUE TABLE — same rules as #scripts-editor .cue-table ───────────────── */
-  .cue-list { padding: 8px; padding-bottom: calc(40px + var(--safe-b)); }
-  .cue-table { width: 100%; border-collapse: collapse; font-size: var(--ct-fs); }
-  .cue-table th {
-    text-align: left; font-size: 0.833em; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.5px; color: var(--cue-text-faint); padding: 6px 8px;
-    border-bottom: 1px solid var(--cue-border);
-    position: sticky; top: var(--hdr); background: var(--cue-surface); z-index: 5;
+  /* ── CUE SHEET — the layout exportCueSheet() draws ──────────────────────── */
+  .sheet-wrap { padding: 16px; padding-bottom: calc(30px + var(--safe-b)); }
+  .sheet {
+    background: var(--paper); max-width: 1100px; margin: 0 auto;
+    border: 1px solid var(--grid); border-radius: 2px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   }
-  .cue-table td { padding: 7px 8px; border-bottom: 1px solid var(--cue-border2); vertical-align: top; cursor: pointer; }
-  .cue-table tr:hover td { background: var(--cue-surface2); }
-  .cue-table .ct-type { font-size: 0.75em; font-weight: 700; padding: 2px 6px; border-radius: 4px; color: white; white-space: nowrap; }
-  .cue-table .ct-num { font-family: 'DM Mono', monospace; font-weight: 600; font-size: 1em; white-space: nowrap; }
-  .cue-table .ct-action { color: var(--cue-text); }
-  .cue-table .ct-line { color: var(--cue-text-muted); font-style: italic; font-size: 0.917em; }
-  .cue-table .ct-notes { color: var(--cue-text-faint); font-size: 0.917em; }
-  .cue-table .ct-pg { font-family: 'DM Mono', monospace; color: var(--cue-text-faint); font-size: 0.917em; }
-  .ct-moves { font-size: 0.833em; color: var(--cue-text-faint); font-family: 'DM Mono', monospace; }
+  .sheet-title { padding: 18px 20px 14px; }
+  .sheet-title h2 { font-size: 1.65em; font-weight: 700; margin: 0; color: var(--ink); letter-spacing: -0.01em; }
+  .sheet-title .upd { font-size: 0.72em; color: var(--ink-meta); margin-top: 5px; }
 
-  /* Scenes structure the sheet rather than being cues in it — solid bar, as on export. */
-  .cue-table tr.scene-row td {
-    background: var(--cue-surface); cursor: default;
-    padding: 8px; border-top: 1px solid var(--cue-border); border-bottom: 1px solid var(--cue-border);
-    font-size: 0.917em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-    color: var(--cue-text-muted);
-    box-shadow: inset 4px 0 0 #8e44ad;
+  table.cs { width: 100%; border-collapse: collapse; font-size: var(--ct-fs); table-layout: fixed; }
+  table.cs th {
+    background: var(--head-bg); color: var(--head-ink);
+    font-size: 0.72em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    text-align: left; padding: 7px 8px;
+    border-left: 1px solid var(--grid); border-bottom: 2px solid var(--rule);
+    position: sticky; top: var(--hdr); z-index: 5;
   }
-  .cue-table tr.scene-row:hover td { background: var(--cue-surface); }
-  .scene-pg { float: right; font-family: 'DM Mono', monospace; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--cue-text-faint); }
+  table.cs th:first-child { border-left: none; }
+  table.cs td {
+    padding: 7px 8px; border-left: 1px solid var(--grid); border-bottom: 1px solid var(--grid);
+    vertical-align: top; line-height: 1.32;
+  }
+  table.cs td:first-child { border-left: none; }
+  table.cs tr.band td { background: var(--band); }
 
-  /* Expanded detail — set-change moves in the app's mv-grid look */
-  tr.detail-row td { background: var(--cue-bg); cursor: default; padding: 10px 12px; }
-  tr.detail-row:hover td { background: var(--cue-bg); }
-  .detail-box { border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm); padding: 10px 12px; background: var(--cue-surface); }
-  .detail-box img {
-    display: block; max-width: 100%; max-height: 80px; width: auto;
-    border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm);
-    margin-bottom: 8px; cursor: zoom-in; background: #fff;
+  /* CUE cell: chip + number, page as grey metadata underneath */
+  .cs-chip {
+    display: inline-block; font-size: 0.62em; font-weight: 700; letter-spacing: 0.04em;
+    color: #fff; padding: 2px 7px; border-radius: 999px; vertical-align: 2px;
   }
-  .detail-box img.zoom { max-height: none; width: 100%; cursor: zoom-out; }
-  .crop-hint { font-size: 0.833em; color: var(--cue-text-faint); margin: -4px 0 8px; }
-  table.mv-grid { width: 100%; border-collapse: collapse; font-size: 0.917em; }
-  table.mv-grid th { text-align: left; font-size: 0.833em; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--cue-text-faint); padding: 0 6px 4px; }
-  table.mv-grid td { padding: 4px 6px; border-bottom: 1px solid var(--cue-border2); vertical-align: top; cursor: default; }
-  table.mv-grid tr:last-child td { border-bottom: none; }
-  .mv-piece { font-weight: 600; color: var(--cue-text); }
-  .mv-who { font-family: 'DM Mono', monospace; color: var(--cue-text-muted); white-space: nowrap; }
-  .detail-note { font-size: 0.917em; color: var(--cue-text-muted); }
-  .dn-label {
-    display: inline-block; margin-right: 8px;
-    font-size: 0.833em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-    color: var(--cue-text-faint); vertical-align: baseline;
+  .cs-num { font-weight: 700; color: var(--ink); margin-left: 5px; }
+  .cs-pg { display: block; font-size: 0.72em; color: var(--ink-meta); margin-top: 3px; }
+  .cs-action { color: var(--ink-2); }
+  .cs-line { color: var(--ink-4); }
+  .cs-notes { color: var(--ink-3); }
+
+  /* Cue Line is text first; the crop is only a fallback for cues with no typed
+     line, and it's capped the same way the PDF thumbnail is. */
+  .cs-crop {
+    display: block; max-width: 100%; max-height: 84px; width: auto;
+    border: 1px solid var(--grid); border-radius: 2px; background: #fff; cursor: zoom-in;
+  }
+  .cs-crop.zoom { max-height: none; width: 100%; cursor: zoom-out; }
+
+  /* Scene dividers head the sheet, as on export */
+  tr.scene td {
+    background: var(--scene-bg); color: var(--purple);
+    font-size: 0.72em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 6px 8px; border-bottom: 1px solid var(--grid); border-left: none;
+  }
+  tr.scene:hover td { background: var(--scene-bg); }
+
+  .moves-tag {
+    display: inline-block; margin-top: 4px; font-size: 0.72em; font-weight: 600;
+    color: var(--purple); border: 1px solid var(--grid); border-radius: 999px;
+    padding: 1px 8px; background: #fff;
+  }
+  tr.has-detail td { cursor: pointer; }
+
+  /* Set-change moves — the plot lives in its own document, so here it's a
+     tucked-away expansion rather than a column. */
+  tr.detail td { padding: 0 8px 10px; background: inherit; }
+  table.mv { width: 100%; border-collapse: collapse; font-size: 0.88em; border: 1px solid var(--grid); }
+  table.mv th {
+    position: static; background: var(--head-bg); color: var(--head-ink);
+    font-size: 0.7em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 4px 7px; border-bottom: 1px solid var(--grid); border-left: 1px solid var(--grid);
+  }
+  table.mv td { padding: 5px 7px; border-bottom: 1px solid var(--grid); border-left: 1px solid var(--grid); }
+  table.mv th:first-child, table.mv td:first-child { border-left: none; }
+  table.mv tr:last-child td { border-bottom: none; }
+  .mv-piece { font-weight: 700; color: var(--ink); }
+  .mv-note { color: var(--ink-4); }
+  .mv-label {
+    display: inline-block; margin-right: 7px; font-size: 0.8em; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-meta);
   }
 
   tr.changed td { animation: flash 2.6s ease-out; }
-  @keyframes flash { 0% { background: rgba(83,74,183,0.35); } 100% { background: transparent; } }
+  @keyframes flash { 0% { background: #ded9f7; } 100% { background: transparent; } }
 
-  .cue-empty { padding: 40px 20px; text-align: center; color: var(--cue-text-faint); font-size: 13px; line-height: 1.7; }
-  .cue-empty b { display: block; color: var(--cue-text); font-weight: 500; margin-bottom: 4px; }
+  .sheet-foot {
+    display: flex; justify-content: space-between;
+    padding: 12px 20px 16px; font-size: 0.72em; color: var(--ink-meta);
+  }
+  .cs-empty { padding: 44px 20px; text-align: center; color: var(--text-muted); font-size: 13px; line-height: 1.7; }
+  .cs-empty b { display: block; color: var(--ink); font-weight: 600; margin-bottom: 4px; }
 
-  /* ── SHEET (script picker + display) — the cue-edit modal look ───────────── */
-  .cue-edit-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 500; display: none; align-items: center; justify-content: center; }
-  .cue-edit-overlay.open { display: flex; }
-  .cue-edit {
-    background: var(--cue-surface); color: var(--cue-text); border-radius: var(--cue-radius);
+  /* ── SHEET (script picker + display) ─────────────────────────────────────── */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 500; display: none; align-items: center; justify-content: center; }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border-radius: var(--radius);
     padding: 24px; width: 90%; max-width: 440px; max-height: 90vh; overflow-y: auto;
   }
-  .cue-edit h3 { font-size: 16px; margin: 0 0 14px; }
-  .cue-edit label { display: block; font-size: 11px; font-weight: 600; color: var(--cue-text-faint); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-  .cue-edit .note { font-size: 12px; color: var(--cue-text-muted); margin: -8px 0 16px; line-height: 1.5; }
+  .modal h3 { font-size: 16px; margin: 0 0 6px; }
+  .modal .note { font-size: 12.5px; color: var(--text-muted); margin: 0 0 18px; line-height: 1.5; }
+  .modal label { display: block; font-size: 11px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
   .script-opt {
     display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
-    padding: 10px 12px; margin-bottom: 6px;
-    border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm);
-    background: var(--cue-surface2); color: var(--cue-text); font-size: 13px;
+    padding: 11px 12px; margin-bottom: 6px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface); font-size: 13.5px;
   }
-  .script-opt.sel { border-color: var(--purple); background: rgba(83,74,183,0.28); }
+  .script-opt.sel { border-color: var(--purple); background: var(--purple-light); }
   .script-opt .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .script-opt .dt { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--cue-text-faint); flex: none; }
-  .size-row { display: flex; gap: 6px; margin-bottom: 16px; }
-  .size-row button { flex: 1; padding: 10px 0; border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm); background: var(--cue-surface2); color: var(--cue-text-muted); font-size: 13px; }
-  .size-row button.on { border-color: var(--purple); background: rgba(83,74,183,0.28); color: #fff; }
-  .cue-edit-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
-  .cue-edit-btns .top-btn { padding: 6px 14px; font-size: 12px; }
+  .script-opt .dt { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-faint); flex: none; }
+  .size-row { display: flex; gap: 6px; margin-bottom: 18px; }
+  .size-row button { flex: 1; padding: 10px 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-muted); font-size: 13px; }
+  .size-row button.on { border-color: var(--purple); background: var(--purple-light); color: var(--purple-dark); }
+  .modal-btns { display: flex; justify-content: flex-end; }
 
-  @media (max-width: 700px) {
-    .cue-table .ct-line, .cue-table th.h-line, .cue-table col.c-line { display: none; }
+  @media (max-width: 760px) {
+    .sheet-wrap { padding: 0; }
+    .sheet { border-left: none; border-right: none; border-radius: 0; box-shadow: none; }
+    table.cs td, table.cs th { padding: 6px 6px; }
   }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
@@ -247,10 +273,8 @@
     <div class="pin-title">MMT Cue Sheet</div>
     <div class="pin-subtitle">Enter your PIN to continue</div>
     <div class="pin-dots">
-      <div class="pin-dot" id="d0"></div>
-      <div class="pin-dot" id="d1"></div>
-      <div class="pin-dot" id="d2"></div>
-      <div class="pin-dot" id="d3"></div>
+      <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div>
     </div>
     <div class="pin-pad">
       <button class="pin-btn" onclick="pinPress('1')">1</button>
@@ -273,15 +297,18 @@
 <!-- ── APP ────────────────────────────────────────────────────────────────── -->
 <div id="app">
   <header>
-    <div class="cue-panel-header">
-      <div class="cph-title">
-        <h3 id="show-name">Loading…</h3>
-        <div class="cue-count"><span class="pulse" id="pulse"></span><span id="status-count"></span><span id="status">connecting</span></div>
+    <div class="bar">
+      <div class="bar-title">
+        <h1 id="show-name">Loading…</h1>
+        <div class="bar-sub">
+          <span class="pulse" id="pulse"></span>
+          <span id="status-count"></span><span id="status">connecting</span>
+        </div>
       </div>
       <button class="top-btn" id="awake-btn" onclick="toggleAwake()" title="Keep screen awake">☾</button>
       <button class="top-btn" onclick="openSheet()">Script</button>
     </div>
-    <div class="cue-search">
+    <div class="search-wrap">
       <input id="search" type="search" placeholder="Search cues, lines, notes…" autocomplete="off"
              autocorrect="off" autocapitalize="off" spellcheck="false" oninput="onSearch()">
       <button id="search-clear" onclick="clearSearch()">×</button>
@@ -289,14 +316,14 @@
     <div class="type-strip" id="type-strip"></div>
   </header>
 
-  <div class="cue-list" id="cue-list"></div>
+  <div class="sheet-wrap"><div class="sheet" id="sheet-body"></div></div>
 </div>
 
-<!-- ── SHEET ──────────────────────────────────────────────────────────────── -->
-<div class="cue-edit-overlay" id="sheet" onclick="if(event.target===this) closeSheet()">
-  <div class="cue-edit">
+<!-- ── SETTINGS ───────────────────────────────────────────────────────────── -->
+<div class="overlay" id="settings" onclick="if(event.target===this) closeSheet()">
+  <div class="modal">
     <h3>Script &amp; display</h3>
-    <p class="note">This sheet is read-only. Cues are edited in the dashboard and land here within seconds.</p>
+    <p class="note">This cue sheet is read-only. Cues are edited in the dashboard and land here within seconds.</p>
 
     <label>Script</label>
     <div id="script-list"><div class="note">Loading scripts…</div></div>
@@ -304,14 +331,12 @@
     <label style="margin-top:18px;">Text size</label>
     <div class="size-row" id="size-row">
       <button data-sz="12" onclick="setSize(12)">Small</button>
-      <button data-sz="14" onclick="setSize(14)">Normal</button>
-      <button data-sz="17" onclick="setSize(17)">Large</button>
-      <button data-sz="20" onclick="setSize(20)">Huge</button>
+      <button data-sz="13" onclick="setSize(13)">Normal</button>
+      <button data-sz="16" onclick="setSize(16)">Large</button>
+      <button data-sz="19" onclick="setSize(19)">Huge</button>
     </div>
 
-    <div class="cue-edit-btns">
-      <button class="top-btn primary" onclick="closeSheet()">Done</button>
-    </div>
+    <div class="modal-btns"><button class="top-btn primary" onclick="closeSheet()">Done</button></div>
   </div>
 </div>
 
@@ -319,10 +344,13 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    MMT Cue Sheet — read-only companion to the Scripts tab in app.html
 
-   Data comes from the Apps Script backend (listScripts / getCueData), not
-   localStorage, so this works on a device that has never opened the dashboard.
-   localStorage holds only an offline fallback and this device's preferences.
+   Laid out to match exportCueSheet(): four columns (CUE / ACTION / CUE LINE /
+   NOTES), scene markers as dividers, page number travelling with each cue,
+   zebra banding, and the crop used only as a fallback where no cue line was
+   typed. Same data, same reading order, on a screen instead of on paper.
 
+   Data comes from the Apps Script backend (listScripts / getCueData), not
+   localStorage, so it works on a device that has never opened the dashboard.
    This page never writes to the Sheet. No saveCueData, ever.
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -403,10 +431,8 @@ function pinPress(val){
 }
 function pinClear(){ pinEntry = ''; updateDots(); document.getElementById('pin-error').textContent = ''; }
 function checkPin(){
-  if (pinEntry === CORRECT_PIN){
-    lsSet('mmt_cuelist_ok', '1');
-    unlock();
-  } else {
+  if (pinEntry === CORRECT_PIN){ lsSet('mmt_cuelist_ok','1'); unlock(); }
+  else {
     document.getElementById('pin-error').textContent = 'Incorrect PIN';
     pinEntry = ''; updateDots();
     setTimeout(() => { document.getElementById('pin-error').textContent = ''; }, 2000);
@@ -420,7 +446,7 @@ function unlock(){
 
 // ── Boot ────────────────────────────────────────────────────────────────────
 function start(){
-  setSize(parseInt(lsGet('mmt_cuelist_size','12'),10) || 12);
+  setSize(parseInt(lsGet('mmt_cuelist_size','13'),10) || 13);
   scriptId   = lsGet('mmt_cuelist_script', null);
   scriptName = lsGet('mmt_cuelist_scriptname', '');
   if (scriptName) document.getElementById('show-name').textContent = cleanShowName(scriptName);
@@ -445,9 +471,7 @@ function schedulePoll(){
   pollTimer = setInterval(() => { if (document.visibilityState === 'visible') fetchCues(); }, POLL_MS);
 }
 
-// The header reads off the uploaded script's filename, which carries junk the
-// audience for this document doesn't care about: "…Script (1)" is a Drive
-// de-duplication artifact, not a production title. Same helper as app.html.
+// Drive de-dupes filenames, so "…Script (1)" is a file artifact, not a title.
 function cleanShowName(raw){
   let s = String(raw || '').replace(/\.[a-z0-9]{2,4}$/i, '');
   for (let i = 0; i < 4; i++){
@@ -463,8 +487,6 @@ function loadScripts(){
   jsonp(SCRIPT_URL + '?action=listScripts&_=' + Date.now(), d => {
     if (!d || !d.success || !d.scripts){ renderScriptList('Could not load the script list.'); return; }
     scripts = d.scripts;
-    // Nothing pinned on this device yet — take the most recent script, which is
-    // the one being worked on. Overridable from the sheet.
     if (!scriptId && scripts.length){
       const newest = scripts.slice().sort((a,b) => new Date(b.date||0) - new Date(a.date||0))[0];
       pickScript(newest.id, newest.name, true);
@@ -494,8 +516,7 @@ function fetchCues(showLoading){
       applyPayload(d.cueData);
       try { lsSet('mmt_cuelist_cache_' + scriptId, JSON.stringify(d.cueData)); } catch(e){}
       lastOk = Date.now();
-      render();
-      tickStatus();
+      render(); tickStatus();
     },
     () => setStatus(lastOk ? 'offline — last copy' : 'could not connect', lastOk ? 'stale' : 'dead')
   );
@@ -514,8 +535,6 @@ function applyPayload(data){
   const incoming = Array.isArray(data.cues) ? data.cues : [];
   annotations = data.annotations || {};
 
-  // Flash only what moved, and only after the first paint — otherwise the whole
-  // sheet strobes on open.
   changedIds = new Set();
   const nextSig = {};
   incoming.forEach(c => {
@@ -535,11 +554,8 @@ function mergeCueTypes(saved){
   return result;
 }
 
-const typeOf = id => cueTypes.find(t => t.id === id) || { id, name: String(id||'?').toUpperCase(), color:'#7a8496' };
+const typeOf = id => cueTypes.find(t => t.id === id) || { id, name: String(id||'?').toUpperCase(), color:'#999999' };
 
-// Canonical cue order, same rule as app.html: page, then top-to-bottom, then
-// left-to-right for boxes on the same line. Cues missing geometry sort to the
-// end of their page by number.
 function cueRectPos(c){
   const a = (annotations[c.page] || []).find(x => x.type === 'cue' && x.cueId === c.id);
   if (!a || !a.rect) return null;
@@ -557,6 +573,14 @@ function cuesInScriptOrder(){
     if (!pa && pb) return 1;
     return String(a.number||'').localeCompare(String(b.number||''), undefined, { numeric:true });
   });
+}
+
+// The chip already names the type, so drop it from the number itself:
+// "SPOT OUT 2" -> "2". Same rule the PDF uses.
+function shortNumber(c, chipLabel){
+  const raw = String(c.number || '');
+  const pattern = '^' + String(chipLabel).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*';
+  return raw.replace(new RegExp(pattern, 'i'), '') || raw;
 }
 
 // ── Filtering ───────────────────────────────────────────────────────────────
@@ -584,7 +608,7 @@ function clearSearch(){
   render();
 }
 function setType(id){
-  activeType = (activeType === id) ? null : id;   // tap again to clear
+  activeType = (activeType === id) ? null : id;
   render();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -592,102 +616,111 @@ function setType(id){
 // ── Render ──────────────────────────────────────────────────────────────────
 function render(){
   renderTypeStrip();
-  const el = document.getElementById('cue-list');
+  const el = document.getElementById('sheet-body');
+  const title = `<div class="sheet-title">
+      <h2>${esc(cleanShowName(scriptName))} — Cue Sheet</h2>
+      <div class="upd" id="upd">—</div>
+    </div>`;
 
   if (!cues.length){
-    el.innerHTML = '<div class="cue-empty"><b>No cues on this script yet.</b>Place cues in the Scripts tab and they appear here.</div>';
-    measureHeader();
-    return;
+    el.innerHTML = title + '<div class="cs-empty"><b>No cues on this script yet.</b>Place cues in the Scripts tab and they appear here.</div>';
+    measureHeader(); return;
   }
 
   const ordered = cuesInScriptOrder();
+  const total = cues.filter(c => !isScene(c)).length;
 
-  // Group under scene dividers. Scenes structure the sheet rather than being
-  // cues in it, so they aren't filtered or counted.
+  // Scene markers divide the sheet: each draws a divider row, and every cue
+  // after it belongs to that scene until the next one. Anything before the
+  // first marker still needs a home.
   const groups = [];
-  let current = { scene: null, items: [] };
+  let current = { label: null, items: [] };
   ordered.forEach(c => {
     if (isScene(c)){
-      if (current.scene || current.items.length) groups.push(current);
-      current = { scene: c, items: [] };
+      if (current.label || current.items.length) groups.push(current);
+      current = { label: String(c.number || 'Scene'), items: [] };
     } else {
       current.items.push(c);
     }
   });
   groups.push(current);
+  if (groups.length && groups[0].label === null && groups[0].items.length) groups[0].label = 'Top of Show';
 
-  let shown = 0, body = '';
+  let shown = 0, band = false, body = '';
   groups.forEach(g => {
     const visible = g.items.filter(matches);
     shown += visible.length;
     if (!visible.length) return;
-    if (g.scene){
-      body += `<tr class="scene-row"><td colspan="6">${esc(g.scene.number || 'Scene')}
-        <span class="scene-pg">p.${esc(g.scene.page)}</span></td></tr>`;
-    }
-    body += visible.map(cueRow).join('');
+    if (g.label){ body += `<tr class="scene"><td colspan="4">${esc(g.label)}</td></tr>`; band = false; }
+    visible.forEach(c => { body += cueRow(c, band); band = !band; });
   });
-
-  const total = cues.filter(c => !isScene(c)).length;
 
   if (!shown){
     const what = query ? 'Nothing matches that search.' : 'No ' + esc(typeOf(activeType).name) + ' cues.';
     const how  = query ? 'Try fewer words, or clear the type filter.' : 'Tap the type again for all cues.';
-    el.innerHTML = `<div class="cue-empty"><b>${what}</b>${how}</div>`;
+    el.innerHTML = title + `<div class="cs-empty"><b>${what}</b>${how}</div>`;
   } else {
-    el.innerHTML = `<table class="cue-table">
+    el.innerHTML = title + `<table class="cs">
       <colgroup>
-        <col style="width:7em"><col style="width:6em"><col>
-        <col class="c-line" style="width:26%"><col style="width:18%"><col style="width:3em">
+        <col style="width:16%"><col style="width:18%"><col style="width:35%"><col style="width:31%">
       </colgroup>
-      <thead><tr>
-        <th>Type</th><th>#</th><th>Action</th><th class="h-line">Cue Line</th><th>Notes</th><th>Pg</th>
-      </tr></thead>
+      <thead><tr><th>Cue</th><th>Action</th><th>Cue Line</th><th>Notes</th></tr></thead>
       <tbody>${body}</tbody>
-    </table>`;
+    </table>
+    <div class="sheet-foot"><span>Music Mountain Theatre</span><span>${shown} of ${total} cues</span></div>`;
   }
 
   document.getElementById('status-count').textContent = shown + ' of ' + total + ' cues ·';
+  stampUpdated();
   measureHeader();
 }
 
-function cueRow(c){
+function cueRow(c, band){
   const t = typeOf(c.type);
   const notes = c.notes || c.description || '';
   const isShift = c.type === SHIFT_TYPE_ID;
   const nMoves = (c.moves || []).length;
   const open = !!expanded[c.id];
-  const hasDetail = (isShift && nMoves > 0) || !!c.lineCrop;
+  const hasDetail = isShift && nMoves > 0;
 
-  let row = `<tr data-cue-id="${esc(c.id)}"${changedIds.has(c.id) ? ' class="changed"' : ''}${hasDetail ? ` onclick="toggle('${esc(c.id)}')"` : ''}>
-    <td><span class="ct-type" style="background:${esc(t.color)}">${esc(t.name)}</span></td>
-    <td class="ct-num">${esc(c.number || '')}</td>
-    <td class="ct-action">${esc(c.action || '')}${isShift && nMoves ? ` <span class="ct-moves">${nMoves} move${nMoves !== 1 ? 's' : ''}${open ? ' ▴' : ' ▾'}</span>` : ''}</td>
-    <td class="ct-line">${c.cueLine ? esc(c.cueLine) : (c.lineCrop ? '<span style="opacity:0.5;">📷 line</span>' : '')}</td>
-    <td class="ct-notes">${esc(notes)}</td>
-    <td class="ct-pg">${esc(c.page)}</td>
+  // Cue Line is TEXT FIRST — the typed line is the source of truth. The cropped
+  // script photo is only a fallback for cues that never got one typed in.
+  const useCrop = !c.cueLine && c.lineCrop && !/^data:/.test(c.lineCrop);
+  const lineCell = c.cueLine
+    ? esc(c.cueLine)
+    : (useCrop
+        ? `<img class="cs-crop" src="${esc(c.lineCrop)}" alt="Script line" loading="lazy"
+                onclick="event.stopPropagation(); this.classList.toggle('zoom');"
+                onerror="this.style.display='none'">`
+        : '');
+
+  const cls = ['cue-r'];
+  if (band) cls.push('band');
+  if (changedIds.has(c.id)) cls.push('changed');
+  if (hasDetail) cls.push('has-detail');
+
+  let row = `<tr class="${cls.join(' ')}"${hasDetail ? ` onclick="toggle('${esc(c.id)}')"` : ''}>
+    <td>
+      <span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span><span class="cs-num">${esc(shortNumber(c, t.name))}</span>
+      <span class="cs-pg">p.${esc(c.page || '?')}</span>
+    </td>
+    <td class="cs-action">${esc(c.action || '')}${hasDetail ? `<br><span class="moves-tag">${nMoves} move${nMoves !== 1 ? 's' : ''}${open ? ' ▴' : ' ▾'}</span>` : ''}</td>
+    <td class="cs-line">${lineCell}</td>
+    <td class="cs-notes">${esc(notes)}</td>
   </tr>`;
 
   if (open && hasDetail){
-    let inner = '';
-    if (c.lineCrop && !/^data:/.test(c.lineCrop)){
-      inner += `<img src="${esc(c.lineCrop)}" alt="Script line" loading="lazy"
-                     onclick="event.stopPropagation(); this.classList.toggle('zoom');"
-                     onerror="this.style.display='none'; this.nextElementSibling && this.nextElementSibling.remove();">
-                <div class="crop-hint">Tap the line to enlarge</div>`;
-    }
-    if (isShift && nMoves){
-      inner += `<table class="mv-grid">
+    row += `<tr class="detail${band ? ' band' : ''}"><td colspan="4">
+      <table class="mv">
         <thead><tr><th>Piece</th><th>Action</th><th>Who</th><th>Spike</th></tr></thead>
         <tbody>${(c.moves || []).map(m => `<tr>
           <td class="mv-piece">${esc(m.piece || '')}</td>
           <td>${esc(m.action || '')}</td>
-          <td class="mv-who">${esc(m.who || '')}</td>
-          <td class="mv-who">${esc(m.spike || '')}</td>
-        </tr>${m.notes ? `<tr><td colspan="4" class="detail-note"><span class="dn-label">Note</span>${esc(m.notes)}</td></tr>` : ''}`).join('')}</tbody>
-      </table>`;
-    }
-    row += `<tr class="detail-row"><td colspan="6"><div class="detail-box">${inner}</div></td></tr>`;
+          <td>${esc(m.who || '')}</td>
+          <td>${esc(m.spike || '')}</td>
+        </tr>${m.notes ? `<tr><td colspan="4" class="mv-note"><span class="mv-label">Note</span>${esc(m.notes)}</td></tr>` : ''}`).join('')}
+        </tbody>
+      </table></td></tr>`;
   }
   return row;
 }
@@ -727,10 +760,18 @@ function renderScriptList(err){
     </button>`).join('');
 }
 
-// ── Status line ─────────────────────────────────────────────────────────────
+// ── Status ──────────────────────────────────────────────────────────────────
 function setStatus(text, cls){
   document.getElementById('status').textContent = text;
   document.getElementById('pulse').className = 'pulse' + (cls ? ' ' + cls : '');
+}
+function stampUpdated(){
+  const el = document.getElementById('upd');
+  if (!el) return;
+  const d = lastOk ? new Date(lastOk) : new Date();
+  el.textContent = 'Updated ' +
+    d.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' }) +
+    ' at ' + d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
 }
 function tickStatus(){
   if (!lastOk) return;
@@ -747,7 +788,6 @@ function measureHeader(){
   if (h) document.documentElement.style.setProperty('--hdr', h.offsetHeight + 'px');
 }
 
-// ── Display prefs ───────────────────────────────────────────────────────────
 function setSize(px){
   document.documentElement.style.setProperty('--ct-fs', px + 'px');
   lsSet('mmt_cuelist_size', String(px));
@@ -761,15 +801,13 @@ async function toggleAwake(){
   const btn = document.getElementById('awake-btn');
   if (wakeLock){
     try { await wakeLock.release(); } catch(e){}
-    wakeLock = null;
-    btn.classList.remove('primary'); btn.textContent = '☾';
+    wakeLock = null; btn.classList.remove('primary'); btn.textContent = '☾';
     return;
   }
   try {
     wakeLock = await navigator.wakeLock.request('screen');
     wakeLock.addEventListener('release', () => {
-      wakeLock = null;
-      btn.classList.remove('primary'); btn.textContent = '☾';
+      wakeLock = null; btn.classList.remove('primary'); btn.textContent = '☾';
     });
     btn.classList.add('primary'); btn.textContent = '☀';
   } catch(e){
@@ -777,15 +815,14 @@ async function toggleAwake(){
     setTimeout(() => { btn.textContent = '☾'; }, 1500);
   }
 }
-// iOS drops the lock when the app backgrounds; take it again on return.
 async function reacquireWake(){
   const btn = document.getElementById('awake-btn');
   if (!btn.classList.contains('primary') || wakeLock) return;
   try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
 }
 
-function openSheet(){ document.getElementById('sheet').classList.add('open'); }
-function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
+function openSheet(){ document.getElementById('settings').classList.add('open'); }
+function closeSheet(){ document.getElementById('settings').classList.remove('open'); }
 
 document.addEventListener('keydown', e => {
   if (document.getElementById('pin-screen').style.display === 'none') return;
