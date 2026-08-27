@@ -8707,6 +8707,13 @@ function toggleListsEdit() {
   if (btn) btn.textContent = editing ? 'Done' : 'Edit';
 }
 
+// Escape a show name for safe use inside an inline onclick="..." JS string literal.
+function argq(s) {
+  return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+                  .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+                  .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function renderShows() {
   const container = document.getElementById('shows-content');
   const today = new Date(); today.setHours(0,0,0,0);
@@ -8740,10 +8747,10 @@ function renderShows() {
         </div>
         <span class="show-badge-now">Now Playing</span>
         <div class="show-actions">
-          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentMain.name}')" id="btn-${key}">
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${argq(currentMain.name)}')" id="btn-${key}">
             ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
           </button>
-          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentMain.name}')" title="Edit notes link">Edit</button>` : ''}
+          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${argq(currentMain.name)}')" title="Edit notes link">Edit</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -8765,10 +8772,10 @@ function renderShows() {
           <div class="show-opens">📅 ${opensStr}</div>
         </div>
         <div class="show-actions">
-          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextMain.name}')" id="btn-${key}">
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${argq(nextMain.name)}')" id="btn-${key}">
             ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
           </button>
-          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextMain.name}')" title="Edit notes link">Edit</button>` : ''}
+          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${argq(nextMain.name)}')" title="Edit notes link">Edit</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -8796,10 +8803,10 @@ function renderShows() {
               <div class="show-dates">${formatDates(show.start, show.end)}</div>
             </div>
             <div class="show-actions">
-              <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${show.name}')" id="btn-${key}" style="padding:6px 10px;font-size:12px;">
+              <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${argq(show.name)}')" id="btn-${key}" style="padding:6px 10px;font-size:12px;">
                 ${docUrl ? '📄 Notes' : '+ Notes'}
               </button>
-              ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${show.name}')" title="Edit notes link">Edit</button>` : ''}
+              ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${argq(show.name)}')" title="Edit notes link">Edit</button>` : ''}
             </div>
           </div>`;
         }).join('')}
@@ -8824,38 +8831,74 @@ function renderShows() {
         </div>
         <span class="show-badge-now" style="background:var(--accent2);">Now Playing</span>
         <div class="show-actions">
-          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentKids.name}')" id="btn-${key}">
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${argq(currentKids.name)}')" id="btn-${key}">
             ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
           </button>
-          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentKids.name}')" title="Edit notes link">Edit</button>` : ''}
+          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${argq(currentKids.name)}')" title="Edit notes link">Edit</button>` : ''}
         </div>
       </div>
     </div>`;
-  } else {
-    // Show next children's if none current
-    const nextKids = CHILDRENS.find(s => ['upcoming','tech'].includes(showStatus(s.start, s.end)));
-    if (nextKids) {
-      const key = 'childrens_' + nextKids.name.replace(/[^a-z0-9]/gi, '_');
-      const docUrl = showNotes[key];
-      const opens = daysUntil(nextKids.start);
-      html += `
-      <div class="show-section">
-        <div class="section-label">Up Next — Children's Theatre</div>
-        <div class="show-card-next">
-          <div class="show-info">
-            <div class="show-name">${nextKids.name}</div>
-            <div class="show-dates">${formatDates(nextKids.start, nextKids.end)}</div>
-            <div class="show-opens" style="color:var(--accent2);">📅 Opens in ${opens} days</div>
-          </div>
-          <div class="show-actions">
-            <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextKids.name}')" id="btn-${key}">
-              ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
-            </button>
-            ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextKids.name}')" title="Edit notes link">Edit</button>` : ''}
-          </div>
+  }
+
+  // ── NEXT CHILDREN'S THEATRE ──
+  // Always render the next one up, even while another is running (mirrors mainstage).
+  const upcomingKids = CHILDRENS.filter(s => ['upcoming','tech'].includes(showStatus(s.start, s.end)))
+                                .sort((a, b) => a.start.localeCompare(b.start));
+  const nextKids = upcomingKids[0] || null;
+  if (nextKids) {
+    const key = 'childrens_' + nextKids.name.replace(/[^a-z0-9]/gi, '_');
+    const docUrl = showNotes[key];
+    const opens = daysUntil(nextKids.start);
+    const opensStr = opens === 0 ? 'Opens today!' : opens === 1 ? 'Opens tomorrow' : `Opens in ${opens} days`;
+    html += `
+    <div class="show-section">
+      <div class="section-label">Up Next — Children's Theatre</div>
+      <div class="show-card-next">
+        <div class="show-info">
+          <div class="show-name">${nextKids.name}</div>
+          <div class="show-dates">${formatDates(nextKids.start, nextKids.end)}</div>
+          <div class="show-opens" style="color:var(--accent2);">📅 ${opensStr}</div>
         </div>
-      </div>`;
-    }
+        <div class="show-actions">
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${argq(nextKids.name)}')" id="btn-${key}">
+            ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
+          </button>
+          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${argq(nextKids.name)}')" title="Edit notes link">Edit</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── ALL CHILDREN'S THEATRE SHOWS (collapsible) ──
+  if (CHILDRENS.length > 0) {
+    html += `
+    <div class="show-section">
+      <button class="all-shows-toggle" onclick="toggleAllShows(this)">
+        <span>All Children's Theatre Shows (${CHILDRENS.length} total)</span>
+        <span class="chevron">▼</span>
+      </button>
+      <div class="all-shows-list">
+        ${[...CHILDRENS].sort((a, b) => a.start.localeCompare(b.start)).map(show => {
+          const key = 'childrens_' + show.name.replace(/[^a-z0-9]/gi, '_');
+          const docUrl = showNotes[key];
+          const status = showStatus(show.start, show.end);
+          const badge = status === 'current' ? '🟢' : status === 'upcoming' ? '🔵' : '⚫';
+          return `
+          <div class="show-card-mini">
+            <div class="show-info">
+              <div class="show-name">${badge} ${esc(show.name)}</div>
+              <div class="show-dates">${formatDates(show.start, show.end)}</div>
+            </div>
+            <div class="show-actions">
+              <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${argq(show.name)}')" id="btn-${key}" style="padding:6px 10px;font-size:12px;">
+                ${docUrl ? '📄 Notes' : '+ Notes'}
+              </button>
+              ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${argq(show.name)}')" title="Edit notes link">Edit</button>` : ''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
   }
 
   container.innerHTML = html || '<div style="color:var(--text-muted);padding:8px;">No current shows found.</div>';
