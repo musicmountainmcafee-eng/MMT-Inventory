@@ -181,7 +181,13 @@
   tr.detail-row td { background: var(--cue-bg); cursor: default; padding: 10px 12px; }
   tr.detail-row:hover td { background: var(--cue-bg); }
   .detail-box { border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm); padding: 10px 12px; background: var(--cue-surface); }
-  .detail-box img { width: 100%; max-width: 560px; border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm); display: block; margin-bottom: 8px; }
+  .detail-box img {
+    display: block; max-width: 100%; max-height: 80px; width: auto;
+    border: 1px solid var(--cue-border); border-radius: var(--cue-radius-sm);
+    margin-bottom: 8px; cursor: zoom-in; background: #fff;
+  }
+  .detail-box img.zoom { max-height: none; width: 100%; cursor: zoom-out; }
+  .crop-hint { font-size: 0.833em; color: var(--cue-text-faint); margin: -4px 0 8px; }
   table.mv-grid { width: 100%; border-collapse: collapse; font-size: 0.917em; }
   table.mv-grid th { text-align: left; font-size: 0.833em; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--cue-text-faint); padding: 0 6px 4px; }
   table.mv-grid td { padding: 4px 6px; border-bottom: 1px solid var(--cue-border2); vertical-align: top; cursor: default; }
@@ -222,7 +228,7 @@
   .cue-edit-btns .top-btn { padding: 6px 14px; font-size: 12px; }
 
   @media (max-width: 700px) {
-    .cue-table .ct-line, .cue-table th.h-line { display: none; }
+    .cue-table .ct-line, .cue-table th.h-line, .cue-table col.c-line { display: none; }
   }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
@@ -625,6 +631,10 @@ function render(){
     el.innerHTML = `<div class="cue-empty"><b>${what}</b>${how}</div>`;
   } else {
     el.innerHTML = `<table class="cue-table">
+      <colgroup>
+        <col style="width:7em"><col style="width:6em"><col>
+        <col class="c-line" style="width:26%"><col style="width:18%"><col style="width:3em">
+      </colgroup>
       <thead><tr>
         <th>Type</th><th>#</th><th>Action</th><th class="h-line">Cue Line</th><th>Notes</th><th>Pg</th>
       </tr></thead>
@@ -656,7 +666,10 @@ function cueRow(c){
   if (open && hasDetail){
     let inner = '';
     if (c.lineCrop && !/^data:/.test(c.lineCrop)){
-      inner += `<img src="${esc(c.lineCrop)}" alt="Script line" onerror="this.style.display='none'">`;
+      inner += `<img src="${esc(c.lineCrop)}" alt="Script line" loading="lazy"
+                     onclick="event.stopPropagation(); this.classList.toggle('zoom');"
+                     onerror="this.style.display='none'; this.nextElementSibling && this.nextElementSibling.remove();">
+                <div class="crop-hint">Tap the line to enlarge</div>`;
     }
     if (isShift && nMoves){
       inner += `<table class="mv-grid">
