@@ -416,6 +416,7 @@
         </div>
       </div>
       <button class="top-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Dark mode">🌙</button>
+      <button class="top-btn" id="photo-btn" onclick="setPhotos(!showPhotos)" title="Show or hide all line photos">Photos</button>
       <button class="top-btn" id="awake-btn" onclick="toggleAwake()" title="Keep the screen on">Awake</button>
       <button class="top-btn" onclick="openSheet()">Script</button>
     </div>
@@ -1142,9 +1143,16 @@ function measureHeader(){
 function setPhotos(on){
   showPhotos = !!on;
   lsSet('mmt_cuelist_photos', on ? '1' : '0');
-  if (on) revealed = {};
+  // Cleared in both directions: individually revealed photos have to collapse
+  // when you hide, or "hide all" leaves the ones you'd opened still showing.
+  revealed = {};
   document.querySelectorAll('#photo-row button').forEach(b =>
     b.classList.toggle('on', (b.dataset.ph === '1') === showPhotos));
+  const btn = document.getElementById('photo-btn');
+  if (btn){
+    btn.classList.toggle('primary', showPhotos);
+    btn.textContent = showPhotos ? 'Photos ✓' : 'Photos';
+  }
   render();
 }
 function revealPhoto(id){ revealed[id] = true; render(); }
