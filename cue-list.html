@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Cue List — MMT</title>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTU1UIEN1ZSBMaXN0Iiwic2hvcnRfbmFtZSI6IkN1ZXMiLCJzdGFydF91cmwiOiIuL2N1ZS1saXN0Lmh0bWwiLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMGYxMjE4IiwidGhlbWVfY29sb3IiOiIjMGYxMjE4In0=">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f1218; --card:#171b23; --card2:#1d222c; --border:#262c38;
+    --text:#eef1f6; --muted:#8891a1; --faint:#5c6675; --accent:#4f8cff;
+    --good:#33c076; --warn:#e8a53c; --bad:#e0546b;
+    --rail:6px;
+    --fs:16px;               /* driven by the text-size control */
+    --hdr:150px;             /* measured header height, so scene rails park below it */
+    --safe-t:env(safe-area-inset-top,0px);
+    --safe-b:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; height:100%;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    font-size:var(--fs); line-height:1.35;
+    -webkit-text-size-adjust:100%;
+    overscroll-behavior-y:contain;
+  }
+  button,input{font-family:inherit; font-size:inherit; color:inherit;}
+  button{cursor:pointer;}
+
+  /* ── PIN gate ─────────────────────────────────────────────────── */
+  #gate{
+    position:fixed; inset:0; z-index:50; background:var(--bg);
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .gate-card{width:100%; max-width:340px; text-align:center;}
+  .gate-card h1{font-size:20px; margin:0 0 4px; font-weight:600;}
+  .gate-card p{color:var(--muted); font-size:13px; margin:0 0 20px;}
+  #pin-dots{display:flex; justify-content:center; gap:12px; margin:18px 0 22px;}
+  .dot{width:13px; height:13px; border-radius:50%; border:2px solid var(--border); transition:.15s;}
+  .dot.filled{background:var(--accent); border-color:var(--accent);}
+  #pin-pad{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; max-width:270px; margin:0 auto;}
+  #pin-pad button{
+    padding:17px 0; font-size:19px; border-radius:12px;
+    border:1px solid var(--border); background:var(--card2);
+  }
+  #pin-pad button:active{background:var(--accent);}
+  #pin-pad button:empty{border:none; background:none;}
+  #pin-error{color:var(--bad); font-size:13px; min-height:18px; margin-top:12px;}
+
+  /* ── Header ───────────────────────────────────────────────────── */
+  header{
+    position:sticky; top:0; z-index:20; background:rgba(15,18,24,.94);
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--border); padding-top:var(--safe-t);
+  }
+  .hrow{display:flex; align-items:center; gap:10px; padding:10px 14px 8px;}
+  .title{min-width:0; flex:1;}
+  .show{
+    font-size:16px; font-weight:600; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis;
+  }
+  .meta{
+    font-family:'DM Mono',ui-monospace,monospace; font-size:11px;
+    color:var(--faint); display:flex; align-items:center; gap:6px; margin-top:2px;
+  }
+  .pulse{
+    width:7px; height:7px; border-radius:50%; background:var(--good); flex:none;
+    animation:pulse 2.4s ease-in-out infinite;
+  }
+  .pulse.stale{background:var(--warn); animation:none;}
+  .pulse.dead{background:var(--bad); animation:none;}
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.25;}}
+
+  .iconbtn{
+    flex:none; width:40px; height:40px; border-radius:11px;
+    border:1px solid var(--border); background:var(--card2);
+    display:flex; align-items:center; justify-content:center; font-size:17px;
+  }
+  .iconbtn:active{background:var(--border);}
+  .iconbtn.on{background:var(--accent); border-color:var(--accent); color:#fff;}
+
+  .searchwrap{position:relative; padding:0 14px 10px;}
+  #search{
+    width:100%; padding:11px 36px 11px 36px; border-radius:11px;
+    border:1px solid var(--border); background:var(--card2);
+    outline:none; font-size:15px;
+  }
+  #search:focus{border-color:var(--accent);}
+  .s-ico{
+    position:absolute; left:26px; top:50%; transform:translateY(-60%);
+    color:var(--faint); font-size:14px; pointer-events:none;
+  }
+  #search-clear{
+    position:absolute; right:22px; top:50%; transform:translateY(-60%);
+    background:none; border:none; color:var(--faint); font-size:18px;
+    display:none; padding:4px 6px;
+  }
+
+  /* ── Type filter chips ────────────────────────────────────────── */
+  .chips{
+    display:flex; gap:7px; overflow-x:auto; padding:0 14px 10px;
+    scrollbar-width:none; -webkit-overflow-scrolling:touch;
+  }
+  .chips::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:none; display:flex; align-items:center; gap:6px;
+    padding:7px 12px; border-radius:999px; font-size:13px; font-weight:500;
+    border:1px solid var(--border); background:var(--card2); color:var(--muted);
+    white-space:nowrap; transition:.12s;
+  }
+  .chip .swatch{width:9px; height:9px; border-radius:2px; flex:none;}
+  .chip .n{font-family:'DM Mono',monospace; font-size:11px; opacity:.7;}
+  .chip.active{color:#fff; border-color:transparent;}
+  .chip.active .n{opacity:.85;}
+
+  /* ── List ─────────────────────────────────────────────────────── */
+  main{padding:6px 0 calc(40px + var(--safe-b));}
+
+  .scene{
+    position:sticky; top:var(--hdr); z-index:10;
+    display:flex; align-items:center; gap:10px;
+    padding:9px 14px; margin-top:14px;
+    background:rgba(23,27,35,.96); backdrop-filter:blur(8px);
+    border-top:1px solid var(--border); border-bottom:1px solid var(--border);
+    font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted);
+  }
+  .scene .bar{width:3px; align-self:stretch; border-radius:2px; background:#8e44ad; flex:none;}
+  .scene .pg{margin-left:auto; font-family:'DM Mono',monospace; font-weight:400; letter-spacing:0; text-transform:none; color:var(--faint);}
+
+  .cue{
+    display:grid;
+    grid-template-columns:var(--rail) 74px 1fr auto;
+    gap:0 11px; align-items:start;
+    padding:11px 14px 11px 0;
+    border-bottom:1px solid rgba(38,44,56,.55);
+  }
+  .cue:active{background:var(--card);}
+  .cue .rail{grid-row:1/-1; align-self:stretch; border-radius:0 3px 3px 0; min-height:100%;}
+  .cue .lead{display:flex; flex-direction:column; align-items:flex-start; gap:3px;}
+  .ctype{
+    font-size:10px; font-weight:700; letter-spacing:.06em; color:#fff;
+    padding:2px 7px; border-radius:4px; white-space:nowrap;
+  }
+  .cnum{font-family:'DM Mono',monospace; font-size:17px; font-weight:500; line-height:1.1;}
+  .body{min-width:0;}
+  .action{font-weight:500; word-wrap:break-word;}
+  .action.empty{color:var(--faint); font-weight:400; font-style:italic;}
+  .line{
+    color:var(--muted); font-size:.88em; margin-top:3px;
+    display:flex; gap:6px; align-items:baseline;
+  }
+  .line .q{color:var(--faint); flex:none;}
+  .line em{font-style:italic;}
+  .notes{
+    color:var(--warn); font-size:.85em; margin-top:4px;
+    padding-left:8px; border-left:2px solid rgba(232,165,60,.4);
+  }
+  .pgcol{font-family:'DM Mono',monospace; font-size:12px; color:var(--faint); padding-top:3px; white-space:nowrap;}
+  .moves-tag{
+    display:inline-block; margin-top:5px; font-size:11px; color:var(--accent);
+    border:1px solid rgba(79,140,255,.35); border-radius:999px; padding:2px 9px;
+  }
+  .detail{
+    grid-column:3/5; margin-top:9px; padding:10px 12px;
+    background:var(--card); border:1px solid var(--border); border-radius:10px;
+    font-size:.9em;
+  }
+  .detail img{width:100%; max-width:520px; border-radius:6px; display:block; margin-bottom:8px;}
+  .mv{display:grid; grid-template-columns:1fr 1fr auto; gap:4px 10px; padding:5px 0; border-bottom:1px solid rgba(38,44,56,.6);}
+  .mv:last-child{border-bottom:none;}
+  .mv .p{font-weight:600;}
+  .mv .a{color:var(--muted);}
+  .mv .w{font-family:'DM Mono',monospace; font-size:.85em; color:var(--accent); white-space:nowrap;}
+  .mv .sp{grid-column:1/-1; font-size:.82em; color:var(--faint);}
+
+  .cue.changed{animation:flash 2.6s ease-out;}
+  @keyframes flash{0%{background:rgba(79,140,255,.22);} 100%{background:transparent;}}
+
+  .empty-state{padding:60px 26px; text-align:center; color:var(--muted);}
+  .empty-state .big{font-size:15px; color:var(--text); margin-bottom:6px;}
+
+  /* ── Sheet (script picker / settings) ─────────────────────────── */
+  #sheet{
+    position:fixed; inset:0; z-index:40; display:none;
+    background:rgba(0,0,0,.6); align-items:flex-end; justify-content:center;
+  }
+  #sheet.open{display:flex;}
+  .sheet-card{
+    width:100%; max-width:560px; max-height:82vh; overflow-y:auto;
+    background:var(--card); border:1px solid var(--border);
+    border-radius:18px 18px 0 0; padding:18px 18px calc(22px + var(--safe-b));
+  }
+  .sheet-card h2{font-size:15px; margin:0 0 3px; font-weight:600;}
+  .sheet-card .hint{color:var(--muted); font-size:12.5px; margin:0 0 14px;}
+  .sect{margin-top:20px;}
+  .sect h3{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--faint); margin:0 0 9px; font-weight:600;}
+  .opt{
+    display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+    padding:12px 13px; border-radius:11px; margin-bottom:7px;
+    border:1px solid var(--border); background:var(--card2);
+  }
+  .opt.sel{border-color:var(--accent); background:rgba(79,140,255,.1);}
+  .opt .nm{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px;}
+  .opt .dt{font-family:'DM Mono',monospace; font-size:11px; color:var(--faint); flex:none;}
+  .opt .tick{color:var(--accent); flex:none;}
+  .rowbtns{display:flex; gap:8px;}
+  .rowbtns button{
+    flex:1; padding:13px; border-radius:11px; border:1px solid var(--border);
+    background:var(--card2); font-size:14px;
+  }
+  .rowbtns button.on{border-color:var(--accent); background:rgba(79,140,255,.14); color:var(--accent);}
+  .closebtn{
+    width:100%; padding:14px; margin-top:20px; border:none; border-radius:12px;
+    background:var(--accent); color:#fff; font-size:15px; font-weight:600;
+  }
+  .ro-note{
+    margin-top:16px; font-size:11.5px; color:var(--faint); text-align:center; line-height:1.5;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important; transition:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ── PIN ────────────────────────────────────────────────────────── -->
+<div id="gate">
+  <div class="gate-card">
+    <h1>Cue List</h1>
+    <p>Enter PIN</p>
+    <div id="pin-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    <div id="pin-pad">
+      <button onclick="pinPress('1')">1</button><button onclick="pinPress('2')">2</button><button onclick="pinPress('3')">3</button>
+      <button onclick="pinPress('4')">4</button><button onclick="pinPress('5')">5</button><button onclick="pinPress('6')">6</button>
+      <button onclick="pinPress('7')">7</button><button onclick="pinPress('8')">8</button><button onclick="pinPress('9')">9</button>
+      <button></button><button onclick="pinPress('0')">0</button><button onclick="pinBack()">⌫</button>
+    </div>
+    <div id="pin-error"></div>
+  </div>
+</div>
+
+<!-- ── App ────────────────────────────────────────────────────────── -->
+<header>
+  <div class="hrow">
+    <div class="title">
+      <div class="show" id="show-name">Loading…</div>
+      <div class="meta"><span class="pulse" id="pulse"></span><span id="status">connecting</span></div>
+    </div>
+    <button class="iconbtn" id="awake-btn" onclick="toggleAwake()" title="Keep screen awake">☾</button>
+    <button class="iconbtn" onclick="openSheet()" title="Script &amp; display">☰</button>
+  </div>
+  <div class="searchwrap">
+    <span class="s-ico">⌕</span>
+    <input id="search" type="search" placeholder="Search cues, lines, notes…" autocomplete="off"
+           autocorrect="off" autocapitalize="off" spellcheck="false" oninput="onSearch()">
+    <button id="search-clear" onclick="clearSearch()">×</button>
+  </div>
+  <div class="chips" id="chips"></div>
+</header>
+
+<main id="list"></main>
+
+<!-- ── Sheet ──────────────────────────────────────────────────────── -->
+<div id="sheet" onclick="if(event.target===this) closeSheet()">
+  <div class="sheet-card">
+    <h2>Script &amp; display</h2>
+    <p class="hint">This list is read-only. Edits happen in the dashboard and land here within seconds.</p>
+
+    <div class="sect">
+      <h3>Script</h3>
+      <div id="script-list"><div class="hint">Loading scripts…</div></div>
+    </div>
+
+    <div class="sect">
+      <h3>Text size</h3>
+      <div class="rowbtns" id="size-btns">
+        <button data-sz="15" onclick="setSize(15)">Small</button>
+        <button data-sz="16" onclick="setSize(16)">Normal</button>
+        <button data-sz="18" onclick="setSize(18)">Large</button>
+        <button data-sz="21" onclick="setSize(21)">Huge</button>
+      </div>
+    </div>
+
+    <button class="closebtn" onclick="closeSheet()">Done</button>
+    <div class="ro-note" id="ro-note"></div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   MMT Live Cue List — read-only companion to the Scripts tab in app.html
+
+   Everything is pulled from the Apps Script backend (listScripts /
+   getCueData) rather than localStorage, so this works on a device that
+   has never opened the dashboard. localStorage is used ONLY as an
+   offline fallback and for this device's own preferences.
+
+   This page never writes to the Sheet. No saveCueData, ever.
+   ═══════════════════════════════════════════════════════════════════ */
+
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
+const CORRECT_PIN = '1483';
+const POLL_MS = 15000;
+
+const SCENE_TYPE_ID = 'scene';   // parity with app.html
+const SHIFT_TYPE_ID = 'shift';
+const DEFAULT_CUE_TYPES = [
+  { id:'lx',       name:'LX',       color:'#e74c3c' },
+  { id:'sfx',      name:'SFX',      color:'#3498db' },
+  { id:'fly',      name:'FLY',      color:'#2ecc71' },
+  { id:'spot',     name:'SPOT',     color:'#f1c40f' },
+  { id:'spot_out', name:'SPOT OUT', color:'#e67e22' },
+  { id:'shift',    name:'SHIFT',    color:'#34495e' },
+  { id:'scene',    name:'SCENE',    color:'#8e44ad' },
+];
+const RETIRED_CUE_TYPE_IDS = ['intermission'];
+
+// ── State ───────────────────────────────────────────────────────────
+let cueTypes    = DEFAULT_CUE_TYPES.slice();
+let cues        = [];
+let annotations = {};
+let scripts     = [];
+let scriptId    = null;
+let scriptName  = '';
+let activeType  = null;      // null = all types
+let query       = '';
+let expanded    = {};        // cueId -> bool
+let lastSig     = {};        // cueId -> JSON signature, for change flashes
+let changedIds  = new Set();
+let lastOk      = 0;
+let pollTimer   = null;
+let wakeLock    = null;
+let firstPaint  = true;
+
+// ── Small helpers ───────────────────────────────────────────────────
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+const isScene = c => c && c.type === SCENE_TYPE_ID;
+
+function lsGet(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } }
+function lsSet(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+
+function jsonp(url, onSuccess, onError, timeoutMs){
+  const cb = 'cb_' + Date.now() + '_' + Math.floor(Math.random()*1e6);
+  const script = document.createElement('script');
+  let done = false;
+  const timeout = setTimeout(() => { cleanup(); onError && onError('Timeout'); }, timeoutMs || 15000);
+  window[cb] = data => { cleanup(); onSuccess(data); };
+  function cleanup(){
+    if (done) return;
+    done = true;
+    clearTimeout(timeout);
+    delete window[cb];
+    if (script.parentNode) script.parentNode.removeChild(script);
+  }
+  script.onerror = () => { cleanup(); onError && onError('Script load error'); };
+  script.src = url + (url.indexOf('?') === -1 ? '?' : '&') + 'callback=' + cb;
+  document.head.appendChild(script);
+}
+
+// ── PIN gate ────────────────────────────────────────────────────────
+let pinEntry = '';
+function updateDots(){
+  document.querySelectorAll('.dot').forEach((d,i) => d.classList.toggle('filled', i < pinEntry.length));
+}
+function pinPress(n){
+  if (pinEntry.length >= 4) return;
+  pinEntry += n; updateDots();
+  if (pinEntry.length === 4) setTimeout(checkPin, 120);
+}
+function pinBack(){ pinEntry = pinEntry.slice(0,-1); updateDots(); }
+function checkPin(){
+  if (pinEntry === CORRECT_PIN){
+    lsSet('mmt_cuelist_ok', '1');
+    unlock();
+  } else {
+    document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
+    pinEntry = ''; updateDots();
+    setTimeout(() => { document.getElementById('pin-error').textContent = ''; }, 2000);
+  }
+}
+function unlock(){
+  document.getElementById('gate').style.display = 'none';
+  start();
+}
+
+// ── Boot ────────────────────────────────────────────────────────────
+function start(){
+  setSize(parseInt(lsGet('mmt_cuelist_size','16'),10) || 16);
+  scriptId   = lsGet('mmt_cuelist_script', null);
+  scriptName = lsGet('mmt_cuelist_scriptname', '');
+  if (scriptName) document.getElementById('show-name').textContent = cleanName(scriptName);
+
+  renderCachedIfAny();
+  loadScripts();
+  if (scriptId) fetchCues(true);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible'){ fetchCues(); schedulePoll(); reacquireWake(); }
+    else if (pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+  });
+  window.addEventListener('focus', () => fetchCues());
+  schedulePoll();
+  setInterval(tickStatus, 1000);
+}
+
+function schedulePoll(){
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => { if (document.visibilityState === 'visible') fetchCues(); }, POLL_MS);
+}
+
+// Drive de-dupes filenames, so "…Script (1).pdf" is a file artifact, not a title.
+function cleanName(raw){
+  let s = String(raw || '').replace(/\.[a-z0-9]{2,4}$/i, '');
+  for (let i = 0; i < 4; i++){
+    s = s.replace(/\s*\(\d+\)\s*$/,'')
+         .replace(/\s*[-–—]?\s*(final|draft|copy|rev\.?\s*\d*|v\d+)\s*$/i,'')
+         .replace(/\s*(script|libretto|pdf)\s*$/i,'');
+  }
+  return s.trim() || raw || 'Untitled';
+}
+
+// ── Data ────────────────────────────────────────────────────────────
+function loadScripts(){
+  jsonp(SCRIPT_URL + '?action=listScripts&_=' + Date.now(), d => {
+    if (!d || !d.success || !d.scripts) { renderScriptList('Could not load the script list.'); return; }
+    scripts = d.scripts;
+    // Nothing pinned on this device yet — take the most recent script, which is
+    // the one being worked on. Overridable from the sheet.
+    if (!scriptId && scripts.length){
+      const newest = scripts.slice().sort((a,b) => new Date(b.date||0) - new Date(a.date||0))[0];
+      pickScript(newest.id, newest.name, true);
+    }
+    renderScriptList();
+  }, () => renderScriptList('Could not load the script list.'));
+}
+
+function pickScript(id, name, silent){
+  scriptId = id; scriptName = name;
+  lsSet('mmt_cuelist_script', id);
+  lsSet('mmt_cuelist_scriptname', name);
+  document.getElementById('show-name').textContent = cleanName(name);
+  cues = []; annotations = {}; lastSig = {}; expanded = {}; firstPaint = true;
+  renderCachedIfAny();
+  renderScriptList();
+  fetchCues(true);
+  if (!silent) closeSheet();
+}
+
+function fetchCues(showLoading){
+  if (!scriptId) return;
+  if (showLoading) setStatus('loading…', 'stale');
+  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(),
+    d => {
+      if (!d || !d.success || !d.cueData){ setStatus('no cue data', 'stale'); render(); return; }
+      applyPayload(d.cueData);
+      try { lsSet('mmt_cuelist_cache_' + scriptId, JSON.stringify(d.cueData)); } catch(e){}
+      lastOk = Date.now();
+      render();
+      tickStatus();
+    },
+    () => { setStatus(lastOk ? 'offline — showing last copy' : 'could not connect', lastOk ? 'stale' : 'dead'); }
+  );
+}
+
+function renderCachedIfAny(){
+  if (!scriptId) return;
+  try {
+    const cached = JSON.parse(lsGet('mmt_cuelist_cache_' + scriptId, 'null'));
+    if (cached){ applyPayload(cached); render(); setStatus('last saved copy', 'stale'); }
+  } catch(e){}
+}
+
+function applyPayload(data){
+  cueTypes = mergeCueTypes(data.cueTypes);
+  const incoming = Array.isArray(data.cues) ? data.cues : [];
+  annotations = data.annotations || {};
+
+  // Flash only what actually moved, and only after the first paint — otherwise
+  // the whole list strobes on open.
+  changedIds = new Set();
+  const nextSig = {};
+  incoming.forEach(c => {
+    const sig = JSON.stringify([c.type, c.number, c.action, c.cueLine, c.notes || c.description, c.page, c.moves]);
+    nextSig[c.id] = sig;
+    if (!firstPaint && lastSig[c.id] !== undefined && lastSig[c.id] !== sig) changedIds.add(c.id);
+    if (!firstPaint && lastSig[c.id] === undefined) changedIds.add(c.id);
+  });
+  lastSig = nextSig;
+  cues = incoming;
+  firstPaint = false;
+}
+
+function mergeCueTypes(saved){
+  const result = (Array.isArray(saved) ? saved : [])
+    .filter(t => t && !RETIRED_CUE_TYPE_IDS.includes(t.id));
+  DEFAULT_CUE_TYPES.forEach(def => { if (!result.some(t => t.id === def.id)) result.push(def); });
+  return result;
+}
+
+const typeOf = id => cueTypes.find(t => t.id === id) || { id, name:String(id||'?').toUpperCase(), color:'#7a8496' };
+
+// Same ordering rule as the dashboard: page, then top-to-bottom, then
+// left-to-right for boxes on the same line. Cues without a placed box fall to
+// the end of their page.
+function cueRectPos(c){
+  const a = (annotations[c.page] || []).find(x => x.type === 'cue' && x.cueId === c.id);
+  if (!a || !a.rect) return null;
+  return { y:a.rect.y, x:a.rect.x };
+}
+function cuesInScriptOrder(){
+  return cues.slice().sort((a,b) => {
+    if (a.page !== b.page) return a.page - b.page;
+    const pa = cueRectPos(a), pb = cueRectPos(b);
+    if (pa && pb){
+      if (Math.abs(pa.y - pb.y) > 6) return pa.y - pb.y;
+      return pa.x - pb.x;
+    }
+    if (pa && !pb) return -1;
+    if (!pa && pb) return 1;
+    return String(a.number||'').localeCompare(String(b.number||''), undefined, { numeric:true });
+  });
+}
+
+// ── Filtering ───────────────────────────────────────────────────────
+function haystack(c){
+  const parts = [c.number, c.action, c.cueLine, c.notes || c.description, typeOf(c.type).name, 'p' + c.page, 'pg ' + c.page];
+  (c.moves || []).forEach(m => parts.push(m.piece, m.action, m.who, m.spike, m.notes));
+  return parts.filter(Boolean).join(' ').toLowerCase();
+}
+function matches(c){
+  if (activeType && c.type !== activeType) return false;
+  if (!query) return true;
+  const h = haystack(c);
+  return query.split(/\s+/).filter(Boolean).every(tok => h.includes(tok));
+}
+
+function onSearch(){
+  query = document.getElementById('search').value.trim().toLowerCase();
+  document.getElementById('search-clear').style.display = query ? 'block' : 'none';
+  render();
+}
+function clearSearch(){
+  document.getElementById('search').value = '';
+  query = '';
+  document.getElementById('search-clear').style.display = 'none';
+  render();
+}
+function setType(id){
+  activeType = (activeType === id) ? null : id;   // tap again to clear
+  render();
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+
+// ── Render ──────────────────────────────────────────────────────────
+function render(){
+  renderChips();
+  const ordered = cuesInScriptOrder();
+  const list = document.getElementById('list');
+
+  if (!cues.length){
+    list.innerHTML = emptyState('No cues on this script yet.', 'Place cues in the Scripts tab and they will appear here.');
+    return;
+  }
+
+  // Group under scene dividers. Scenes structure the sheet rather than being
+  // cues in it, so they aren't filtered or counted.
+  const groups = [];
+  let current = { scene:null, items:[] };
+  ordered.forEach(c => {
+    if (isScene(c)){
+      if (current.scene || current.items.length) groups.push(current);
+      current = { scene:c, items:[] };
+    } else {
+      current.items.push(c);
+    }
+  });
+  groups.push(current);
+
+  let shown = 0;
+  let html = '';
+  groups.forEach(g => {
+    const visible = g.items.filter(matches);
+    shown += visible.length;
+    if (!visible.length) return;
+    if (g.scene){
+      const t = typeOf(SCENE_TYPE_ID);
+      html += `<div class="scene">
+        <span class="bar" style="background:${esc(t.color)}"></span>
+        <span>${esc(g.scene.number || 'Scene')}</span>
+        <span class="pg">p.${esc(g.scene.page)}</span>
+      </div>`;
+    }
+    html += visible.map(cueRow).join('');
+  });
+
+  if (!shown){
+    const what = query ? `Nothing matches “${esc(query)}”` : `No ${esc(typeOf(activeType).name)} cues`;
+    html = emptyState(what, query ? 'Try fewer words, or clear the type filter.' : 'Pick another type, or tap it again for all cues.');
+  }
+
+  list.innerHTML = html;
+  measureHeader();
+  document.getElementById('ro-note').textContent =
+    shown + ' of ' + cues.filter(c => !isScene(c)).length + ' cues shown · read-only';
+}
+
+function emptyState(big, sub){
+  return `<div class="empty-state"><div class="big">${big}</div><div>${sub}</div></div>`;
+}
+
+function cueRow(c){
+  const t = typeOf(c.type);
+  const notes = c.notes || c.description || '';
+  const isShift = c.type === SHIFT_TYPE_ID;
+  const nMoves = (c.moves || []).length;
+  const open = !!expanded[c.id];
+  const hasDetail = isShift ? nMoves > 0 : (!!c.lineCrop || (notes && notes.length > 90));
+
+  let detail = '';
+  if (open && hasDetail){
+    let inner = '';
+    if (c.lineCrop && !/^data:/.test(c.lineCrop)){
+      inner += `<img src="${esc(c.lineCrop)}" alt="Script line" onerror="this.style.display='none'">`;
+    }
+    if (isShift && nMoves){
+      inner += (c.moves || []).map(m => `<div class="mv">
+        <span class="p">${esc(m.piece || '—')}</span>
+        <span class="a">${esc(m.action || '')}</span>
+        <span class="w">${esc(m.who || '')}</span>
+        ${m.spike || m.notes ? `<span class="sp">${esc([m.spike, m.notes].filter(Boolean).join(' · '))}</span>` : ''}
+      </div>`).join('');
+    }
+    if (notes && notes.length > 90) inner += `<div style="margin-top:8px;">${esc(notes)}</div>`;
+    detail = `<div class="detail">${inner}</div>`;
+  }
+
+  return `<div class="cue${changedIds.has(c.id) ? ' changed' : ''}"${hasDetail ? ` onclick="toggle('${esc(c.id)}')"` : ''}>
+    <span class="rail" style="background:${esc(t.color)}"></span>
+    <span class="lead">
+      <span class="ctype" style="background:${esc(t.color)}">${esc(t.name)}</span>
+      <span class="cnum">${esc(c.number || '')}</span>
+    </span>
+    <span class="body">
+      <span class="action${c.action ? '' : ' empty'}">${esc(c.action || 'No action noted')}</span>
+      ${c.cueLine ? `<span class="line"><span class="q">▸</span><em>${esc(c.cueLine)}</em></span>` : ''}
+      ${c.lineCrop && !c.cueLine ? `<span class="line"><span class="q">▸</span><em>line captured as image</em></span>` : ''}
+      ${notes ? `<div class="notes">${esc(notes.length > 90 && !open ? notes.slice(0,90) + '…' : notes)}</div>` : ''}
+      ${isShift && nMoves ? `<span class="moves-tag">${nMoves} move${nMoves !== 1 ? 's' : ''}${open ? ' ▴' : ' ▾'}</span>` : ''}
+    </span>
+    <span class="pgcol">p.${esc(c.page)}</span>
+    ${detail}
+  </div>`;
+}
+
+function toggle(id){ expanded[id] = !expanded[id]; render(); }
+
+function renderChips(){
+  const counts = {};
+  cues.forEach(c => { if (!isScene(c)) counts[c.type] = (counts[c.type] || 0) + 1; });
+  const total = cues.filter(c => !isScene(c)).length;
+
+  let html = `<button class="chip${!activeType ? ' active' : ''}"
+      style="${!activeType ? 'background:#4f8cff;' : ''}" onclick="setType(null)">
+      All <span class="n">${total}</span></button>`;
+
+  html += cueTypes
+    .filter(t => t.id !== SCENE_TYPE_ID && counts[t.id])
+    .map(t => {
+      const on = activeType === t.id;
+      return `<button class="chip${on ? ' active' : ''}" style="${on ? `background:${esc(t.color)};` : ''}"
+        onclick="setType('${esc(t.id)}')">
+        <span class="swatch" style="background:${esc(t.color)}"></span>${esc(t.name)}
+        <span class="n">${counts[t.id]}</span></button>`;
+    }).join('');
+
+  document.getElementById('chips').innerHTML = html;
+}
+
+function renderScriptList(err){
+  const el = document.getElementById('script-list');
+  if (err){ el.innerHTML = `<div class="hint">${esc(err)}</div>`; return; }
+  if (!scripts.length){ el.innerHTML = '<div class="hint">No saved scripts yet.</div>'; return; }
+  el.innerHTML = scripts.map(s => `
+    <button class="opt${s.id === scriptId ? ' sel' : ''}" onclick="pickScript('${esc(s.id)}','${esc(String(s.name).replace(/'/g,"\\'"))}')">
+      <span class="nm">${esc(cleanName(s.name))}</span>
+      <span class="dt">${esc(s.date || '')}</span>
+      ${s.id === scriptId ? '<span class="tick">✓</span>' : ''}
+    </button>`).join('');
+}
+
+// ── Status line ─────────────────────────────────────────────────────
+function setStatus(text, cls){
+  document.getElementById('status').textContent = text;
+  document.getElementById('pulse').className = 'pulse' + (cls ? ' ' + cls : '');
+}
+function tickStatus(){
+  if (!lastOk) return;
+  const s = Math.round((Date.now() - lastOk) / 1000);
+  if (s < 5)       setStatus('live', '');
+  else if (s < 90) setStatus('updated ' + s + 's ago', '');
+  else             setStatus('updated ' + Math.round(s/60) + 'm ago', 'stale');
+}
+
+// ── Display prefs ───────────────────────────────────────────────────
+function setSize(px){
+  document.documentElement.style.setProperty('--fs', px + 'px');
+  lsSet('mmt_cuelist_size', String(px));
+  document.querySelectorAll('#size-btns button').forEach(b =>
+    b.classList.toggle('on', parseInt(b.dataset.sz,10) === px));
+  measureHeader();
+}
+
+// Backstage iPad shouldn't sleep between cues.
+async function toggleAwake(){
+  const btn = document.getElementById('awake-btn');
+  if (wakeLock){
+    try { await wakeLock.release(); } catch(e){}
+    wakeLock = null;
+    btn.classList.remove('on'); btn.textContent = '☾';
+    return;
+  }
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => {
+      wakeLock = null;
+      btn.classList.remove('on'); btn.textContent = '☾';
+    });
+    btn.classList.add('on'); btn.textContent = '☀';
+  } catch(e){
+    btn.textContent = '✕';
+    setTimeout(() => { btn.textContent = '☾'; }, 1500);
+  }
+}
+// iOS drops the lock when the app backgrounds; take it again on return.
+async function reacquireWake(){
+  const btn = document.getElementById('awake-btn');
+  if (!btn.classList.contains('on') || wakeLock) return;
+  try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+}
+
+// Scene rails stick below the toolbar, whose height changes with text size,
+// chip wrapping and the iPad's own safe area — so measure it rather than guess.
+function measureHeader(){
+  const h = document.querySelector('header');
+  if (h) document.documentElement.style.setProperty('--hdr', h.offsetHeight + 'px');
+}
+window.addEventListener('resize', measureHeader);
+window.addEventListener('orientationchange', () => setTimeout(measureHeader, 250));
+
+function openSheet(){ document.getElementById('sheet').classList.add('open'); }
+function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
+
+// ── Go ──────────────────────────────────────────────────────────────
+if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
+</script>
+</body>
+</html>
