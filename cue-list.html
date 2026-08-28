@@ -343,10 +343,7 @@
   .mv-piece { display: inline; font-weight: 700; color: var(--ink); font-size: 1.06em; }
   .mv-act { margin-left: 8px; color: var(--ink-3); }
   .mv-cueact { display: block; margin-top: 2px; font-size: 0.88em; color: var(--ink-meta); }
-  .mv-who {
-    display: inline-block; font-weight: 600; color: var(--ink-2);
-    background: var(--head-bg); border-radius: 4px; padding: 0 6px; margin-right: 6px;
-  }
+  .cs-who { font-weight: 600; color: var(--ink-2); }
   .mv-spike { display: inline-block; font-family: 'DM Mono', monospace; font-size: 0.88em; color: var(--ink-4); margin-right: 6px; }
   .mv-note { display: block; margin-top: 2px; color: var(--ink-4); font-size: 0.92em; }
   .mv-label {
@@ -911,8 +908,8 @@ function render(){
     shown += visible.length;
     if (!visible.length) return;
     if (g.label){
-      if (!firstBand) body += '<tr class="scene-gap"><td colspan="4"></td></tr>';
-      body += `<tr class="scene"><td colspan="4">${esc(g.label)}${
+      if (!firstBand) body += '<tr class="scene-gap"><td colspan="5"></td></tr>';
+      body += `<tr class="scene"><td colspan="5">${esc(g.label)}${
         g.page != null ? `<span class="scene-pg">p.${esc(g.page)}</span>` : ''}</td></tr>`;
       band = false; firstBand = false;
     }
@@ -926,9 +923,10 @@ function render(){
   } else {
     el.innerHTML = title + `<table class="cs">
       <colgroup>
-        <col style="width:14%"><col style="width:33%"><col style="width:25%"><col style="width:28%">
+        <col style="width:13%"><col style="width:30%"><col style="width:11%">
+        <col class="c-line" style="width:20%"><col style="width:26%">
       </colgroup>
-      <thead><tr><th>Cue</th><th>Action</th><th>Cue Line</th><th>Notes</th></tr></thead>
+      <thead><tr><th>Cue</th><th>Action</th><th>Who</th><th class="h-line">Cue Line</th><th>Notes</th></tr></thead>
       <tbody>${body}</tbody>
     </table>
     <div class="sheet-foot"><span>Music Mountain Theatre</span><span>${shown} of ${total} cues</span></div>`;
@@ -1033,6 +1031,7 @@ function cueRow(c, band){
     return `<tr${rowCls()} data-page="${esc(c.page || '')}">
       <td>${cueCell}</td>
       <td class="cs-action">${esc(c.action || '')}</td>
+      <td class="cs-who"></td>
       <td class="cs-line">${lineCell}</td>
       <td class="cs-notes">${esc(notes)}</td>
     </tr>`;
@@ -1047,6 +1046,7 @@ function cueRow(c, band){
     return `<tr${rowCls('shift-top shift-only')}${accent} data-page="${esc(c.page || '')}"${toggleAttr}>
       <td>${cueCell}</td>
       <td class="cs-action">${esc(c.action || '')}<span class="moves-tag">${moves.length} move${moves.length !== 1 ? 's' : ''} ▾</span></td>
+      <td class="cs-who"></td>
       <td class="cs-line">${lineCell}</td>
       <td class="cs-notes">${esc(notes)}</td>
     </tr>`;
@@ -1060,7 +1060,6 @@ function cueRow(c, band){
     // who / spike / note share the Notes column; on the first row the cue's own
     // note leads, since it describes the change as a whole.
     const meta = [
-      m.who   ? `<span class="mv-who">${esc(m.who)}</span>` : '',
       m.spike ? `<span class="mv-spike">${esc(m.spike)}</span>` : '',
       m.notes ? `<span class="mv-note"><span class="mv-label">Note</span>${esc(m.notes)}</span>` : ''
     ].filter(Boolean).join('');
@@ -1071,6 +1070,7 @@ function cueRow(c, band){
       <td class="cs-action"><span class="mv-piece">${esc(m.piece || '')}</span>${
           m.action ? `<span class="mv-act">${esc(m.action)}</span>` : ''}${
           first && c.action ? `<span class="mv-cueact">${esc(c.action)}</span>` : ''}</td>
+      <td class="cs-who">${esc(m.who || '')}</td>
       <td class="cs-line">${first ? lineCell : ''}</td>
       <td class="cs-notes">${first && notes ? `<span class="mv-note">${esc(notes)}</span>` : ''}${meta}</td>
     </tr>`;
