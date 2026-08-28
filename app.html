@@ -8707,13 +8707,6 @@ function toggleListsEdit() {
   if (btn) btn.textContent = editing ? 'Done' : 'Edit';
 }
 
-// Escape a show name for safe use inside an inline onclick="..." JS string literal.
-function argq(s) {
-  return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")
-                  .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-                  .replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
 function renderShows() {
   const container = document.getElementById('shows-content');
   const today = new Date(); today.setHours(0,0,0,0);
@@ -8747,10 +8740,10 @@ function renderShows() {
         </div>
         <span class="show-badge-now">Now Playing</span>
         <div class="show-actions">
-          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${argq(currentMain.name)}')" id="btn-${key}">
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentMain.name}')" id="btn-${key}">
             ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
           </button>
-          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${argq(currentMain.name)}')" title="Edit notes link">Edit</button>` : ''}
+          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentMain.name}')" title="Edit notes link">Edit</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -8772,10 +8765,10 @@ function renderShows() {
           <div class="show-opens">📅 ${opensStr}</div>
         </div>
         <div class="show-actions">
-          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${argq(nextMain.name)}')" id="btn-${key}">
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextMain.name}')" id="btn-${key}">
             ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
           </button>
-          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${argq(nextMain.name)}')" title="Edit notes link">Edit</button>` : ''}
+          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextMain.name}')" title="Edit notes link">Edit</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -8803,10 +8796,10 @@ function renderShows() {
               <div class="show-dates">${formatDates(show.start, show.end)}</div>
             </div>
             <div class="show-actions">
-              <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${argq(show.name)}')" id="btn-${key}" style="padding:6px 10px;font-size:12px;">
+              <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${show.name}')" id="btn-${key}" style="padding:6px 10px;font-size:12px;">
                 ${docUrl ? '📄 Notes' : '+ Notes'}
               </button>
-              ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${argq(show.name)}')" title="Edit notes link">Edit</button>` : ''}
+              ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${show.name}')" title="Edit notes link">Edit</button>` : ''}
             </div>
           </div>`;
         }).join('')}
@@ -8831,74 +8824,38 @@ function renderShows() {
         </div>
         <span class="show-badge-now" style="background:var(--accent2);">Now Playing</span>
         <div class="show-actions">
-          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${argq(currentKids.name)}')" id="btn-${key}">
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentKids.name}')" id="btn-${key}">
             ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
           </button>
-          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${argq(currentKids.name)}')" title="Edit notes link">Edit</button>` : ''}
+          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentKids.name}')" title="Edit notes link">Edit</button>` : ''}
         </div>
       </div>
     </div>`;
-  }
-
-  // ── NEXT CHILDREN'S THEATRE ──
-  // Always render the next one up, even while another is running (mirrors mainstage).
-  const upcomingKids = CHILDRENS.filter(s => ['upcoming','tech'].includes(showStatus(s.start, s.end)))
-                                .sort((a, b) => a.start.localeCompare(b.start));
-  const nextKids = upcomingKids[0] || null;
-  if (nextKids) {
-    const key = 'childrens_' + nextKids.name.replace(/[^a-z0-9]/gi, '_');
-    const docUrl = showNotes[key];
-    const opens = daysUntil(nextKids.start);
-    const opensStr = opens === 0 ? 'Opens today!' : opens === 1 ? 'Opens tomorrow' : `Opens in ${opens} days`;
-    html += `
-    <div class="show-section">
-      <div class="section-label">Up Next — Children's Theatre</div>
-      <div class="show-card-next">
-        <div class="show-info">
-          <div class="show-name">${nextKids.name}</div>
-          <div class="show-dates">${formatDates(nextKids.start, nextKids.end)}</div>
-          <div class="show-opens" style="color:var(--accent2);">📅 ${opensStr}</div>
+  } else {
+    // Show next children's if none current
+    const nextKids = CHILDRENS.find(s => ['upcoming','tech'].includes(showStatus(s.start, s.end)));
+    if (nextKids) {
+      const key = 'childrens_' + nextKids.name.replace(/[^a-z0-9]/gi, '_');
+      const docUrl = showNotes[key];
+      const opens = daysUntil(nextKids.start);
+      html += `
+      <div class="show-section">
+        <div class="section-label">Up Next — Children's Theatre</div>
+        <div class="show-card-next">
+          <div class="show-info">
+            <div class="show-name">${nextKids.name}</div>
+            <div class="show-dates">${formatDates(nextKids.start, nextKids.end)}</div>
+            <div class="show-opens" style="color:var(--accent2);">📅 Opens in ${opens} days</div>
+          </div>
+          <div class="show-actions">
+            <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextKids.name}')" id="btn-${key}">
+              ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
+            </button>
+            ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextKids.name}')" title="Edit notes link">Edit</button>` : ''}
+          </div>
         </div>
-        <div class="show-actions">
-          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${argq(nextKids.name)}')" id="btn-${key}">
-            ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
-          </button>
-          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${argq(nextKids.name)}')" title="Edit notes link">Edit</button>` : ''}
-        </div>
-      </div>
-    </div>`;
-  }
-
-  // ── ALL CHILDREN'S THEATRE SHOWS (collapsible) ──
-  if (CHILDRENS.length > 0) {
-    html += `
-    <div class="show-section">
-      <button class="all-shows-toggle" onclick="toggleAllShows(this)">
-        <span>All Children's Theatre Shows (${CHILDRENS.length} total)</span>
-        <span class="chevron">▼</span>
-      </button>
-      <div class="all-shows-list">
-        ${[...CHILDRENS].sort((a, b) => a.start.localeCompare(b.start)).map(show => {
-          const key = 'childrens_' + show.name.replace(/[^a-z0-9]/gi, '_');
-          const docUrl = showNotes[key];
-          const status = showStatus(show.start, show.end);
-          const badge = status === 'current' ? '🟢' : status === 'upcoming' ? '🔵' : '⚫';
-          return `
-          <div class="show-card-mini">
-            <div class="show-info">
-              <div class="show-name">${badge} ${esc(show.name)}</div>
-              <div class="show-dates">${formatDates(show.start, show.end)}</div>
-            </div>
-            <div class="show-actions">
-              <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${argq(show.name)}')" id="btn-${key}" style="padding:6px 10px;font-size:12px;">
-                ${docUrl ? '📄 Notes' : '+ Notes'}
-              </button>
-              ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${argq(show.name)}')" title="Edit notes link">Edit</button>` : ''}
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
+      </div>`;
+    }
   }
 
   container.innerHTML = html || '<div style="color:var(--text-muted);padding:8px;">No current shows found.</div>';
@@ -13989,18 +13946,33 @@ function loadExcelJS() {
   return _exceljsPromise;
 }
 
-// Widths are the PDF's column widths in points, divided down to Excel's
-// character units, so the printed proportions survive the trip.
+// Widths are sized to FILL a landscape Letter page rather than to mirror the
+// PDF's points. fitToWidth only ever shrinks, never enlarges, so a table
+// narrower than the paper just prints narrow — the old 114 units came to 8.7"
+// on a 10.2" printable width and left an inch and a half of white down the
+// right edge. 132 units lands at 10.04", filling the page with a hair of slack
+// so rounding can't trip fitToWidth into scaling the whole sheet down.
+//   pixels = round(w * 7) + 5 per column, at 96dpi.
 const XLSX_COLS = [
-  { key: 'num',    label: '#',      width: 5,  wrap: false, bold: true  },
-  { key: 'cue',    label: 'CUE',    width: 21, wrap: true,  bold: false },
-  { key: 'pg',     label: 'PG',     width: 5,  wrap: false, bold: false },
-  { key: 'piece',  label: 'PIECE',  width: 21, wrap: true,  bold: true  },
-  { key: 'action', label: 'ACTION', width: 11, wrap: true,  bold: false },
-  { key: 'who',    label: 'WHO',    width: 14, wrap: true,  bold: false },
-  { key: 'spike',  label: 'SPIKE',  width: 8,  wrap: false, bold: false },
-  { key: 'notes',  label: 'NOTES',  width: 29, wrap: true,  bold: false },
+  { key: 'num',    label: '#',      width: 6,  wrap: false, bold: true  },
+  { key: 'cue',    label: 'CUE',    width: 25, wrap: true,  bold: false },
+  { key: 'pg',     label: 'PG',     width: 6,  wrap: false, bold: false },
+  { key: 'piece',  label: 'PIECE',  width: 25, wrap: true,  bold: true  },
+  { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
+  { key: 'who',    label: 'WHO',    width: 16, wrap: true,  bold: false },
+  // Not 9: ExcelJS treats 9 as its default column width and drops the <col>
+  // element entirely, so the column would silently fall back to whatever the
+  // reading app defaults to instead of the width set here.
+  { key: 'spike',  label: 'SPIKE',  width: 10, wrap: false, bold: false },
+  { key: 'notes',  label: 'NOTES',  width: 31, wrap: true,  bold: false },
 ];
+
+// Body text. 9.5 came off the PDF, where it sits on a page held at reading
+// distance; the spreadsheet gets printed and taped up or carried on the deck,
+// so it goes up to 12. Everything else scales off it.
+const XL_FS      = 12;    // body cells
+const XL_FS_HEAD = 10;    // column headers
+const XL_FS_BAR  = 11;    // scene bars
 
 // Same palette as the PDF, as ARGB.
 const XL = {
@@ -14052,16 +14024,16 @@ async function exportSetChangeXLSX() {
     ws.mergeCells('A1:' + lastCol + '1');
     ws.getCell('A1').value = {
       richText: [
-        { font: { bold: true, size: 15, color: { argb: XL.INK }, name: 'Helvetica' }, text: heading },
-        { font: { size: 10, color: { argb: XL.MUTED }, name: 'Helvetica' }, text: '   ' + subheading }
+        { font: { bold: true, size: 18, color: { argb: XL.INK }, name: 'Helvetica' }, text: heading },
+        { font: { size: 12, color: { argb: XL.MUTED }, name: 'Helvetica' }, text: '   ' + subheading }
       ]
     };
-    ws.getRow(1).height = 21;
+    ws.getRow(1).height = 25;
 
     ws.mergeCells('A2:' + lastCol + '2');
     ws.getCell('A2').value = 'Updated ' + exportedStr;
-    ws.getCell('A2').font = { size: 8, color: { argb: XL.MUTED }, name: 'Helvetica' };
-    ws.getRow(2).height = 12;
+    ws.getCell('A2').font = { size: 10, color: { argb: XL.MUTED }, name: 'Helvetica' };
+    ws.getRow(2).height = 14;
 
     // Row 3 is the rule under the title — an empty band carrying a bottom border.
     ws.getRow(3).height = 5;
@@ -14077,12 +14049,12 @@ async function exportSetChangeXLSX() {
     labels.forEach((label, i) => {
       const cell = row.getCell(i + 1);
       cell.value = label;
-      cell.font = { bold: true, size: 8, color: { argb: XL.HEADFG }, name: 'Helvetica' };
+      cell.font = { bold: true, size: XL_FS_HEAD, color: { argb: XL.HEADFG }, name: 'Helvetica' };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.HEAD } };
       cell.alignment = { vertical: 'middle' };
       cell.border = { top: thin, left: thin, right: thin, bottom: headB };
     });
-    row.height = 16;
+    row.height = 20;
     return row;
   }
 
@@ -14092,10 +14064,10 @@ async function exportSetChangeXLSX() {
     ws.mergeCells('A' + rowNum + ':' + lastCol + rowNum);
     const cell = ws.getCell('A' + rowNum);
     cell.value = String(label || '').toUpperCase();
-    cell.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' }, name: 'Helvetica' };
+    cell.font = { bold: true, size: XL_FS_BAR, color: { argb: 'FFFFFFFF' }, name: 'Helvetica' };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.SCENE } };
     cell.alignment = { vertical: 'middle', indent: 1 };
-    ws.getRow(rowNum).height = 16;
+    ws.getRow(rowNum).height = 20;
   }
 
   // ── Sheet 1: the plot ──────────────────────────────────────────────────────
@@ -14134,7 +14106,7 @@ async function exportSetChangeXLSX() {
         XLSX_COLS.forEach((c, i) => {
           const cell = row.getCell(i + 1);
           cell.value = mv[c.key] || null;
-          cell.font = { size: 9.5, bold: c.bold, name: 'Helvetica' };
+          cell.font = { size: XL_FS, bold: c.bold, name: 'Helvetica' };
           cell.alignment = { vertical: 'top', wrapText: c.wrap };
           cell.border = {
             left: thin, right: thin, bottom: thin,
@@ -14165,7 +14137,7 @@ async function exportSetChangeXLSX() {
         margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 }
       }
     });
-    ps.columns = [{ key:'piece', width:28 }, { key:'location', width:38 }, { key:'notes', width:44 }];
+    ps.columns = [{ key:'piece', width:34 }, { key:'location', width:46 }, { key:'notes', width:52 }];
     titleBlock(ps, 'C', showName, 'Set Changes');
     sceneBar(ps, 4, 'Before house opens', 'C');
     headerRow(ps, 5, ['PIECE', 'PRESET LOCATION', 'NOTES']);
@@ -14175,7 +14147,7 @@ async function exportSetChangeXLSX() {
       ['piece', 'location', 'notes'].forEach((k, i) => {
         const cell = row.getCell(i + 1);
         cell.value = rec[k] || null;
-        cell.font = { size: 9.5, bold: i === 0, name: 'Helvetica' };
+        cell.font = { size: XL_FS, bold: i === 0, name: 'Helvetica' };
         cell.alignment = { vertical: 'top', wrapText: i !== 0 };
         cell.border = { top: thin, left: thin, right: thin, bottom: thin };
         if (idx % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.TINT } };
