@@ -289,11 +289,20 @@
 
   /* Scene dividers head the sheet, as on export */
   tr.scene td {
-    background: var(--scene-bg); color: var(--purple);
-    font-size: 0.72em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
-    padding: 6px 8px; border-bottom: 1px solid var(--grid); border-left: none;
+    background: var(--purple); color: #fff;
+    font-size: 1.02em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 12px 12px; border-left: none; border-bottom: none;
+    box-shadow: inset 0 3px 0 rgba(0,0,0,0.22);
   }
-  tr.scene:hover td { background: var(--scene-bg); }
+  tr.scene:hover td { background: var(--purple); }
+  /* Air above each band so scenes read as blocks, not as one continuous run. */
+  tr.scene-gap td { height: 14px; padding: 0; border: none; background: var(--bg); }
+  .scene-pg {
+    float: right; font-family: 'DM Mono', monospace; font-weight: 500;
+    font-size: 0.78em; letter-spacing: 0; text-transform: none;
+    color: rgba(255,255,255,0.72);
+  }
+  [data-theme="red"] tr.scene td, [data-theme="dark"] tr.scene td { color: #fff; }
 
   .photo-chip {
     font-size: 0.76em; font-weight: 600; color: var(--ink-meta);
@@ -864,11 +873,11 @@ function render(){
   // after it belongs to that scene until the next one. Anything before the
   // first marker still needs a home.
   const groups = [];
-  let current = { label: null, items: [] };
+  let current = { label: null, page: null, items: [] };
   ordered.forEach(c => {
     if (isScene(c)){
       if (current.label || current.items.length) groups.push(current);
-      current = { label: String(c.number || 'Scene'), items: [] };
+      current = { label: String(c.number || 'Scene'), page: c.page, items: [] };
     } else {
       current.items.push(c);
     }
@@ -876,12 +885,17 @@ function render(){
   groups.push(current);
   if (groups.length && groups[0].label === null && groups[0].items.length) groups[0].label = 'Top of Show';
 
-  let shown = 0, band = false, body = '';
+  let shown = 0, band = false, body = '', firstBand = true;
   groups.forEach(g => {
     const visible = g.items.filter(matches);
     shown += visible.length;
     if (!visible.length) return;
-    if (g.label){ body += `<tr class="scene"><td colspan="4">${esc(g.label)}</td></tr>`; band = false; }
+    if (g.label){
+      if (!firstBand) body += '<tr class="scene-gap"><td colspan="4"></td></tr>';
+      body += `<tr class="scene"><td colspan="4">${esc(g.label)}${
+        g.page != null ? `<span class="scene-pg">p.${esc(g.page)}</span>` : ''}</td></tr>`;
+      band = false; firstBand = false;
+    }
     visible.forEach(c => { body += cueRow(c, band); band = !band; });
   });
 
