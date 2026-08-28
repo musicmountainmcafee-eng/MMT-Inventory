@@ -173,15 +173,19 @@
     background: var(--surface); border-bottom: 1px solid var(--border);
     padding-top: var(--safe-t);
   }
-  .bar { padding: 12px 16px 10px; display: flex; align-items: center; gap: 10px; }
-  .bar-title { flex: 1; min-width: 0; }
+  /* The toolbar was costing ~350px before a single cue appeared. Title and
+     status share a line, tabs share a line with search, and the two chip
+     strips share a scroller. */
+  .bar { padding: 7px 14px 5px; display: flex; align-items: center; gap: 8px; }
+  .bar-title { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 9px; }
   .bar-title h1 {
-    font-size: 15px; font-weight: 700; margin: 0; color: var(--ink);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: 14px; font-weight: 700; margin: 0; color: var(--ink); flex: none;
+    max-width: 46%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .bar-sub {
-    font-size: 11px; color: var(--text-faint); font-family: 'DM Mono', monospace;
-    display: flex; align-items: center; gap: 6px; margin-top: 2px;
+    font-size: 10.5px; color: var(--text-faint); font-family: 'DM Mono', monospace;
+    display: flex; align-items: center; gap: 5px; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .pulse { width: 6px; height: 6px; border-radius: 50%; background: #3B6D11; flex: none; animation: pulse 2.4s ease-in-out infinite; }
   .pulse.stale { background: #f39c12; animation: none; }
@@ -189,9 +193,9 @@
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
 
   .top-btn {
-    flex: none; padding: 7px 12px; border: 1px solid var(--border);
-    border-radius: var(--radius-sm); background: var(--surface);
-    color: var(--text-muted); font-size: 13px; font-weight: 500;
+    flex: none; padding: 5px 9px; border: 1px solid var(--border);
+    border-radius: 7px; background: var(--surface);
+    color: var(--text-muted); font-size: 12px; font-weight: 500;
   }
   .top-btn:hover { background: var(--bg); }
   .top-btn.primary { background: var(--purple); color: #fff; border-color: var(--purple); }
@@ -209,33 +213,38 @@
     display: none; padding: 2px 6px;
   }
 
-  .view-tabs { display: flex; gap: 18px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+  .view-tabs { display: flex; gap: 3px; flex: none; }
   .view-tab {
-    background: none; border: none; padding: 8px 0 9px; font-size: 13.5px; font-weight: 600;
-    color: var(--text-faint); border-bottom: 2px solid transparent; margin-bottom: -1px;
+    background: none; border: 1px solid transparent; border-radius: 7px;
+    padding: 5px 10px; font-size: 12px; font-weight: 600; color: var(--text-faint);
+    white-space: nowrap;
   }
-  .view-tab.on { color: var(--purple); border-bottom-color: var(--purple); }
+  .view-tab.on { color: #fff; background: var(--purple); }
 
-  .search-row { display: flex; gap: 8px; align-items: center; padding: 10px 16px; }
-  .search-row .search-wrap { flex: 1; padding: 0; }
+  .search-row { display: flex; gap: 7px; align-items: center; padding: 0 14px 7px; }
+  .search-row .search-wrap { flex: 1; padding: 0; min-width: 0; }
+  .search-wrap input { padding: 6px 28px 6px 10px; font-size: 13px; }
   #page-jump {
-    flex: none; padding: 9px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-    background: var(--surface); color: var(--text-muted); font-size: 13px;
-    font-family: 'DM Mono', monospace; max-width: 116px;
+    flex: none; padding: 6px 6px; border: 1px solid var(--border); border-radius: 7px;
+    background: var(--surface); color: var(--text-muted); font-size: 12px;
+    font-family: 'DM Mono', monospace; max-width: 92px;
   }
 
   .strip-label {
-    flex: none; font-size: 10px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.06em; color: var(--text-faint); align-self: center; padding-right: 2px;
+    flex: none; font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-faint); padding-right: 1px;
   }
-  .type-strip { display: flex; gap: 6px; overflow-x: auto; padding: 0 16px 10px; scrollbar-width: none; }
+  .type-strip { display: flex; gap: 5px; overflow-x: auto; padding: 0 14px 7px; scrollbar-width: none; align-items: center; }
+  .strip-div { flex: none; width: 1px; height: 17px; background: var(--border); margin: 0 4px; }
   .type-strip::-webkit-scrollbar { display: none; }
   .type-row {
-    flex: none; display: flex; align-items: center; gap: 6px;
-    font-size: 12px; font-weight: 500; padding: 5px 11px;
+    flex: none; display: flex; align-items: center; gap: 5px;
+    font-size: 11.5px; font-weight: 500; padding: 4px 9px;
     border: 1px solid var(--border); border-radius: 999px;
     background: var(--surface); color: var(--text-muted); white-space: nowrap;
   }
+  /* A "who" typed as a whole sentence would otherwise push the strip off-screen. */
+  .type-row .lbl { max-width: 132px; overflow: hidden; text-overflow: ellipsis; }
   .type-row:hover { background: var(--bg); }
   .type-row.on { color: #fff; border-color: transparent; }
   .type-color { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
@@ -321,16 +330,29 @@
   /* Set-change moves — the plot lives in its own document, so here it's a
      tucked-away expansion rather than a column. */
   tr.detail td { padding: 0 8px 10px; background: inherit; }
-  table.mv { width: 100%; border-collapse: collapse; font-size: 0.88em; border: 1px solid var(--grid); }
-  table.mv th {
-    position: static; background: var(--head-bg); color: var(--head-ink);
-    font-size: 0.7em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
-    padding: 4px 7px; border-bottom: 1px solid var(--grid); border-left: 1px solid var(--grid);
+  /* A set change is one block: an accent down the cue column ties its move rows
+     together, and only the last one gets a full-weight bottom border. */
+  tr.shift-row td, tr.shift-only td { border-bottom-color: transparent; }
+  tr.shift-end td, tr.shift-only td { border-bottom: 1px solid var(--grid); }
+  tr.shift-top td { border-top: 1px solid var(--grid); }
+  tr.shift-row td.shift-cue, tr.shift-only td:first-child { box-shadow: inset 3px 0 0 var(--shift-accent, #34495e); }
+  tr.shift-row td { cursor: pointer; }
+
+  /* The piece and its action are the point of the row, so they carry the
+     weight the nested grid was spending on its own header. */
+  .mv-piece { display: inline; font-weight: 700; color: var(--ink); font-size: 1.06em; }
+  .mv-act { margin-left: 8px; color: var(--ink-3); }
+  .mv-cueact { display: block; margin-top: 2px; font-size: 0.88em; color: var(--ink-meta); }
+  .mv-who {
+    display: inline-block; font-weight: 600; color: var(--ink-2);
+    background: var(--head-bg); border-radius: 4px; padding: 0 6px; margin-right: 6px;
   }
-  table.mv td { padding: 5px 7px; border-bottom: 1px solid var(--grid); border-left: 1px solid var(--grid); }
-  table.mv th:first-child, table.mv td:first-child { border-left: none; }
-  table.mv tr:last-child td { border-bottom: none; }
-  .mv-piece { font-weight: 700; color: var(--ink); }
+  .mv-spike { display: inline-block; font-family: 'DM Mono', monospace; font-size: 0.88em; color: var(--ink-4); margin-right: 6px; }
+  .mv-note { display: block; margin-top: 2px; color: var(--ink-4); font-size: 0.92em; }
+  .mv-label {
+    display: inline-block; margin-right: 6px; font-size: 0.8em; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-meta);
+  }
   /* With a who filter on, the other moves in the same change stay visible —
      you still need to know what else is happening around you — but recede. */
   tr.mv-dim td { opacity: 0.42; }
@@ -429,11 +451,11 @@
       <button class="top-btn" id="awake-btn" onclick="toggleAwake()" title="Keep the screen on">Awake</button>
       <button class="top-btn" onclick="openSheet()">Script</button>
     </div>
-    <div class="view-tabs">
-      <button class="view-tab on" id="tab-cues"    onclick="setView('cues')">Cue Sheet</button>
-      <button class="view-tab"    id="tab-presets" onclick="setView('presets')">Before House</button>
-    </div>
     <div class="search-row">
+      <div class="view-tabs">
+        <button class="view-tab on" id="tab-cues"    onclick="setView('cues')">Cues</button>
+        <button class="view-tab"    id="tab-presets" onclick="setView('presets')">Before House</button>
+      </div>
       <div class="search-wrap">
         <input id="search" type="search" placeholder="Search cues, lines, notes…" autocomplete="off"
                autocorrect="off" autocapitalize="off" spellcheck="false" oninput="onSearch()">
@@ -442,7 +464,6 @@
       <select id="page-jump" onchange="jumpToPage(this.value)"><option value="">Page…</option></select>
     </div>
     <div class="type-strip" id="type-strip"></div>
-    <div class="type-strip" id="who-strip"></div>
   </header>
 
   <div class="sheet-wrap"><div class="sheet" id="sheet-body"></div></div>
@@ -849,7 +870,6 @@ function setView(v){
 // ── Render ──────────────────────────────────────────────────────────────────
 function render(){
   renderTypeStrip();
-  renderWhoStrip();
   const isCues = view === 'cues';
   document.getElementById('type-strip').style.display = isCues ? 'flex' : 'none';
   document.getElementById('page-jump').style.display  = isCues ? 'block' : 'none';
@@ -906,7 +926,7 @@ function render(){
   } else {
     el.innerHTML = title + `<table class="cs">
       <colgroup>
-        <col style="width:16%"><col style="width:18%"><col style="width:35%"><col style="width:31%">
+        <col style="width:14%"><col style="width:33%"><col style="width:25%"><col style="width:28%">
       </colgroup>
       <thead><tr><th>Cue</th><th>Action</th><th>Cue Line</th><th>Notes</th></tr></thead>
       <tbody>${body}</tbody>
@@ -980,14 +1000,10 @@ function cueRow(c, band){
   const t = typeOf(c.type);
   const notes = c.notes || c.description || '';
   const isShift = c.type === SHIFT_TYPE_ID;
-  const nMoves = (c.moves || []).length;
-  // Set changes carry the information the deck actually needs, so they open on
-  // their own; tapping collapses one and that choice sticks for the session.
+  const moves = isShift ? (c.moves || []) : [];
   const open = (c.id in expanded) ? expanded[c.id] : true;
-  const hasDetail = isShift && nMoves > 0;
+  const hasMoves = moves.length > 0;
 
-  // Cue Line is TEXT FIRST — the typed line is the source of truth. The cropped
-  // script photo is only a fallback for cues that never got one typed in.
   const useCrop = !c.cueLine && c.lineCrop && !/^data:/.test(c.lineCrop);
   const cropOn = showPhotos || revealed[c.id];
   let lineCell = '';
@@ -1000,35 +1016,65 @@ function cueRow(c, band){
     lineCell = `<button class="photo-chip" onclick="event.stopPropagation(); revealPhoto('${esc(c.id)}')">Show line photo</button>`;
   }
 
-  const cls = ['cue-r'];
-  if (band) cls.push('band');
-  if (changedIds.has(c.id)) cls.push('changed');
-  if (hasDetail) cls.push('has-detail');
+  const accent = ` style="--shift-accent:${esc(t.color)}"`;
+  const cueCell = `<span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span><span class="cs-num">${esc(shortNumber(c, t.name))}</span>
+      <span class="cs-pg">p.${esc(c.page || '?')}</span>`;
 
-  let row = `<tr class="${cls.join(' ')}" data-page="${esc(c.page || '')}"${hasDetail ? ` onclick="toggle('${esc(c.id)}')"` : ''}>
-    <td>
-      <span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span><span class="cs-num">${esc(shortNumber(c, t.name))}</span>
-      <span class="cs-pg">p.${esc(c.page || '?')}</span>
-    </td>
-    <td class="cs-action">${esc(c.action || '')}${hasDetail ? `<br><span class="moves-tag">${nMoves} move${nMoves !== 1 ? 's' : ''}${open ? ' ▴' : ' ▾'}</span>` : ''}</td>
-    <td class="cs-line">${lineCell}</td>
-    <td class="cs-notes">${esc(notes)}</td>
-  </tr>`;
+  const rowCls = c2 => {
+    const a = [];
+    if (band) a.push('band');
+    if (changedIds.has(c.id)) a.push('changed');
+    if (c2) a.push(c2);
+    return a.length ? ` class="${a.join(' ')}"` : '';
+  };
 
-  if (open && hasDetail){
-    row += `<tr class="detail${band ? ' band' : ''}"><td colspan="4">
-      <table class="mv">
-        <thead><tr><th>Piece</th><th>Action</th><th>Who</th><th>Spike</th></tr></thead>
-        <tbody>${(c.moves || []).map(m => `<tr${activeWho && !onMove(m, activeWho) ? ' class="mv-dim"' : ''}>
-          <td class="mv-piece">${esc(m.piece || '')}</td>
-          <td>${esc(m.action || '')}</td>
-          <td>${esc(m.who || '')}</td>
-          <td>${esc(m.spike || '')}</td>
-        </tr>${m.notes ? `<tr><td colspan="4" class="mv-note"><span class="mv-label">Note</span>${esc(m.notes)}</td></tr>` : ''}`).join('')}
-        </tbody>
-      </table></td></tr>`;
+  // Non-shift cues: one row, unchanged.
+  if (!hasMoves){
+    return `<tr${rowCls()} data-page="${esc(c.page || '')}">
+      <td>${cueCell}</td>
+      <td class="cs-action">${esc(c.action || '')}</td>
+      <td class="cs-line">${lineCell}</td>
+      <td class="cs-notes">${esc(notes)}</td>
+    </tr>`;
   }
-  return row;
+
+  // Set changes: the moves ARE the cue, so they become rows of this table
+  // rather than a table inside a cell. Same columns, same rules, same borders —
+  // which is what the plot export does on paper, and why the nested grid read
+  // as something bolted on.
+  const toggleAttr = ` onclick="toggle('${esc(c.id)}')"`;
+  if (!open){
+    return `<tr${rowCls('shift-top shift-only')}${accent} data-page="${esc(c.page || '')}"${toggleAttr}>
+      <td>${cueCell}</td>
+      <td class="cs-action">${esc(c.action || '')}<span class="moves-tag">${moves.length} move${moves.length !== 1 ? 's' : ''} ▾</span></td>
+      <td class="cs-line">${lineCell}</td>
+      <td class="cs-notes">${esc(notes)}</td>
+    </tr>`;
+  }
+
+  return moves.map((m, i) => {
+    const first = i === 0;
+    const last  = i === moves.length - 1;
+    const dim   = activeWho && !onMove(m, activeWho) ? ' mv-dim' : '';
+    const pos   = (first ? ' shift-top' : '') + (last ? ' shift-end' : '') + dim;
+    // who / spike / note share the Notes column; on the first row the cue's own
+    // note leads, since it describes the change as a whole.
+    const meta = [
+      m.who   ? `<span class="mv-who">${esc(m.who)}</span>` : '',
+      m.spike ? `<span class="mv-spike">${esc(m.spike)}</span>` : '',
+      m.notes ? `<span class="mv-note"><span class="mv-label">Note</span>${esc(m.notes)}</span>` : ''
+    ].filter(Boolean).join('');
+
+    return `<tr${rowCls('shift-row' + pos)}${accent} data-page="${esc(c.page || '')}"${toggleAttr}>
+      <td class="shift-cue">${first ? cueCell + (moves.length > 1
+          ? `<span class="cs-pg">${moves.length} moves</span>` : '') : ''}</td>
+      <td class="cs-action"><span class="mv-piece">${esc(m.piece || '')}</span>${
+          m.action ? `<span class="mv-act">${esc(m.action)}</span>` : ''}${
+          first && c.action ? `<span class="mv-cueact">${esc(c.action)}</span>` : ''}</td>
+      <td class="cs-line">${first ? lineCell : ''}</td>
+      <td class="cs-notes">${first && notes ? `<span class="mv-note">${esc(notes)}</span>` : ''}${meta}</td>
+    </tr>`;
+  }).join('');
 }
 
 function toggle(id){ expanded[id] = !expanded[id]; render(); }
@@ -1047,23 +1093,22 @@ function renderTypeStrip(){
       const on = activeType === t.id;
       return `<button class="type-row${on ? ' on' : ''}" style="${on ? 'background:' + esc(t.color) + ';' : ''}"
         onclick="setType('${esc(t.id)}')">
-        <span class="type-color" style="background:${esc(t.color)}"></span>${esc(t.name)}
+        <span class="type-color" style="background:${esc(t.color)}"></span><span class="lbl">${esc(t.name)}</span>
         <span class="type-n">${counts[t.id]}</span></button>`;
     }).join('');
 
-  document.getElementById('type-strip').innerHTML = html;
+  document.getElementById('type-strip').innerHTML = html + whoChipsHTML();
 }
 
-function renderWhoStrip(){
-  const strip = document.getElementById('who-strip');
-  const who = view === 'cues' ? allWho() : [];
-  if (!who.length){ strip.style.display = 'none'; strip.innerHTML = ''; return; }
-  strip.style.display = 'flex';
-  strip.innerHTML = '<span class="strip-label">Who</span>' + who.map(w => {
-    const on = activeWho === w.toLowerCase();
-    const n = cues.filter(c => (c.moves || []).some(m => onMove(m, w.toLowerCase()))).length;
+function whoChipsHTML(){
+  const who = allWho();
+  if (!who.length) return '';
+  return '<span class="strip-div"></span><span class="strip-label">Who</span>' + who.map(w => {
+    const key = w.toLowerCase();
+    const on = activeWho === key;
+    const n = cues.filter(c => (c.moves || []).some(m => onMove(m, key))).length;
     return `<button class="type-row${on ? ' on' : ''}" style="${on ? 'background:var(--purple);' : ''}"
-      onclick="setWho('${esc(w.toLowerCase())}')">${esc(w)} <span class="type-n">${n}</span></button>`;
+      onclick="setWho('${esc(key)}')"><span class="lbl">${esc(w)}</span> <span class="type-n">${n}</span></button>`;
   }).join('');
 }
 
