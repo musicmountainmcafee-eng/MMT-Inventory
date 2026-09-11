@@ -1843,6 +1843,30 @@
   /* Show names double as links into that show's hub page */
   .show-name-link { cursor: pointer; }
   .show-name-link:hover { color: var(--purple); text-decoration: underline; }
+
+  /* Home cards: the title is the way into that show's page. The arrow only
+     appears on hover or keyboard focus so the card stays calm at rest. */
+  .home-show-name-link {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    border-radius: 6px;
+    transition: color .12s ease;
+  }
+  .home-show-name-link:hover { color: var(--purple); }
+  .home-show-name-arrow {
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity .12s ease, transform .12s ease;
+    font-size: 0.78em;
+  }
+  .home-show-name-link:hover .home-show-name-arrow,
+  .home-show-name-link:focus-visible .home-show-name-arrow {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  .home-show-name-link:focus-visible { box-shadow: var(--ring); color: var(--purple); }
   .show-page-btn {
     padding: 8px 14px; font-size:14px; font-weight: 600; font-family: inherit;
     border-radius: var(--radius-sm); border: 1px solid var(--purple);
@@ -4772,7 +4796,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v9</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v10</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7675,7 +7699,10 @@ function renderHomeShowCards() {
 
     return `<div class="home-show-card">
       <span class="home-show-badge ${badgeCls}">${esc(badge)}</span>
-      <div class="home-show-name">${esc(show.name)}</div>
+      <div class="home-show-name home-show-name-link" role="link" tabindex="0"
+           title="Open show page"
+           onclick="openShowHub('${esc(showSlug(show.name))}')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openShowHub('${esc(showSlug(show.name))}');}">${esc(show.name)}<span class="home-show-name-arrow" aria-hidden="true">→</span></div>
       <div class="home-show-dates">${esc(dates)}</div>
       <div class="home-show-foot">
         <span class="home-show-countdown">${esc(countdown)}</span>
