@@ -400,6 +400,34 @@
     table.cs td, table.cs th { padding: 6px 6px; }
   }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+  /* ── Edit mode ──────────────────────────────────────────────────────────── */
+  .edit-state { font-size: 13px; font-weight: 500; padding: 0 8px; white-space: nowrap; align-self: center; }
+  .edit-state.dirty  { color: var(--purple); }
+  .edit-state.saving { color: var(--muted); }
+  .edit-state.saved  { color: #3b6d11; }
+  .edit-state.error  { color: #b02a20; }
+  #edit-btn.on { background: var(--purple); color: #fff; border-color: var(--purple); }
+  body.editing .cs-crop, body.editing .photo-chip { display: none; }
+  .mv-in {
+    width: 100%; font: inherit; font-size: 0.92em;
+    padding: 7px 8px; margin: 2px 0; min-height: 38px;
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--bg); color: var(--text); box-sizing: border-box;
+  }
+  .mv-in:focus { outline: none; border-color: var(--purple); background: var(--surface); }
+  .mv-x {
+    background: none; border: none; color: var(--muted);
+    font-size: 20px; line-height: 1; cursor: pointer;
+    padding: 4px 8px; min-height: 38px; min-width: 38px;
+  }
+  .mv-x:hover { color: #b02a20; }
+  .mv-plus {
+    font: inherit; font-size: 0.9em; padding: 8px 14px; min-height: 38px;
+    border: 1px dashed var(--border); border-radius: 6px;
+    background: none; color: var(--muted); cursor: pointer;
+  }
+  .mv-plus:hover { border-style: solid; color: var(--text); }
 </style>
 </head>
 <body>
@@ -446,6 +474,8 @@
       <button class="top-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Dark mode">🌙</button>
       <button class="top-btn" id="photo-btn" onclick="setPhotos(!showPhotos)" title="Show or hide all line photos">Photos</button>
       <button class="top-btn" id="awake-btn" onclick="toggleAwake()" title="Keep the screen on">Awake</button>
+      <span class="edit-state" id="edit-state"></span>
+      <button class="top-btn" id="edit-btn" onclick="setEditMode(!editMode)" title="Edit set changes">Edit</button>
       <button class="top-btn" onclick="openSheet()">Script</button>
     </div>
     <div class="search-row">
@@ -560,6 +590,7 @@ let lastSig     = {};
 let changedIds  = new Set();
 let lastOk      = 0;
 let pollTimer   = null;
+let loadedRev   = null;   // _rev of the copy currently on screen
 let wakeLock    = null;
 let firstPaint  = true;
 
@@ -664,6 +695,28 @@ function start(){
   if (scriptName) document.getElementById('show-name').textContent = cleanShowName(scriptName);
 
   renderCachedIfAny();
+  // Edits that never reached the Sheet (connection dropped, tab closed mid-save)
+  // are held on this device. Offer them back rather than letting them rot.
+  try {
+    const draft = getDraft();
+    if (draft && draft.moves && Object.keys(draft.moves).length) {
+      const n = Object.keys(draft.moves).length;
+      const when = new Date(draft.at || Date.now()).toLocaleString('en-US',
+        { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+      setTimeout(() => {
+        if (confirm('There are unsaved set change edits on this device from ' + when
+          + ' (' + n + ' set change' + (n !== 1 ? 's' : '') + ').\n\nOpen them for editing?')) {
+          setEditMode(true);
+          editBaseline = draft.baseline || {};
+          Object.keys(draft.moves).forEach(id => {
+            const c = cues.find(x => String(x.id) === String(id));
+            if (c) { c.moves = draft.moves[id]; editedCues[id] = true; }
+          });
+          markDirty(); render();
+        } else { clearDraft(); }
+      }, 900);
+    }
+  } catch(e) {}
   loadScripts();
   if (scriptId) fetchCues(true);
 
@@ -722,6 +775,8 @@ function pickScript(id, name, silent){
 
 function fetchCues(showLoading){
   if (!scriptId) return;
+  // A refresh landing mid-edit would wipe what's being typed.
+  if (editMode || editSaving) return;
   if (showLoading) setStatus('loading…', 'stale');
   jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(),
     d => {
@@ -729,6 +784,7 @@ function fetchCues(showLoading){
       const hash = JSON.stringify([d.cueData.cues, d.cueData.cueTypes, d.cueData.presets]);
       const same = hash === lastHash;
       applyPayload(d.cueData);
+      loadedRev = (d.cueData._rev != null) ? d.cueData._rev : null;
       lastHash = hash;
       try { lsSet('mmt_cuelist_cache_' + scriptId, JSON.stringify(d.cueData)); } catch(e){}
       lastOk = Date.now();
@@ -1029,7 +1085,8 @@ function cueRow(c, band){
   const t = typeOf(c.type);
   const notes = c.notes || c.description || '';
   const isShift = c.type === SHIFT_TYPE_ID;
-  const moves = isShift ? (c.moves || []) : [];
+  let moves = isShift ? (c.moves || []) : [];
+  if (editMode && isShift && !moves.length) moves = [{ piece:'', action:'', who:'', spike:'', notes:'' }];
   const open = (c.id in expanded) ? expanded[c.id] : true;
   const hasMoves = moves.length > 0;
 
@@ -1095,6 +1152,27 @@ function cueRow(c, band){
       m.notes ? `<span class="mv-note"><span class="mv-label">Note</span>${esc(m.notes)}</span>` : ''
     ].filter(Boolean).join('');
 
+    if (editMode) {
+      const f = (field, val, ph) =>
+        `<input class="mv-in" value="${esc(val || '')}" placeholder="${esc(ph)}"
+           oninput="mvField('${esc(c.id)}', ${i}, '${field}', this.value)">`;
+      return `<tr${rowCls('shift-row' + pos)}${accent} data-page="${esc(c.page || '')}">
+        <td class="shift-cue">${first ? cueCell : ''}</td>
+        <td class="cs-action">${f('piece', m.piece, 'Piece')}${f('action', m.action, 'Action')}</td>
+        <td class="cs-who">${f('who', m.who, 'Who')}</td>
+        <td class="cs-line">${f('spike', m.spike, 'Spike')}</td>
+        <td class="cs-notes">${f('notes', m.notes, 'Note')}
+          <button class="mv-x" title="Delete this move"
+            onclick="mvDelRow('${esc(c.id)}', ${i})">&times;</button></td>
+      </tr>` + (last
+        ? `<tr${rowCls('shift-row shift-end')}${accent}>
+             <td class="shift-cue"></td>
+             <td class="cs-action" colspan="4">
+               <button class="mv-plus" onclick="mvAddRow('${esc(c.id)}')">+ Add move</button>
+             </td>
+           </tr>` : '');
+    }
+
     return `<tr${rowCls('shift-row' + pos)}${accent} data-page="${esc(c.page || '')}"${toggleAttr}>
       <td class="shift-cue">${first ? cueCell + (moves.length > 1
           ? `<span class="cs-pg">${moves.length} moves</span>` : '') : ''}</td>
@@ -1108,7 +1186,175 @@ function cueRow(c, band){
   }).join('');
 }
 
-function toggle(id){ expanded[id] = !expanded[id]; render(); }
+
+// ── EDIT MODE ───────────────────────────────────────────────────────────────
+// This page is a backstage reference first, so editing is off by default and
+// has to be switched on. While it's on, polling stops — a 15-second refresh
+// landing mid-edit would wipe what you were typing.
+//
+// Saving does NOT push this page's whole copy of the show over the Sheet's.
+// A day of set changes was lost that way once. Instead it re-reads the Sheet,
+// and replaces only the moves of the set changes edited here, and only if
+// nobody else has touched those same set changes in the meantime.
+let editMode      = false;
+let editBaseline  = {};        // cueId -> moves as they were when editing began
+let editedCues    = {};        // cueId -> true
+let editLoadedRev = null;
+let editSaving    = false;
+
+function draftKey(){ return 'mmt_cuelist_draft_' + scriptId; }
+
+function saveDraft(){
+  try {
+    const out = {};
+    Object.keys(editedCues).forEach(id => {
+      const c = cues.find(x => String(x.id) === String(id));
+      if (c) out[id] = c.moves || [];
+    });
+    lsSet(draftKey(), JSON.stringify({ at: Date.now(), rev: editLoadedRev, baseline: editBaseline, moves: out }));
+  } catch(e) {}
+}
+function clearDraft(){ try { localStorage.removeItem(draftKey()); } catch(e) {} }
+function getDraft(){ try { return JSON.parse(lsGet(draftKey(), 'null')); } catch(e) { return null; } }
+
+function setEditMode(on){
+  if (on && !scriptId) { alert('Pick a script first.'); return; }
+  editMode = !!on;
+  const btn = document.getElementById('edit-btn');
+  if (btn){ btn.textContent = editMode ? 'Done' : 'Edit'; btn.classList.toggle('on', editMode); }
+  document.body.classList.toggle('editing', editMode);
+
+  if (editMode){
+    editBaseline = {};
+    editedCues = {};
+    editLoadedRev = loadedRev;
+    cues.forEach(c => { if (c.type === SHIFT_TYPE_ID) editBaseline[c.id] = JSON.parse(JSON.stringify(c.moves || [])); });
+    if (pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+    render();
+  } else {
+    if (Object.keys(editedCues).length) saveMoveEdits();
+    else { schedulePoll(); render(); }
+  }
+}
+
+function mvField(cueId, idx, field, value){
+  const c = cues.find(x => String(x.id) === String(cueId));
+  if (!c || !c.moves || !c.moves[idx]) return;
+  c.moves[idx][field] = value;
+  editedCues[cueId] = true;
+  saveDraft();
+  markDirty();
+}
+
+function mvAddRow(cueId){
+  const c = cues.find(x => String(x.id) === String(cueId));
+  if (!c) return;
+  c.moves = c.moves || [];
+  c.moves.push({ piece:'', action:'', who:'', spike:'', notes:'' });
+  editedCues[cueId] = true;
+  saveDraft(); markDirty(); render();
+}
+
+function mvDelRow(cueId, idx){
+  const c = cues.find(x => String(x.id) === String(cueId));
+  if (!c || !c.moves) return;
+  const m = c.moves[idx];
+  const label = (m && (m.piece || m.action)) || 'this move';
+  if (!confirm('Delete ' + label + '?')) return;
+  c.moves.splice(idx, 1);
+  editedCues[cueId] = true;
+  saveDraft(); markDirty(); render();
+}
+
+function markDirty(){
+  const el = document.getElementById('edit-state');
+  if (!el) return;
+  const n = Object.keys(editedCues).length;
+  el.className = 'edit-state dirty';
+  el.textContent = n ? n + ' change' + (n !== 1 ? 's' : '') + ' not saved yet' : '';
+}
+
+// ── The merge ───────────────────────────────────────────────────────────────
+// Pure so it can be tested on its own. Applies our edited moves onto whatever
+// the Sheet currently holds, one set change at a time, skipping any that
+// someone else has altered since we started editing.
+function mergeMoveEdits(fresh, baseline, ours){
+  const out = JSON.parse(JSON.stringify(fresh));
+  const applied = [], conflicts = [];
+  out.cues = out.cues || [];
+  Object.keys(ours).forEach(id => {
+    const target = out.cues.find(c => String(c.id) === String(id));
+    if (!target){ conflicts.push({ id, why: 'the set change no longer exists on the Sheet' }); return; }
+    const theirs = JSON.stringify(target.moves || []);
+    const base   = JSON.stringify(baseline[id] || []);
+    if (theirs !== base){ conflicts.push({ id, why: 'someone else changed this set change' }); return; }
+    target.moves = JSON.parse(JSON.stringify(ours[id]));
+    applied.push(id);
+  });
+  return { data: out, applied, conflicts };
+}
+
+function saveMoveEdits(){
+  if (editSaving) return;
+  const ids = Object.keys(editedCues);
+  if (!ids.length){ schedulePoll(); render(); return; }
+  editSaving = true;
+
+  const el = document.getElementById('edit-state');
+  if (el){ el.className = 'edit-state saving'; el.textContent = 'Saving…'; }
+
+  const ours = {};
+  ids.forEach(id => {
+    const c = cues.find(x => String(x.id) === String(id));
+    if (c) ours[id] = JSON.parse(JSON.stringify(c.moves || []));
+  });
+
+  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), d => {
+    if (!d || !d.success || !d.cueData){
+      editSaving = false;
+      if (el){ el.className = 'edit-state error'; el.textContent = 'Could not reach the Sheet — your edits are kept on this device'; }
+      return;
+    }
+    const { data, applied, conflicts } = mergeMoveEdits(d.cueData, editBaseline, ours);
+    data._rev = (d.cueData._rev || 0) + 1;
+    data._savedAt = new Date().toISOString();
+
+    fetch(SCRIPT_URL, {
+      method:'POST', headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ action:'saveCueData', scriptId, cueData: data })
+    }).then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      editSaving = false;
+      applied.forEach(id => { delete editedCues[id]; });
+      if (conflicts.length){
+        // Our version of the clashing changes stays in the draft, so nothing
+        // is thrown away — it just isn't pushed over someone else's work.
+        if (el){ el.className = 'edit-state error';
+          el.textContent = conflicts.length + ' set change' + (conflicts.length !== 1 ? 's' : '') + ' not saved — ' + conflicts[0].why; }
+        alert('Saved ' + applied.length + ' set change' + (applied.length !== 1 ? 's' : '') + '.\n\n'
+          + conflicts.length + ' could not be saved because ' + conflicts[0].why
+          + '. Your version is still on this device — reopen Edit to see it.');
+      } else {
+        clearDraft();
+        if (el){ el.className = 'edit-state saved'; el.textContent = 'Saved'; setTimeout(() => { if (el.textContent === 'Saved') el.textContent = ''; }, 2500); }
+        editMode = false;
+        const btn = document.getElementById('edit-btn');
+        if (btn){ btn.textContent = 'Edit'; btn.classList.remove('on'); }
+        document.body.classList.remove('editing');
+      }
+      loadedRev = data._rev;
+      schedulePoll(); render();
+    }).catch(() => {
+      editSaving = false;
+      if (el){ el.className = 'edit-state error'; el.textContent = 'Save failed — your edits are safe on this device, try Done again'; }
+    });
+  }, () => {
+    editSaving = false;
+    if (el){ el.className = 'edit-state error'; el.textContent = 'Could not reach the Sheet — your edits are kept on this device'; }
+  });
+}
+
+function toggle(id){ if (editMode) return; expanded[id] = !expanded[id]; render(); }
 
 function renderTypeStrip(){
   const counts = {};
