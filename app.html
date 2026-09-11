@@ -1934,30 +1934,20 @@
      and a taller or shorter header can't push the bottom off-screen.
      overscroll-behavior stops a scroll that reaches the end of the frame from
      chaining outward and dragging the dashboard with it. */
+  /* The show page is pinned to the viewport. top and left are set in JS from
+     the actual bottom of the top bar and right edge of the sidebar; right and
+     bottom are zero, so its height is the literal gap to the bottom of the
+     window. Nothing in the ancestor chain can make it overflow. */
   body.hub-fullscreen { overflow: hidden; }
-  body.hub-fullscreen .app-main {
-    height: 100vh; height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
-  }
-  body.hub-fullscreen .content-topbar { flex: 0 0 auto; }
-  body.hub-fullscreen .tab-panels { flex: 1 1 auto; min-height: 0; overflow: hidden; }
-  body.hub-fullscreen #tab-notes.tab-panel {
-    height: 100%; min-height: 0;
-    display: flex; flex-direction: column;
-  }
-  body.hub-fullscreen #lists-sub-shows {
-    flex: 1 1 auto; min-height: 0;
-    display: flex; flex-direction: column;
-  }
-  #tab-notes.hub-open #show-hub {
-    flex: 1 1 auto;
-    min-height: 0;
-    height: auto;
+  #show-hub.hub-fixed {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 40;
+    background: var(--bg);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding-bottom: 0 !important;
+    padding: 10px 12px 12px !important;
   }
   #tab-notes.hub-open .hub-bar { flex: 0 0 auto; }
   #tab-notes.hub-open .hub-layout {
@@ -2059,13 +2049,10 @@
 
   @media (max-width: 1080px) {
     .hub-layout { grid-template-columns: minmax(0, 1fr); }
-    /* Stacked layout needs the page to scroll again, so hand the height back. */
+    /* Below this width the page stacks and scrolls normally; JS also declines
+       to pin, so these just undo anything left over. */
     body.hub-fullscreen { overflow: auto; }
-    body.hub-fullscreen .app-main { height: auto; min-height: 100vh; overflow: visible; }
-    body.hub-fullscreen .tab-panels { overflow: visible; }
-    body.hub-fullscreen #tab-notes.tab-panel { height: auto; display: block; }
-    body.hub-fullscreen #lists-sub-shows { display: block; }
-    #tab-notes.hub-open #show-hub { height: auto; overflow: visible; display: block; flex: none; }
+    #show-hub.hub-fixed { position: static; padding: 8px 12px 20px !important; }
     #tab-notes.hub-open .hub-rail { overflow: visible; }
     #tab-notes.hub-open .hub-doc-frame { flex: none; height: 70vh !important; min-height: 440px !important; }
     .hub-doc-frame { height: 70vh; min-height: 440px; }
@@ -5001,7 +4988,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v20</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v21</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -8464,23 +8451,76 @@ function hubDocUrl(url, mode) {
 // The show page fills the viewport exactly, so the page behind the doc has
 // nothing to scroll. Without this, reaching the end of a scroll inside the
 // iframe chains outward and drags the dashboard with it.
-// Earlier versions measured pixel offsets to size the show page, which broke
-// whenever the header was a different height than assumed. Now the whole shell
-// simply fills the window and each part takes its share, so nothing is
-// measured and nothing can drift. This only flips the switch.
+// Two earlier attempts tried to size the show page by computing heights — once
+// from a pixel offset, once by threading a height down through six nested
+// containers. Both could be defeated by any ancestor, and both were.
+//
+// This pins the page to the viewport instead: fixed, with bottom:0. A fixed
+// element with top and bottom both set is exactly as tall as the gap between
+// them, so it physically cannot run past the bottom of the window no matter
+// what the header does. The only things measured are the bottom edge of the
+// top bar and the right edge of the sidebar, both read straight off the
+// elements rather than inferred.
+const HUB_FIXED_MIN_WIDTH = 1080;
+
 function hubFitViewport() {
   const hub = document.getElementById('show-hub');
-  if (hub) hub.style.removeProperty('height');   // clear heights left by older builds
-  try { document.body.classList.toggle('hub-fullscreen', !!_hubSlug); } catch(e) {}
+  if (!hub) return;
+
+  const off = () => {
+    hub.classList.remove('hub-fixed');
+    hub.style.removeProperty('top');
+    hub.style.removeProperty('left');
+    hub.style.removeProperty('height');
+    try { document.body.classList.remove('hub-fullscreen'); } catch(e) {}
+  };
+
+  if (!_hubSlug) { off(); return; }
+  // Narrow screens stack into one column and want ordinary page scrolling.
+  if (window.innerWidth < HUB_FIXED_MIN_WIDTH) { off(); return; }
+
+  try {
+    const bar  = document.querySelector('.content-topbar');
+    const side = document.querySelector('.sidebar');
+    const top  = bar ? Math.max(0, Math.round(bar.getBoundingClientRect().bottom)) : 0;
+
+    // The sidebar is fixed-position. Off-canvas (mobile drawer) means no inset.
+    let left = 0;
+    if (side) {
+      const r = side.getBoundingClientRect();
+      if (r.left >= -1 && r.right > 0) left = Math.max(0, Math.round(r.right));
+    }
+
+    hub.style.top = top + 'px';
+    hub.style.left = left + 'px';
+    hub.classList.add('hub-fixed');
+    document.body.classList.add('hub-fullscreen');
+  } catch(e) { off(); }
 }
 
-function hubFitSoon() { hubFitViewport(); }
+// Run again on the next frame, after the sidebar's slide transition and any
+// reflow have settled.
+function hubFitSoon() {
+  hubFitViewport();
+  try { requestAnimationFrame(hubFitViewport); } catch(e) {}
+  setTimeout(hubFitViewport, 300);
+}
 
 let _hubFitTimer = null;
 window.addEventListener('resize', () => {
   clearTimeout(_hubFitTimer);
   _hubFitTimer = setTimeout(hubFitViewport, 120);
 });
+
+// The top bar wraps to two rows at some widths and the sidebar collapses, so
+// watch both rather than assuming they stay put.
+try {
+  const ro = new ResizeObserver(() => hubFitViewport());
+  const bar = document.querySelector('.content-topbar');
+  const side = document.querySelector('.sidebar');
+  if (bar) ro.observe(bar);
+  if (side) ro.observe(side);
+} catch(e) {}
 
 function hubDocMode() {
   try { return localStorage.getItem('mmt_hub_docmode') === 'read' ? 'read' : 'edit'; }
