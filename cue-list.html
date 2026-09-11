@@ -625,11 +625,42 @@ function start(){
   setSize(parseInt(lsGet('mmt_cuelist_size','13'),10) || 13);
   setPhotos(lsGet('mmt_cuelist_photos','1') !== '0');
   applyTheme(currentTheme(), false);
-  const savedView = lsGet('mmt_cuelist_view','cues');
+  // Deep links from the dashboard's Show Hub:
+  //   ?script=<driveId>   open that script rather than the last one used here
+  //   &name=<label>       show name to display until the real one loads
+  //   &type=shift         open filtered to set changes (the set change plot)
+  //   &view=presets       open the Before House sheet
+  // Anything absent falls back to what this page had remembered.
+  let linkScript = null, linkName = '', linkType = null, linkView = null;
+  try {
+    const q = new URLSearchParams(location.search);
+    linkScript = q.get('script');
+    linkName   = q.get('name') || '';
+    linkType   = q.get('type');
+    linkView   = q.get('view');
+  } catch(e) {}
+
+  const savedView = linkView || lsGet('mmt_cuelist_view','cues');
   if (savedView === 'presets') setView('presets');
-  pendingScroll = parseInt(lsGet(scrollKey(), '0'), 10) || 0;
-  scriptId   = lsGet('mmt_cuelist_script', null);
-  scriptName = lsGet('mmt_cuelist_scriptname', '');
+
+  if (linkScript) {
+    scriptId   = linkScript;
+    scriptName = linkName || lsGet('mmt_cuelist_scriptname', '');
+    // Remember it, so a reload or a later visit without the link still lands here.
+    try {
+      lsSet('mmt_cuelist_script', scriptId);
+      if (linkName) lsSet('mmt_cuelist_scriptname', linkName);
+    } catch(e) {}
+    pendingScroll = 0;
+  } else {
+    pendingScroll = parseInt(lsGet(scrollKey(), '0'), 10) || 0;
+    scriptId   = lsGet('mmt_cuelist_script', null);
+    scriptName = lsGet('mmt_cuelist_scriptname', '');
+  }
+
+  // Filter straight to set changes when asked. Checked against the real type
+  // list so a bad value in the URL just shows everything.
+  if (linkType && cueTypes.some(t => t.id === linkType)) activeType = linkType;
   if (scriptName) document.getElementById('show-name').textContent = cleanShowName(scriptName);
 
   renderCachedIfAny();

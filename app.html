@@ -5000,7 +5000,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v22</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v23</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -8444,6 +8444,22 @@ function hubOpenScript() {
   }
 }
 
+// "Set change plot" opens the read-only backstage page (cue-list.html) filtered
+// to SHIFT cues, which is the running plot. Uses the script pinned to this show
+// when there is one; otherwise the page falls back to whatever it last had open.
+function hubOpenPlot() {
+  const rec = hubRec(_hubSlug);
+  const sh = showBySlug(_hubSlug);
+  const q = ['type=shift'];
+  if (rec.scriptId) {
+    q.push('script=' + encodeURIComponent(rec.scriptId));
+    if (rec.scriptName) q.push('name=' + encodeURIComponent(rec.scriptName));
+  } else if (typeof toast === 'function') {
+    toast('No script pinned for ' + ((sh && sh.name) || 'this show') + ' — opening the last one used');
+  }
+  window.open('cue-list.html?' + q.join('&'), '_blank');
+}
+
 function hubOpenNotesDoc() {
   const sh = showBySlug(_hubSlug);
   if (!sh) return;
@@ -8643,7 +8659,7 @@ function renderShowHub() {
           <div class="hub-card-t">Jump to</div>
           <div class="hub-links">
             <button class="hub-link" onclick="switchTab('checklists')">Pre-show checklists</button>
-            <button class="hub-link" onclick="hubOpenScript()">Set change plot</button>
+            <button class="hub-link" onclick="hubOpenPlot()">Set change plot</button>
             <button class="hub-link" onclick="switchTab('reference')">Reference photos</button>
           </div>
         </div>
