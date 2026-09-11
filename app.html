@@ -1914,6 +1914,66 @@
   }
   .show-page-btn:hover { background: var(--purple-dark); }
 
+
+  /* ── Show hub layout ──────────────────────────────────────────────────────
+     Two columns on a wide screen: the notes doc gets the space, everything
+     else sits in a narrow rail. One column below 1080px. */
+  .hub-layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
+  .hub-rail { display: flex; flex-direction: column; gap: 14px; }
+  .hub-doc-col { min-width: 0; }
+
+  .hub-doc-card { padding: 0 !important; overflow: hidden; display: flex; flex-direction: column; }
+  .hub-card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .hub-card-head .hub-card-t { margin-bottom: 0; }
+  .hub-doc-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .hub-doc-frame {
+    width: 100%; height: 70vh; min-height: 460px;
+    border: 0; display: block; background: var(--surface);
+  }
+  .hub-doc-card .hub-hint { padding: 10px 16px 14px; margin-top: 0; }
+  .hub-empty { padding: 48px 20px; text-align: center; }
+  .hub-empty-t { font-size: 16px; color: var(--text-muted); margin-bottom: 14px; }
+
+  /* Read / Edit toggle */
+  .hub-seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+  .hub-seg-btn {
+    padding: 8px 14px !important; min-height: 38px !important;
+    font-size: 13px !important; border: none !important; border-radius: 0 !important;
+    background: transparent !important; color: var(--text-muted) !important;
+  }
+  .hub-seg-btn.on { background: var(--purple) !important; color: #fff !important; }
+  .hub-btn.sm { padding: 8px 14px !important; min-height: 38px !important; font-size: 13px !important; }
+  .hub-btn.full { width: 100%; margin-top: 10px; }
+
+  /* Key dates as one four-up row */
+  .hub-dates { grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap: 14px 12px !important; }
+  .hub-date-v { min-height: 38px; display: flex; align-items: center; font-size: 16px; }
+  .hub-date-i {
+    min-height: 38px !important; font-size: 14px !important;
+    border-color: transparent !important; background: var(--surface-2) !important;
+    padding: 6px 8px !important;
+  }
+  .hub-date.is-editable:hover .hub-date-i,
+  .hub-date-i:focus { border-color: var(--border-strong) !important; background: var(--surface) !important; }
+
+  /* One primary action per screen; the rest are quiet. */
+  .hub-links { flex-direction: column !important; gap: 8px !important; }
+  .hub-link { width: 100%; justify-content: flex-start !important; font-size: 14px !important; }
+  .hub-notes { min-height: 150px !important; }
+
+  @media (max-width: 1080px) {
+    .hub-layout { grid-template-columns: minmax(0, 1fr); }
+    .hub-doc-frame { height: 58vh; min-height: 380px; }
+  }
+  @media (max-width: 640px) {
+    .hub-dates { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+    .hub-doc-frame { height: 50vh; min-height: 320px; }
+  }
+
   /* ── SHOW HUB ───────────────────────────────────────────────────────────── */
   #show-hub { padding: 4px 14px 40px; }
   .hub-top { margin-bottom: 12px; }
@@ -4835,7 +4895,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v11</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v12</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -8274,6 +8334,24 @@ function hubOpenNotesDoc() {
   else changeShowNotesLink(showRef(sh).notesKey, sh.name);
 }
 
+// Google only allows its editor in an iframe via the ?embedded=true form.
+// /preview always renders but is read-only. Some Workspace setups refuse the
+// editor in a frame entirely, which is why "Open in Docs" is always offered.
+function hubDocUrl(url, mode) {
+  const base = String(url || '').replace(/\/(edit|preview|view|pub)(\?[^#]*)?(#.*)?$/, '');
+  return mode === 'edit' ? base + '/edit?embedded=true' : base + '/preview';
+}
+
+function hubDocMode() {
+  try { return localStorage.getItem('mmt_hub_docmode') === 'read' ? 'read' : 'edit'; }
+  catch(e) { return 'edit'; }
+}
+
+function hubSetDocMode(mode) {
+  try { localStorage.setItem('mmt_hub_docmode', mode); } catch(e) {}
+  renderShowHub();
+}
+
 function hubRelinkNotes() {
   const sh = showBySlug(_hubSlug);
   if (sh) changeShowNotesLink(showRef(sh).notesKey, sh.name);
@@ -8293,12 +8371,16 @@ function renderShowHub() {
   const stLabel = { current: 'Running now', tech: 'Tech week', upcoming: 'Upcoming', past: 'Closed' }[st] || '';
   const docUrl  = showNotes[ref.notesKey] || '';
   const techDefault = (() => { try { return techStartDate(sh.start); } catch(e) { return ''; } })();
+  const docMode = hubDocMode();
 
+  // All four read as one row. The two editable ones only look like fields on
+  // hover or focus, so the row isn't half form and half label.
   const dateCell = (label, val, editable, field, hint) =>
-    `<div class="hub-date">
+    `<div class="hub-date${editable ? ' is-editable' : ''}">
        <div class="hub-date-l">${esc(label)}</div>
        ${editable
          ? `<input type="date" class="hub-date-i" value="${esc(val || '')}"
+              aria-label="${esc(label)} date"
               onchange="hubSetDate('${field}', this.value)" />`
          : `<div class="hub-date-v">${val ? esc(fmtDate(val)) : '—'}</div>`}
        ${hint ? `<div class="hub-date-h">${esc(hint)}</div>` : ''}
@@ -8311,7 +8393,7 @@ function renderShowHub() {
 
   el.innerHTML = `
     <div class="hub-top">
-      <button class="hub-back" onclick="closeShowHub()">← All shows</button>
+      <button class="hub-back" onclick="closeShowHub()">&larr; All shows</button>
     </div>
 
     <div class="hub-head">
@@ -8323,56 +8405,70 @@ function renderShowHub() {
       </div>
     </div>
 
-    <div class="hub-card">
-      <div class="hub-card-t">Key dates</div>
-      <div class="hub-dates">
-        ${dateCell('Tech', rec.tech || techDefault, true, 'tech', rec.tech ? '' : 'estimated')}
-        ${dateCell('Opening', sh.start, false, '', 'from show list')}
-        ${dateCell('Closing', sh.end, false, '', 'from show list')}
-        ${dateCell('Strike', rec.strike, true, 'strike', '')}
-      </div>
-    </div>
+    <div class="hub-layout">
 
-    <div class="hub-card">
-      <div class="hub-card-t">Show notes</div>
-      <div class="hub-row">
-        <div class="hub-row-txt">${docUrl ? 'Linked to a Google Doc.' : 'No document linked yet.'}</div>
-        <div class="hub-row-btns">
-          <button class="hub-btn primary" onclick="hubOpenNotesDoc()">${docUrl ? 'Open notes' : 'Link a doc'}</button>
-          ${docUrl ? `<button class="hub-btn" onclick="hubRelinkNotes()">Change link</button>` : ''}
+      <div class="hub-doc-col">
+        <div class="hub-card hub-doc-card">
+          <div class="hub-card-head">
+            <span class="hub-card-t">Show notes</span>
+            ${docUrl ? `<div class="hub-doc-tools">
+              <div class="hub-seg">
+                <button class="hub-seg-btn${docMode === 'edit' ? ' on' : ''}" onclick="hubSetDocMode('edit')">Edit</button>
+                <button class="hub-seg-btn${docMode === 'read' ? ' on' : ''}" onclick="hubSetDocMode('read')">Read</button>
+              </div>
+              <button class="hub-btn sm" onclick="hubOpenNotesDoc()">Open in Docs</button>
+              <button class="hub-btn sm" onclick="hubRelinkNotes()">Relink</button>
+            </div>` : ''}
+          </div>
+          ${docUrl
+            ? `<iframe class="hub-doc-frame" src="${esc(hubDocUrl(docUrl, docMode))}"
+                 title="${esc(sh.name)} show notes"></iframe>
+               <div class="hub-hint">Edits save straight to the Doc. If the editor won't load, use Open in Docs.</div>`
+            : `<div class="hub-empty">
+                 <div class="hub-empty-t">No notes document yet</div>
+                 <button class="hub-btn primary" onclick="hubOpenNotesDoc()">Link a doc</button>
+               </div>`}
         </div>
       </div>
-    </div>
 
-    <div class="hub-card">
-      <div class="hub-card-t">Script &amp; cue sheets</div>
-      <div class="hub-row">
-        <div class="hub-row-txt">
+      <div class="hub-rail">
+
+        <div class="hub-card">
+          <div class="hub-card-t">Key dates</div>
+          <div class="hub-dates">
+            ${dateCell('Tech', rec.tech || techDefault, true, 'tech', rec.tech ? '' : 'estimated')}
+            ${dateCell('Opening', sh.start, false, '', 'from show list')}
+            ${dateCell('Closing', sh.end, false, '', 'from show list')}
+            ${dateCell('Strike', rec.strike, true, 'strike', '')}
+          </div>
+        </div>
+
+        <div class="hub-card">
+          <div class="hub-card-t">Script</div>
           <select class="hub-select" onchange="hubPickScript(this.value)">${scriptOpts}</select>
+          <button class="hub-btn primary full" onclick="hubOpenScript()">Open script</button>
           <div class="hub-hint">${scripts.length
-            ? 'Pinning a script here means Home cards and this page always open the right one.'
-            : 'Script list has not loaded yet — open the Scripts tab once, then come back.'}</div>
+            ? 'Pinning a script here means Home cards open the right one.'
+            : 'Script list has not loaded yet &mdash; open the Scripts tab once, then come back.'}</div>
         </div>
-        <div class="hub-row-btns">
-          <button class="hub-btn primary" onclick="hubOpenScript()">Open script</button>
+
+        <div class="hub-card">
+          <div class="hub-card-t">Jump to</div>
+          <div class="hub-links">
+            <button class="hub-link" onclick="switchTab('checklists')">Pre-show checklists</button>
+            <button class="hub-link" onclick="hubOpenScript()">Set change plot</button>
+            <button class="hub-link" onclick="switchTab('reference')">Reference photos</button>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <div class="hub-card">
-      <div class="hub-card-t">Jump to</div>
-      <div class="hub-links">
-        <button class="hub-link" onclick="switchTab('checklists')"><span>✅</span> Pre-Show Checklists</button>
-        <button class="hub-link" onclick="hubOpenScript()"><span>🔀</span> Set Change Plot</button>
-        <button class="hub-link" onclick="switchTab('reference')"><span>📸</span> Reference Photos</button>
-      </div>
-    </div>
+        <div class="hub-card">
+          <div class="hub-card-t">Production notes</div>
+          <textarea class="hub-notes" placeholder="Anything worth remembering about this build&hellip;"
+            oninput="hubSetNotes(this.value)">${escHtml(rec.notes || '')}</textarea>
+          <div class="hub-hint">Saves automatically.</div>
+        </div>
 
-    <div class="hub-card">
-      <div class="hub-card-t">Production notes</div>
-      <textarea class="hub-notes" placeholder="Anything worth remembering about this build…"
-        oninput="hubSetNotes(this.value)">${escHtml(rec.notes || '')}</textarea>
-      <div class="hub-hint">Saves automatically.</div>
+      </div>
     </div>
   `;
 }
