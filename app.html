@@ -2852,15 +2852,15 @@
       <a class="sidebar-link" href="#daytracker" data-tab="daytracker" onclick="switchTab('daytracker');closeSidebarMobile();return false;"><span class="sl-icon">🗓️</span> Day Tracker</a>
       <a class="sidebar-link" href="#notes" data-tab="notes" onclick="switchTab('notes');closeSidebarMobile();return false;"><span class="sl-icon">📝</span> Notes</a>
       <a class="sidebar-link" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');closeSidebarMobile();return false;"><span class="sl-icon">📦</span> Set Piece Catalogue</a>
-      <a class="sidebar-link" href="#backdrops" data-tab="backdrops" onclick="switchTab('backdrops');closeSidebarMobile();return false;"><span class="sl-icon">🎭</span> Drops</a>
+      <!-- PARKED: Drops sidebar link -->
       <a class="sidebar-link" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');closeSidebarMobile();return false;"><span class="sl-icon">🎬</span> Scripts</a>
       <a class="sidebar-link" href="#checklists" data-tab="checklists" onclick="switchTab('checklists');closeSidebarMobile();return false;"><span class="sl-icon">✅</span> Pre-Show Checklists</a>
       <a class="sidebar-link" href="#reference" data-tab="reference" onclick="switchTab('reference');closeSidebarMobile();return false;"><span class="sl-icon">📸</span> Reference Photos</a>
-      <a class="sidebar-link td-only" href="#archive" data-tab="archive" onclick="switchTab('archive');closeSidebarMobile();return false;"><span class="sl-icon">🗄️</span> Show Archive<span class="cleaning-badge" id="archive-badge" style="display:none;"></span></a>
+      <!-- PARKED: Show Archive sidebar link -->
       <div class="sidebar-divider"></div>
       <a class="sidebar-link" href="#shopping" data-tab="shopping" onclick="switchTab('shopping');closeSidebarMobile();return false;"><span class="sl-icon">🛒</span> Shopping Lists</a>
       <a class="sidebar-link" href="#cleaning" data-tab="cleaning" onclick="switchTab('cleaning');closeSidebarMobile();return false;"><span class="sl-icon">🧽</span> Cleaning Log<span class="cleaning-badge" id="cleaning-badge" style="display:none;"></span></a>
-      <a class="sidebar-link" href="#inventory" onclick="switchTab('inventory');if(typeof switchInvSubtab==='function')switchInvSubtab('paint');closeSidebarMobile();return false;"><span class="sl-icon">🎨</span> Paint</a>
+      <!-- PARKED: Paint sidebar shortcut -->
       <div class="sidebar-divider td-only"></div>
       <a class="sidebar-link td-only" href="#sidework" data-tab="sidework" onclick="switchTab('sidework');closeSidebarMobile();return false;"><span class="sl-icon">🏫</span> Side Job Notes</a>
     </nav>
@@ -2897,15 +2897,7 @@
   <div class="tab-panel active" id="tab-home" data-tab="home">
   <div class="home-redesign">
 
-    <!-- Archive nag: shown when a show's documentation is due and unfinished -->
-    <div class="arc-banner td-only" id="arc-banner" onclick="arcOpenFromBanner()">
-      <span class="arc-banner-icon">🗄️</span>
-      <div class="arc-banner-txt">
-        <div class="arc-banner-title" id="arc-banner-title">Archive due</div>
-        <div class="arc-banner-sub" id="arc-banner-sub"></div>
-      </div>
-      <button class="arc-banner-btn" type="button">Document it →</button>
-    </div>
+    <!-- PARKED: Archive due banner -->
 
     <!-- SECTION: MAIN GRID -->
     <div class="home-main-grid">
@@ -3032,9 +3024,7 @@
     <button class="tab-btn" id="inv-subtab-history" onclick="switchInvSubtab('history')">
       History
     </button>
-    <button class="tab-btn" id="inv-subtab-paint" onclick="switchInvSubtab('paint')">
-      🎨 Paint
-    </button>
+    <!-- PARKED: Paint sub-tab button -->
   </div>
 
   <!-- INVENTORY TAB -->
@@ -4299,7 +4289,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v2</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -4490,17 +4480,8 @@ function initApp() {
   initNavSpy();
   // Load cleaning data in the background so the overdue badge shows right away
   try { loadCleaning(); _cleaningLoaded = true; } catch(e) {}
-  // Archive: banner paints from cache immediately, then the daily prompt fires
-  // once the server copy has landed so we don't nag against stale state.
-  try {
-    if (userRole !== 'crew') {
-      updateArcBanner();
-      loadArchives(() => {
-        updateArcBanner();
-        setTimeout(maybeShowArcNag, 900);   // let the app settle before interrupting
-      });
-    }
-  } catch(e) { console.warn('archive init:', e); }
+  // PARKED: Archive banner + daily nag boot block (also skips a loadArchives
+  // network round trip on every launch while the tab is hidden).
   // Enter key to add shop item
   const si = document.getElementById('shop-input');
   if (si) si.addEventListener('keydown', e => { if (e.key === 'Enter') addShopItem(); });
@@ -4524,7 +4505,22 @@ function applyRoleVisibility() {
 }
 
 // ── TAB SWITCHING (unified app) ─────────────────────────────────────────────
-const TABS = ['home','todo','daytracker','notes','inventory','backdrops','scripts','checklists','reference','archive','shopping','cleaning','sidework'];
+// ── PARKED TABS ─────────────────────────────────────────────────────────────
+// Drops (backdrops), Show Archive, and Paint are hidden from navigation as of
+// 9.10 v2. All of their code is still here and untouched — only the ways IN
+// were removed, so nothing had to be surgically cut out of shared helpers.
+//
+// TO BRING ONE BACK, reverse these (each is marked "PARKED:" in the file):
+//   Drops   — add 'backdrops' to TABS; restore the sidebar link, the switchTab
+//             hook, the GS_SOURCES entry, the gsCollect block, and the
+//             ensureDropsLoaded() warm call in openGlobalSearch().
+//   Archive — add 'archive' to TABS; restore the sidebar link, the switchTab
+//             hook, the shell banner, the initApp boot block (banner + nag),
+//             the GS_SOURCES entry, and the gsCollect block.
+//   Paint   — restore the sidebar shortcut, the Inventory sub-tab button, and
+//             the initPaint() call inside renderInventoryTab().
+// Note: Archive reads from Drops and Paint, so bring those back first.
+const TABS = ['home','todo','daytracker','notes','inventory','scripts','checklists','reference','shopping','cleaning','sidework'];
 let currentTab = 'home';
 
 function switchTab(tab) {
@@ -4554,12 +4550,10 @@ function switchTab(tab) {
   if (tab === 'daytracker' && typeof ensureDayTrackerLoaded === 'function') ensureDayTrackerLoaded();
   if (tab === 'notes' && typeof renderNotesTab === 'function') renderNotesTab();
   if (tab === 'inventory' && typeof renderInventoryTab === 'function') renderInventoryTab();
-  if (tab === 'backdrops' && typeof ensureDropsLoaded === 'function') ensureDropsLoaded();
   if (tab === 'scripts' && typeof ensureScriptsLoaded === 'function') ensureScriptsLoaded();
   if (tab === 'cleaning' && typeof ensureCleaningLoaded === 'function') ensureCleaningLoaded();
   if (tab === 'sidework' && typeof ensureSideWorkLoaded === 'function') ensureSideWorkLoaded();
   if (tab === 'reference' && typeof ensureReferenceLoaded === 'function') ensureReferenceLoaded();
-  if (tab === 'archive' && typeof ensureArchiveLoaded === 'function') ensureArchiveLoaded();
   if (tab === 'checklists' && typeof ensureChecklistsLoaded === 'function') ensureChecklistsLoaded();
 }
 
@@ -5827,13 +5821,11 @@ var _gsHits = [];
 
 const GS_SOURCES = [
   { key:'inventory', label:'Set Pieces', emoji:'📦' },
-  { key:'drops',     label:'Drops',      emoji:'🎭' },
   { key:'tasks',     label:'To Do',      emoji:'📋' },
   { key:'day',       label:'Day Tracker',emoji:'🗓️' },
   { key:'shopping',  label:'Shopping',   emoji:'🛒' },
   { key:'photos',    label:'Photos',     emoji:'📸' },
   { key:'notes',     label:'Shows',      emoji:'📝' },
-  { key:'archive',   label:'Archive',    emoji:'🗄️' },
 ];
 
 function openGlobalSearch() {
@@ -5847,7 +5839,6 @@ function openGlobalSearch() {
       loadInventoryData();
     }
   } catch(e) {}
-  try { if (typeof ensureDropsLoaded === 'function') ensureDropsLoaded(); } catch(e) {}
   try { if (typeof ensureReferenceLoaded === 'function') ensureReferenceLoaded(); } catch(e) {}
   try { if (typeof ensureDayTrackerLoaded === 'function' && !_dtLoaded) ensureDayTrackerLoaded(); } catch(e) {}
   renderGsFilters();
@@ -5901,16 +5892,10 @@ function gsCollect() {
       i.photo));
   } catch(e) {}
 
-  // Drops
-  try {
-    (drops || []).forEach(d => push('drops', d.name || 'Unnamed',
-      [d.number, d.category, d.notes].filter(Boolean).join(' · '),
-      () => switchTab('backdrops')));
-  } catch(e) {}
+  // PARKED: Drops search source
 
-  // Show Archive — makes "did we already build/own this?" answerable by search.
-  // Indexed per piece/paint/drop so the hit lands on the thing, not the show.
-  try {
+  // PARKED: Show Archive search source
+  if (false) {
     Object.keys(_archives || {}).forEach(slug => {
       if (slug === '_epoch' || slug === '_epochLocked') return;
       const rec = _archives[slug];
@@ -5932,7 +5917,7 @@ function gsCollect() {
       if ((rec.reuse || '').trim()) push('archive', rec.reuse.slice(0, 70), 'reuse note · ' + rec.show, jump);
       if ((rec.avoid || '').trim()) push('archive', rec.avoid.slice(0, 70), 'avoid note · ' + rec.show, jump);
     });
-  } catch(e) {}
+  }
 
   // To Do tasks
   try {
@@ -9452,7 +9437,7 @@ function renderInventoryTab() {
   if (!inventoryLoaded) {
     inventoryLoaded = true;
     if (typeof loadInventoryData === 'function') loadInventoryData();
-    if (typeof initPaint === 'function') { try { initPaint(); } catch(e){} }
+    // PARKED: initPaint() — Paint sub-tab is hidden, so skip its load.
   }
 }
 
