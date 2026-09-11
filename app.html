@@ -4012,7 +4012,7 @@
           </div>
           <div class="field">
             <label>Type <span class="required">*</span></label>
-            <select id="f-type">
+            <select id="co-type">
               <option value="">Select...</option>
               <option value="Rental">Rental</option>
               <option value="Internal">Internal / MMT use</option>
@@ -4280,6 +4280,7 @@
       <div class="import-section">
         <input type="text" id="import-url" placeholder="https://musicmountaintheatre.org/season" style="width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:6px; font-size:14px; font-family:'DM Sans',sans-serif; margin-bottom:10px;" />
         <button class="btn-confirm" onclick="importFromUrl()" id="import-btn" style="width:100%;">Import Shows</button>
+        <button type="button" id="api-key-btn" onclick="promptAnthropicKey()" style="width:100%; margin-top:8px; padding:8px 10px; background:none; border:1px solid var(--border); border-radius:6px; font-size:12px; color:var(--text-muted); cursor:pointer;">API key: not set</button>
         <div class="import-status" id="import-status"></div>
       </div>
     </div>
@@ -4298,7 +4299,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">8.1 v5</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v1</div>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -4505,6 +4506,7 @@ function initApp() {
   if (si) si.addEventListener('keydown', e => { if (e.key === 'Enter') addShopItem(); });
   // Open the correct tab (honors #inventory, #lists, etc.)
   initTabFromHash();
+  updateApiKeyLabel();
 }
 
 function applyRoleVisibility() {
@@ -8090,6 +8092,7 @@ function loadStoredShows() {
     if (stored && stored.mainstage) MAINSTAGE = stored.mainstage;
     if (stored && stored.childrens) CHILDRENS = stored.childrens;
   } catch(e) {}
+  syncShowMirrors();
 }
 
 function saveStoredShows() {
@@ -8098,6 +8101,25 @@ function saveStoredShows() {
       mainstage: MAINSTAGE,
       childrens: CHILDRENS,
     }));
+  } catch(e) {}
+  syncShowMirrors();
+}
+
+// The Archive tab and the standalone next-notes.html page both read shows from
+// 'mmt_shows_ms' / 'mmt_shows_ct' as flat arrays, while this file stores them in
+// 'mmt_shows' as { mainstage, childrens }. Nothing kept the two in sync, so the
+// archive show list and next-notes were always empty. Mirror on every write.
+// Both field spellings are emitted because the two readers disagree: the archive
+// wants start/end, next-notes.html wants startDate/endDate.
+function syncShowMirrors() {
+  try {
+    const flat = arr => (arr || []).map(sh => ({
+      ...sh,
+      startDate: sh.start,
+      endDate: sh.end,
+    }));
+    localStorage.setItem('mmt_shows_ms', JSON.stringify(flat(MAINSTAGE)));
+    localStorage.setItem('mmt_shows_ct', JSON.stringify(flat(CHILDRENS)));
   } catch(e) {}
 }
 
@@ -8216,12 +8238,40 @@ function resetToDefaults() {
   MAINSTAGE = [...DEFAULT_MAINSTAGE];
   CHILDRENS = [...DEFAULT_CHILDRENS];
   try { localStorage.removeItem('mmt_shows'); } catch(e) {}
+  syncShowMirrors();
   renderShowMgmt();
   renderWidgets();
   toast('Shows reset to defaults');
 }
 
 // ── IMPORT FROM URL ─────────────────────────────────────────────────────────
+// The Anthropic call below needs an API key. It is stored on this device only
+// (localStorage) and is never part of the file committed to GitHub. Anyone with
+// access to this browser profile can read it, so use a key you can rotate.
+function getAnthropicKey() {
+  try { return (localStorage.getItem('mmt_api_key') || '').trim(); } catch(e) { return ''; }
+}
+
+function promptAnthropicKey() {
+  const has = !!getAnthropicKey();
+  const entered = prompt(
+    has ? 'Replace the saved API key. Paste a new one, or clear the box and press OK to remove it.'
+        : 'Paste your Anthropic API key (it starts with sk-ant-). It is saved on this device only.',
+    ''
+  );
+  if (entered === null) return;
+  try {
+    if (entered.trim()) { localStorage.setItem('mmt_api_key', entered.trim()); toast('API key saved on this device'); }
+    else { localStorage.removeItem('mmt_api_key'); toast('API key removed'); }
+  } catch(e) { toast('Could not save the key'); }
+  updateApiKeyLabel();
+}
+
+function updateApiKeyLabel() {
+  const el = document.getElementById('api-key-btn');
+  if (el) el.textContent = getAnthropicKey() ? 'API key: saved (change)' : 'API key: not set';
+}
+
 async function importFromUrl() {
   const url = document.getElementById('import-url').value.trim();
   if (!url) { toast('Paste a URL first'); return; }
@@ -8241,9 +8291,17 @@ async function importFromUrl() {
     status.textContent = 'Analyzing page with AI...';
 
     // Use Anthropic API to extract show data
+    const apiKey = getAnthropicKey();
+    if (!apiKey) throw new Error('No API key saved yet. Click "API key" below the Import button and paste one in.');
+
     const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 2000,
@@ -8254,7 +8312,11 @@ async function importFromUrl() {
       })
     });
 
-    if (!apiRes.ok) throw new Error('AI analysis failed (HTTP ' + apiRes.status + ')');
+    if (!apiRes.ok) {
+      if (apiRes.status === 401) throw new Error('API key was rejected (401). Click "API key" and paste a current one.');
+      if (apiRes.status === 429) throw new Error('Rate limited (429). Wait a minute and try again.');
+      throw new Error('AI analysis failed (HTTP ' + apiRes.status + ')');
+    }
     const apiData = await apiRes.json();
     const text = apiData.content.map(c => c.text || '').join('');
     const clean = text.replace(/```json|```/g, '').trim();
@@ -10071,7 +10133,7 @@ function openActionModal(action, singleIdx) {
   btn.dataset.action = action;
   btn.dataset.ids = JSON.stringify(ids);
   ['f-renter','f-who','f-staff','f-notes-out','f-staff-in','f-notes-in'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
-  document.getElementById('f-type').value = '';
+  document.getElementById('co-type').value = '';
   document.getElementById('f-condition').value = '';
   document.getElementById('f-due').value = '';
   document.getElementById('action-overlay').style.display = 'flex';
@@ -10100,7 +10162,7 @@ async function submitAction() {
   if (action === 'OUT') {
     const renter = document.getElementById('f-renter').value.trim();
     const who = document.getElementById('f-who').value.trim();
-    const type = document.getElementById('f-type').value;
+    const type = document.getElementById('co-type').value;
     const staff = document.getElementById('f-staff').value.trim();
     const due = document.getElementById('f-due').value;
     if (!renter) { showToast('Renter name is required', true); document.getElementById('f-renter').focus(); return; }
@@ -10119,7 +10181,7 @@ async function submitAction() {
   const payload = {
     action: 'checkInOut', assetIds: ids, status: action,
     who: action === 'OUT' ? (document.getElementById('f-renter').value.trim() + ' — ' + document.getElementById('f-who').value.trim()) : '',
-    type: action === 'OUT' ? document.getElementById('f-type').value : '',
+    type: action === 'OUT' ? document.getElementById('co-type').value : '',
     dueBack: action === 'OUT' ? document.getElementById('f-due').value : '',
     staffName: action === 'OUT' ? document.getElementById('f-staff').value.trim() : document.getElementById('f-staff-in').value.trim(),
     condition: action === 'IN' ? document.getElementById('f-condition').value : '',
