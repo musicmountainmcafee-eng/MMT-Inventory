@@ -3022,6 +3022,99 @@ table td { font-size: 14px !important; }
   * { transition: none !important; animation: none !important; }
 }
 
+
+/* ── Chrome: sidebar, top bar, lock screen ──────────────────────────────────
+   These were the loudest things on screen and none of them used the colour
+   tokens — the sidebar was a hardcoded #16162a and the header a hardcoded
+   three-stop gradient, so restyling the tokens alone left the app looking
+   unchanged. They're on the system now. */
+
+.content-topbar,
+#tab-inventory .header {
+  background: var(--surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 16px 22px !important;
+}
+.content-topbar-left h1,
+#tab-inventory .header h1 {
+  color: var(--text) !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+}
+.content-topbar-left p,
+#tab-inventory .header p { color: var(--text-muted) !important; }
+
+.content-topbar-right button,
+.lock-btn, .hamburger, .sidebar-toggle-btn, .sidebar-close {
+  background: transparent !important;
+  color: var(--text-muted) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+}
+.content-topbar-right button:hover,
+.lock-btn:hover, .hamburger:hover,
+.sidebar-toggle-btn:hover, .sidebar-close:hover {
+  background: var(--surface-2) !important;
+  color: var(--text) !important;
+  border-color: var(--border-strong) !important;
+}
+.hamburger, .sidebar-toggle-btn, .sidebar-close { border-color: transparent !important; }
+
+.sidebar {
+  background: var(--surface-2) !important;
+  border-right: 1px solid var(--border) !important;
+}
+.sidebar-header { border-bottom: 1px solid var(--border) !important; }
+.sidebar-header h2 {
+  color: var(--text) !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+}
+.sidebar-section-label {
+  color: var(--text-faint) !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.08em !important;
+}
+.sidebar-link { color: var(--text-muted) !important; font-weight: 500 !important; }
+.sidebar-link:hover { background: var(--surface) !important; color: var(--text) !important; }
+.sidebar-link.active {
+  background: var(--purple-light) !important;
+  color: var(--purple) !important;
+  box-shadow: inset 2px 0 0 var(--purple) !important;
+}
+.sidebar-divider { background: var(--border) !important; }
+.sidebar-footer {
+  border-top: 1px solid var(--border) !important;
+  color: var(--text-faint) !important;
+}
+
+.pin-screen { background: #241f4d !important; }
+.pin-screen::before { background: none !important; }
+
+/* Section labels above the show cards were shouty caps; calm them down. */
+.section-label {
+  color: var(--text-faint) !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.08em !important;
+  font-size: 12px !important;
+}
+
+/* The page canvas */
+.app-main, #app, .tab-panel { background: var(--bg) !important; }
+
+/* "Version X is ready" prompt */
+#new-build-bar {
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+  z-index: 9999; background: var(--purple); color: #fff;
+  border: none; border-radius: 999px;
+  padding: 12px 22px !important; min-height: 44px !important;
+  font-family: inherit; font-size: 14px; font-weight: 500;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.22); cursor: pointer;
+}
+[data-theme="dark"] #new-build-bar { color: #16161f; }
+#new-build-bar:hover { background: var(--purple-dark); }
+
 </style>
   <!-- PERF: pdf.js and jsPDF used to load here as blocking script tags on every
        launch. They're only needed on the Scripts tab and for PDF exports, so they
@@ -4524,7 +4617,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v5</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v6</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -9215,6 +9308,42 @@ if ('serviceWorker' in navigator) {
     }
   });
 }
+
+// ── NEW BUILD PROMPT ────────────────────────────────────────────────────────
+// The service worker serves the cached copy first so the app opens instantly,
+// which means a freshly uploaded app.html doesn't appear until the next open.
+// That's confusing when you've just pushed a change. This compares the build
+// tag of the running copy against the one on the server and offers a reload.
+const RUNNING_BUILD = ((document.getElementById('build-tag') || {}).textContent || '').trim();
+
+function showNewBuildBar(tag) {
+  if (document.getElementById('new-build-bar')) return;
+  const bar = document.createElement('button');
+  bar.id = 'new-build-bar';
+  bar.type = 'button';
+  bar.setAttribute('aria-live', 'polite');
+  bar.textContent = 'Version ' + tag + ' is ready — tap to reload';
+  bar.onclick = () => { bar.textContent = 'Reloading…'; location.reload(); };
+  document.body.appendChild(bar);
+}
+
+function checkForNewBuild() {
+  if (!RUNNING_BUILD || !navigator.onLine) return;
+  fetch('app.html', { cache: 'reload' })
+    .then(r => r.ok ? r.text() : null)
+    .then(t => {
+      if (!t) return;
+      const m = t.match(/id="build-tag"[^>]*>([^<]*)</);
+      const server = m ? m[1].trim() : '';
+      if (server && server !== RUNNING_BUILD) showNewBuildBar(server);
+    })
+    .catch(() => {});
+}
+
+setTimeout(checkForNewBuild, 4000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') setTimeout(checkForNewBuild, 1500);
+});
 
 // ════════════════════════════════════════════════════════════════════════════
 // LISTS TAB MODULE (merged from tasks.html — Session 2)
