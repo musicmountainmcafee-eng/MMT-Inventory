@@ -3103,6 +3103,23 @@ table td { font-size: 14px !important; }
 /* The page canvas */
 .app-main, #app, .tab-panel { background: var(--bg) !important; }
 
+/* Quick links now lead the Home page, so give the tiles room. */
+#home-links-card { position: sticky; top: 16px; }
+#home-links-card .home-links-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+  gap: 10px !important;
+}
+#home-links-card .home-link-btn {
+  min-height: 56px !important;
+  font-size: 14px !important;
+  border-radius: var(--radius-sm) !important;
+  justify-content: flex-start !important;
+}
+@media (max-width: 900px) {
+  #home-links-card { position: static; }
+}
+
 /* "Version X is ready" prompt */
 #new-build-bar {
   position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
@@ -3172,7 +3189,7 @@ table td { font-size: 14px !important; }
     <nav class="sidebar-nav">
       <a class="sidebar-link active" href="#home" data-tab="home" onclick="switchTab('home');closeSidebarMobile();return false;"><span class="sl-icon">🏠</span> Home</a>
       <a class="sidebar-link" href="#todo" data-tab="todo" onclick="switchTab('todo');closeSidebarMobile();return false;"><span class="sl-icon">📋</span> To Do</a>
-      <a class="sidebar-link" href="#daytracker" data-tab="daytracker" onclick="switchTab('daytracker');closeSidebarMobile();return false;"><span class="sl-icon">🗓️</span> Day Tracker</a>
+      <a class="sidebar-link parked-daytracker" style="display:none;" href="#daytracker" data-tab="daytracker" onclick="switchTab('daytracker');closeSidebarMobile();return false;"><span class="sl-icon">🗓️</span> Day Tracker</a>
       <a class="sidebar-link" href="#notes" data-tab="notes" onclick="switchTab('notes');closeSidebarMobile();return false;"><span class="sl-icon">📝</span> Notes</a>
       <a class="sidebar-link" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');closeSidebarMobile();return false;"><span class="sl-icon">📦</span> Set Piece Catalogue</a>
       <!-- PARKED: Drops sidebar link -->
@@ -3225,17 +3242,16 @@ table td { font-size: 14px !important; }
     <!-- SECTION: MAIN GRID -->
     <div class="home-main-grid">
 
-      <!-- LEFT: Day Tracker — today -->
-      <div class="home-card" id="home-day-card">
+      <!-- PARKED: Day Tracker "Today" card. Quick links took this slot. -->
+
+      <!-- LEFT: Quick links — moved here from the bottom of the right column
+           so they're the first thing on screen instead of below the fold. -->
+      <div class="home-card" id="home-links-card">
         <div class="home-card-hdr">
-          <span class="home-card-lbl">Today</span>
-          <a class="home-card-lnk" href="#" onclick="switchTab('daytracker');return false;">Full week →</a>
+          <span class="home-card-lbl">Quick links</span>
+          <button class="home-edit-btn td-only" id="edit-links-btn" onclick="toggleEditLinks()">Edit</button>
         </div>
-        <div id="home-day-body"><span class="spinner"></span></div>
-        <div class="home-qa">
-          <input type="text" id="home-day-input" placeholder="Add to today…" class="home-qa-input" onkeydown="if(event.key==='Enter')homeDayAdd()" />
-          <button class="home-qa-btn" onclick="homeDayAdd()">Add</button>
-        </div>
+        <div class="home-links-grid" id="links-grid"></div>
       </div>
 
       <!-- RIGHT: Shows + Shopping + Quick Links -->
@@ -3253,15 +3269,6 @@ table td { font-size: 14px !important; }
             <a class="home-card-lnk" href="#" onclick="switchTab('shopping');return false;">See lists →</a>
           </div>
           <div id="home-shop-body"><span class="spinner"></span></div>
-        </div>
-
-        <!-- Quick Links -->
-        <div class="home-card">
-          <div class="home-card-hdr">
-            <span class="home-card-lbl">Quick links</span>
-            <button class="home-edit-btn td-only" id="edit-links-btn" onclick="toggleEditLinks()">Edit</button>
-          </div>
-          <div class="home-links-grid" id="links-grid"></div>
         </div>
 
       </div>
@@ -4617,7 +4624,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v6</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v7</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -4859,8 +4866,13 @@ function applyRoleVisibility() {
 //             the GS_SOURCES entry, and the gsCollect block.
 //   Paint   — restore the sidebar shortcut, the Inventory sub-tab button, and
 //             the initPaint() call inside renderInventoryTab().
+//   Day Tracker — parked 9.10 v7 because it was misbehaving. Add 'daytracker'
+//             to TABS; restore the sidebar link, the switchTab hook, the two
+//             gsCollect warm calls, the GS_SOURCES entry, the gsCollect block,
+//             and the "Today" card in the left column of Home. Diagnose the
+//             fault before restoring — see MMT_TODO.md.
 // Note: Archive reads from Drops and Paint, so bring those back first.
-const TABS = ['home','todo','daytracker','notes','inventory','scripts','checklists','reference','shopping','cleaning','sidework'];
+const TABS = ['home','todo','notes','inventory','scripts','checklists','reference','shopping','cleaning','sidework'];
 let currentTab = 'home';
 
 function switchTab(tab) {
@@ -4887,7 +4899,6 @@ function switchTab(tab) {
 
   // Per-tab lazy render hooks
   if (tab === 'todo' && typeof renderTasksTab === 'function') renderTasksTab();
-  if (tab === 'daytracker' && typeof ensureDayTrackerLoaded === 'function') ensureDayTrackerLoaded();
   if (tab === 'notes' && typeof renderNotesTab === 'function') { _hubSlug = ''; renderNotesTab(); }
   if (tab === 'inventory' && typeof renderInventoryTab === 'function') renderInventoryTab();
   if (tab === 'scripts' && typeof ensureScriptsLoaded === 'function') ensureScriptsLoaded();
@@ -6035,7 +6046,6 @@ function openTvMode() {
   const ov = document.getElementById('tv-overlay');
   if (!ov) return;
   ov.classList.add('open');
-  try { if (typeof ensureDayTrackerLoaded === 'function' && !_dtLoaded) ensureDayTrackerLoaded(); } catch(e) {}
   renderTvMode();
   // Refresh once a minute: clock, countdown, and any task edits from a phone.
   if (_tvTimer) clearInterval(_tvTimer);
@@ -6162,7 +6172,6 @@ var _gsHits = [];
 const GS_SOURCES = [
   { key:'inventory', label:'Set Pieces', emoji:'📦' },
   { key:'tasks',     label:'To Do',      emoji:'📋' },
-  { key:'day',       label:'Day Tracker',emoji:'🗓️' },
   { key:'shopping',  label:'Shopping',   emoji:'🛒' },
   { key:'photos',    label:'Photos',     emoji:'📸' },
   { key:'notes',     label:'Shows',      emoji:'📝' },
@@ -6180,7 +6189,6 @@ function openGlobalSearch() {
     }
   } catch(e) {}
   try { if (typeof ensureReferenceLoaded === 'function') ensureReferenceLoaded(); } catch(e) {}
-  try { if (typeof ensureDayTrackerLoaded === 'function' && !_dtLoaded) ensureDayTrackerLoaded(); } catch(e) {}
   renderGsFilters();
   const inp = document.getElementById('gs-input');
   if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 30); }
@@ -6268,16 +6276,7 @@ function gsCollect() {
     });
   } catch(e) {}
 
-  // Day Tracker
-  try {
-    Object.keys((_dt && _dt.days) || {}).forEach(iso => {
-      (_dt.days[iso] || []).forEach(t => push('day', t.text,
-        dtDayName(iso) + ' · ' + dtPretty(iso) + (t.done ? ' · done' : ''),
-        () => switchTab('daytracker')));
-    });
-    ((_dt && _dt.recurring) || []).forEach(r => push('day', r.text, 'Recurring',
-      () => switchTab('daytracker')));
-  } catch(e) {}
+  // PARKED: Day Tracker search source
 
   // Shopping
   try {
