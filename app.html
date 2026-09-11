@@ -1840,6 +1840,17 @@
   }
   /* ── END SIDEBAR / SHOPPING TAB CSS ────────────────────────────────────── */
 
+  /* Show names double as links into that show's hub page */
+  .show-name-link { cursor: pointer; }
+  .show-name-link:hover { color: var(--purple); text-decoration: underline; }
+  .show-page-btn {
+    padding: 8px 14px; font-size: 13px; font-weight: 600; font-family: inherit;
+    border-radius: var(--radius-sm); border: 1px solid var(--purple);
+    background: var(--purple); color: #fff; cursor: pointer;
+    min-height: 40px; white-space: nowrap;
+  }
+  .show-page-btn:hover { background: var(--purple-dark); }
+
   /* ── SHOW HUB ───────────────────────────────────────────────────────────── */
   #show-hub { padding: 4px 14px 40px; }
   .hub-top { margin-bottom: 12px; }
@@ -1917,7 +1928,12 @@
   .hub-notes:focus { outline: none; border-color: var(--purple); }
 
   .season-table tr.season-row-link { cursor: pointer; }
-  .season-table tr.season-row-link:hover td { background: var(--bg); }
+  .season-table tr.season-row-link:hover td { background: var(--purple-light); }
+  .season-table tr.season-row-link .s-name::after {
+    content: ' →'; color: var(--text-faint); font-weight: 600;
+  }
+  .season-table tr.season-row-link:hover .s-name { color: var(--purple-dark); }
+  .season-table tr.season-row-link:hover .s-name::after { color: var(--purple-dark); }
 
   @media (max-width: 640px) {
     #show-hub { padding: 4px 10px 40px; }
@@ -3043,7 +3059,6 @@
           <div class="rh-show" id="rh-show-name">Loading...</div>
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
-          <button class="edit-doc-btn" id="rh-hub-btn" onclick="hubFromCurrentShowTab()">Show page →</button>
           <div class="zoom-controls">
             <button class="zoom-btn" onclick="zoomDoc(-0.1)">−</button>
             <span class="zoom-label" id="zoom-label">75%</span>
@@ -4384,7 +4399,7 @@
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v4</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7798,13 +7813,6 @@ function hubRelinkNotes() {
 }
 
 
-// Opens the hub for whichever show tab is currently selected on Notes.
-function hubFromCurrentShowTab() {
-  const label = (document.getElementById('rh-show-name') || {}).textContent || '';
-  const name = label.split(' — ')[0].trim();
-  if (name) openShowHub(showSlug(name));
-}
-
 // ── render ──
 function renderShowHub() {
   const el = document.getElementById('show-hub');
@@ -9157,12 +9165,13 @@ function renderShows() {
       <div class="section-label">Now Playing — Mainstage</div>
       <div class="show-card-hero">
         <div class="show-info">
-          <div class="show-name">${currentMain.name}</div>
+          <div class="show-name show-name-link" onclick="openShowHub('${showSlug(currentMain.name)}')" title="Open show page">${currentMain.name}</div>
           <div class="show-dates">${formatDates(currentMain.start, currentMain.end)}</div>
           <div class="show-countdown">🎭 ${closingStr}</div>
         </div>
         <span class="show-badge-now">Now Playing</span>
         <div class="show-actions">
+          <button class="show-page-btn" onclick="openShowHub('${showSlug(currentMain.name)}')">Show page →</button>
           <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentMain.name}')" id="btn-${key}">
             ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
           </button>
@@ -9183,11 +9192,12 @@ function renderShows() {
       <div class="section-label">Up Next — Mainstage</div>
       <div class="show-card-next">
         <div class="show-info">
-          <div class="show-name">${nextMain.name}</div>
+          <div class="show-name show-name-link" onclick="openShowHub('${showSlug(nextMain.name)}')" title="Open show page">${nextMain.name}</div>
           <div class="show-dates">${formatDates(nextMain.start, nextMain.end)}</div>
           <div class="show-opens">📅 ${opensStr}</div>
         </div>
         <div class="show-actions">
+          <button class="show-page-btn" onclick="openShowHub('${showSlug(nextMain.name)}')">Show page →</button>
           <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextMain.name}')" id="btn-${key}">
             ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
           </button>
@@ -9215,7 +9225,7 @@ function renderShows() {
           return `
           <div class="show-card-mini">
             <div class="show-info">
-              <div class="show-name">${badge} ${show.name}</div>
+              <div class="show-name show-name-link" onclick="openShowHub('${showSlug(show.name)}')" title="Open show page">${badge} ${show.name}</div>
               <div class="show-dates">${formatDates(show.start, show.end)}</div>
             </div>
             <div class="show-actions">
@@ -9241,12 +9251,13 @@ function renderShows() {
       <div class="section-label">Now Playing — Children's Theatre</div>
       <div class="show-card-hero" style="border-color: var(--accent2);">
         <div class="show-info">
-          <div class="show-name">${currentKids.name}</div>
+          <div class="show-name show-name-link" onclick="openShowHub('${showSlug(currentKids.name)}')" title="Open show page">${currentKids.name}</div>
           <div class="show-dates">${formatDates(currentKids.start, currentKids.end)}</div>
           <div class="show-countdown" style="color:var(--accent2);">🎪 ${closingStr}</div>
         </div>
         <span class="show-badge-now" style="background:var(--accent2);">Now Playing</span>
         <div class="show-actions">
+          <button class="show-page-btn" onclick="openShowHub('${showSlug(currentKids.name)}')">Show page →</button>
           <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentKids.name}')" id="btn-${key}">
             ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
           </button>
@@ -9266,12 +9277,13 @@ function renderShows() {
         <div class="section-label">Up Next — Children's Theatre</div>
         <div class="show-card-next">
           <div class="show-info">
-            <div class="show-name">${nextKids.name}</div>
+            <div class="show-name show-name-link" onclick="openShowHub('${showSlug(nextKids.name)}')" title="Open show page">${nextKids.name}</div>
             <div class="show-dates">${formatDates(nextKids.start, nextKids.end)}</div>
             <div class="show-opens" style="color:var(--accent2);">📅 Opens in ${opens} days</div>
           </div>
           <div class="show-actions">
-            <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextKids.name}')" id="btn-${key}">
+            <button class="show-page-btn" onclick="openShowHub('${showSlug(nextKids.name)}')">Show page →</button>
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextKids.name}')" id="btn-${key}">
               ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
             </button>
             ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextKids.name}')" title="Edit notes link">Edit</button>` : ''}
