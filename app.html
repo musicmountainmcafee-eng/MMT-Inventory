@@ -1934,11 +1934,11 @@
      overscroll-behavior stops a scroll that reaches the end of the frame from
      chaining outward and dragging the dashboard with it. */
   #tab-notes.hub-open #show-hub {
-    height: calc(100vh - var(--hub-top, 132px));
+    height: calc(100vh - 150px);   /* fallback; JS sets the exact px inline */
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding-bottom: 8px !important;
+    padding-bottom: 0 !important;
   }
   #tab-notes.hub-open .hub-bar { flex: 0 0 auto; }
   #tab-notes.hub-open .hub-layout {
@@ -4977,7 +4977,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v18</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v19</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -8359,9 +8359,12 @@ function openShowHub(slug) {
   // switchTab('notes') resets _hubSlug, so set it afterwards.
   if (typeof currentTab === 'undefined' || currentTab !== 'notes') switchTab('notes');
   _hubSlug = slug;
+  // Scroll first: the height is measured from the top of the viewport, so a
+  // scrolled page would measure short.
+  try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch(e) {}
   if (!_hubLoaded) loadHub(() => renderShowHub());
   renderNotesTab();
-  try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch(e) {}
+  hubFitSoon();
 }
 
 function closeShowHub() {
@@ -8427,14 +8430,28 @@ function hubDocUrl(url, mode) {
 // The show page fills the viewport exactly, so the page behind the doc has
 // nothing to scroll. Without this, reaching the end of a scroll inside the
 // iframe chains outward and drags the dashboard with it.
+// Leaves the frame clear of the window edge so the Sheets/Docs bottom bar
+// (tab strip, sheet switcher) is always reachable.
+const HUB_BOTTOM_GAP = 12;
+
 function hubFitViewport() {
   const hub = document.getElementById('show-hub');
   if (!hub) return;
-  if (!_hubSlug) { hub.style.removeProperty('--hub-top'); return; }
+  if (!_hubSlug) { hub.style.removeProperty('height'); return; }
   try {
-    const top = hub.getBoundingClientRect().top + (window.scrollY || 0);
-    if (top >= 0 && top < 400) hub.style.setProperty('--hub-top', Math.round(top) + 'px');
+    // Measure against the viewport, not the document. Using the document
+    // offset meant a page that happened to be scrolled produced a frame taller
+    // than the window, which pushed the spreadsheet's own tab bar off-screen.
+    const rect = hub.getBoundingClientRect();
+    const avail = window.innerHeight - rect.top - HUB_BOTTOM_GAP;
+    if (avail > 320) hub.style.height = Math.floor(avail) + 'px';
   } catch(e) {}
+}
+
+// Measure once now and again on the next frame, after layout has settled.
+function hubFitSoon() {
+  hubFitViewport();
+  try { requestAnimationFrame(hubFitViewport); } catch(e) {}
 }
 
 let _hubFitTimer = null;
@@ -8568,7 +8585,7 @@ function renderShowHub() {
     </div>
   `;
 
-  hubFitViewport();
+  hubFitSoon();
 }
 
 // ── SHOPPING LISTS ───────────────────────────────────────────────────────────
