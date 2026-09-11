@@ -2079,6 +2079,53 @@
     .hub-doc-frame { height: 50vh; min-height: 320px; }
   }
 
+  /* Save state for cue/set-change data. Silence is what let a day go missing,
+     so this is always visible while there is anything to report. */
+  .cue-save-status {
+    font-size: 13px; font-weight: 500; padding: 0 10px;
+    white-space: nowrap; align-self: center;
+  }
+  .cue-save-status.saving { color: var(--text-faint); }
+  .cue-save-status.saved  { color: var(--green); }
+  .cue-save-status.error  { color: var(--red); }
+  .cue-save-status.error::before { content: '● '; }
+
+  #cue-history {
+    position: fixed; inset: 0; z-index: 120;
+    background: rgba(0,0,0,0.45);
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  #cue-history .ch-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); width: 100%; max-width: 520px;
+    max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .ch-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+  }
+  .ch-title { font-size: 16px; font-weight: 500; }
+  .ch-body { padding: 12px 16px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+  .ch-foot {
+    padding: 10px 16px; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--text-faint); line-height: 1.4;
+  }
+  .ch-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 0; border-top: 1px solid var(--border);
+  }
+  .ch-row:first-of-type { border-top: none; }
+  .ch-meta { flex: 1; min-width: 0; }
+  .ch-when { font-size: 14px; font-weight: 500; }
+  .ch-what { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .ch-warn {
+    background: var(--purple-light); color: var(--purple-dark);
+    border-radius: var(--radius-sm); padding: 10px 12px;
+    font-size: 13px; margin-bottom: 12px;
+  }
+  .ch-ok { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
+  .ch-empty { font-size: 13px; color: var(--text-faint); padding: 16px 0; }
+
   /* ── SHOW HUB ───────────────────────────────────────────────────────────── */
   #show-hub { padding: 4px 14px 40px; }
   .hub-top { margin-bottom: 12px; }
@@ -4539,6 +4586,17 @@ table td { font-size: 14px !important; }
   </div>
 </div>
 
+<div class="overlay" id="cue-history" style="display:none;" onclick="if(event.target===this) closeCueHistory()">
+  <div class="ch-card">
+    <div class="ch-head">
+      <span class="ch-title">Set change history</span>
+      <button class="hub-btn sm" onclick="closeCueHistory()">Close</button>
+    </div>
+    <div class="ch-body" id="cue-history-body"></div>
+    <div class="ch-foot">Snapshots are kept on this device, one every few minutes while you work, plus one before anything is overwritten.</div>
+  </div>
+</div>
+
 <div id="scripts-editor">
   <div class="cue-topbar">
     <div class="cue-topbar-left">
@@ -4546,6 +4604,8 @@ table td { font-size: 14px !important; }
       <span class="show-name" id="show-name"></span>
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <span class="cue-save-status" id="cue-save-status"></span>
+      <button class="top-btn" onclick="openCueHistory()">History</button>
       <button class="top-btn" onclick="exportCueSheet()">Export Cues</button>
       <button class="top-btn" onclick="openPresets()">Presets</button>
       <button class="top-btn" onclick="exportSetChangePlot()">Export Scene Change Plot</button>
@@ -5000,7 +5060,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v23</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v24</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -14661,61 +14721,350 @@ function toggleCuePanel() {
 // ── SAVE/LOAD ────────────────────────────────────────────────────────────────
 function savePageAnnotations() { /* annotations are saved per-stroke already */ }
 
-function saveShowData() {
-  if (!showId) return;
-  const data = { cueTypes, cues, annotations, setVocab, presets };
-  // Save locally for instant access — keeps local data-URL crops too, so this
-  // device sees them right away even before the background upload finishes.
-  try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(data)); } catch(e) {}
-  // Sync to Sheet (debounced). Local (not-yet-uploaded) crop images are huge
-  // data: URLs — never send those to the Sheet; only synced Drive links go.
-  // The still-local crop finishes its own background upload and re-saves once done.
-  clearTimeout(saveShowData._t);
-  saveShowData._t = setTimeout(() => {
-    const syncCues = cues.map(c => {
-      if (c.lineCrop && c.lineCrop.startsWith('data:')) {
-        const { lineCrop, ...rest } = c;
-        return rest; // omit until the Drive upload lands
+// ── CUE DATA SAFETY ─────────────────────────────────────────────────────────
+// A day of set changes was lost during Cher Show tech. The mechanism:
+//   1. saveShowData() ended in .catch(() => {}) — every failed upload was
+//      silent, so a bad connection looked identical to a good one.
+//   2. loadShowData() took whatever the Sheet returned and overwrote both the
+//      in-memory data AND the local cache, with no version check. One reload
+//      against a stale server copy destroyed both copies at once.
+//   3. The 2s debounce had no flush, so the last edits before a tab closed
+//      never left the machine.
+//   4. There was exactly one local copy and one remote copy. Nothing to
+//      recover from once either was overwritten.
+//
+// Every edit now carries an incrementing revision. Local work is never
+// replaced by a copy that isn't provably newer, anything about to be
+// overwritten is snapshotted first, and the save state is visible.
+
+function cueSyncKey()  { return 'mmt_cues_sync_' + showId; }
+function cueSnapKey()  { return 'mmt_cues_snap_' + showId; }
+
+function getCueSync() {
+  try { return JSON.parse(localStorage.getItem(cueSyncKey()) || '{}') || {}; }
+  catch(e) { return {}; }
+}
+function setCueSync(o) {
+  try { localStorage.setItem(cueSyncKey(), JSON.stringify(o)); } catch(e) {}
+}
+
+// Work that exists here but hasn't been confirmed saved to the Sheet.
+function cueHasUnsaved() {
+  const st = getCueSync();
+  return (st.rev || 0) > (st.syncedRev || 0);
+}
+
+// ── Snapshots ───────────────────────────────────────────────────────────────
+// Kept so a bad overwrite is recoverable. Crop images are stripped: they are
+// data: URLs worth hundreds of KB and would blow the storage budget, and the
+// typed work is what needs protecting.
+const CUE_SNAP_MAX   = 12;
+const CUE_SNAP_BUDGET = 1500000;          // ~1.5 MB of the ~5 MB localStorage
+const CUE_SNAP_MIN_GAP = 3 * 60 * 1000;   // don't snapshot more than once per 3 min
+
+function cueSnapStrip(data) {
+  const out = { ...data };
+  if (Array.isArray(out.cues)) {
+    out.cues = out.cues.map(c => {
+      if (c && typeof c.lineCrop === 'string' && c.lineCrop.startsWith('data:')) {
+        const { lineCrop, ...rest } = c; return rest;
       }
       return c;
     });
-    fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({ action:'saveCueData', scriptId: showId, cueData: { ...data, cues: syncCues } })
-    }).catch(() => {});
-  }, 2000);
+  }
+  delete out.annotations;
+  return out;
+}
+
+function getCueSnaps() {
+  try { return JSON.parse(localStorage.getItem(cueSnapKey()) || '[]') || []; }
+  catch(e) { return []; }
+}
+
+function saveCueSnapshot(data, reason, force) {
+  if (!showId || !data) return;
+  try {
+    const snaps = getCueSnaps();
+    const now = Date.now();
+    const last = snaps[snaps.length - 1];
+    if (!force && last && (now - (last.at || 0)) < CUE_SNAP_MIN_GAP) return;
+
+    const moves = (data.cues || []).reduce((n, c) => n + ((c.moves && c.moves.length) || 0), 0);
+    snaps.push({
+      at: now,
+      rev: data._rev || 0,
+      reason: reason || 'auto',
+      cueCount: (data.cues || []).length,
+      moveCount: moves,
+      data: cueSnapStrip(data),
+    });
+
+    // Newest first out of the budget: drop oldest until it fits.
+    while (snaps.length > CUE_SNAP_MAX) snaps.shift();
+    let blob = JSON.stringify(snaps);
+    while (snaps.length > 1 && blob.length > CUE_SNAP_BUDGET) {
+      snaps.shift();
+      blob = JSON.stringify(snaps);
+    }
+    localStorage.setItem(cueSnapKey(), blob);
+  } catch(e) {
+    // Storage full: drop the oldest half rather than losing snapshots entirely.
+    try {
+      const snaps = getCueSnaps();
+      localStorage.setItem(cueSnapKey(), JSON.stringify(snaps.slice(Math.floor(snaps.length / 2))));
+    } catch(e2) {}
+  }
+}
+
+// ── Save status ─────────────────────────────────────────────────────────────
+let _cueSaveState = 'idle';    // idle | saving | saved | error
+let _cueRetryTimer = null;
+let _cueRetryDelay = 4000;
+
+function setCueSaveState(state, detail) {
+  _cueSaveState = state;
+  const el = document.getElementById('cue-save-status');
+  if (!el) return;
+  const map = {
+    idle:   ['', ''],
+    saving: ['saving', 'Saving…'],
+    saved:  ['saved',  'Saved'],
+    error:  ['error',  detail || 'Not saved — retrying'],
+  };
+  const [cls, text] = map[state] || map.idle;
+  el.className = 'cue-save-status ' + cls;
+  el.textContent = text;
+  el.title = state === 'error'
+    ? 'Your work is safe on this device. It has not reached the Sheet yet.'
+    : '';
+}
+
+// ── Save ────────────────────────────────────────────────────────────────────
+function saveShowData() {
+  if (!showId) return;
+
+  const st = getCueSync();
+  const rev = (st.rev || 0) + 1;
+  const data = {
+    cueTypes, cues, annotations, setVocab, presets,
+    _rev: rev,
+    _savedAt: new Date().toISOString(),
+  };
+
+  // Local write is synchronous and happens first — this is the copy that
+  // survives a crash, a closed tab, or a dead connection.
+  try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(data)); } catch(e) {}
+  setCueSync({ ...st, rev, savedAt: data._savedAt });
+  saveCueSnapshot(data, 'edit');
+  setCueSaveState('saving');
+
+  clearTimeout(saveShowData._t);
+  saveShowData._t = setTimeout(() => pushCueData(data), 2000);
+}
+
+function pushCueData(data, viaBeacon) {
+  // Local (not-yet-uploaded) crop images are huge data: URLs — never send those
+  // to the Sheet; only synced Drive links go. The crop finishes its own
+  // background upload and re-saves once done.
+  const syncCues = (data.cues || []).map(c => {
+    if (c && typeof c.lineCrop === 'string' && c.lineCrop.startsWith('data:')) {
+      const { lineCrop, ...rest } = c; return rest;
+    }
+    return c;
+  });
+  const body = JSON.stringify({
+    action: 'saveCueData', scriptId: showId,
+    cueData: { ...data, cues: syncCues },
+  });
+
+  if (viaBeacon) {
+    // Page is going away: fire and forget, but at least it leaves the machine.
+    try { navigator.sendBeacon(SCRIPT_URL, new Blob([body], { type: 'text/plain' })); } catch(e) {}
+    return;
+  }
+
+  fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body })
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const st = getCueSync();
+      setCueSync({ ...st, syncedRev: data._rev, syncedAt: new Date().toISOString() });
+      _cueRetryDelay = 4000;
+      setCueSaveState('saved');
+      setTimeout(() => { if (_cueSaveState === 'saved') setCueSaveState('idle'); }, 2500);
+    })
+    .catch(() => {
+      // Loudly, and keep trying. The work is already safe locally.
+      setCueSaveState('error');
+      clearTimeout(_cueRetryTimer);
+      _cueRetryTimer = setTimeout(() => pushCueData(data), _cueRetryDelay);
+      _cueRetryDelay = Math.min(_cueRetryDelay * 2, 60000);
+    });
+}
+
+// Anything pending goes out before the page is hidden or closed.
+function flushCueData() {
+  if (!showId || !cueHasUnsaved()) return;
+  clearTimeout(saveShowData._t);
+  try {
+    const data = JSON.parse(localStorage.getItem('mmt_cues_' + showId) || 'null');
+    if (data) pushCueData(data, true);
+  } catch(e) {}
+}
+window.addEventListener('pagehide', flushCueData);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flushCueData();
+});
+window.addEventListener('beforeunload', e => {
+  if (showId && cueHasUnsaved()) {
+    flushCueData();
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+});
+
+// ── Version history ─────────────────────────────────────────────────────────
+function openCueHistory() {
+  if (!showId) { toast('Open a script first'); return; }
+  const snaps = getCueSnaps().slice().reverse();
+  const st = getCueSync();
+  const el = document.getElementById('cue-history-body');
+  if (!el) return;
+
+  const when = ms => {
+    const d = new Date(ms);
+    const mins = Math.round((Date.now() - ms) / 60000);
+    const rel = mins < 1 ? 'just now'
+              : mins < 60 ? mins + ' min ago'
+              : mins < 1440 ? Math.round(mins / 60) + ' hr ago'
+              : Math.round(mins / 1440) + ' days ago';
+    return d.toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) + ' · ' + rel;
+  };
+
+  const sync = cueHasUnsaved()
+    ? '<div class="ch-warn">This device has changes the Sheet has not confirmed yet. They are safe here.</div>'
+    : '<div class="ch-ok">Everything on this device has reached the Sheet.</div>';
+
+  el.innerHTML = sync + (snaps.length
+    ? snaps.map((sn, i) => `
+        <div class="ch-row">
+          <div class="ch-meta">
+            <div class="ch-when">${esc(when(sn.at))}</div>
+            <div class="ch-what">${sn.cueCount} cues · ${sn.moveCount} moves${sn.reason && sn.reason !== 'edit' ? ' · ' + esc(sn.reason) : ''}</div>
+          </div>
+          <button class="hub-btn sm" onclick="restoreCueSnapshot(${snaps.length - 1 - i})">Restore</button>
+        </div>`).join('')
+    : '<div class="ch-empty">No snapshots yet. One is kept every few minutes while you work.</div>');
+
+  document.getElementById('cue-history').style.display = 'flex';
+}
+
+function closeCueHistory() {
+  const el = document.getElementById('cue-history');
+  if (el) el.style.display = 'none';
+}
+
+function restoreCueSnapshot(idx) {
+  const snaps = getCueSnaps();
+  const sn = snaps[idx];
+  if (!sn || !sn.data) { toast('That snapshot is missing'); return; }
+  const moves = sn.moveCount || 0;
+  if (!confirm('Restore ' + sn.cueCount + ' cues and ' + moves + ' moves from this snapshot?\n\n'
+    + 'What is on screen now will be snapshotted first, so this is reversible.')) return;
+
+  // Snapshot the current state before replacing it — restoring is itself an
+  // overwrite, and it should be as undoable as anything else.
+  try {
+    const cur = JSON.parse(localStorage.getItem('mmt_cues_' + showId) || 'null');
+    if (cur) saveCueSnapshot(cur, 'before restoring an earlier version', true);
+  } catch(e) {}
+
+  const d = sn.data;
+  if (d.cueTypes) cueTypes = mergeCueTypes(d.cueTypes);
+  if (d.cues) cues = d.cues;
+  setVocab = normalizeVocab(d.setVocab);
+  presets = normalizePresets(d.presets);
+  migrateMoveTriggers();
+  purgeRetiredTypes();
+  redrawAnnotations(); renderCueTypes(); renderCueList(); renderColorSwatches();
+  saveShowData();
+  closeCueHistory();
+  toast('Restored ' + sn.cueCount + ' cues');
+}
+
+// ── Load ────────────────────────────────────────────────────────────────────
+// Decides whether the Sheet's copy is allowed to replace what's here. Pulled
+// out as a pure function so the rule can be tested on its own.
+function cueLoadDecision(localRev, syncedRev, serverRev, serverHasData) {
+  if (!serverHasData) return { take: 'local', why: 'server returned nothing' };
+  const unsaved = (localRev || 0) > (syncedRev || 0);
+  if (unsaved) return { take: 'local', why: 'this device has work the Sheet has not confirmed' };
+  if (serverRev == null) return { take: 'server', why: 'no revision on either side, nothing local at risk' };
+  if ((serverRev || 0) < (localRev || 0)) return { take: 'local', why: 'the Sheet copy is older than this one' };
+  return { take: 'server', why: 'the Sheet copy is the same or newer' };
 }
 
 function loadShowData() {
-  // Local cache first
+  let localData = null;
   try {
-    const saved = JSON.parse(localStorage.getItem('mmt_cues_' + showId) || 'null');
-    if (saved) {
-      if (saved.cueTypes) cueTypes = mergeCueTypes(saved.cueTypes);
-      if (saved.cues) cues = saved.cues;
-      if (saved.annotations) annotations = saved.annotations;
-      setVocab = normalizeVocab(saved.setVocab);
-      presets = normalizePresets(saved.presets);
+    localData = JSON.parse(localStorage.getItem('mmt_cues_' + showId) || 'null');
+    if (localData) {
+      if (localData.cueTypes) cueTypes = mergeCueTypes(localData.cueTypes);
+      if (localData.cues) cues = localData.cues;
+      if (localData.annotations) annotations = localData.annotations;
+      setVocab = normalizeVocab(localData.setVocab);
+      presets = normalizePresets(localData.presets);
       migrateMoveTriggers();
       purgeRetiredTypes();
     }
   } catch(e) {}
-  // Then fetch from Sheet
+
   jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(showId) + '&_=' + Date.now(), d => {
-    if (d.success && d.cueData) {
-      if (d.cueData.cueTypes) cueTypes = mergeCueTypes(d.cueData.cueTypes);
-      if (d.cueData.cues) cues = d.cueData.cues;
-      if (d.cueData.annotations) annotations = d.cueData.annotations;
-      setVocab = normalizeVocab(d.cueData.setVocab);
-      presets = normalizePresets(d.cueData.presets);
-      const migrated = migrateMoveTriggers();
-      // Retired types linger in the Sheet, so clean them on the way in and push
-      // the corrected data back — otherwise every device keeps re-importing them.
-      const cleaned = purgeRetiredTypes() || migrated;
-      try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(d.cueData)); } catch(e) {}
-      redrawAnnotations(); renderCueTypes(); renderCueList(); renderColorSwatches();
-      if (cleaned) saveShowData();
+    const serverHasData = !!(d && d.success && d.cueData);
+    const st = getCueSync();
+    const decision = cueLoadDecision(
+      st.rev || (localData && localData._rev) || 0,
+      st.syncedRev || 0,
+      serverHasData ? d.cueData._rev : null,
+      serverHasData
+    );
+
+    if (decision.take === 'local') {
+      if (serverHasData) {
+        // Keep the Sheet's copy anyway, so nothing is ever simply discarded.
+        saveCueSnapshot(d.cueData, 'sheet copy not used: ' + decision.why, true);
+        console.warn('Kept local cue data —', decision.why);
+        if (typeof toast === 'function') {
+          toast('Kept this device\u2019s set changes \u2014 ' + decision.why);
+        }
+        if (cueHasUnsaved() && localData) pushCueData(localData);
+      }
+      return;
     }
-  }, () => {});
+
+    // Taking the Sheet's copy: snapshot what we're about to replace first.
+    if (localData) saveCueSnapshot(localData, 'replaced by the Sheet copy', true);
+
+    if (d.cueData.cueTypes) cueTypes = mergeCueTypes(d.cueData.cueTypes);
+    if (d.cueData.cues) cues = d.cueData.cues;
+    if (d.cueData.annotations) annotations = d.cueData.annotations;
+    setVocab = normalizeVocab(d.cueData.setVocab);
+    presets = normalizePresets(d.cueData.presets);
+    const migrated = migrateMoveTriggers();
+    const cleaned = purgeRetiredTypes() || migrated;
+    try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(d.cueData)); } catch(e) {}
+    setCueSync({
+      rev: d.cueData._rev || 0,
+      syncedRev: d.cueData._rev || 0,
+      savedAt: d.cueData._savedAt || '',
+    });
+    redrawAnnotations(); renderCueTypes(); renderCueList(); renderColorSwatches();
+    if (cleaned) saveShowData();
+  }, () => {
+    // Sheet unreachable. Local data already loaded above; say so rather than
+    // letting it look like everything is in sync.
+    if (localData) setCueSaveState('error', 'Offline — working from this device');
+  });
 }
 
 function goHome() {
