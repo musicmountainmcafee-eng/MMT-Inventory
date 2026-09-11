@@ -1929,12 +1929,31 @@
   }
   #show-hub { padding: 8px 12px 20px !important; }
 
-  /* The show page is its own scroll container: it fills the viewport exactly,
-     the doc and the rail scroll inside it, and the page behind never moves.
+  /* The show page fills whatever is left of the window, by construction.
+     Every ancestor gives up its share in order, so no pixel maths is involved
+     and a taller or shorter header can't push the bottom off-screen.
      overscroll-behavior stops a scroll that reaches the end of the frame from
      chaining outward and dragging the dashboard with it. */
+  body.hub-fullscreen { overflow: hidden; }
+  body.hub-fullscreen .app-main {
+    height: 100vh; height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body.hub-fullscreen .content-topbar { flex: 0 0 auto; }
+  body.hub-fullscreen .tab-panels { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+  body.hub-fullscreen #tab-notes.tab-panel {
+    height: 100%; min-height: 0;
+    display: flex; flex-direction: column;
+  }
+  body.hub-fullscreen #lists-sub-shows {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column;
+  }
   #tab-notes.hub-open #show-hub {
-    height: calc(100vh - 150px);   /* fallback; JS sets the exact px inline */
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -2041,7 +2060,12 @@
   @media (max-width: 1080px) {
     .hub-layout { grid-template-columns: minmax(0, 1fr); }
     /* Stacked layout needs the page to scroll again, so hand the height back. */
-    #tab-notes.hub-open #show-hub { height: auto; overflow: visible; display: block; }
+    body.hub-fullscreen { overflow: auto; }
+    body.hub-fullscreen .app-main { height: auto; min-height: 100vh; overflow: visible; }
+    body.hub-fullscreen .tab-panels { overflow: visible; }
+    body.hub-fullscreen #tab-notes.tab-panel { height: auto; display: block; }
+    body.hub-fullscreen #lists-sub-shows { display: block; }
+    #tab-notes.hub-open #show-hub { height: auto; overflow: visible; display: block; flex: none; }
     #tab-notes.hub-open .hub-rail { overflow: visible; }
     #tab-notes.hub-open .hub-doc-frame { flex: none; height: 70vh !important; min-height: 440px !important; }
     .hub-doc-frame { height: 70vh; min-height: 440px; }
@@ -4977,7 +5001,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v19</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v20</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -5231,6 +5255,16 @@ let currentTab = 'home';
 function switchTab(tab) {
   if (!TABS.includes(tab)) tab = 'home';
   currentTab = tab;
+  // Leaving Notes must drop the window-filling mode, or every other tab
+  // inherits a locked page that can't scroll.
+  if (tab !== 'notes') {
+    _hubSlug = '';
+    try {
+      document.body.classList.remove('hub-fullscreen');
+      const np = document.getElementById('tab-notes');
+      if (np) np.classList.remove('hub-open');
+    } catch(e) {}
+  }
   if (tab === 'shopping') { setTimeout(() => { try { renderShop(); } catch(e){} }, 50); }
 
   // Show the matching panel, hide the rest
@@ -8430,29 +8464,17 @@ function hubDocUrl(url, mode) {
 // The show page fills the viewport exactly, so the page behind the doc has
 // nothing to scroll. Without this, reaching the end of a scroll inside the
 // iframe chains outward and drags the dashboard with it.
-// Leaves the frame clear of the window edge so the Sheets/Docs bottom bar
-// (tab strip, sheet switcher) is always reachable.
-const HUB_BOTTOM_GAP = 12;
-
+// Earlier versions measured pixel offsets to size the show page, which broke
+// whenever the header was a different height than assumed. Now the whole shell
+// simply fills the window and each part takes its share, so nothing is
+// measured and nothing can drift. This only flips the switch.
 function hubFitViewport() {
   const hub = document.getElementById('show-hub');
-  if (!hub) return;
-  if (!_hubSlug) { hub.style.removeProperty('height'); return; }
-  try {
-    // Measure against the viewport, not the document. Using the document
-    // offset meant a page that happened to be scrolled produced a frame taller
-    // than the window, which pushed the spreadsheet's own tab bar off-screen.
-    const rect = hub.getBoundingClientRect();
-    const avail = window.innerHeight - rect.top - HUB_BOTTOM_GAP;
-    if (avail > 320) hub.style.height = Math.floor(avail) + 'px';
-  } catch(e) {}
+  if (hub) hub.style.removeProperty('height');   // clear heights left by older builds
+  try { document.body.classList.toggle('hub-fullscreen', !!_hubSlug); } catch(e) {}
 }
 
-// Measure once now and again on the next frame, after layout has settled.
-function hubFitSoon() {
-  hubFitViewport();
-  try { requestAnimationFrame(hubFitViewport); } catch(e) {}
-}
+function hubFitSoon() { hubFitViewport(); }
 
 let _hubFitTimer = null;
 window.addEventListener('resize', () => {
