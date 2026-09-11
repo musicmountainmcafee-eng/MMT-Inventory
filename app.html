@@ -1950,13 +1950,24 @@
     padding: 10px 12px 12px !important;
   }
   #tab-notes.hub-open .hub-bar { flex: 0 0 auto; }
+  /* grid-template-rows is the important bit. align-items:stretch stretches the
+     items to the ROW, but an auto-sized row grows to fit its content — so the
+     row expanded to whatever the doc and rail wanted and overflowed the pinned
+     container, which then clipped it. minmax(0, 1fr) makes the row exactly the
+     container's height and lets children shrink below their content size,
+     which is what allows the rail to scroll instead of pushing the page taller. */
   #tab-notes.hub-open .hub-layout {
     flex: 1 1 auto;
     min-height: 0;
+    height: 100%;
     align-items: stretch;
+    grid-template-rows: minmax(0, 1fr);
   }
-  #tab-notes.hub-open .hub-doc-col { min-height: 0; display: flex; }
-  #tab-notes.hub-open .hub-doc-card { flex: 1 1 auto; min-height: 0; }
+  #tab-notes.hub-open .hub-doc-col {
+    min-height: 0; height: 100%;
+    display: flex; flex-direction: column;
+  }
+  #tab-notes.hub-open .hub-doc-card { flex: 1 1 auto; min-height: 0; height: 100%; }
   #tab-notes.hub-open .hub-doc-frame {
     flex: 1 1 auto;
     height: auto !important;
@@ -1965,6 +1976,7 @@
   }
   #tab-notes.hub-open .hub-rail {
     min-height: 0;
+    height: 100%;
     overflow-y: auto;
     overscroll-behavior: contain;
     padding-right: 4px;
@@ -4988,7 +5000,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v21</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v22</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
