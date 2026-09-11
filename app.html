@@ -1928,6 +1928,38 @@
     padding: 0 !important;
   }
   #show-hub { padding: 8px 12px 20px !important; }
+
+  /* The show page is its own scroll container: it fills the viewport exactly,
+     the doc and the rail scroll inside it, and the page behind never moves.
+     overscroll-behavior stops a scroll that reaches the end of the frame from
+     chaining outward and dragging the dashboard with it. */
+  #tab-notes.hub-open #show-hub {
+    height: calc(100vh - var(--hub-top, 132px));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 8px !important;
+  }
+  #tab-notes.hub-open .hub-bar { flex: 0 0 auto; }
+  #tab-notes.hub-open .hub-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+    align-items: stretch;
+  }
+  #tab-notes.hub-open .hub-doc-col { min-height: 0; display: flex; }
+  #tab-notes.hub-open .hub-doc-card { flex: 1 1 auto; min-height: 0; }
+  #tab-notes.hub-open .hub-doc-frame {
+    flex: 1 1 auto;
+    height: auto !important;
+    min-height: 0 !important;
+    overscroll-behavior: contain;
+  }
+  #tab-notes.hub-open .hub-rail {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 4px;
+  }
   .hub-bar {
     display: flex; align-items: center; gap: 8px;
     flex-wrap: wrap; margin-bottom: 10px;
@@ -2008,6 +2040,10 @@
 
   @media (max-width: 1080px) {
     .hub-layout { grid-template-columns: minmax(0, 1fr); }
+    /* Stacked layout needs the page to scroll again, so hand the height back. */
+    #tab-notes.hub-open #show-hub { height: auto; overflow: visible; display: block; }
+    #tab-notes.hub-open .hub-rail { overflow: visible; }
+    #tab-notes.hub-open .hub-doc-frame { flex: none; height: 70vh !important; min-height: 440px !important; }
     .hub-doc-frame { height: 70vh; min-height: 440px; }
     /* Full width again down here, so the dates can sit four across. */
     .hub-dates { grid-template-columns: repeat(4, minmax(0,1fr)) !important; }
@@ -4941,7 +4977,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v16</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v18</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -8388,6 +8424,25 @@ function hubDocUrl(url, mode) {
   return mode === 'edit' ? base + '/edit?embedded=true' : base + '/preview';
 }
 
+// The show page fills the viewport exactly, so the page behind the doc has
+// nothing to scroll. Without this, reaching the end of a scroll inside the
+// iframe chains outward and drags the dashboard with it.
+function hubFitViewport() {
+  const hub = document.getElementById('show-hub');
+  if (!hub) return;
+  if (!_hubSlug) { hub.style.removeProperty('--hub-top'); return; }
+  try {
+    const top = hub.getBoundingClientRect().top + (window.scrollY || 0);
+    if (top >= 0 && top < 400) hub.style.setProperty('--hub-top', Math.round(top) + 'px');
+  } catch(e) {}
+}
+
+let _hubFitTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_hubFitTimer);
+  _hubFitTimer = setTimeout(hubFitViewport, 120);
+});
+
 function hubDocMode() {
   try { return localStorage.getItem('mmt_hub_docmode') === 'read' ? 'read' : 'edit'; }
   catch(e) { return 'edit'; }
@@ -8512,6 +8567,8 @@ function renderShowHub() {
       </div>
     </div>
   `;
+
+  hubFitViewport();
 }
 
 // ── SHOPPING LISTS ───────────────────────────────────────────────────────────
@@ -9752,7 +9809,7 @@ function renderNotesTab() {
   const panel = document.getElementById('tab-notes');
   if (panel) panel.classList.toggle('hub-open', open);
   if (open) { renderShowHub(); }
-  else { renderShows(); }
+  else { renderShows(); hubFitViewport(); }
   listsRendered = true;
 }
 
