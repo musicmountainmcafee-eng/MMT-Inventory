@@ -1867,6 +1867,45 @@
     transform: translateX(0);
   }
   .home-show-name-link:focus-visible { box-shadow: var(--ring); color: var(--purple); }
+
+  /* "Later this season" — everything after Up Next, compact so nine shows
+     don't push the rest of Home off the screen. */
+  .home-later-card:hover { border-color: var(--border); }
+  .later-row {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 2px;
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+    border-radius: 6px;
+    min-height: 46px;
+  }
+  .later-row:first-of-type { border-top: none; }
+  .later-row:hover .later-name { color: var(--purple); }
+  .later-row:hover { background: var(--surface-2); }
+  .later-row:focus-visible { box-shadow: var(--ring); outline: none; }
+  .later-tag {
+    font-size: 12px; font-weight: 500; text-align: center;
+    padding: 3px 0; border-radius: 999px;
+  }
+  .later-tag.ms { background: var(--purple-light); color: var(--purple); }
+  .later-tag.ct { background: var(--blue-light);   color: var(--blue); }
+  .later-name {
+    font-size: 16px; font-weight: 500; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .later-dates { font-size: 14px; color: var(--text-muted); white-space: nowrap; }
+  .later-when {
+    font-size: 14px; color: var(--text-faint); white-space: nowrap;
+    min-width: 104px; text-align: right;
+  }
+  .later-when.is-live { color: var(--green); font-weight: 500; }
+  @media (max-width: 820px) {
+    .later-row { grid-template-columns: 32px minmax(0, 1fr) auto; }
+    .later-dates { display: none; }
+  }
   .show-page-btn {
     padding: 8px 14px; font-size:14px; font-weight: 600; font-family: inherit;
     border-radius: var(--radius-sm); border: 1px solid var(--purple);
@@ -4796,7 +4835,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v10</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v11</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7718,6 +7757,42 @@ function renderHomeShowCards() {
   if (leftShow)  html += card(leftShow, leftState);
   if (rightShow) html += card(rightShow, 'upcoming');
   if (!leftShow && !rightShow) html = '<div class="home-show-card" style="color:var(--text-faint);font-size:13px;">No upcoming shows configured.</div>';
+
+  // Everything after "Up Next", as a compact list rather than more big cards —
+  // nine full cards would bury the rest of the page. Both stages are included,
+  // so children's theatre finally has a way in from Home.
+  const shownNames = new Set([leftShow && leftShow.name, rightShow && rightShow.name].filter(Boolean));
+  const later = allShows()
+    .filter(sh => showStatus(sh.start, sh.end) !== 'past' && !shownNames.has(sh.name))
+    .sort((a, b) => a.start.localeCompare(b.start));
+
+  if (later.length) {
+    html += `<div class="home-show-card home-later-card">
+      <div class="home-card-hdr">
+        <span class="home-card-lbl">Later this season</span>
+        <a class="home-card-lnk" href="#" onclick="switchTab('notes');return false;">All shows &rarr;</a>
+      </div>
+      ${later.map(sh => {
+        const st = showStatus(sh.start, sh.end);
+        const until = daysUntil(sh.start);
+        const when = st === 'current' ? 'Running now'
+                   : st === 'tech'    ? 'In tech'
+                   : until === 0      ? 'Opens tonight'
+                   : until === 1      ? 'Opens tomorrow'
+                   : 'Opens in ' + until + ' days';
+        const kids = sh.type !== 'Mainstage';
+        const slug = esc(showSlug(sh.name));
+        return `<div class="later-row" role="link" tabindex="0" title="Open show page"
+             onclick="openShowHub('${slug}')"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openShowHub('${slug}');}">
+          <span class="later-tag ${kids ? 'ct' : 'ms'}">${kids ? 'CT' : 'MS'}</span>
+          <span class="later-name">${esc(sh.name)}</span>
+          <span class="later-dates">${esc(formatDates(sh.start, sh.end))}</span>
+          <span class="later-when${st === 'current' || st === 'tech' ? ' is-live' : ''}">${esc(when)}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
 
   el.innerHTML = html;
 }
