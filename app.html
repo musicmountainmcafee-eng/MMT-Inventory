@@ -3856,6 +3856,97 @@ table td { font-size: 14px !important; }
     .tv-next .tv-count { font-size: 14vw; }
     .tv-out { display: none; }
   }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SCRIPTS ON A PHONE
+     Three columns — tool rail, page image, cue list — cannot share 390px and
+     stay usable. On a phone they take turns: a Script/Cues switcher decides
+     which pane owns the screen, the tool rail lies down into a scrolling strip,
+     and the export buttons fold behind a ⋯ menu.
+     ══════════════════════════════════════════════════════════════════════════ */
+  .sv-switch { display: none; }
+  .cue-topbar-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+  @media (max-width: 768px) {
+    #scripts-editor .cue-topbar {
+      flex-wrap: wrap; gap: 8px;
+      padding-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
+    }
+    #scripts-editor .cue-topbar-left { width: 100%; gap: 8px; }
+    #scripts-editor .cue-topbar h1 { font-size: 15px !important; }
+    #scripts-editor .show-name { font-size: 13px; }
+
+    /* Exports are a desk job; keep one tap to History and the way out. */
+    #scripts-editor .sv-tools { display: none; }
+    #scripts-editor.sv-tools-open .sv-tools { display: inline-flex; }
+    .sv-more { display: inline-flex !important; }
+
+    /* Script / Cues switcher */
+    .sv-switch {
+      display: inline-flex; order: 3;
+      border: 1px solid var(--cue-border); border-radius: 9px; overflow: hidden;
+    }
+    .sv-btn {
+      padding: 9px 18px !important; min-height: 42px !important;
+      font-family: inherit; font-size: 14px !important; font-weight: 500;
+      background: none; color: var(--cue-text-muted);
+      border: none !important; border-radius: 0 !important; cursor: pointer;
+    }
+    .sv-btn.on { background: var(--purple); color: #fff; }
+
+    /* The tool rail lies down above the page instead of eating a column. */
+    #scripts-editor .cue-main { flex-direction: column; }
+    #scripts-editor .tool-sidebar {
+      width: 100% !important; height: auto;
+      flex-direction: row !important; align-items: center;
+      gap: 6px; padding: 6px 8px;
+      overflow-x: auto; overflow-y: hidden;
+      border-right: none; border-bottom: 1px solid var(--cue-border);
+      flex-shrink: 0;
+    }
+    #scripts-editor #type-quick {
+      flex-direction: row !important;
+      width: auto !important; padding: 0 !important;
+      gap: 6px !important; flex-wrap: nowrap;
+    }
+    #scripts-editor .cue-type-quick-btn {
+      width: auto !important; margin-bottom: 0 !important;
+      padding: 8px 12px !important; font-size: 12px !important;
+      min-height: 40px !important; flex-shrink: 0;
+    }
+    #scripts-editor .tool-divider { width: 1px !important; height: 26px !important; margin: 0 2px !important; }
+
+    /* One pane owns the screen. */
+    #scripts-editor .viewer { display: flex; }
+    #scripts-editor .cue-panel {
+      position: static !important; height: auto !important;
+      width: 100% !important; display: none;
+      border-left: none; border-top: 1px solid var(--cue-border);
+      transform: none !important;
+    }
+    #scripts-editor.sv-cues .viewer { display: none; }
+    #scripts-editor.sv-cues .cue-panel { display: flex !important; flex: 1 1 auto; min-height: 0; }
+    #scripts-editor.sv-cues .tool-sidebar { display: none; }
+
+    /* The set-change drawer is over the cue list, so it needs a real height
+       and to clear the home indicator. */
+    #mv-drawer { height: 60% !important; padding-bottom: env(safe-area-inset-bottom, 0px); }
+    #mv-drawer .mvd-grip { display: none; }
+    #mv-drawer table.mv-grid input { font-size: 16px !important; padding: 9px 10px !important; }
+    #mv-drawer .mvd-close { min-height: 42px !important; min-width: 42px !important; }
+
+    /* Page navigation is thumb work. */
+    #scripts-editor .page-nav { flex-wrap: wrap; gap: 8px !important; padding: 7px 8px !important; }
+    #scripts-editor .zoom-group { margin-left: 0 !important; padding-left: 0 !important; border-left: none !important; }
+    #scripts-editor .canvas-wrap { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+    /* Cue rows are tap targets here, not a dense table. */
+    #scripts-editor .cue-table td { padding: 11px 8px !important; font-size: 14px !important; }
+    #scripts-editor .cue-table .ct-type { font-size: 12px !important; padding: 3px 8px !important; }
+    #scripts-editor .cue-add input,
+    #scripts-editor .cue-add select,
+    #scripts-editor .cue-add button { font-size: 16px !important; min-height: 44px !important; }
+  }
 </style>
   <!-- PERF: pdf.js and jsPDF used to load here as blocking script tags on every
        launch. They're only needed on the Scripts tab and for PDF exports, so they
@@ -4935,14 +5026,20 @@ table td { font-size: 14px !important; }
       <h1>Scripts</h1>
       <span class="show-name" id="show-name"></span>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+    <!-- Phone only: one pane at a time instead of three fighting for 390px. -->
+    <div class="sv-switch" id="sv-switch" role="tablist" aria-label="Scripts view">
+      <button class="sv-btn on" data-sv="script" onclick="setScriptsView('script')">Script</button>
+      <button class="sv-btn"    data-sv="cues"   onclick="setScriptsView('cues')">Cues</button>
+    </div>
+    <div class="cue-topbar-actions">
       <span class="cue-save-status" id="cue-save-status"></span>
       <button class="top-btn" onclick="openCueHistory()">History</button>
-      <button class="top-btn" onclick="exportCueSheet()">Export Cues</button>
-      <button class="top-btn" onclick="openPresets()">Presets</button>
-      <button class="top-btn" onclick="exportSetChangePlot()">Export Scene Change Plot</button>
-      <button class="top-btn" onclick="exportSetChangeXLSX()">Scene Changes → Excel</button>
-      <button class="top-btn" onclick="exportAnnotatedPDF()">Export PDF</button>
+      <button class="top-btn sv-tools" onclick="exportCueSheet()">Export Cues</button>
+      <button class="top-btn sv-tools" onclick="openPresets()">Presets</button>
+      <button class="top-btn sv-tools" onclick="exportSetChangePlot()">Export Scene Change Plot</button>
+      <button class="top-btn sv-tools" onclick="exportSetChangeXLSX()">Scene Changes → Excel</button>
+      <button class="top-btn sv-tools" onclick="exportAnnotatedPDF()">Export PDF</button>
+      <button class="top-btn sv-more" onclick="toggleScriptTools()" aria-label="More tools">⋯</button>
       <button class="top-btn primary" onclick="goHome()">← Scripts</button>
     </div>
   </div>
@@ -5392,7 +5489,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v29</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v30</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -14641,16 +14738,43 @@ function mvIsLastInput(input) {
 
 let mvDrawerCueId = null;
 
+// ── Phone layout ────────────────────────────────────────────────────────────
+// On a phone the script, the cue list and the set-change drawer cannot all be
+// on screen at once and stay usable, so they take turns.
+let _scriptsView = 'script';
+
+function setScriptsView(v) {
+  _scriptsView = (v === 'cues') ? 'cues' : 'script';
+  const ed = document.getElementById('scripts-editor');
+  if (ed) ed.classList.toggle('sv-cues', _scriptsView === 'cues');
+  document.querySelectorAll('#sv-switch .sv-btn').forEach(b =>
+    b.classList.toggle('on', b.getAttribute('data-sv') === _scriptsView));
+  // The canvas sizes itself to its container, which just changed.
+  if (_scriptsView === 'script') {
+    try { setTimeout(() => { if (typeof renderPage === 'function') renderPage(); }, 60); } catch(e) {}
+  }
+}
+
+function toggleScriptTools() {
+  const ed = document.getElementById('scripts-editor');
+  if (ed) ed.classList.toggle('sv-tools-open');
+}
+
 function openMoveDrawer(cueId) {
   const c = cues.find(x => x.id === cueId);
   if (!c || c.type !== SHIFT_TYPE_ID) return closeMoveDrawer();
   mvDrawerCueId = cueId;
+  // On a phone the drawer lives over the cue list. Opening it while the script
+  // is showing would put it behind the page image and look like nothing
+  // happened, so switch views first.
+  try { if (window.matchMedia('(max-width: 768px)').matches) setScriptsView('cues'); } catch(e) {}
   document.getElementById('mv-drawer').classList.add('open');
   renderMoveDrawer(true);
 }
 
 function closeMoveDrawer() {
   acClose();
+  try { if (window.matchMedia('(max-width: 768px)').matches) setScriptsView('script'); } catch(e) {}
   mvDrawerCueId = null;
   const d = document.getElementById('mv-drawer');
   if (d) d.classList.remove('open');
