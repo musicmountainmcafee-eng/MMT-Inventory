@@ -3778,6 +3778,84 @@ table td { font-size: 14px !important; }
   @media (max-width: 768px) {
     #offline-bar { bottom: calc(58px + env(safe-area-inset-bottom, 0px)); padding-bottom: 9px; }
   }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SHOP WALL DISPLAY
+     Read from across a workshop, on a screen that may be on all day.
+     Ordered by what the room needs: build list, current show, countdown,
+     then what's out. Dark by default — a bright white panel in a shop is
+     glare, and it burns in.
+     ══════════════════════════════════════════════════════════════════════════ */
+  .tv-overlay { background: #12121a !important; color: #f2f2f7 !important; padding: 0 !important; }
+  .tv-drift { width: 100%; height: 100%; display: flex; flex-direction: column;
+              padding: 2.2vh 2.4vw; box-sizing: border-box; transition: transform 8s linear; }
+
+  .tv-top { display: flex; align-items: flex-start; justify-content: space-between;
+            gap: 2vw; padding-bottom: 1.6vh; border-bottom: 1px solid rgba(255,255,255,0.10); }
+  .tv-show-now { display: flex; align-items: baseline; gap: 1.1vw; flex-wrap: wrap; min-width: 0; }
+  .tv-now-tag { font-size: 1.5vw; font-weight: 700; letter-spacing: 0.12em;
+                padding: 0.5vh 0.9vw; border-radius: 99px; background: rgba(255,255,255,0.12); }
+  .tv-now-tag.st-current { background: #2b5a1c; color: #c6ee9f; }
+  .tv-now-tag.st-tech    { background: #3b2f7a; color: #cfc7ff; }
+  .tv-now-name { font-size: 3.2vw; font-weight: 600; letter-spacing: -0.01em; }
+  .tv-now-sub  { font-size: 1.6vw; color: #9a9ab0; }
+  .tv-topright { text-align: right; flex-shrink: 0; }
+  .tv-date  { font-size: 1.5vw; color: #9a9ab0; }
+  .tv-clock { font-size: 3.4vw; font-weight: 600; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .tv-fresh { font-size: 1.1vw; color: #6f6f85; margin-top: 0.3vh; }
+  .tv-fresh.stale { color: #f0ad52; }
+
+  .tv-body { flex: 1 1 auto; min-height: 0; display: grid;
+             grid-template-columns: 1.9fr 1fr; gap: 1.6vw; padding-top: 1.8vh; }
+  .tv-card { background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.08);
+             border-radius: 1.1vw; padding: 1.6vh 1.4vw; min-height: 0; display: flex; flex-direction: column; }
+  .tv-lbl { font-size: 1.25vw; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+            color: #8a8aa2; margin-bottom: 1.2vh; display: flex; justify-content: space-between; align-items: baseline; }
+  .tv-count { font-size: 1.15vw; letter-spacing: 0; color: #6f6f85; font-weight: 500; }
+  .tv-side { display: flex; flex-direction: column; gap: 1.6vw; min-height: 0; }
+
+  /* The build list is the point of the screen, so it gets the largest type. */
+  .tv-list { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+  .tv-task { display: flex; align-items: center; gap: 0.9vw; padding: 1.05vh 0;
+             border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 2vw; line-height: 1.25; }
+  .tv-task:last-child { border-bottom: none; }
+  .tv-dot { width: 0.7vw; height: 0.7vw; border-radius: 50%; flex-shrink: 0; }
+  .tv-task-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tv-task-list { font-size: 1.15vw; color: #6f6f85; flex-shrink: 0; }
+  .tv-badge { font-size: 1.1vw; font-weight: 600; padding: 0.35vh 0.75vw; border-radius: 99px; flex-shrink: 0; }
+  .tv-badge.late  { background: #5c1f1b; color: #ffb3ae; }
+  .tv-badge.today { background: #3b2f7a; color: #cfc7ff; }
+  .tv-task.overdue .tv-task-text { color: #ffb3ae; }
+  .tv-more { font-size: 1.3vw; color: #6f6f85; padding-top: 1vh; }
+
+  .tv-next { flex: 1 1 auto; text-align: center; justify-content: center; }
+  .tv-show-name { font-size: 2vw; font-weight: 600; margin-bottom: 0.6vh; }
+  .tv-count-lbl { font-size: 1.3vw; color: #9a9ab0; }
+  .tv-next .tv-count { font-size: 7vw; font-weight: 700; line-height: 1;
+                       letter-spacing: -0.03em; color: #cfc7ff; display: block; }
+  .tv-tech { font-size: 1.35vw; color: #f0ad52; margin-top: 1vh; }
+
+  .tv-out { flex: 0 0 auto; }
+  .tv-outrow { display: flex; justify-content: space-between; gap: 1vw;
+               font-size: 1.35vw; padding: 0.75vh 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .tv-outrow:last-child { border-bottom: none; }
+  .tv-outname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tv-outwhen { color: #6f6f85; flex-shrink: 0; }
+
+  .tv-empty { color: #6f6f85; font-size: 1.7vw; padding: 2vh 0; }
+  .tv-empty.sm { font-size: 1.3vw; padding: 0.8vh 0; }
+
+  .tv-exit { z-index: 5; }
+
+  /* A phone or tablet propped up as a display: one column, bigger type. */
+  @media (max-width: 900px) {
+    .tv-body { grid-template-columns: 1fr; }
+    .tv-now-name { font-size: 6vw; } .tv-clock { font-size: 6vw; }
+    .tv-now-tag, .tv-now-sub, .tv-date { font-size: 3vw; }
+    .tv-task { font-size: 4vw; } .tv-lbl { font-size: 2.6vw; }
+    .tv-next .tv-count { font-size: 14vw; }
+    .tv-out { display: none; }
+  }
 </style>
   <!-- PERF: pdf.js and jsPDF used to load here as blocking script tags on every
        launch. They're only needed on the Scripts tab and for PDF exports, so they
@@ -4545,21 +4623,40 @@ table td { font-size: 14px !important; }
   </div>
 
   <div class="tv-overlay" id="tv-overlay">
-    <button class="tv-exit" onclick="closeTvMode()">Exit (Esc)</button>
-    <div class="tv-top">
-      <div class="tv-date" id="tv-date">—</div>
-      <div class="tv-clock" id="tv-clock">—</div>
-    </div>
-    <div class="tv-body">
-      <div class="tv-card" id="tv-show-card">
-        <div class="tv-lbl">Next Show</div>
-        <div id="tv-show-inner"></div>
+    <button class="tv-exit" onclick="closeTvMode()" aria-label="Exit shop display">Exit (Esc)</button>
+
+    <!-- Everything sits in a drifting wrapper: the screen is on all day and a
+         perfectly static bright layout will burn into a panel over a season. -->
+    <div class="tv-drift" id="tv-drift">
+
+      <div class="tv-top">
+        <div class="tv-show-now" id="tv-show-now"></div>
+        <div class="tv-topright">
+          <div class="tv-date" id="tv-date">—</div>
+          <div class="tv-clock" id="tv-clock">—</div>
+          <div class="tv-fresh" id="tv-fresh"></div>
+        </div>
       </div>
-      <div class="tv-card">
-        <div class="tv-lbl">Today</div>
-        <div class="tv-list" id="tv-tasks"></div>
-        <div class="tv-progress" id="tv-progress"></div>
+
+      <div class="tv-body">
+        <!-- Ranked first: what needs building today. -->
+        <div class="tv-card tv-build">
+          <div class="tv-lbl">On the build list<span class="tv-count" id="tv-build-count"></span></div>
+          <div class="tv-list" id="tv-tasks"></div>
+        </div>
+
+        <div class="tv-side">
+          <div class="tv-card tv-next">
+            <div class="tv-lbl">Up next</div>
+            <div id="tv-show-inner"></div>
+          </div>
+          <div class="tv-card tv-out">
+            <div class="tv-lbl">Out of the shop</div>
+            <div class="tv-outlist" id="tv-out"></div>
+          </div>
+        </div>
       </div>
+
     </div>
   </div>
 
@@ -5295,7 +5392,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v28</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v29</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -5505,6 +5602,9 @@ function initApp() {
   // Open the correct tab (honors #inventory, #lists, etc.)
   initTabFromHash();
   updateApiKeyLabel();
+  // A dedicated screen can be pointed at app.html#tv and come straight up,
+  // including after a power cut, without anyone driving the menu.
+  try { if (location.hash === '#tv') setTimeout(openTvMode, 400); } catch(e) {}
   try { loadHub(() => { if (_hubSlug) renderShowHub(); }); } catch(e) { console.warn('hub init:', e); }
 }
 
@@ -6723,17 +6823,51 @@ function chkPrint() {
 // Deliberately read-only — nothing here mutates state.
 var _tvTimer = null;
 
+let _tvLastData = null;
+let _tvDataTimer = null;
+let _tvDriftTimer = null;
+
+// Re-render is cheap; re-fetching is not. The clock ticks every 30s, the data
+// is pulled every 5 minutes so a task ticked off on a phone shows up here.
+function tvRefreshData() {
+  try {
+    if (typeof loadData === 'function') {
+      const r = loadData();
+      if (r && typeof r.then === 'function') r.then(() => { _tvLastData = Date.now(); renderTvMode(); }).catch(() => {});
+      else { _tvLastData = Date.now(); }
+    }
+  } catch(e) {}
+  renderTvMode();
+}
+
+// An always-on panel with a fixed bright layout will ghost over a season.
+// Nudging everything a few pixels on a slow cycle costs nothing and avoids it.
+function tvDrift() {
+  const el = document.getElementById('tv-drift');
+  if (!el) return;
+  const t = Date.now() / 600000;                 // one full cycle every ~10 min
+  const x = Math.round(Math.cos(t) * 6);
+  const y = Math.round(Math.sin(t) * 6);
+  el.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+}
+
 function openTvMode() {
   const ov = document.getElementById('tv-overlay');
   if (!ov) return;
   ov.classList.add('open');
+  _tvLastData = _tvLastData || Date.now();
   renderTvMode();
-  // Refresh once a minute: clock, countdown, and any task edits from a phone.
+  tvDrift();
+
   if (_tvTimer) clearInterval(_tvTimer);
-  _tvTimer = setInterval(() => {
-    if (typeof dtCheckDayChange === 'function') dtCheckDayChange();  // handle midnight
-    renderTvMode();
-  }, 60000);
+  _tvTimer = setInterval(renderTvMode, 30000);
+
+  if (_tvDataTimer) clearInterval(_tvDataTimer);
+  _tvDataTimer = setInterval(tvRefreshData, 300000);
+
+  if (_tvDriftTimer) clearInterval(_tvDriftTimer);
+  _tvDriftTimer = setInterval(tvDrift, 60000);
+
   try { if (ov.requestFullscreen) ov.requestFullscreen(); } catch(e) {}
 }
 
@@ -6741,6 +6875,9 @@ function closeTvMode() {
   const ov = document.getElementById('tv-overlay');
   if (ov) ov.classList.remove('open');
   if (_tvTimer) { clearInterval(_tvTimer); _tvTimer = null; }
+  if (_tvDataTimer) { clearInterval(_tvDataTimer); _tvDataTimer = null; }
+  if (_tvDriftTimer) { clearInterval(_tvDriftTimer); _tvDriftTimer = null; }
+  try { if (location.hash === '#tv') history.replaceState(null, '', '#home'); } catch(e) {}
   try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen(); } catch(e) {}
 }
 
@@ -6752,87 +6889,161 @@ function tvNextShow() {
   return sorted.find(s => s.start > today) || null;
 }
 
+// ── SHOP WALL DISPLAY ───────────────────────────────────────────────────────
+// Ranked by what the room needs at a glance: the build list first, the show
+// you're in second, the countdown third, then what's out of the shop.
+//
+// The old version read its task list from the Day Tracker, which is parked, so
+// that panel had no data. It reads the To Do lists now — the thing that is
+// actually kept up to date.
+
+const TV_BUILD_FIRST = ['Building', 'Tech To-Do'];   // lists that lead
+const TV_MAX_TASKS   = 10;
+
+// Open tasks, most urgent first: overdue, then due today, then the build
+// lists, then everything else. Pure so the ordering can be tested.
+function tvBuildList(lists, tasks, todayIso) {
+  const out = [];
+  (lists || []).forEach(list => {
+    (tasks[list.name] || []).forEach(t => {
+      if (t.done) return;
+      const due = t.due || '';
+      // Coerce: `due && ...` yields '' for a task with no date, which is
+      // falsy but not false, and leaks into the rendered class names.
+      const overdue  = !!(due && due < todayIso);
+      const dueToday = !!(due && due === todayIso);
+      const listRank = TV_BUILD_FIRST.indexOf(list.name);
+      out.push({
+        text: t.text || '',
+        list: list.name,
+        color: list.color,
+        due, overdue, dueToday,
+        rank: overdue ? 0 : dueToday ? 1 : (listRank >= 0 ? 2 + listRank : 9),
+      });
+    });
+  });
+  out.sort((a, b) => a.rank - b.rank || (a.due || '9999').localeCompare(b.due || '9999'));
+  return out;
+}
+
+// The show the room is actually working on: whatever is running or in tech,
+// else the next one to open.
+function tvCurrentShow(shows, todayIso) {
+  const live = (shows || []).filter(sh => showStatus(sh.start, sh.end) !== 'past');
+  if (!live.length) return null;
+  const running = live.find(sh => {
+    const st = showStatus(sh.start, sh.end);
+    return st === 'current' || st === 'tech';
+  });
+  return running || live.slice().sort((a, b) => a.start.localeCompare(b.start))[0];
+}
+
 function renderTvMode() {
   const ov = document.getElementById('tv-overlay');
   if (!ov || !ov.classList.contains('open')) return;
   const now = new Date();
+  const today = todayISO();
 
   const dEl = document.getElementById('tv-date');
-  if (dEl) dEl.textContent = now.toLocaleDateString('en-US',
-    { weekday:'long', month:'long', day:'numeric' });
+  if (dEl) dEl.textContent = now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
   const cEl = document.getElementById('tv-clock');
-  if (cEl) cEl.textContent = now.toLocaleTimeString('en-US',
-    { hour:'numeric', minute:'2-digit' });
+  if (cEl) cEl.textContent = now.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
 
-  // ── Next show
+  // A wall screen that quietly froze looks identical to one that is fine.
+  const fEl = document.getElementById('tv-fresh');
+  if (fEl) {
+    const mins = _tvLastData ? Math.round((Date.now() - _tvLastData) / 60000) : null;
+    fEl.textContent = mins === null ? '' : mins < 2 ? 'Live' : 'Updated ' + mins + ' min ago';
+    fEl.className = 'tv-fresh' + (mins !== null && mins > 15 ? ' stale' : '');
+  }
+
+  // ── Banner: the show the room is in ──
+  const nowEl = document.getElementById('tv-show-now');
+  const shows = (typeof allShows === 'function') ? allShows() : [];
+  const cur = tvCurrentShow(shows, today);
+  if (nowEl) {
+    if (!cur) {
+      nowEl.innerHTML = '<span class="tv-now-name">No show scheduled</span>';
+    } else {
+      const st = showStatus(cur.start, cur.end);
+      const tag = st === 'current' ? 'RUNNING' : st === 'tech' ? 'IN TECH' : 'BUILDING';
+      const left = st === 'current' ? daysUntil(cur.end) + ' days left' : formatDates(cur.start, cur.end);
+      nowEl.innerHTML = `<span class="tv-now-tag st-${st}">${escHtml(tag)}</span>
+        <span class="tv-now-name">${escHtml(cur.name)}</span>
+        <span class="tv-now-sub">${escHtml(left)}</span>`;
+    }
+  }
+
+  // ── Build list ──
+  const list = document.getElementById('tv-tasks');
+  const cnt  = document.getElementById('tv-build-count');
+  if (list) {
+    const items = tvBuildList(lists, tasks, today);
+    if (cnt) cnt.textContent = items.length ? items.length + ' open' : '';
+    if (!items.length) {
+      list.innerHTML = '<div class="tv-empty">Nothing on the list</div>';
+    } else {
+      const shown = items.slice(0, TV_MAX_TASKS);
+      const extra = items.length - shown.length;
+      list.innerHTML = shown.map(t => `
+        <div class="tv-task${t.overdue ? ' overdue' : ''}">
+          <span class="tv-dot" style="background:${escHtml(t.color || '#888')}"></span>
+          <span class="tv-task-text">${escHtml(t.text)}</span>
+          ${t.overdue ? '<span class="tv-badge late">Overdue</span>'
+            : t.dueToday ? '<span class="tv-badge today">Today</span>'
+            : `<span class="tv-task-list">${escHtml(t.list)}</span>`}
+        </div>`).join('')
+        + (extra > 0 ? `<div class="tv-more">+ ${extra} more</div>` : '');
+    }
+  }
+
+  // ── Countdown to the next opening ──
   const inner = document.getElementById('tv-show-inner');
   if (inner) {
-    const s = tvNextShow();
-    if (!s) {
-      inner.innerHTML = '<div class="tv-empty">No upcoming shows scheduled</div>';
+    const next = (shows || [])
+      .filter(sh => daysUntil(sh.start) > 0)
+      .sort((a, b) => a.start.localeCompare(b.start))[0];
+    if (!next) {
+      inner.innerHTML = '<div class="tv-empty">Nothing else scheduled</div>';
     } else {
-      const days = daysUntil(s.start);
-      const big = days === 0 ? 'TONIGHT' : days;
-      const lbl = days === 0 ? 'Opening night' : (days === 1 ? 'day until opening' : 'days until opening');
+      const days = daysUntil(next.start);
       let tech = '';
       try {
-        // techStartDate() returns a Date; daysUntil() expects a 'YYYY-MM-DD'
-        // string, so convert rather than passing the object (which yields NaN).
-        const t = techStartDate(s.start);
+        const t = techStartDate(next.start);
         if (t && !isNaN(t.getTime())) {
           const tIso = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
-          const tDays = daysUntil(tIso);
-          tech = tDays > 0 ? `<span class="tv-tech">Tech starts in ${tDays} day${tDays!==1?'s':''}</span>`
-               : tDays === 0 ? `<span class="tv-tech">Tech starts today</span>`
-               : `<span class="tv-tech">In tech now</span>`;
+          const td = daysUntil(tIso);
+          tech = td > 0 ? `Tech in ${td} day${td !== 1 ? 's' : ''}`
+               : td === 0 ? 'Tech starts today' : 'In tech now';
         }
       } catch(e) {}
       inner.innerHTML = `
-        <div class="tv-show-name">${escHtml(s.name)}</div>
-        <div class="tv-show-dates">${escHtml(formatDates(s.start, s.end))}</div>
-        ${tech}
-        <div class="tv-count">${big}</div>
-        <div class="tv-count-lbl">${lbl}</div>`;
+        <div class="tv-show-name">${escHtml(next.name)}</div>
+        <div class="tv-count">${days}</div>
+        <div class="tv-count-lbl">day${days !== 1 ? 's' : ''} until opening</div>
+        ${tech ? `<div class="tv-tech">${escHtml(tech)}</div>` : ''}`;
     }
   }
 
-  // ── Today's tasks
-  const list = document.getElementById('tv-tasks');
-  const prog = document.getElementById('tv-progress');
-  if (!list) return;
-  const today = todayISO();
-  const items = ((_dt && _dt.days) ? _dt.days[today] : null) || [];
-  const active = items.filter(t => !t.done);
-  const done = items.filter(t => t.done);
-  const ordered = [...active, ...done];
-
-  if (!ordered.length) {
-    list.innerHTML = '<div class="tv-empty">Nothing scheduled for today</div>';
-    if (prog) prog.textContent = '';
-    return;
+  // ── What's out of the shop ──
+  const outEl = document.getElementById('tv-out');
+  if (outEl) {
+    const out = [];
+    const seen = {};
+    (activity || []).forEach(a => {
+      const name = a.item || '';
+      if (!name || seen[name]) return;
+      seen[name] = true;
+      if (String(a.action || '').toLowerCase() === 'out') out.push(a);
+    });
+    outEl.innerHTML = out.length
+      ? out.slice(0, 4).map(a => `
+          <div class="tv-outrow">
+            <span class="tv-outname">${escHtml(a.item)}</span>
+            <span class="tv-outwhen">${escHtml(a.when || '')}</span>
+          </div>`).join('')
+      : '<div class="tv-empty sm">Everything is in</div>';
   }
-
-  // Cap the list so it never overflows the screen.
-  const MAX = 11;
-  const shown = ordered.slice(0, MAX);
-  const extra = ordered.length - shown.length;
-
-  list.innerHTML = shown.map(t => {
-    let carry = '';
-    if (t.carried) {
-      let from = 'yesterday';
-      if (t.origin && t.origin < today) {
-        from = (t.origin === dtAddDays(today, -1)) ? 'yesterday' : dtPretty(t.origin);
-      }
-      carry = `<span class="tv-carry">↩ ${escHtml(from)}</span>`;
-    }
-    return `<div class="tv-task ${t.done ? 'is-done' : ''}">
-      <div class="tv-box ${t.done ? 'done' : ''}"></div>
-      <div class="tv-task-txt">${escHtml(t.text)}${carry}</div>
-    </div>`;
-  }).join('') + (extra > 0 ? `<div class="tv-more">+ ${extra} more…</div>` : '');
-
-  if (prog) prog.textContent = done.length + ' of ' + items.length + ' done';
 }
 
 // Esc exits TV mode.
