@@ -3816,8 +3816,41 @@ table td { font-size: 14px !important; }
 
   /* The build list is the point of the screen, so it gets the largest type. */
   .tv-list { flex: 1 1 auto; min-height: 0; overflow: hidden; }
-  .tv-task { display: flex; align-items: center; gap: 0.9vw; padding: 1.05vh 0;
-             border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 2vw; line-height: 1.25; }
+  /* Rows are buttons now. Generous hit area: this gets tapped with work gloves
+     on, from an angle, by someone walking past. */
+  .tv-task { display: flex; align-items: center; gap: 0.9vw;
+             width: 100%; text-align: left; box-sizing: border-box;
+             padding: 1.05vh 0.6vw; margin: 0;
+             background: none; border: none;
+             border-bottom: 1px solid rgba(255,255,255,0.06);
+             border-radius: 0.5vw;
+             font-family: inherit; font-size: 2vw; line-height: 1.25;
+             color: #f2f2f7; cursor: pointer;
+             -webkit-tap-highlight-color: transparent;
+             transition: background .12s ease; }
+  .tv-task:hover { background: rgba(255,255,255,0.06); }
+  .tv-task:active { background: rgba(255,255,255,0.14); }
+  .tv-task:focus-visible { outline: none; box-shadow: 0 0 0 0.25vw rgba(207,199,255,0.6); }
+  .tv-check { width: 1.5vw; height: 1.5vw; flex-shrink: 0;
+              border: 0.18vw solid rgba(255,255,255,0.35); border-radius: 0.35vw; }
+  .tv-task:active .tv-check { background: #cfc7ff; border-color: #cfc7ff; }
+
+  /* Undo, because a wall screen gets knocked. */
+  .tv-undo {
+    position: absolute; left: 50%; bottom: 3vh; transform: translateX(-50%) translateY(1vh);
+    display: flex; align-items: center; gap: 1.2vw;
+    background: #2b2750; border: 1px solid #4b4490; border-radius: 99px;
+    padding: 1.1vh 1.6vw; font-size: 1.4vw; color: #e6e2ff;
+    opacity: 0; pointer-events: none; transition: opacity .18s ease, transform .18s ease;
+    z-index: 6; max-width: 80vw;
+  }
+  .tv-undo.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+  .tv-undo-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tv-undo-btn {
+    font-family: inherit; font-size: 1.4vw; font-weight: 600;
+    background: #cfc7ff; color: #1b1836; border: none;
+    border-radius: 99px; padding: 0.8vh 1.6vw; cursor: pointer; flex-shrink: 0;
+  }
   .tv-task:last-child { border-bottom: none; }
   .tv-dot { width: 0.7vw; height: 0.7vw; border-radius: 50%; flex-shrink: 0; }
   .tv-task-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3852,7 +3885,10 @@ table td { font-size: 14px !important; }
     .tv-body { grid-template-columns: 1fr; }
     .tv-now-name { font-size: 6vw; } .tv-clock { font-size: 6vw; }
     .tv-now-tag, .tv-now-sub, .tv-date { font-size: 3vw; }
-    .tv-task { font-size: 4vw; } .tv-lbl { font-size: 2.6vw; }
+    .tv-task { font-size: 4vw; padding: 1.6vh 2vw; } .tv-lbl { font-size: 2.6vw; }
+    .tv-check { width: 4vw; height: 4vw; border-width: 0.5vw; }
+    .tv-undo { font-size: 3.2vw; padding: 1.4vh 4vw; }
+    .tv-undo-btn { font-size: 3.2vw; padding: 1vh 4vw; }
     .tv-next .tv-count { font-size: 14vw; }
     .tv-out { display: none; }
   }
@@ -4749,6 +4785,7 @@ table td { font-size: 14px !important; }
       </div>
 
     </div>
+    <div class="tv-undo" id="tv-undo" role="status"></div>
   </div>
 
   <!-- ===== GLOBAL SEARCH ===== -->
@@ -5489,7 +5526,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v30</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v31</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7011,6 +7048,7 @@ function tvBuildList(lists, tasks, todayIso) {
       const dueToday = !!(due && due === todayIso);
       const listRank = TV_BUILD_FIRST.indexOf(list.name);
       out.push({
+        id: t.id != null ? String(t.id) : '',
         text: t.text || '',
         list: list.name,
         color: list.color,
@@ -7033,6 +7071,70 @@ function tvCurrentShow(shows, todayIso) {
     return st === 'current' || st === 'tech';
   });
   return running || live.slice().sort((a, b) => a.start.localeCompare(b.start))[0];
+}
+
+// Attribute-safe escaping: these values go inside a single-quoted onclick, so
+// a task called Ben's flat would otherwise end the string and break the row.
+function escAttr(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/'/g, '&#39;')
+    .replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Older tasks predate ids, so fall back to matching on the text.
+function tvFindTask(listName, id, text) {
+  const arr = tasks[listName] || [];
+  return (id && arr.find(t => String(t.id) === String(id)))
+      || arr.find(t => !t.done && (t.text || '') === text)
+      || null;
+}
+
+let _tvUndo = null;
+let _tvUndoTimer = null;
+
+// A screen on a shop wall will get knocked and brushed past, so every check-off
+// is undoable for a while rather than confirmed up front — confirming would
+// make the common case slower to protect against the rare one.
+function tvCheck(listName, id, text) {
+  const task = tvFindTask(listName, id, text);
+  if (!task) return;
+  // Tasks from before ids existed can only be found by text, and the text
+  // fallback only matches open ones — so once checked off they became
+  // impossible to undo. Give it an id on the way through and repair the data.
+  if (task.id == null || task.id === '') task.id = Date.now().toString();
+  task.done = true;
+  try { saveData(); } catch(e) {}
+  try { if (typeof renderTasks === 'function' && document.getElementById('lists-grid')) renderTasks(); } catch(e) {}
+
+  _tvUndo = { listName, id: task.id, text: task.text };
+  const bar = document.getElementById('tv-undo');
+  if (bar) {
+    bar.innerHTML = `<span class="tv-undo-txt">Checked off &ldquo;${escHtml(task.text)}&rdquo;</span>
+      <button type="button" class="tv-undo-btn" onclick="tvUndo()">Undo</button>`;
+    bar.classList.add('show');
+  }
+  clearTimeout(_tvUndoTimer);
+  _tvUndoTimer = setTimeout(tvHideUndo, 12000);
+  renderTvMode();
+}
+
+function tvUndo() {
+  if (!_tvUndo) return;
+  const task = tvFindTask(_tvUndo.listName, _tvUndo.id, _tvUndo.text);
+  if (task) {
+    task.done = false;
+    try { saveData(); } catch(e) {}
+    try { if (typeof renderTasks === 'function' && document.getElementById('lists-grid')) renderTasks(); } catch(e) {}
+  }
+  tvHideUndo();
+  renderTvMode();
+}
+
+function tvHideUndo() {
+  _tvUndo = null;
+  clearTimeout(_tvUndoTimer);
+  const bar = document.getElementById('tv-undo');
+  if (bar) bar.classList.remove('show');
 }
 
 function renderTvMode() {
@@ -7083,13 +7185,16 @@ function renderTvMode() {
       const shown = items.slice(0, TV_MAX_TASKS);
       const extra = items.length - shown.length;
       list.innerHTML = shown.map(t => `
-        <div class="tv-task${t.overdue ? ' overdue' : ''}">
+        <button type="button" class="tv-task${t.overdue ? ' overdue' : ''}"
+          onclick="tvCheck('${escAttr(t.list)}','${escAttr(t.id)}','${escAttr(t.text)}')"
+          aria-label="Check off ${escAttr(t.text)}">
+          <span class="tv-check" aria-hidden="true"></span>
           <span class="tv-dot" style="background:${escHtml(t.color || '#888')}"></span>
           <span class="tv-task-text">${escHtml(t.text)}</span>
           ${t.overdue ? '<span class="tv-badge late">Overdue</span>'
             : t.dueToday ? '<span class="tv-badge today">Today</span>'
             : `<span class="tv-task-list">${escHtml(t.list)}</span>`}
-        </div>`).join('')
+        </button>`).join('')
         + (extra > 0 ? `<div class="tv-more">+ ${extra} more</div>` : '');
     }
   }
