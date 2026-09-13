@@ -3868,12 +3868,37 @@ table td { font-size: 14px !important; }
                        letter-spacing: -0.03em; color: #cfc7ff; display: block; }
   .tv-tech { font-size: 1.35vw; color: #f0ad52; margin-top: 1vh; }
 
-  .tv-out { flex: 0 0 auto; }
-  .tv-outrow { display: flex; justify-content: space-between; gap: 1vw;
-               font-size: 1.35vw; padding: 0.75vh 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
-  .tv-outrow:last-child { border-bottom: none; }
-  .tv-outname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tv-outwhen { color: #6f6f85; flex-shrink: 0; }
+  /* Need from the store. Read-only on purpose — the only interactive thing
+     here is adding. */
+  .tv-shop { flex: 0 0 auto; }
+  .tv-shoplist { margin-bottom: 1.1vh; }
+  .tv-shoprow { display: flex; justify-content: space-between; gap: 1vw;
+                font-size: 1.35vw; padding: 0.7vh 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .tv-shoprow:last-child { border-bottom: none; }
+  .tv-shoptext { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tv-shopstore { color: #6f6f85; flex-shrink: 0; font-size: 1.15vw; }
+  .tv-more.sm { font-size: 1.15vw; padding-top: 0.5vh; }
+
+  .tv-shopadd { display: flex; gap: 0.5vw; align-items: stretch; }
+  .tv-shopadd select,
+  .tv-shopadd input {
+    font-family: inherit; font-size: 1.3vw;
+    background: rgba(255,255,255,0.07); color: #f2f2f7;
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 0.55vw;
+    padding: 0.9vh 0.8vw; min-width: 0;
+  }
+  .tv-shopadd select { flex: 0 0 auto; max-width: 9vw; }
+  .tv-shopadd input { flex: 1 1 auto; }
+  .tv-shopadd input::placeholder { color: #6f6f85; }
+  .tv-shopadd input:focus, .tv-shopadd select:focus {
+    outline: none; border-color: #cfc7ff; background: rgba(255,255,255,0.12);
+  }
+  .tv-shopadd button {
+    font-family: inherit; font-size: 1.3vw; font-weight: 600;
+    background: #cfc7ff; color: #1b1836; border: none;
+    border-radius: 0.55vw; padding: 0.9vh 1.4vw; cursor: pointer; flex: 0 0 auto;
+  }
+  .tv-shopadd button:hover { background: #ded8ff; }
 
   .tv-empty { color: #6f6f85; font-size: 1.7vw; padding: 2vh 0; }
   .tv-empty.sm { font-size: 1.3vw; padding: 0.8vh 0; }
@@ -3890,7 +3915,10 @@ table td { font-size: 14px !important; }
     .tv-undo { font-size: 3.2vw; padding: 1.4vh 4vw; }
     .tv-undo-btn { font-size: 3.2vw; padding: 1vh 4vw; }
     .tv-next .tv-count { font-size: 14vw; }
-    .tv-out { display: none; }
+    .tv-shoprow { font-size: 3vw; }
+    .tv-shopstore, .tv-more.sm { font-size: 2.4vw; }
+    .tv-shopadd select, .tv-shopadd input, .tv-shopadd button { font-size: 3vw; padding: 1.2vh 2vw; }
+    .tv-shopadd select { max-width: 26vw; }
   }
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -3960,9 +3988,40 @@ table td { font-size: 14px !important; }
       border-left: none; border-top: 1px solid var(--cue-border);
       transform: none !important;
     }
-    #scripts-editor.sv-cues .viewer { display: none; }
     #scripts-editor.sv-cues .cue-panel { display: flex !important; flex: 1 1 auto; min-height: 0; }
     #scripts-editor.sv-cues .tool-sidebar { display: none; }
+
+    /* The viewer is collapsed rather than hidden. The set-change drawer lives
+       INSIDE it, and display:none on an ancestor hides a fixed child too — so
+       hiding the viewer made the drawer impossible to ever see on a phone. */
+    #scripts-editor.sv-cues .viewer {
+      flex: 0 0 0 !important; height: 0 !important; min-height: 0 !important;
+      overflow: visible !important; border: none !important;
+    }
+    #scripts-editor.sv-cues .page-nav,
+    #scripts-editor.sv-cues .canvas-wrap { display: none !important; }
+
+    /* Anchored to the window so the collapsed viewer can't squash it. */
+    #scripts-editor #mv-drawer {
+      position: fixed !important;
+      left: 0; right: 0; bottom: 0; top: auto;
+      z-index: 60;
+    }
+
+    /* The panel is one scroll on a phone. Each section used to scroll
+       separately, so the cue list took all the height and the edit form and
+       cue types below it were unreachable. */
+    #scripts-editor.sv-cues .cue-panel { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    #scripts-editor.sv-cues .cue-list,
+    #scripts-editor.sv-cues .cue-add,
+    #scripts-editor.sv-cues .type-manager {
+      flex: 0 0 auto !important;
+      overflow: visible !important;
+      max-height: none !important;
+    }
+    #scripts-editor.sv-cues .cue-panel-header { position: sticky; top: 0; z-index: 2; background: var(--cue-surface); }
+    #scripts-editor .row-resizer,
+    #scripts-editor .panel-resizer { display: none !important; }
 
     /* The set-change drawer is over the cue list, so it needs a real height
        and to clear the home indicator. */
@@ -4777,9 +4836,16 @@ table td { font-size: 14px !important; }
             <div class="tv-lbl">Up next</div>
             <div id="tv-show-inner"></div>
           </div>
-          <div class="tv-card tv-out">
-            <div class="tv-lbl">Out of the shop</div>
-            <div class="tv-outlist" id="tv-out"></div>
+          <div class="tv-card tv-shop">
+            <div class="tv-lbl">Need from the store<span class="tv-count" id="tv-shop-count"></span></div>
+            <div class="tv-shoplist" id="tv-shop"></div>
+            <div class="tv-shopadd">
+              <select id="tv-shop-store" aria-label="Store"></select>
+              <input type="text" id="tv-shop-input" placeholder="Add something we need&hellip;"
+                     aria-label="Add a shopping item"
+                     onkeydown="if(event.key==='Enter')tvAddShop()" />
+              <button type="button" onclick="tvAddShop()">Add</button>
+            </div>
           </div>
         </div>
       </div>
@@ -5526,7 +5592,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v31</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v33</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7034,11 +7100,18 @@ function tvNextShow() {
 const TV_BUILD_FIRST = ['Building', 'Tech To-Do'];   // lists that lead
 const TV_MAX_TASKS   = 10;
 
+// Shopping does not belong on the build list — it has its own panel, and it
+// gets ticked off at the store rather than here.
+const TV_SKIP_LISTS = /\b(shop|shopping|buy|to ?buy|purchase|purchases|store|pick ?ups?|supplies)\b/i;
+
+function tvIsShoppingList(name) { return TV_SKIP_LISTS.test(String(name || '')); }
+
 // Open tasks, most urgent first: overdue, then due today, then the build
 // lists, then everything else. Pure so the ordering can be tested.
 function tvBuildList(lists, tasks, todayIso) {
   const out = [];
   (lists || []).forEach(list => {
+    if (tvIsShoppingList(list.name)) return;
     (tasks[list.name] || []).forEach(t => {
       if (t.done) return;
       const due = t.due || '';
@@ -7227,25 +7300,51 @@ function renderTvMode() {
     }
   }
 
-  // ── What's out of the shop ──
-  const outEl = document.getElementById('tv-out');
-  if (outEl) {
-    const out = [];
-    const seen = {};
-    (activity || []).forEach(a => {
-      const name = a.item || '';
-      if (!name || seen[name]) return;
-      seen[name] = true;
-      if (String(a.action || '').toLowerCase() === 'out') out.push(a);
-    });
-    outEl.innerHTML = out.length
-      ? out.slice(0, 4).map(a => `
-          <div class="tv-outrow">
-            <span class="tv-outname">${escHtml(a.item)}</span>
-            <span class="tv-outwhen">${escHtml(a.when || '')}</span>
+  // ── Need from the store ──
+  // Deliberately read-only: things get ticked off at the store, not here, and a
+  // stray click on a wall screen would quietly drop something from the run.
+  const shopEl = document.getElementById('tv-shop');
+  const shopCnt = document.getElementById('tv-shop-count');
+  if (shopEl) {
+    const stores = Object.keys(shopData || {});
+    const sel = document.getElementById('tv-shop-store');
+    if (sel && sel.options.length !== stores.length) {
+      sel.innerHTML = stores.map(st =>
+        `<option value="${escAttr(st)}"${st === activeStore ? ' selected' : ''}>${escHtml(st)}</option>`).join('');
+    }
+    const rows = [];
+    stores.forEach(st => (shopData[st] || []).forEach(it => {
+      if (!it.done) rows.push({ store: st, text: it.text || '' });
+    }));
+    if (shopCnt) shopCnt.textContent = rows.length ? rows.length + ' open' : '';
+    shopEl.innerHTML = rows.length
+      ? rows.slice(0, 6).map(r => `
+          <div class="tv-shoprow">
+            <span class="tv-shoptext">${escHtml(r.text)}</span>
+            <span class="tv-shopstore">${escHtml(r.store)}</span>
           </div>`).join('')
-      : '<div class="tv-empty sm">Everything is in</div>';
+        + (rows.length > 6 ? `<div class="tv-more sm">+ ${rows.length - 6} more</div>` : '')
+      : '<div class="tv-empty sm">Nothing needed</div>';
   }
+}
+
+// Add-only. You notice you're out of something while standing in the shop;
+// ticking it off happens at the store, on your phone.
+function tvAddShop() {
+  const input = document.getElementById('tv-shop-input');
+  const sel = document.getElementById('tv-shop-store');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  const store = (sel && sel.value) || activeStore || Object.keys(shopData || {})[0];
+  if (!store) { toast('No store set up yet'); return; }
+  if (!shopData[store]) shopData[store] = [];
+  shopData[store].push({ text, done: false });
+  try { saveShopData(); } catch(e) {}
+  try { if (typeof renderShop === 'function' && document.getElementById('shop-items')) renderShop(); } catch(e) {}
+  input.value = '';
+  renderTvMode();
+  input.focus();
 }
 
 // Esc exits TV mode.
