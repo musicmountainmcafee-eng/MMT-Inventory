@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>MMT Dashboard</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#3C3489">
+<meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16161f" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMT TD">
@@ -3638,6 +3639,101 @@ table td { font-size: 14px !important; }
     #scripts-editor .cue-type-quick-btn { font-size: 9px !important; }
   }
 
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     PHONE LAYER
+     Last in the stylesheet so it wins. Everything here is scoped to phone
+     widths or to safe-area insets, so desktop is untouched.
+     ══════════════════════════════════════════════════════════════════════════ */
+
+  /* Safe areas. The app declares apple-mobile-web-app-status-bar-style
+     black-translucent, which means content is drawn UNDER the status bar and
+     the home indicator. Without these the header sat under the notch. */
+  .content-topbar,
+  #tab-inventory .header {
+    padding-top: calc(16px + env(safe-area-inset-top, 0px)) !important;
+    padding-left: calc(22px + env(safe-area-inset-left, 0px)) !important;
+    padding-right: calc(22px + env(safe-area-inset-right, 0px)) !important;
+  }
+  .sidebar { padding-top: env(safe-area-inset-top, 0px); }
+  .sidebar-footer { padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+  .pin-card { margin-top: env(safe-area-inset-top, 0px); }
+
+  /* The browser address bar makes 100vh taller than what you can actually see,
+     so a full-height view gets its bottom cut off. dvh tracks the real height. */
+  @supports (height: 100dvh) {
+    body, .app-shell { min-height: 100dvh; }
+    .app-main { min-height: 100dvh; }
+    #show-hub.hub-fixed { bottom: 0; }
+  }
+
+  /* ── Bottom navigation (phones only) ─────────────────────────────────────── */
+  .bottom-nav { display: none; }
+
+  @media (max-width: 768px) {
+    .bottom-nav {
+      display: flex;
+      position: fixed; left: 0; right: 0; bottom: 0;
+      z-index: 70;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+    }
+    .bottom-tab {
+      flex: 1 1 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px;
+      min-height: 56px;
+      padding: 7px 2px 6px !important;
+      font-family: inherit; font-size: 11px !important; font-weight: 500;
+      color: var(--text-muted);
+      text-decoration: none;
+      background: none; border: none; border-radius: 0 !important;
+      cursor: pointer;
+    }
+    .bottom-tab .bt-ico { font-size: 19px; line-height: 1; }
+    .bottom-tab.active { color: var(--purple); }
+    .bottom-tab:active { background: var(--surface-2); }
+
+    /* Clear the bar so the last row of anything is reachable. */
+    .app-main { padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
+
+    /* The desktop workspace density is wrong on a phone — put the taps back. */
+    #scripts-editor button,
+    #scripts-editor .top-btn,
+    #scripts-editor .page-nav button {
+      min-height: 42px !important;
+      padding: 9px 14px !important;
+      font-size: 14px !important;
+    }
+    #scripts-editor .tool-btn { width: 42px !important; height: 42px !important; font-size: 18px !important; }
+    #scripts-editor .cue-type-quick-btn { min-height: 40px !important; font-size: 11px !important; }
+    #scripts-editor input,
+    #scripts-editor select,
+    #scripts-editor textarea { min-height: 42px !important; font-size: 16px !important; }
+
+    /* 16px is the smallest size iOS will not zoom into on focus. */
+    input, select, textarea { font-size: 16px !important; }
+
+    /* Wide tables scroll rather than forcing the whole page sideways. */
+    .season-table, .cue-table, table.mv-grid { display: block; overflow-x: auto; }
+
+    /* Modals and sheets should not hide under the notch or the nav bar. */
+    #cue-history, .overlay, .modal {
+      padding-top: calc(16px + env(safe-area-inset-top, 0px)) !important;
+      padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    /* Floating "new version" pill sits above the nav bar. */
+    #new-build-bar { bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+  }
+
+  /* Sidebar drawer covers the whole height including the nav bar. */
+  @media (max-width: 768px) {
+    .sidebar { z-index: 90; }
+    .sidebar-overlay { z-index: 89; }
+  }
 </style>
   <!-- PERF: pdf.js and jsPDF used to load here as blocking script tags on every
        launch. They're only needed on the Scripts tab and for PDF exports, so they
@@ -3682,6 +3778,16 @@ table td { font-size: 14px !important; }
 
   <!-- SIDEBAR OVERLAY (mobile only) -->
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+  <!-- Phone navigation. Ten tabs behind a hamburger is a lot of tapping; these
+       are the ones worth one tap. Everything else is still under More. -->
+  <nav class="bottom-nav" id="bottom-nav" aria-label="Main">
+    <a class="bottom-tab" data-tab="home"     href="#home"     onclick="switchTab('home');return false;"><span class="bt-ico">🏠</span>Home</a>
+    <a class="bottom-tab" data-tab="notes"    href="#notes"    onclick="switchTab('notes');return false;"><span class="bt-ico">📝</span>Shows</a>
+    <a class="bottom-tab" data-tab="todo"     href="#todo"     onclick="switchTab('todo');return false;"><span class="bt-ico">📋</span>To Do</a>
+    <a class="bottom-tab" data-tab="shopping" href="#shopping" onclick="switchTab('shopping');return false;"><span class="bt-ico">🛒</span>Shop</a>
+    <button class="bottom-tab" type="button" onclick="toggleSidebar()"><span class="bt-ico">☰</span>More</button>
+  </nav>
 
   <!-- PERSISTENT SIDEBAR -->
   <div class="sidebar" id="sidebar">
@@ -5143,7 +5249,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v25</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v26</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
