@@ -3879,8 +3879,13 @@ table td { font-size: 14px !important; }
   .tv-shopstore { color: #6f6f85; flex-shrink: 0; font-size: 1.15vw; }
   .tv-more.sm { font-size: 1.15vw; padding-top: 0.5vh; }
 
-  .tv-shopadd { display: flex; gap: 0.5vw; align-items: stretch; }
-  .tv-shopadd select,
+  /* The build card keeps its add row pinned below the list. */
+  .tv-build { display: flex; flex-direction: column; min-height: 0; }
+  .tv-addrow { display: flex; gap: 0.5vw; align-items: stretch; margin-top: 1.2vh;
+               padding-top: 1.2vh; border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+  .tv-addrow select { flex: 0 0 auto; max-width: 12vw; }
+  .tv-addrow input { flex: 1 1 auto; }
+  .tv-addrow select, .tv-addrow input, .tv-shopadd select,
   .tv-shopadd input {
     font-family: inherit; font-size: 1.3vw;
     background: rgba(255,255,255,0.07); color: #f2f2f7;
@@ -3893,12 +3898,16 @@ table td { font-size: 14px !important; }
   .tv-shopadd input:focus, .tv-shopadd select:focus {
     outline: none; border-color: #cfc7ff; background: rgba(255,255,255,0.12);
   }
-  .tv-shopadd button {
+  .tv-addrow button, .tv-shopadd button {
     font-family: inherit; font-size: 1.3vw; font-weight: 600;
     background: #cfc7ff; color: #1b1836; border: none;
     border-radius: 0.55vw; padding: 0.9vh 1.4vw; cursor: pointer; flex: 0 0 auto;
   }
-  .tv-shopadd button:hover { background: #ded8ff; }
+  .tv-addrow button:hover, .tv-shopadd button:hover { background: #ded8ff; }
+  .tv-addrow input::placeholder { color: #6f6f85; }
+  .tv-addrow input:focus, .tv-addrow select:focus {
+    outline: none; border-color: #cfc7ff; background: rgba(255,255,255,0.12);
+  }
 
   .tv-empty { color: #6f6f85; font-size: 1.7vw; padding: 2vh 0; }
   .tv-empty.sm { font-size: 1.3vw; padding: 0.8vh 0; }
@@ -3917,8 +3926,9 @@ table td { font-size: 14px !important; }
     .tv-next .tv-count { font-size: 14vw; }
     .tv-shoprow { font-size: 3vw; }
     .tv-shopstore, .tv-more.sm { font-size: 2.4vw; }
-    .tv-shopadd select, .tv-shopadd input, .tv-shopadd button { font-size: 3vw; padding: 1.2vh 2vw; }
-    .tv-shopadd select { max-width: 26vw; }
+    .tv-shopadd select, .tv-shopadd input, .tv-shopadd button,
+    .tv-addrow select, .tv-addrow input, .tv-addrow button { font-size: 3vw; padding: 1.2vh 2vw; }
+    .tv-shopadd select, .tv-addrow select { max-width: 26vw; }
   }
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -4829,6 +4839,13 @@ table td { font-size: 14px !important; }
         <div class="tv-card tv-build">
           <div class="tv-lbl">On the build list<span class="tv-count" id="tv-build-count"></span></div>
           <div class="tv-list" id="tv-tasks"></div>
+          <div class="tv-addrow">
+            <select id="tv-task-list" aria-label="Which list"></select>
+            <input type="text" id="tv-task-input" placeholder="Add something to build&hellip;"
+                   aria-label="Add a task"
+                   onkeydown="if(event.key==='Enter')tvAddTask()" />
+            <button type="button" onclick="tvAddTask()">Add</button>
+          </div>
         </div>
 
         <div class="tv-side">
@@ -5592,7 +5609,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v33</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v34</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7247,6 +7264,20 @@ function renderTvMode() {
   }
 
   // ── Build list ──
+  const listSel = document.getElementById('tv-task-list');
+  if (listSel) {
+    const buildLists = (lists || []).filter(l => !tvIsShoppingList(l.name));
+    if (listSel.options.length !== buildLists.length) {
+      const prev = listSel.value;
+      listSel.innerHTML = buildLists.map(l =>
+        `<option value="${escAttr(l.name)}">${escHtml(l.name)}</option>`).join('');
+      // Keep whatever was chosen; otherwise start on Building.
+      listSel.value = (prev && buildLists.some(l => l.name === prev)) ? prev
+        : (buildLists.some(l => l.name === 'Building') ? 'Building'
+          : (buildLists[0] || {}).name || '');
+    }
+  }
+
   const list = document.getElementById('tv-tasks');
   const cnt  = document.getElementById('tv-build-count');
   if (list) {
@@ -7326,6 +7357,30 @@ function renderTvMode() {
         + (rows.length > 6 ? `<div class="tv-more sm">+ ${rows.length - 6} more</div>` : '')
       : '<div class="tv-empty sm">Nothing needed</div>';
   }
+}
+
+// Added from the shop floor, straight into the real To Do list. Unlike the
+// shopping panel this one can also be checked off here, because build work
+// gets finished in the room the screen is in.
+function tvAddTask() {
+  const input = document.getElementById('tv-task-input');
+  const sel = document.getElementById('tv-task-list');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+
+  const buildLists = (lists || []).filter(l => !tvIsShoppingList(l.name));
+  const listName = (sel && sel.value)
+    || (buildLists.find(l => l.name === 'Building') || buildLists[0] || {}).name;
+  if (!listName) { toast('No lists set up yet'); return; }
+
+  if (!tasks[listName]) tasks[listName] = [];
+  tasks[listName].unshift({ id: Date.now().toString(), text, done: false, due: null });
+  try { saveData(); } catch(e) {}
+  try { if (typeof renderTasks === 'function' && document.getElementById('lists-grid')) renderTasks(); } catch(e) {}
+  input.value = '';
+  renderTvMode();
+  input.focus();
 }
 
 // Add-only. You notice you're out of something while standing in the shop;
