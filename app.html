@@ -3812,6 +3812,21 @@ table td { font-size: 14px !important; }
   .tv-lbl { font-size: 1.25vw; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
             color: #8a8aa2; margin-bottom: 1.2vh; display: flex; justify-content: space-between; align-items: baseline; }
   .tv-count { font-size: 1.15vw; letter-spacing: 0; color: #6f6f85; font-weight: 500; }
+
+  /* Which list the board is showing. */
+  .tv-chips { display: flex; gap: 0.5vw; flex-wrap: wrap; margin-bottom: 1.2vh; flex-shrink: 0; }
+  .tv-chip {
+    display: inline-flex; align-items: center; gap: 0.45vw;
+    font-family: inherit; font-size: 1.25vw; font-weight: 500;
+    background: rgba(255,255,255,0.06); color: #b7b7cc;
+    border: 1px solid rgba(255,255,255,0.10); border-radius: 99px;
+    padding: 0.7vh 1.1vw; cursor: pointer; white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tv-chip:hover { background: rgba(255,255,255,0.12); color: #f2f2f7; }
+  .tv-chip.on { background: #cfc7ff; border-color: #cfc7ff; color: #1b1836; }
+  .tv-chipn { font-size: 1.05vw; opacity: 0.75; font-variant-numeric: tabular-nums; }
+  .tv-chip.on .tv-chipn { opacity: 0.6; }
   .tv-side { display: flex; flex-direction: column; gap: 1.6vw; min-height: 0; }
 
   /* The build list is the point of the screen, so it gets the largest type. */
@@ -3924,6 +3939,8 @@ table td { font-size: 14px !important; }
     .tv-undo { font-size: 3.2vw; padding: 1.4vh 4vw; }
     .tv-undo-btn { font-size: 3.2vw; padding: 1vh 4vw; }
     .tv-next .tv-count { font-size: 14vw; }
+    .tv-chip { font-size: 2.8vw; padding: 1vh 2.4vw; }
+    .tv-chipn { font-size: 2.4vw; }
     .tv-shoprow { font-size: 3vw; }
     .tv-shopstore, .tv-more.sm { font-size: 2.4vw; }
     .tv-shopadd select, .tv-shopadd input, .tv-shopadd button,
@@ -4838,6 +4855,7 @@ table td { font-size: 14px !important; }
         <!-- Ranked first: what needs building today. -->
         <div class="tv-card tv-build">
           <div class="tv-lbl">On the build list<span class="tv-count" id="tv-build-count"></span></div>
+          <div class="tv-chips" id="tv-chips" role="tablist" aria-label="Which list"></div>
           <div class="tv-list" id="tv-tasks"></div>
           <div class="tv-addrow">
             <select id="tv-task-list" aria-label="Which list"></select>
@@ -5609,7 +5627,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v34</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v35</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7179,6 +7197,24 @@ function tvFindTask(listName, id, text) {
       || null;
 }
 
+// Which list the board is showing. Remembered, because a wall screen is not
+// re-set every morning.
+let _tvList = (function () {
+  try { return localStorage.getItem('mmt_tv_list') || 'all'; } catch(e) { return 'all'; }
+})();
+
+function tvSetList(name) {
+  _tvList = name || 'all';
+  try { localStorage.setItem('mmt_tv_list', _tvList); } catch(e) {}
+  // Adding should follow what you're looking at.
+  const sel = document.getElementById('tv-task-list');
+  if (sel && _tvList !== 'all') {
+    const opt = [...sel.options].find(o => o.value === _tvList);
+    if (opt) sel.value = _tvList;
+  }
+  renderTvMode();
+}
+
 let _tvUndo = null;
 let _tvUndoTimer = null;
 
@@ -7281,10 +7317,30 @@ function renderTvMode() {
   const list = document.getElementById('tv-tasks');
   const cnt  = document.getElementById('tv-build-count');
   if (list) {
-    const items = tvBuildList(lists, tasks, today);
+    const all = tvBuildList(lists, tasks, today);
+
+    // Chips: every work list, plus All, each with its open count. Lists with
+    // nothing open still show, so you can switch to one and add to it.
+    const chipEl = document.getElementById('tv-chips');
+    if (chipEl) {
+      const names = (lists || []).filter(l => !tvIsShoppingList(l.name)).map(l => l.name);
+      if (_tvList !== 'all' && !names.includes(_tvList)) _tvList = 'all';   // a renamed or deleted list
+      const counts = {};
+      all.forEach(t => { counts[t.list] = (counts[t.list] || 0) + 1; });
+      chipEl.innerHTML = [
+        `<button type="button" class="tv-chip${_tvList === 'all' ? ' on' : ''}"
+           onclick="tvSetList('all')">All<span class="tv-chipn">${all.length}</span></button>`
+      ].concat(names.map(n => `
+        <button type="button" class="tv-chip${_tvList === n ? ' on' : ''}"
+          onclick="tvSetList('${escAttr(n)}')">${escHtml(n)}<span class="tv-chipn">${counts[n] || 0}</span></button>`
+      )).join('');
+    }
+
+    const items = _tvList === 'all' ? all : all.filter(t => t.list === _tvList);
     if (cnt) cnt.textContent = items.length ? items.length + ' open' : '';
     if (!items.length) {
-      list.innerHTML = '<div class="tv-empty">Nothing on the list</div>';
+      list.innerHTML = `<div class="tv-empty">${_tvList === 'all'
+        ? 'Nothing on the list' : 'Nothing open in ' + escHtml(_tvList)}</div>`;
     } else {
       const shown = items.slice(0, TV_MAX_TASKS);
       const extra = items.length - shown.length;
@@ -7297,7 +7353,7 @@ function renderTvMode() {
           <span class="tv-task-text">${escHtml(t.text)}</span>
           ${t.overdue ? '<span class="tv-badge late">Overdue</span>'
             : t.dueToday ? '<span class="tv-badge today">Today</span>'
-            : `<span class="tv-task-list">${escHtml(t.list)}</span>`}
+            : (_tvList === 'all' ? `<span class="tv-task-list">${escHtml(t.list)}</span>` : '')}
         </button>`).join('')
         + (extra > 0 ? `<div class="tv-more">+ ${extra} more</div>` : '');
     }
