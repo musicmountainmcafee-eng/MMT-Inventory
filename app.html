@@ -3775,6 +3775,8 @@ table td { font-size: 14px !important; }
     display: none;
   }
   body.is-offline #offline-bar { display: block; }
+  /* Online but with writes still queued: same bar, calmer colour. */
+  body.has-pending #offline-bar { display: block; background: var(--purple); }
   @media (max-width: 768px) {
     #offline-bar { bottom: calc(58px + env(safe-area-inset-bottom, 0px)); padding-bottom: 9px; }
   }
@@ -5759,7 +5761,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v39</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v40</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -9858,7 +9860,7 @@ function renderShowHub() {
 // ── SHOPPING LISTS ───────────────────────────────────────────────────────────
 const DEFAULT_STORES = ['Home Depot', 'Rose Brand', 'Full Compass', 'McMaster-Carr', 'Dollar General'];
 let activeStore = '';
-let shopSyncing = false;
+// (shopSyncing removed — the outbox serialises writes, so no guard is needed)
 
 function loadShopData() {
   // Instant paint from cache
@@ -9899,23 +9901,17 @@ function saveShopData() {
   saveShopData._timer = setTimeout(() => syncShopToServer(), 800);
 }
 
-async function syncShopToServer() {
-  if (shopSyncing) return;
-  shopSyncing = true;
+function syncShopToServer() {
+  // Queued. The old version tried a POST, fell back to a JSONP GET, and gave
+  // up silently — so a shopping item added in the shop on bad wifi could sit
+  // on that one device forever.
+  let getUrl = null;
   try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'saveShopping', shopping: shopData }),
-    });
-  } catch(e) {
-    // Fallback: try JSONP GET
-    try {
-      jsonp(SCRIPT_URL + '?action=saveShopping&shopping=' + encodeURIComponent(JSON.stringify(shopData)) + '&_=' + Date.now(), () => {}, () => {});
-    } catch(e2) { console.warn('Shopping save failed:', e2.message); }
-  } finally {
-    shopSyncing = false;
-  }
+    getUrl = SCRIPT_URL + '?action=saveShopping&shopping='
+           + encodeURIComponent(JSON.stringify(shopData)) + '&_=' + Date.now();
+  } catch(e) {}
+  apiPost({ action: 'saveShopping', shopping: shopData },
+          { replaceKey: 'shopping', label: 'shopping list', getUrl });
 }
 
 function renderShopTabs() {
@@ -10054,10 +10050,8 @@ function loadCleaning() {
 function saveCleaning() {
   try { localStorage.setItem('mmt_cleaning', JSON.stringify({ items: cleaningItems, log: cleaningLog })); } catch(e) {}
   updateCleaningBadge();
-  fetch(SCRIPT_URL, {
-    method: 'POST', headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action: 'saveCleaning', items: cleaningItems, log: cleaningLog })
-  }).catch(() => {});
+  apiPost({ action: 'saveCleaning', items: cleaningItems, log: cleaningLog },
+          { replaceKey: 'cleaning', label: 'cleaning log' });
 }
 
 // Compute status for a scheduled item: 'overdue' | 'soon' | 'ok' + days remaining
@@ -11036,11 +11030,140 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// ── OUTBOX ──────────────────────────────────────────────────────────────────
+// Every server write goes here first and is drained in order. Before this,
+// each save fired one request and silently gave up if it failed — which meant
+// the offline banner's promise that "changes will sync when you're back" was
+// not true for anything except cue data.
+//
+// The queue survives a reload, so a task added on bad wifi and then a closed
+// tab still reaches the Sheet.
+
+const OUTBOX_KEY     = 'mmt_outbox';
+const OUTBOX_MAX     = 100;
+const OUTBOX_MIN_GAP = 150;   // polite pacing when draining a backlog
+
+let _outboxDraining = false;
+let _outboxTimer    = null;
+let _outboxBackoff  = 3000;
+
+function outboxRead() {
+  try { const v = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]'); return Array.isArray(v) ? v : []; }
+  catch(e) { return []; }
+}
+
+function outboxWrite(list) {
+  try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(list)); }
+  catch(e) {
+    // Storage full: the newest writes matter most, so drop the oldest half.
+    try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(list.slice(Math.floor(list.length / 2)))); } catch(e2) {}
+  }
+  updateOutboxUi();
+}
+
+function outboxPending() { return outboxRead().length; }
+
+// replaceKey: for whole-document saves (all tasks, all shopping) only the
+// latest copy is worth sending. Twenty edits offline should drain as one
+// request, not twenty.
+function apiPost(body, opts) {
+  const o = opts || {};
+  const list = outboxRead();
+  const next = o.replaceKey ? list.filter(e => e.key !== o.replaceKey) : list.slice();
+  next.push({
+    id: 'w' + Date.now() + Math.random().toString(36).slice(2, 7),
+    at: Date.now(),
+    key: o.replaceKey || null,
+    label: o.label || 'change',
+    body: typeof body === 'string' ? body : JSON.stringify(body),
+    getUrl: o.getUrl || null,     // phones sometimes have POST intercepted
+    tries: 0,
+  });
+  while (next.length > OUTBOX_MAX) next.shift();
+  outboxWrite(next);
+  outboxDrain();
+}
+
+function outboxSendOne(entry) {
+  return fetch(SCRIPT_URL, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: entry.body,
+  }).then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return true;
+  }).catch(err => {
+    if (!entry.getUrl) throw err;
+    // Google's account redirect can eat a POST on mobile; the GET form works.
+    return new Promise((resolve, reject) => {
+      try { jsonp(entry.getUrl, () => resolve(true), () => reject(err)); }
+      catch(e) { reject(err); }
+    });
+  });
+}
+
+function outboxDrain() {
+  if (_outboxDraining) return;
+  const list = outboxRead();
+  if (!list.length) { updateOutboxUi(); return; }
+  if (navigator.onLine === false) { outboxRetryLater(); return; }
+
+  _outboxDraining = true;
+  const entry = list[0];
+
+  outboxSendOne(entry).then(() => {
+    const rest = outboxRead().filter(e => e.id !== entry.id);
+    outboxWrite(rest);
+    _outboxDraining = false;
+    _outboxBackoff = 3000;
+    if (rest.length) setTimeout(outboxDrain, OUTBOX_MIN_GAP);
+  }).catch(() => {
+    // Keep it. Count the attempt so a permanently bad write can be spotted
+    // rather than blocking everything behind it forever.
+    const cur = outboxRead();
+    if (cur.length && cur[0].id === entry.id) {
+      cur[0].tries = (cur[0].tries || 0) + 1;
+      if (cur[0].tries >= 8) { cur.push(cur.shift()); }   // move it aside, try the rest
+      outboxWrite(cur);
+    }
+    _outboxDraining = false;
+    outboxRetryLater();
+  });
+}
+
+function outboxRetryLater() {
+  clearTimeout(_outboxTimer);
+  _outboxTimer = setTimeout(outboxDrain, _outboxBackoff);
+  _outboxBackoff = Math.min(_outboxBackoff * 2, 60000);
+}
+
+function updateOutboxUi() {
+  const n = outboxPending();
+  const bar = document.getElementById('offline-bar');
+  if (!bar) return;
+  const offline = navigator.onLine === false;
+  document.body.classList.toggle('has-pending', n > 0 && !offline);
+  if (offline) {
+    bar.textContent = n
+      ? 'No connection — ' + n + ' change' + (n !== 1 ? 's' : '') + ' saved here, waiting to sync'
+      : 'No connection — changes are saved on this device and will sync when you\u2019re back';
+  } else if (n) {
+    bar.textContent = 'Syncing ' + n + ' change' + (n !== 1 ? 's' : '') + '\u2026';
+  }
+}
+
+window.addEventListener('online', () => { _outboxBackoff = 3000; outboxDrain(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') outboxDrain();
+});
+setInterval(outboxDrain, 60000);
+
 // ── OFFLINE NOTICE ──────────────────────────────────────────────────────────
 // Theatre wifi drops constantly. Silence about it is what turned a bad
 // connection into a lost day of set changes, so say so plainly.
 function updateOnlineState() {
-  try { document.body.classList.toggle('is-offline', navigator.onLine === false); } catch(e) {}
+  try {
+    document.body.classList.toggle('is-offline', navigator.onLine === false);
+    updateOutboxUi();
+  } catch(e) {}
 }
 window.addEventListener('online',  updateOnlineState);
 window.addEventListener('offline', updateOnlineState);
@@ -11414,28 +11537,17 @@ async function saveData() {
     localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes }));
   } catch(e) {}
 
-  const payload = JSON.stringify({ lists, tasks });
-
-  // Try POST first (works on most browsers)
+  // Queued rather than fired and forgotten. This used to try a POST, then a
+  // JSONP GET, and give up quietly if both failed — so an edit made on bad
+  // wifi never reached the Sheet and nothing said so.
+  let getUrl = null;
   try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'saveTasks', lists, tasks }),
-    });
-  } catch(e) {
-    console.warn('POST save failed, trying JSONP fallback:', e.message);
-  }
+    const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify({ lists, tasks })))));
+    getUrl = SCRIPT_URL + '?action=saveTasksGet&data=' + encoded + '&_=' + Date.now();
+  } catch(e) {}
 
-  // Also try JSONP GET fallback (works on phones where POST fetch gets
-  // intercepted by Google's account redirect)
-  try {
-    const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(payload))));
-    await new Promise((resolve, reject) => {
-      jsonp(SCRIPT_URL + '?action=saveTasksGet&data=' + encoded + '&_=' + Date.now(), resolve, reject);
-    });
-  } catch(e) {
-    console.warn('JSONP save fallback failed:', e.message);
-  }
+  apiPost({ action: 'saveTasks', lists, tasks },
+          { replaceKey: 'tasks', label: 'to-do lists', getUrl });
 }
 
 async function sheetWrite(type, key, value) {
