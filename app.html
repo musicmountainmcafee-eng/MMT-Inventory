@@ -3883,6 +3883,25 @@ table td { font-size: 14px !important; }
                        letter-spacing: -0.03em; color: #cfc7ff; display: block; }
   .tv-tech { font-size: 1.35vw; color: #f0ad52; margin-top: 1vh; }
 
+  /* Cleaning that is overdue or nearly due. */
+  .tv-clean { flex: 0 0 auto; }
+  .tv-cleanrow { display: flex; align-items: center; gap: 0.8vw;
+                 font-size: 1.35vw; padding: 0.7vh 0;
+                 border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .tv-cleanrow:last-child { border-bottom: none; }
+  .tv-cleanname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tv-cleanarea { color: #6f6f85; font-size: 1.1vw; margin-left: 0.5vw; }
+  .tv-cleanwhen { color: #9a9ab0; font-size: 1.15vw; flex-shrink: 0; }
+  .tv-cleanrow.late .tv-cleanwhen { color: #ffb3ae; font-weight: 600; }
+  .tv-cleanrow.late .tv-cleanname { color: #ffd9d6; }
+  .tv-cleandone {
+    font-family: inherit; font-size: 1.1vw; font-weight: 600;
+    background: rgba(255,255,255,0.10); color: #d8d8e6;
+    border: 1px solid rgba(255,255,255,0.16); border-radius: 99px;
+    padding: 0.45vh 1vw; cursor: pointer; flex-shrink: 0;
+  }
+  .tv-cleandone:hover { background: #cfc7ff; color: #1b1836; border-color: #cfc7ff; }
+
   /* Need from the store. Read-only on purpose — the only interactive thing
      here is adding. */
   .tv-shop { flex: 0 0 auto; }
@@ -3939,6 +3958,9 @@ table td { font-size: 14px !important; }
     .tv-undo { font-size: 3.2vw; padding: 1.4vh 4vw; }
     .tv-undo-btn { font-size: 3.2vw; padding: 1vh 4vw; }
     .tv-next .tv-count { font-size: 14vw; }
+    .tv-cleanrow { font-size: 3vw; }
+    .tv-cleanarea, .tv-cleanwhen, .tv-cleandone { font-size: 2.4vw; }
+    .tv-cleandone { padding: 1vh 3vw; }
     .tv-chip { font-size: 2.8vw; padding: 1vh 2.4vw; }
     .tv-chipn { font-size: 2.4vw; }
     .tv-shoprow { font-size: 3vw; }
@@ -4871,6 +4893,10 @@ table td { font-size: 14px !important; }
             <div class="tv-lbl">Up next</div>
             <div id="tv-show-inner"></div>
           </div>
+          <div class="tv-card tv-clean">
+            <div class="tv-lbl">Cleaning due<span class="tv-count" id="tv-clean-count"></span></div>
+            <div class="tv-cleanlist" id="tv-clean"></div>
+          </div>
           <div class="tv-card tv-shop">
             <div class="tv-lbl">Need from the store<span class="tv-count" id="tv-shop-count"></span></div>
             <div class="tv-shoplist" id="tv-shop"></div>
@@ -5627,7 +5653,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v35</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v36</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7387,6 +7413,35 @@ function renderTvMode() {
     }
   }
 
+  // ── Cleaning due ──
+  // Only what is overdue or nearly due; the full schedule lives in its own tab.
+  const clEl = document.getElementById('tv-clean');
+  const clCnt = document.getElementById('tv-clean-count');
+  if (clEl) {
+    let due = [];
+    try {
+      due = (cleaningItems || [])
+        .map(it => ({ it, st: cleaningStatus(it) }))
+        .filter(x => x.st.status === 'overdue' || x.st.status === 'soon')
+        .sort((a, b) => (a.st.days ?? 0) - (b.st.days ?? 0));
+    } catch(e) { due = []; }
+
+    const overdue = due.filter(x => x.st.status === 'overdue').length;
+    if (clCnt) clCnt.textContent = overdue ? overdue + ' overdue' : (due.length ? due.length + ' soon' : '');
+
+    clEl.innerHTML = due.length
+      ? due.slice(0, 4).map(x => `
+          <div class="tv-cleanrow${x.st.status === 'overdue' ? ' late' : ''}">
+            <span class="tv-cleanname">${escHtml(x.it.name || '')}${
+              x.it.area ? `<span class="tv-cleanarea">${escHtml(x.it.area)}</span>` : ''}</span>
+            <span class="tv-cleanwhen">${escHtml(x.st.label)}</span>
+            <button type="button" class="tv-cleandone"
+              onclick="tvLogCleaned('${escAttr(x.it.id)}','${escAttr(x.it.name || '')}')">Done</button>
+          </div>`).join('')
+        + (due.length > 4 ? `<div class="tv-more sm">+ ${due.length - 4} more</div>` : '')
+      : '<div class="tv-empty sm">All up to date</div>';
+  }
+
   // ── Need from the store ──
   // Deliberately read-only: things get ticked off at the store, not here, and a
   // stray click on a wall screen would quietly drop something from the run.
@@ -7413,6 +7468,28 @@ function renderTvMode() {
         + (rows.length > 6 ? `<div class="tv-more sm">+ ${rows.length - 6} more</div>` : '')
       : '<div class="tv-empty sm">Nothing needed</div>';
   }
+}
+
+// The tab's version asks who cleaned it with a prompt(), which is no good on a
+// wall screen. This uses whoever is signed in, and confirms instead — marking
+// something cleaned resets its whole schedule, so a stray click matters more
+// here than it does on a task.
+function tvLogCleaned(id, name) {
+  const it = (cleaningItems || []).find(x => String(x.id) === String(id));
+  if (!it) return;
+  if (!confirm('Log "' + (name || it.name) + '" as cleaned today?')) return;
+  it.lastCleaned = todayISO();
+  try {
+    cleaningLog.push({
+      id: 'cl_' + Date.now(), item: it.name, area: it.area || '',
+      who: (typeof userName !== 'undefined' && userName) ? userName : '',
+      notes: 'logged from the shop display', date: todayISO(),
+    });
+  } catch(e) {}
+  try { saveCleaning(); } catch(e) {}
+  try { if (typeof updateCleaningBadge === 'function') updateCleaningBadge(); } catch(e) {}
+  try { if (typeof renderCleaning === 'function' && document.getElementById('cl-items-list')) renderCleaning(); } catch(e) {}
+  renderTvMode();
 }
 
 // Added from the shop floor, straight into the real To Do list. Unlike the
