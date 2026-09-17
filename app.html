@@ -5810,7 +5810,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.17 v42</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.17 v43</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7242,6 +7242,7 @@ function chkPrint() {
 var _tvTimer = null;
 
 let _tvLastData = null;
+let _tvLastShop = null;   // shopping is fetched separately, so it ages separately
 let _tvDataTimer = null;
 let _tvDriftTimer = null;
 
@@ -7287,6 +7288,8 @@ function tvWake() {
 
 // Re-render is cheap; re-fetching is not. The clock ticks every 30s, the data
 // is pulled every 5 minutes so a task ticked off on a phone shows up here.
+// Shopping lives behind a different endpoint and needs asking for separately —
+// without this the store panel showed whatever was true when the page loaded.
 function tvRefreshData() {
   try {
     if (typeof loadData === 'function') {
@@ -7295,6 +7298,7 @@ function tvRefreshData() {
       else { _tvLastData = Date.now(); }
     }
   } catch(e) {}
+  try { if (typeof fetchShopData === 'function') fetchShopData(); } catch(e) {}
   renderTvMode();
 }
 
@@ -7316,6 +7320,7 @@ function openTvMode() {
   _tvLastData = _tvLastData || Date.now();
   renderTvMode();
   tvDrift();
+  tvRefreshData();          // don't open on cache and wait five minutes
 
   if (_tvTimer) clearInterval(_tvTimer);
   _tvTimer = setInterval(renderTvMode, 30000);
@@ -7457,6 +7462,14 @@ function tvSetStore(name) {
   const el = document.getElementById('tv-shop');
   if (el) el.scrollTop = 0;
   renderTvMode();
+
+  // Picking a store is you asking what's on it, so go and check — but not more
+  // than once every 20s, or a few chip clicks turn into a burst of requests.
+  const now = Date.now();
+  if (!tvSetStore._last || now - tvSetStore._last > 20000) {
+    tvSetStore._last = now;
+    try { if (typeof fetchShopData === 'function') fetchShopData(); } catch(e) {}
+  }
 }
 
 function tvSetList(name) {
@@ -7534,7 +7547,11 @@ function renderTvMode() {
   // A wall screen that quietly froze looks identical to one that is fine.
   const fEl = document.getElementById('tv-fresh');
   if (fEl) {
-    const mins = _tvLastData ? Math.round((Date.now() - _tvLastData) / 60000) : null;
+    // The freshness line reports the older of the two fetches. Saying "Live"
+    // off the task pull alone is what made a stale store list look current.
+    const oldest = (_tvLastData && _tvLastShop) ? Math.min(_tvLastData, _tvLastShop)
+                 : (_tvLastData || _tvLastShop);
+    const mins = oldest ? Math.round((Date.now() - oldest) / 60000) : null;
     fEl.textContent = mins === null ? '' : mins < 2 ? 'Live' : 'Updated ' + mins + ' min ago';
     fEl.className = 'tv-fresh' + (mins !== null && mins > 15 ? ' stale' : '');
   }
@@ -9982,11 +9999,24 @@ async function fetchShopData() {
       jsonp(SCRIPT_URL + '?action=getShopping&_=' + Date.now(), resolve, reject);
     }), 8000, 'Shopping');
     if (data && data.success && data.shopping) {
+      // A queued local change is newer than anything the server can tell us.
+      // Overwriting here would make an item added in the shop vanish off the
+      // wall until the outbox drained and the next fetch brought it back.
+      const pendingLocal = (typeof outboxRead === 'function')
+        && outboxRead().some(e => e.key === 'shopping');
+      if (pendingLocal) return;
+
       shopData = data.shopping;
       DEFAULT_STORES.forEach(s => { if (!shopData[s]) shopData[s] = []; });
       if (!activeStore || !shopData[activeStore]) activeStore = Object.keys(shopData)[0] || DEFAULT_STORES[0];
       try { localStorage.setItem('mmt_shopping', JSON.stringify(shopData)); } catch(e) {}
-      renderShop();
+      _tvLastShop = Date.now();
+      try { renderShop(); } catch(e) {}
+      // The wall screen has its own copy of this list on it.
+      try {
+        const ov = document.getElementById('tv-overlay');
+        if (ov && ov.classList.contains('open') && typeof renderTvMode === 'function') renderTvMode();
+      } catch(e) {}
     }
   } catch(e) {
     console.warn('Shopping fetch:', e.message);
