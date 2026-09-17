@@ -3908,6 +3908,11 @@ table td { font-size: 14px !important; }
      here is adding. */
   .tv-shop { flex: 0 0 auto; }
   .tv-shoplist { margin-bottom: 1.1vh; }
+  /* The store card is narrower than the build board, so its chips are scaled
+     down to keep them on one or two rows instead of eating the list. */
+  .tv-shopchips { gap: 0.4vw; margin-bottom: 0.9vh; }
+  .tv-shopchips .tv-chip { font-size: 1.15vw; padding: 0.5vh 0.9vw; }
+  .tv-shopchips .tv-chipn { font-size: 0.95vw; }
   .tv-shoprow { display: flex; justify-content: space-between; gap: 1vw;
                 font-size: 1.35vw; padding: 0.7vh 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
   .tv-shoprow:last-child { border-bottom: none; }
@@ -3965,6 +3970,8 @@ table td { font-size: 14px !important; }
     .tv-cleandone { padding: 1vh 3vw; }
     .tv-chip { font-size: 2.8vw; padding: 1vh 2.4vw; }
     .tv-chipn { font-size: 2.4vw; }
+    .tv-shopchips .tv-chip { font-size: 2.6vw; padding: 0.9vh 2.2vw; }
+    .tv-shopchips .tv-chipn { font-size: 2.2vw; }
     .tv-shoprow { font-size: 3vw; }
     .tv-shopstore, .tv-more.sm { font-size: 2.4vw; }
     .tv-shopadd select, .tv-shopadd input, .tv-shopadd button,
@@ -4175,8 +4182,13 @@ table td { font-size: 14px !important; }
      rather than pushing the other out of the column. */
   .tv-overlay .tv-clean,
   .tv-overlay .tv-shop { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-  .tv-overlay .tv-cleanlist,
-  .tv-overlay .tv-shoplist { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+  .tv-overlay .tv-cleanlist { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+  .tv-overlay .tv-shoplist { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .tv-overlay .tv-shoplist::-webkit-scrollbar { width: 0.7vw; }
+  .tv-overlay .tv-shoplist::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 999px; }
+  .tv-overlay .tv-shoplist::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.22); border-radius: 999px; }
+  .tv-overlay .tv-shoplist::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.34); }
+  .tv-overlay .tv-shoplist { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.22) rgba(255,255,255,0.04); }
   .tv-overlay .tv-shopadd { flex: 0 0 auto; }
 
   /* An older rule centred this with `margin: auto 0`, which is why "Nothing
@@ -5007,6 +5019,7 @@ table td { font-size: 14px !important; }
           </div>
           <div class="tv-card tv-shop">
             <div class="tv-lbl">Need from the store<span class="tv-count" id="tv-shop-count"></span></div>
+            <div class="tv-chips tv-shopchips" id="tv-shop-chips" role="tablist" aria-label="Which store"></div>
             <div class="tv-shoplist" id="tv-shop"></div>
             <div class="tv-shopadd">
               <select id="tv-shop-store" aria-label="Store"></select>
@@ -5761,7 +5774,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.10 v40</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.17 v41</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7387,6 +7400,29 @@ let _tvList = (function () {
   try { return localStorage.getItem('mmt_tv_list') || 'all'; } catch(e) { return 'all'; }
 })();
 
+// Which store the shopping panel is showing. Remembered for the same reason
+// the build filter is — nobody re-picks it every morning.
+let _tvStore = (function () {
+  try { return localStorage.getItem('mmt_tv_store') || 'all'; } catch(e) { return 'all'; }
+})();
+
+function tvSetStore(name) {
+  _tvStore = name || 'all';
+  try { localStorage.setItem('mmt_tv_store', _tvStore); } catch(e) {}
+  // Adding follows what you're looking at, so filtering to Home Depot and
+  // adding four things doesn't mean picking Home Depot four times.
+  const sel = document.getElementById('tv-shop-store');
+  if (sel && _tvStore !== 'all') {
+    const opt = [...sel.options].find(o => o.value === _tvStore);
+    if (opt) sel.value = _tvStore;
+  }
+  // A store switch should start at the top of that store's list, not wherever
+  // the last one was scrolled to.
+  const el = document.getElementById('tv-shop');
+  if (el) el.scrollTop = 0;
+  renderTvMode();
+}
+
 function tvSetList(name) {
   _tvList = name || 'all';
   try { localStorage.setItem('mmt_tv_list', _tvList); } catch(e) {}
@@ -7608,24 +7644,51 @@ function renderTvMode() {
   const shopCnt = document.getElementById('tv-shop-count');
   if (shopEl) {
     const stores = Object.keys(shopData || {});
+    if (_tvStore !== 'all' && !stores.includes(_tvStore)) _tvStore = 'all';   // a renamed or deleted store
+
+    // Rebuilt only when the stores themselves change. Comparing the names
+    // rather than the count catches a rename, which a length check misses.
     const sel = document.getElementById('tv-shop-store');
-    if (sel && sel.options.length !== stores.length) {
+    if (sel && [...sel.options].map(o => o.value).join('\u0000') !== stores.join('\u0000')) {
+      const want = _tvStore !== 'all' ? _tvStore : activeStore;
       sel.innerHTML = stores.map(st =>
-        `<option value="${escAttr(st)}"${st === activeStore ? ' selected' : ''}>${escHtml(st)}</option>`).join('');
+        `<option value="${escAttr(st)}"${st === want ? ' selected' : ''}>${escHtml(st)}</option>`).join('');
     }
-    const rows = [];
+
+    const all = [];
     stores.forEach(st => (shopData[st] || []).forEach(it => {
-      if (!it.done) rows.push({ store: st, text: it.text || '' });
+      if (!it.done) all.push({ store: st, text: it.text || '' });
     }));
+    const counts = {};
+    all.forEach(r => { counts[r.store] = (counts[r.store] || 0) + 1; });
+
+    // Every store gets a chip even with nothing open, so you can switch to an
+    // empty one in order to add to it.
+    const chipEl = document.getElementById('tv-shop-chips');
+    if (chipEl) {
+      chipEl.innerHTML = (stores.length > 1
+        ? `<button type="button" class="tv-chip${_tvStore === 'all' ? ' on' : ''}"
+             onclick="tvSetStore('all')">All<span class="tv-chipn">${all.length}</span></button>`
+        : '') + stores.map(st => `
+        <button type="button" class="tv-chip${_tvStore === st ? ' on' : ''}"
+          onclick="tvSetStore('${escAttr(st)}')">${escHtml(st)}<span class="tv-chipn">${counts[st] || 0}</span></button>`).join('');
+    }
+
+    const rows = _tvStore === 'all' ? all : all.filter(r => r.store === _tvStore);
     if (shopCnt) shopCnt.textContent = rows.length ? rows.length + ' open' : '';
+
+    // The panel re-renders every minute. Without this, anything you'd scrolled
+    // down to would snap back to the top while you were reading it.
+    const keepScroll = shopEl.scrollTop;
     shopEl.innerHTML = rows.length
-      ? rows.slice(0, 5).map(r => `
+      ? rows.map(r => `
           <div class="tv-shoprow">
             <span class="tv-shoptext">${escHtml(r.text)}</span>
-            <span class="tv-shopstore">${escHtml(r.store)}</span>
+            ${_tvStore === 'all' ? `<span class="tv-shopstore">${escHtml(r.store)}</span>` : ''}
           </div>`).join('')
-        + (rows.length > 5 ? `<div class="tv-more sm">+ ${rows.length - 5} more</div>` : '')
-      : '<div class="tv-empty sm">Nothing needed</div>';
+      : `<div class="tv-empty sm">${_tvStore === 'all'
+          ? 'Nothing needed' : 'Nothing needed from ' + escHtml(_tvStore)}</div>`;
+    shopEl.scrollTop = Math.min(keepScroll, Math.max(0, shopEl.scrollHeight - shopEl.clientHeight));
   }
 }
 
@@ -7683,7 +7746,8 @@ function tvAddShop() {
   if (!input) return;
   const text = input.value.trim();
   if (!text) return;
-  const store = (sel && sel.value) || activeStore || Object.keys(shopData || {})[0];
+  const store = (sel && sel.value)
+    || (_tvStore !== 'all' ? _tvStore : '') || activeStore || Object.keys(shopData || {})[0];
   if (!store) { toast('No store set up yet'); return; }
   if (!shopData[store]) shopData[store] = [];
   shopData[store].push({ text, done: false });
