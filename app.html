@@ -130,7 +130,8 @@
     background: #16162a;
     display: flex; flex-direction: column;
     position: fixed; top: 0; bottom: 0; left: 0;
-    z-index: 81; transition: transform 0.25s ease;
+    z-index: 81; transition: transform 0.25s ease, width 0.25s ease;
+    overflow-x: hidden;
   }
   /* Mobile: hidden by default, slides in */
   @media (max-width: 768px) {
@@ -162,7 +163,9 @@
     text-decoration: none; color: rgba(255,255,255,0.65);
     font-size:14px; font-weight: 500; transition: all 0.15s;
     margin-bottom: 1px;
+    white-space: nowrap;
   }
+  .sl-label { overflow: hidden; text-overflow: ellipsis; }
   .sidebar-link:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
   .sidebar-link.active { background: var(--purple); color: white; }
   .sidebar-link .sl-icon { font-size:16px; width: 20px; text-align: center; flex-shrink: 0; opacity: 0.85; }
@@ -1804,17 +1807,45 @@
   }
   .sidebar-toggle-btn:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.07); }
 
-  /* Collapsed state */
-  .sidebar.collapsed { width: 52px; }
+  /* Collapsed state — an icon rail, not a squeezed menu. The label is hidden
+     outright rather than left to clip mid-word. */
+  .sidebar.collapsed { width: 56px; }
   .sidebar.collapsed .sidebar-header h2,
   .sidebar.collapsed .sidebar-footer,
-  .sidebar.collapsed .sidebar-divider,
-  .sidebar.collapsed .sidebar-link span:not(.sl-icon) { display: none; }
-  .sidebar.collapsed .sidebar-header { padding: 14px 10px; justify-content: center; }
-  .sidebar.collapsed .sidebar-link { padding: 10px; justify-content: center; gap: 0; }
+  .sidebar.collapsed .sl-label { display: none; }
+  .sidebar.collapsed .sidebar-header { padding: 14px 0; justify-content: center; }
+  .sidebar.collapsed .sidebar-nav { padding: 8px 6px; overflow-x: hidden; }
+  .sidebar.collapsed .sidebar-link {
+    padding: 0; gap: 0; justify-content: center;
+    width: 44px; height: 44px; margin: 0 auto 4px;
+  }
   .sidebar.collapsed .sidebar-link .sl-icon { width: auto; font-size:18px; opacity: 0.75; }
   .sidebar.collapsed .sidebar-link.active .sl-icon { opacity: 1; }
-  .sidebar.collapsed .sidebar-nav { padding: 8px 6px; }
+  /* The groups are the only structure left once the words are gone, so the
+     dividers stay — just inset to the width of the icon buttons. */
+  .sidebar.collapsed .sidebar-divider { margin: 8px 12px; }
+  @media (min-width: 769px) {
+    .sidebar.collapsed .sidebar-close { display: none; }
+  }
+
+  /* Hovering the rail says what the icon is, since nothing else does. */
+  .sidebar.collapsed .sidebar-link::after {
+    content: attr(data-label);
+    position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+    background: #2a2a45; color: rgba(255,255,255,0.92);
+    font-size: 13px; font-weight: 500; white-space: nowrap;
+    padding: 5px 9px; border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    opacity: 0; pointer-events: none; transition: opacity 0.12s ease 0.25s;
+    z-index: 90;
+  }
+  .sidebar.collapsed .sidebar-link:hover::after { opacity: 1; }
+  /* The tooltip has to escape the rail, so the nav can't clip it on hover. */
+  .sidebar.collapsed .sidebar-nav:hover { overflow: visible; }
+  @media (hover: none) {
+    .sidebar.collapsed .sidebar-link::after { display: none; }
+  }
 
   /* Cleaning overdue badge */
   .cleaning-badge {
@@ -1825,16 +1856,21 @@
   }
   /* When collapsed, show the badge as a small dot on the icon */
   .sidebar.collapsed .sidebar-link .cleaning-badge {
-    display: block !important; position: absolute; top: 6px; right: 8px;
-    min-width: 8px; width: 8px; height: 8px; padding: 0; margin: 0;
-    font-size: 0; color: transparent;
+    display: block; position: absolute; top: 5px; right: 5px;
+    min-width: 8px !important; width: 8px; height: 8px;
+    padding: 0 !important; margin: 0;
+    font-size: 0 !important; color: transparent;
+    min-height: 0 !important;
   }
   .sidebar.collapsed .sidebar-link { position: relative; }
+  .sidebar.collapsed .sidebar-link .cleaning-badge {
+    border: 2px solid var(--surface-2, #16162a); box-sizing: content-box;
+  }
 
   /* Shift app-main when collapsed */
   .app-main { transition: margin-left 0.25s ease; }
   .sidebar.collapsed ~ .app-main,
-  .app-shell:has(.sidebar.collapsed) .app-main { margin-left: 52px; }
+  .app-shell:has(.sidebar.collapsed) .app-main { margin-left: 56px; }
   @media (max-width: 768px) {
     .sidebar.collapsed ~ .app-main,
     .app-shell:has(.sidebar.collapsed) .app-main { margin-left: 0; }
@@ -4273,22 +4309,22 @@ table td { font-size: 14px !important; }
       </div>
     </div>
     <nav class="sidebar-nav">
-      <a class="sidebar-link active" href="#home" data-tab="home" onclick="switchTab('home');closeSidebarMobile();return false;"><span class="sl-icon">🏠</span> Home</a>
-      <a class="sidebar-link" href="#todo" data-tab="todo" onclick="switchTab('todo');closeSidebarMobile();return false;"><span class="sl-icon">📋</span> To Do</a>
-      <a class="sidebar-link parked-daytracker" style="display:none;" href="#daytracker" data-tab="daytracker" onclick="switchTab('daytracker');closeSidebarMobile();return false;"><span class="sl-icon">🗓️</span> Day Tracker</a>
-      <a class="sidebar-link" href="#notes" data-tab="notes" onclick="switchTab('notes');closeSidebarMobile();return false;"><span class="sl-icon">📝</span> Notes</a>
-      <a class="sidebar-link" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');closeSidebarMobile();return false;"><span class="sl-icon">📦</span> Set Piece Catalogue</a>
+      <a class="sidebar-link active" href="#home" data-tab="home" onclick="switchTab('home');closeSidebarMobile();return false;" data-label="Home"><span class="sl-icon">🏠</span><span class="sl-label">Home</span></a>
+      <a class="sidebar-link" href="#todo" data-tab="todo" onclick="switchTab('todo');closeSidebarMobile();return false;" data-label="To Do"><span class="sl-icon">📋</span><span class="sl-label">To Do</span></a>
+      <a class="sidebar-link parked-daytracker" style="display:none;" href="#daytracker" data-tab="daytracker" onclick="switchTab('daytracker');closeSidebarMobile();return false;" data-label="Day Tracker"><span class="sl-icon">🗓️</span><span class="sl-label">Day Tracker</span></a>
+      <a class="sidebar-link" href="#notes" data-tab="notes" onclick="switchTab('notes');closeSidebarMobile();return false;" data-label="Notes"><span class="sl-icon">📝</span><span class="sl-label">Notes</span></a>
+      <a class="sidebar-link" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');closeSidebarMobile();return false;" data-label="Set Piece Catalogue"><span class="sl-icon">📦</span><span class="sl-label">Set Piece Catalogue</span></a>
       <!-- PARKED: Drops sidebar link -->
-      <a class="sidebar-link" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');closeSidebarMobile();return false;"><span class="sl-icon">🎬</span> Scripts</a>
-      <a class="sidebar-link" href="#checklists" data-tab="checklists" onclick="switchTab('checklists');closeSidebarMobile();return false;"><span class="sl-icon">✅</span> Pre-Show Checklists</a>
-      <a class="sidebar-link" href="#reference" data-tab="reference" onclick="switchTab('reference');closeSidebarMobile();return false;"><span class="sl-icon">📸</span> Reference Photos</a>
+      <a class="sidebar-link" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');closeSidebarMobile();return false;" data-label="Scripts"><span class="sl-icon">🎬</span><span class="sl-label">Scripts</span></a>
+      <a class="sidebar-link" href="#checklists" data-tab="checklists" onclick="switchTab('checklists');closeSidebarMobile();return false;" data-label="Pre-Show Checklists"><span class="sl-icon">✅</span><span class="sl-label">Pre-Show Checklists</span></a>
+      <a class="sidebar-link" href="#reference" data-tab="reference" onclick="switchTab('reference');closeSidebarMobile();return false;" data-label="Reference Photos"><span class="sl-icon">📸</span><span class="sl-label">Reference Photos</span></a>
       <!-- PARKED: Show Archive sidebar link -->
       <div class="sidebar-divider"></div>
-      <a class="sidebar-link" href="#shopping" data-tab="shopping" onclick="switchTab('shopping');closeSidebarMobile();return false;"><span class="sl-icon">🛒</span> Shopping Lists</a>
-      <a class="sidebar-link" href="#cleaning" data-tab="cleaning" onclick="switchTab('cleaning');closeSidebarMobile();return false;"><span class="sl-icon">🧽</span> Cleaning Log<span class="cleaning-badge" id="cleaning-badge" style="display:none;"></span></a>
+      <a class="sidebar-link" href="#shopping" data-tab="shopping" onclick="switchTab('shopping');closeSidebarMobile();return false;" data-label="Shopping Lists"><span class="sl-icon">🛒</span><span class="sl-label">Shopping Lists</span></a>
+      <a class="sidebar-link" href="#cleaning" data-tab="cleaning" onclick="switchTab('cleaning');closeSidebarMobile();return false;" data-label="Cleaning Log"><span class="sl-icon">🧽</span><span class="sl-label">Cleaning Log</span><span class="cleaning-badge" id="cleaning-badge" style="display:none;"></span></a>
       <!-- PARKED: Paint sidebar shortcut -->
       <div class="sidebar-divider td-only"></div>
-      <a class="sidebar-link td-only" href="#sidework" data-tab="sidework" onclick="switchTab('sidework');closeSidebarMobile();return false;"><span class="sl-icon">🏫</span> Side Job Notes</a>
+      <a class="sidebar-link td-only" href="#sidework" data-tab="sidework" onclick="switchTab('sidework');closeSidebarMobile();return false;" data-label="Side Job Notes"><span class="sl-icon">🏫</span><span class="sl-label">Side Job Notes</span></a>
     </nav>
     <div class="sidebar-footer">Music Mountain Theatre</div>
   </div>
@@ -5774,7 +5810,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.17 v41</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.17 v42</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -10745,7 +10781,12 @@ function toggleSidebarCollapse() {
   const sidebar = document.getElementById('sidebar');
   const btn = document.getElementById('sidebar-collapse-btn');
   const collapsed = sidebar.classList.toggle('collapsed');
-  if (btn) btn.textContent = collapsed ? '›' : '‹';
+  if (btn) {
+    btn.textContent = collapsed ? '›' : '‹';
+    btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+    btn.setAttribute('aria-label', btn.title);
+    btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  }
   // Persist preference
   try { localStorage.setItem('mmt_sidebar_collapsed', collapsed ? '1' : '0'); } catch(e) {}
 }
@@ -10756,7 +10797,12 @@ function toggleSidebarCollapse() {
       const sidebar = document.getElementById('sidebar');
       const btn = document.getElementById('sidebar-collapse-btn');
       if (sidebar) { sidebar.classList.add('collapsed'); }
-      if (btn) btn.textContent = '›';
+      if (btn) {
+        btn.textContent = '›';
+        btn.title = 'Expand sidebar';
+        btn.setAttribute('aria-label', 'Expand sidebar');
+        btn.setAttribute('aria-expanded', 'false');
+      }
     }
   } catch(e) {}
 })();
