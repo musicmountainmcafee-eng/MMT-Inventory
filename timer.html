@@ -37,6 +37,8 @@ body.display #panel{display:none}
 #stage{display:none}
 body.display #stage{display:block;position:absolute;right:var(--edge-r);bottom:var(--edge-b);text-align:right;line-height:1}
 body.display.full #stage{right:auto;bottom:auto;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;--digit:18vw;--label:3vw;--note:2vw}
+body.display.full #big{white-space:nowrap;letter-spacing:-.03em;line-height:.9}
+body.display.full #slug,body.display.full #sub{white-space:nowrap}
 body.display.wings #big,body.display.wings #msg{color:#FF4A38}
 body.display.wings #slug,body.display.wings #sub{color:#93281C}
 #msg{font-size:calc(var(--label)*1.6);font-weight:700;letter-spacing:.18em;color:#fff;margin-bottom:.4em;display:none}
@@ -179,7 +181,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 
     <div class="card">
       <h2>Cue times</h2>
-      <p class="hint">Clock-time cues are minutes from curtain (−60 is an hour before) and roll over by themselves. Timed cues start when the SM presses GO.</p>
+      <p class="hint">Clock-time cues are minutes from curtain (−60 is an hour before) and roll over by themselves. Timed cues start when the SM presses GO. Acts count up from zero; breaks count down.</p>
       <div id="tpl"></div>
       <button class="quiet" id="addcue" style="width:100%;margin-top:6px">Add a cue</button>
     </div>
@@ -235,9 +237,9 @@ var DEFAULT={
     {name:'HOUSE OPEN',type:'anchor',offset:-30},
     {name:'SHOW START',type:'anchor',offset:0},
     {name:'CURTAIN SPEECH',type:'duration',minutes:3},
-    {name:'ACT 1',type:'duration',minutes:60},
+    {name:'ACT 1',type:'duration',minutes:60,up:true},
     {name:'INTERMISSION',type:'duration',minutes:15},
-    {name:'ACT 2',type:'duration',minutes:50}
+    {name:'ACT 2',type:'duration',minutes:50,up:true}
   ],
   messages:['PLACES','HOLD','5 MINUTES','STANDBY'],
   runs:[],
@@ -312,6 +314,9 @@ function cueList(){
   if(!a.length)a=[{name:'CURTAIN',type:'anchor',offset:0}];
   return {list:a.concat(d),nA:a.length};
 }
+// Acts count up; breaks and speeches count down. Older links without the
+// setting treat anything named ACT as count-up.
+function isUp(c){return c.type!=='anchor'&&(c.up!=null?!!c.up:/^ACT\b/i.test(c.name||''))}
 function leadMin(){return Math.min.apply(null,[0].concat(cfg.template.filter(function(c){return c.type==='anchor'}).map(function(c){return c.offset||0})))}
 function nextPerf(now){
   for(var i=0;i<60;i++){
@@ -379,6 +384,7 @@ function frame(now){
   }else{
     f.pos=idx;f.label=L[idx].name;f.paused=S.paused;
     f.ms=S.paused?S.left:S.target-now;f.when=S.target;
+    if(isUp(L[idx])){f.up=true;f.planned=(L[idx].minutes||0)*6e4;f.el=f.planned-f.ms}
     f.goNext=L[idx+1]?L[idx+1].name:'SHOW DOWN';
   }
   return f;
@@ -467,7 +473,7 @@ function paintPill(){
 
 function tick(){
   var now=Date.now(),f=frame(now),m=msgNow(now);
-  var tone=f.idle||f.done?'':(f.ms<0?'over':(f.ms<=12e4?'warn':''));
+  var tone=f.idle||f.done?'':f.up?(f.el>f.planned&&f.planned>0?'over':''):(f.ms<0?'over':(f.ms<=12e4?'warn':''));
 
   // display layer
   if(f.idle){
@@ -477,9 +483,9 @@ function tick(){
     $('sub').textContent=f.next?(dayLabel(f.next.date,true).split(',')[0].toUpperCase()+'  '+pretty(f.next.time)):'';
   }else{
     $('slug').textContent=f.label;
-    $('big').textContent=countdown(f.ms).replace(/^\+/,f.done?'':'+');
+    $('big').textContent=f.up?fmt(f.el):countdown(f.ms);
     $('big').className=tone;
-    $('sub').textContent=f.done?'RUNNING TIME':f.paused?'HELD':f.auto?(f.ms<0?'CURTAIN WAS '+clockOf(f.when):'AT '+clockOf(f.when)):(f.ms<0?'OVER':'ENDS '+clockOf(f.when));
+    $('sub').textContent=f.done?'RUNNING TIME':f.paused?'HELD':f.up?'PLANNED '+fmt(f.planned):f.auto?(f.ms<0?'CURTAIN WAS '+clockOf(f.when):'AT '+clockOf(f.when)):(f.ms<0?'OVER':'ENDS '+clockOf(f.when));
     if(f.done)$('big').textContent=fmt(f.ms);
   }
   $('msg').textContent=m||'';$('msg').classList.toggle('on',!!m);
@@ -490,10 +496,11 @@ function tick(){
     var d2=new Date(now);$('iclock').textContent=clockOf(now).replace(/ (AM|PM)$/,'');
   }else{
     $('cslug').textContent=f.label;
-    $('cface').textContent=f.done?fmt(f.ms):countdown(f.ms);
+    $('cface').textContent=f.done?fmt(f.ms):f.up?fmt(f.el):countdown(f.ms);
     $('cface').className='face '+tone;
     $('cends').textContent=f.done?'Running time, down at '+clockOf(f.when)
       :f.paused?'Held'
+      :f.up?'Planned '+fmt(f.planned)+(f.el>f.planned&&f.planned>0?', over by '+fmt(f.el-f.planned):'')
       :f.auto?(f.ms<0?'Curtain was '+clockOf(f.when)+'. Press GO to start.':'At '+clockOf(f.when))
       :(f.ms<0?'Over since '+clockOf(f.when):'Ends '+clockOf(f.when));
     $('cmsg').textContent=m||'';$('cmsg').classList.toggle('on',!!m);
@@ -529,7 +536,7 @@ function tick(){
     $('gonext').textContent=f.done?'':f.goNext;
     $('hold').textContent=f.paused?'Resume':'Hold';
     $('hold').classList.toggle('on',!!f.paused);
-    $('hold').disabled=$('plus').disabled=!!(f.auto||f.done);
+    $('hold').disabled=!!(f.auto||f.done);$('plus').disabled=!!(f.auto||f.done||f.up);
     $('back').disabled=f.idx==null;
 
     var mw=$('msgs');mw.innerHTML='';
@@ -548,7 +555,7 @@ function tick(){
       if(i<f.nA)wh=clockOf(f.perf.curtain+(c.offset||0)*6e4);
       else{
         var hit=null;for(var j=S.log.length-1;j>=0;j--)if(S.log[j].i===i){hit=S.log[j];break}
-        wh=(c.minutes||0)+' min'+(hit&&S.key===f.perf.key?', went '+clockOf(hit.at):'');
+        wh=(c.minutes||0)+' min'+(isUp(c)?' up':'')+(hit&&S.key===f.perf.key?', went '+clockOf(hit.at):'');
       }
       li.querySelector('.wh').textContent=wh;
       if(i>=f.nA)li.onclick=function(){
@@ -582,7 +589,24 @@ function report(f){
   return lines.join('\n');
 }
 
-setInterval(tick,250);
+// Full-screen display: size the digits to fill the screen. Digits are all the
+// same width, so this only needs redoing when the character count or the
+// window size changes.
+var fitKey='';
+function fit(){
+  if(!isDisplay||!document.body.classList.contains('full'))return;
+  var big=$('big'),st=$('stage'),k=big.textContent.length+'|'+innerWidth+'|'+innerHeight+'|'+(!!$('msg').textContent);
+  if(k===fitKey)return;fitKey=k;
+  st.style.setProperty('--digit','100px');
+  var w=big.scrollWidth||1,h=big.offsetHeight||1;
+  var room=$("msg").textContent?0.52:0.64;          // leave space for the cue name and deck call
+  var size=Math.min(innerWidth*0.96/w*100,innerHeight*room/h*100);
+  st.style.setProperty('--digit',size+'px');
+  st.style.setProperty('--label',Math.max(18,size*0.16)+'px');
+  st.style.setProperty('--note',Math.max(14,size*0.1)+'px');
+}
+window.addEventListener('resize',function(){fitKey='';fit()});
+setInterval(function(){tick();fit()},250);
 
 // ---------- controls ----------
 $('go').onclick=go;
@@ -610,7 +634,7 @@ document.addEventListener('keydown',function(e){
   if(tag==='input'||tag==='textarea'||tag==='select')return;
   if(isDisplay){
     if(e.key==='w')toggleWings();
-    if(e.key==='f')document.body.classList.toggle('full');
+    if(e.key==='f'){document.body.classList.toggle('full');$('stage').removeAttribute('style');fitKey='';fit()}
     return;
   }
   if(!$('settings').hidden)return;
@@ -714,11 +738,12 @@ function drawTpl(){
     var nm=document.createElement('input');nm.value=c.name;
     nm.oninput=function(){c.name=nm.value.toUpperCase();persist()};
     var ty=document.createElement('select');
-    ty.innerHTML='<option value="anchor">Clock time</option><option value="duration">Timed, min</option>';
-    ty.value=c.type;
+    ty.innerHTML='<option value="anchor">Clock time</option><option value="down">Count down</option><option value="up">Count up</option>';
+    ty.value=c.type==='anchor'?'anchor':isUp(c)?'up':'down';
     ty.onchange=function(){
-      c.type=ty.value;
-      if(c.type==='anchor'){c.offset=-(c.minutes||30);delete c.minutes}else{c.minutes=Math.abs(c.offset||10);delete c.offset}
+      var was=c.type;
+      if(ty.value==='anchor'){c.type='anchor';c.offset=-(c.minutes||30);delete c.minutes;delete c.up}
+      else{c.type='duration';if(was==='anchor'){c.minutes=Math.abs(c.offset||10);delete c.offset}c.up=ty.value==='up'}
       persist();drawTpl();
     };
     var n=document.createElement('input');n.type='number';n.inputMode='numeric';
