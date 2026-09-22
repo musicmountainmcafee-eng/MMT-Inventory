@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
+<!-- Version 1.7. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -43,6 +44,9 @@ body.display.full #big{white-space:nowrap;letter-spacing:-.03em;line-height:.9}
 body.display.full #slug,body.display.full #sub{white-space:nowrap}
 body.display.wings #big,body.display.wings #msg{color:#FF4A38}
 body.display.wings #slug,body.display.wings #sub{color:#93281C}
+#ver{position:fixed;left:2vw;bottom:2vh;font-size:14px;letter-spacing:.1em;color:#9EA4A6;transition:opacity 1s}
+#ver.gone{opacity:0}
+.version{text-align:center;font-size:12px;color:var(--dim);margin-top:18px}
 #msg{font-size:calc(var(--label)*1.6);font-weight:700;letter-spacing:.18em;color:#fff;margin-bottom:.4em;display:none}
 #msg.on{display:block;animation:pulse 1.6s steps(1,end) infinite}
 @keyframes pulse{0%,60%{opacity:1}61%,100%{opacity:0}}
@@ -121,6 +125,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 </head>
 <body>
 
+<div id="ver" hidden></div>
 <div id="stage">
   <div id="msg"></div>
   <div id="slug"></div>
@@ -174,6 +179,8 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
     <button class="quiet" id="reset">Reset show</button>
     <button class="quiet" id="screen">Open display</button>
   </div>
+
+  <div class="version" id="vercontrol"></div>
 
   <div id="settings" hidden style="margin-top:18px">
     <div class="field"><label>Stage</label>
@@ -236,6 +243,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
+var VERSION='1.7';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -878,6 +886,17 @@ function drawPreview(){
     });
   }
   if(!found)box.innerHTML='<p class="muted">Nothing in the next two weeks. The display stays on the wall clock.</p>';
+}
+
+// ---------- version ----------
+// Controllers show it at the bottom of the page. A display shows it in the
+// corner for ten seconds after it loads, then fades it out so it's not in
+// the camera feed, which is enough to confirm a screen picked up a new copy.
+$('vercontrol').textContent='Show Timer '+VERSION;
+if(isDisplay){
+  $('ver').textContent='VERSION '+VERSION;$('ver').hidden=false;
+  setTimeout(function(){$('ver').classList.add('gone')},10000);
+  setTimeout(function(){$('ver').hidden=true},11500);
 }
 
 // ---------- start ----------
