@@ -177,7 +177,10 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
     <h2>Runs</h2>
     <p class="hint">One production and the weeks it plays. Type curtain times per day, like 2:00 PM, 8:00 PM. Leave a day blank for no show.</p>
     <div id="runs"></div>
-    <button class="quiet" id="addrun" style="width:100%;margin-bottom:20px">Add a run</button>
+    <div class="row" style="margin-bottom:20px">
+      <button class="quiet" id="importdash">Import from dashboard</button>
+      <button class="quiet" id="addrun">Add a run</button>
+    </div>
 
     <div class="card">
       <h2>Cue times</h2>
@@ -707,7 +710,7 @@ function drawRuns(){
       var l=document.createElement('div');l.className='d';l.textContent=d[1];
       var i=document.createElement('input');
       i.value=(run.pattern[d[0]]||[]).map(pretty).join(', ');
-      i.placeholder=d[0]==='sat'?'2:00 PM, 8:00 PM':'';
+      i.placeholder='';
       i.onchange=function(){run.pattern[d[0]]=parseTimes(i.value);i.value=run.pattern[d[0]].map(pretty).join(', ');persist()};
       g.appendChild(l);g.appendChild(i);
     });
@@ -725,9 +728,43 @@ function drawRuns(){
     box.appendChild(el);
   });
 }
+// Mainstage weekend: Fri 8, Sat 2 and 8, Sun 2
+var WEEKEND={fri:['20:00'],sat:['14:00','20:00'],sun:['14:00']};
+// Snapshot of the dashboard's Mainstage list, used when this device has never
+// opened the dashboard. Same origin on GitHub Pages, so a device that has
+// opened it gets the live list (including any shows you've edited there).
+var DASH_SNAPSHOT=[
+  {name:'The Cher Show',start:'2026-09-04',end:'2026-09-27'},
+  {name:'And Then There Were None',start:'2026-10-02',end:'2026-10-18'},
+  {name:"It's a Wonderful Life",start:'2026-10-23',end:'2026-11-15'},
+  {name:'A Christmas Carol',start:'2026-11-20',end:'2026-12-13'},
+  {name:'Big Band Holiday Concert',start:'2026-12-18',end:'2026-12-20'}
+];
+function dashboardShows(){
+  try{
+    var st=JSON.parse(sget('mmt_shows')||'null');
+    if(st&&Array.isArray(st.mainstage)&&st.mainstage.length)return {list:st.mainstage,live:true};
+    var ms=JSON.parse(sget('mmt_shows_ms')||'null');
+    if(Array.isArray(ms)&&ms.length)return {list:ms.map(function(x){return {name:x.name,start:x.start||x.startDate,end:x.end||x.endDate}}),live:true};
+  }catch(e){}
+  return {list:DASH_SNAPSHOT,live:false};
+}
+$('importdash').onclick=function(){
+  var src=dashboardShows(),today=ymd(new Date()),added=0,updated=0,btn=this;
+  src.list.forEach(function(sh){
+    if(!sh||!sh.name||!sh.start||!sh.end||sh.end<today)return;
+    var hit=cfg.runs.filter(function(r){return (r.show||'').toLowerCase()===sh.name.toLowerCase()})[0];
+    if(hit){if(hit.start!==sh.start||hit.end!==sh.end){hit.start=sh.start;hit.end=sh.end;updated++}return}
+    cfg.runs.push({show:sh.name,start:sh.start,end:sh.end,pattern:clone(WEEKEND),exceptions:[]});added++;
+  });
+  cfg.runs.sort(function(a,b){return (a.start||'').localeCompare(b.start||'')});
+  persist();drawRuns();
+  btn.textContent=added||updated?('Added '+added+(updated?', updated '+updated:'')):'Already up to date';
+  setTimeout(function(){btn.textContent='Import from dashboard'},2500);
+};
 $('addrun').onclick=function(){
   var s=new Date(),e=new Date();e.setDate(e.getDate()+21);
-  cfg.runs.push({show:'',start:ymd(s),end:ymd(e),pattern:{fri:['19:30'],sat:['14:00','19:30'],sun:['14:00']},exceptions:[]});
+  cfg.runs.push({show:'',start:ymd(s),end:ymd(e),pattern:clone(WEEKEND),exceptions:[]});
   persist();drawRuns();
 };
 
