@@ -174,8 +174,10 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
   </div>
 
   <div id="settings" hidden style="margin-top:18px">
+    <div class="field"><label>Stage</label>
+      <select id="stagesel"><option value="main">Mainstage</option><option value="kids">Children's Theatre</option></select></div>
     <h2>Runs</h2>
-    <p class="hint">One production and the weeks it plays. Type curtain times per day, like 2:00 PM, 8:00 PM. Leave a day blank for no show.</p>
+    <p class="hint">One production and the weeks it plays. Type show times per day, like 2:00 PM, 8:00 PM. Leave a day blank for no show.</p>
     <div id="runs"></div>
     <div class="row" style="margin-bottom:20px">
       <button class="quiet" id="importdash">Import from dashboard</button>
@@ -184,7 +186,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 
     <div class="card">
       <h2>Cue times</h2>
-      <p class="hint">Clock-time cues are minutes from curtain (−60 is an hour before) and roll over by themselves. Timed cues start when the SM presses GO. Acts count up from zero; breaks count down.</p>
+      <p class="hint">Clock-time cues are minutes from show time (−60 is an hour before) and roll over by themselves. Timed cues start when the SM presses GO. Curtain speech and acts count up from zero; intermission counts down.</p>
       <div id="tpl"></div>
       <button class="quiet" id="addcue" style="width:100%;margin-top:6px">Add a cue</button>
     </div>
@@ -239,7 +241,7 @@ var DEFAULT={
     {name:'MIC CHECK',type:'anchor',offset:-45},
     {name:'HOUSE OPEN',type:'anchor',offset:-30},
     {name:'SHOW START',type:'anchor',offset:0},
-    {name:'CURTAIN SPEECH',type:'duration',minutes:3},
+    {name:'CURTAIN SPEECH',type:'duration',minutes:3,up:true},
     {name:'ACT 1',type:'duration',minutes:60,up:true},
     {name:'INTERMISSION',type:'duration',minutes:15},
     {name:'ACT 2',type:'duration',minutes:50,up:true}
@@ -287,7 +289,7 @@ function parseTimes(str){return String(str).split(',').map(function(t){return t.
   var m=t.match(/^(\d{1,2}):?(\d{2})?\s*(a|p)?/i);if(!m)return null;
   var h=Number(m[1]),mi=Number(m[2]||0),ap=(m[3]||'').toLowerCase();
   if(ap==='p'&&h<12)h+=12;if(ap==='a'&&h===12)h=0;
-  if(!ap&&h>=1&&h<=11)h+=12;              // "7:30" means evening, nobody curtains at 7:30 AM
+  if(!ap&&h>=1&&h<=9)h+=12;               // no AM/PM: 1-9 is afternoon/evening, 10-11 morning
   if(h>23||mi>59)return null;
   return pad(h)+':'+pad(mi);
 }).filter(Boolean).sort()}
@@ -314,12 +316,12 @@ function cueList(){
   var a=[],d=[];
   cfg.template.forEach(function(c){(c.type==='anchor'?a:d).push(c)});
   a.sort(function(x,y){return (x.offset||0)-(y.offset||0)});
-  if(!a.length)a=[{name:'CURTAIN',type:'anchor',offset:0}];
+  if(!a.length)a=[{name:'SHOW START',type:'anchor',offset:0}];
   return {list:a.concat(d),nA:a.length};
 }
 // Acts count up; breaks and speeches count down. Older links without the
 // setting treat anything named ACT as count-up.
-function isUp(c){return c.type!=='anchor'&&(c.up!=null?!!c.up:/^ACT\b/i.test(c.name||''))}
+function isUp(c){return c.type!=='anchor'&&(c.up!=null?!!c.up:/^(ACT|SHOW|CURTAIN SPEECH)\b/i.test(c.name||''))}
 function leadMin(){return Math.min.apply(null,[0].concat(cfg.template.filter(function(c){return c.type==='anchor'}).map(function(c){return c.offset||0})))}
 function nextPerf(now){
   for(var i=0;i<60;i++){
@@ -356,9 +358,19 @@ function activePerf(now){
   var ps=perfsOn(ymd(new Date(now)));
   // Walk backwards: on a two-show Saturday the evening's window takes over
   // the moment it opens instead of the matinee hanging around.
+  // A later show's window opens 90 min before its call, but never before the
+  // earlier show is 30 min past curtain, and never while that show is still
+  // running (11:00 and 1:00 kids shows overlap otherwise)...
+  var len=cueList().list.length;
   for(var i=ps.length-1;i>=0;i--){
-    var p=ps[i];
-    if(now<p.curtain+leadMin()*6e4-90*6e4)continue;
+    var p=ps[i],prev=ps[i-1];
+    var opens=p.curtain+leadMin()*6e4-90*6e4;
+    if(prev)opens=Math.max(opens,prev.curtain+30*6e4);
+    if(now<opens)continue;
+    // ...but a forgotten final GO can't hold it forever: the earlier show lets go
+    // 3 hours after its curtain or 30 min before this one's, whichever comes first.
+    var holdUntil=prev?Math.min(prev.curtain+3*36e5,p.curtain-30*6e4):0;
+    if(prev&&S.key===prev.key&&S.idx!=null&&S.idx<len&&now<holdUntil)continue;
     if(isDone(p))return now-S.target<20*6e4?p:null;
     var running=S.key===p.key&&S.idx!=null&&now-p.curtain<8*36e5;
     if(running||now<p.curtain+4*36e5)return p;
@@ -379,7 +391,8 @@ function frame(now){
     for(var i=0;i<C.nA;i++){if(p.curtain+(L[i].offset||0)*6e4>now){k=i;break}}
     if(k<0)k=C.nA-1;
     var when=p.curtain+(L[k].offset||0)*6e4;
-    f.pos=k;f.label=L[k].name;f.ms=when-now;f.when=when;f.auto=true;
+    f.pos=k;f.cue=L[k].name;f.ms=when-now;f.when=when;f.auto=true;
+    f.label=f.ms<0?'HOUSE HOLD':L[k].name+' IN';
     f.goNext=L[C.nA]?L[C.nA].name:'SHOW DOWN';
   }else if(idx>=L.length){
     var up=firstUp();
@@ -393,6 +406,7 @@ function frame(now){
   return f;
 }
 function firstUp(){var nA=cueList().nA;for(var i=0;i<S.log.length;i++)if(S.log[i].i>=nA)return S.log[i].at;return null}
+function cap(t){t=String(t).toLowerCase();return t.charAt(0).toUpperCase()+t.slice(1)}
 function msgNow(now){return S.msg&&now-S.msg.at<60*6e4?S.msg.text:null}
 
 // ---------- actions ----------
@@ -432,25 +446,54 @@ function call(text){
 }
 
 // ---------- sync over ntfy.sh (free, no account, no install) ----------
-var es=null,syncState='off',retry=null;
-function connect(){
+// Live updates come over a WebSocket. The first version used EventSource
+// (server-sent events), and Safari on iPad can sit on each event until the next
+// one arrives, so the iPad showed the previous cue. WebSocket frames arrive
+// whole. EventSource stays as a fallback, and a slow catch-up check runs every
+// minute and whenever a screen wakes up, in case anything was missed.
+var ws=null,es=null,syncState='off',retry=null,backoff=2000;
+function topicUrl(){return SYNC_HOST+encodeURIComponent(cfg.sync)}
+function handle(txt){
+  var m,s;try{m=JSON.parse(txt)}catch(x){return}
+  if(!m||(m.event&&m.event!=='message'))return;
+  try{s=JSON.parse(m.message)}catch(x){return}
+  receive(s);
+}
+function hangUp(){
+  if(ws){ws.onopen=ws.onmessage=ws.onclose=ws.onerror=null;try{ws.close()}catch(e){}ws=null}
   if(es){try{es.close()}catch(e){}es=null}
   clearTimeout(retry);
-  if(!cfg.sync||typeof EventSource==='undefined'){syncState='off';return}
-  syncState='connecting';
-  try{es=new EventSource(SYNC_HOST+encodeURIComponent(cfg.sync)+'/sse?since=latest')}catch(e){syncState='down';return}
-  es.onopen=function(){syncState='live';paintPill()};
-  es.onerror=function(){
-    syncState='down';paintPill();
-    if(es&&es.readyState===2){retry=setTimeout(connect,10000)}   // closed for good: retry ourselves
-  };
-  es.onmessage=function(e){
-    var m,s;try{m=JSON.parse(e.data)}catch(x){return}
-    if(m.event&&m.event!=='message')return;
-    try{s=JSON.parse(m.message)}catch(x){return}
-    receive(s);
-  };
 }
+function again(){clearTimeout(retry);retry=setTimeout(connect,backoff);backoff=Math.min(backoff*2,30000)}
+function connect(){
+  hangUp();
+  if(!cfg.sync){syncState='off';paintPill();return}
+  syncState='connecting';paintPill();
+  if(typeof WebSocket!=='undefined'){
+    try{ws=new WebSocket(topicUrl().replace(/^http/,'ws')+'/ws?since=latest')}catch(e){ws=null}
+  }
+  if(ws){
+    ws.onopen=function(){syncState='live';backoff=2000;paintPill()};
+    ws.onmessage=function(e){handle(e.data)};
+    ws.onclose=function(){ws=null;syncState='down';paintPill();again()};
+    ws.onerror=function(){};
+    return;
+  }
+  if(typeof EventSource==='undefined'){syncState='off';paintPill();return}
+  try{es=new EventSource(topicUrl()+'/sse?since=latest')}catch(e){syncState='down';paintPill();again();return}
+  es.onopen=function(){syncState='live';backoff=2000;paintPill()};
+  es.onerror=function(){syncState='down';paintPill();if(es&&es.readyState===2)again()};
+  es.onmessage=function(e){handle(e.data)};
+}
+function catchUp(){
+  if(!cfg.sync||typeof fetch==='undefined')return;
+  fetch(topicUrl()+'/json?poll=1&since=latest')
+    .then(function(r){return r.ok?r.text():''})
+    .then(function(t){String(t).split('\n').forEach(function(line){if(line.trim())handle(line)})})
+    .catch(function(){});
+}
+setInterval(catchUp,60000);
+function linkUp(){return (ws&&ws.readyState===1)||(es&&es.readyState===1)}
 function publish(){
   if(!cfg.sync||typeof fetch==='undefined')return;
   fetch(SYNC_HOST+encodeURIComponent(cfg.sync),{method:'POST',body:JSON.stringify(S)})
@@ -458,7 +501,7 @@ function publish(){
     .catch(function(){syncState='down';paintPill()});
 }
 document.addEventListener('visibilitychange',function(){
-  if(document.visibilityState==='visible'){if(!es||es.readyState!==1)connect();wake()}
+  if(document.visibilityState==='visible'){if(!linkUp())connect();catchUp();wake()}
 });
 window.addEventListener('online',connect);
 
@@ -488,7 +531,7 @@ function tick(){
     $('slug').textContent=f.label;
     $('big').textContent=f.up?fmt(f.el):countdown(f.ms);
     $('big').className=tone;
-    $('sub').textContent=f.done?'RUNNING TIME':f.paused?'HELD':f.up?'PLANNED '+fmt(f.planned):f.auto?(f.ms<0?'CURTAIN WAS '+clockOf(f.when):'AT '+clockOf(f.when)):(f.ms<0?'OVER':'ENDS '+clockOf(f.when));
+    $('sub').textContent=f.done?'RUNNING TIME':f.paused?'HELD':f.up?'PLANNED '+fmt(f.planned):f.auto?(f.ms<0?f.cue+' WAS '+clockOf(f.when):'AT '+clockOf(f.when)):(f.ms<0?'OVER':'ENDS '+clockOf(f.when));
     if(f.done)$('big').textContent=fmt(f.ms);
   }
   $('msg').textContent=m||'';$('msg').classList.toggle('on',!!m);
@@ -504,7 +547,7 @@ function tick(){
     $('cends').textContent=f.done?'Running time, down at '+clockOf(f.when)
       :f.paused?'Held'
       :f.up?'Planned '+fmt(f.planned)+(f.el>f.planned&&f.planned>0?', over by '+fmt(f.el-f.planned):'')
-      :f.auto?(f.ms<0?'Curtain was '+clockOf(f.when)+'. Press GO to start.':'At '+clockOf(f.when))
+      :f.auto?(f.ms<0?'Late start. '+cap(f.cue)+' was '+clockOf(f.when)+'. Press GO to begin.':'At '+clockOf(f.when))
       :(f.ms<0?'Over since '+clockOf(f.when):'Ends '+clockOf(f.when));
     $('cmsg').textContent=m||'';$('cmsg').classList.toggle('on',!!m);
   }
@@ -519,21 +562,21 @@ function tick(){
   $('reset').hidden=f.idle||(f.idx==null&&!S.adhoc);
 
   if(f.idle){
-    $('title').textContent='Show timer';
+    $('title').textContent=cfg.stage==='kids'?"Children's Theatre":'Mainstage';
     var today=perfsOn(ymd(new Date(now)));
     $('subtitle').textContent=today.length?'Standing by':'No performance today';
     $('idletext').innerHTML='';
     if(f.next){
       var a=document.createElement('div');a.style.cssText='font-weight:600;margin-bottom:4px';a.textContent='Next: '+f.next.show;
       var b=document.createElement('div');b.className='muted';
-      b.textContent=dayLabel(f.next.date,true)+', curtain '+pretty(f.next.time)+', call '+clockOf(f.next.curtain+leadMin()*6e4);
+      b.textContent=dayLabel(f.next.date,true)+', show '+pretty(f.next.time)+', call '+clockOf(f.next.curtain+leadMin()*6e4);
       $('idletext').appendChild(a);$('idletext').appendChild(b);
     }else{
       $('idletext').innerHTML='<p class="muted">Nothing on the calendar. Tap Schedule to add a run, or start a run-through.</p>';
     }
   }else{
     $('title').textContent=f.perf.show;
-    $('subtitle').textContent=S.adhoc&&f.perf===S.adhoc?'Started '+clockOf(f.perf.curtain):dayLabel(f.perf.date)+', '+pretty(f.perf.time)+' curtain';
+    $('subtitle').textContent=S.adhoc&&f.perf===S.adhoc?'Started '+clockOf(f.perf.curtain):dayLabel(f.perf.date)+', '+pretty(f.perf.time)+' show';
     $('go').disabled=!!f.done;
     $('go').querySelector('.l').textContent=f.done?'SHOW DOWN':'GO';
     $('gonext').textContent=f.done?'':f.goNext;
@@ -657,7 +700,7 @@ $('setup').onclick=function(){
   if(!s.hidden){
     if(!cfg.sync){cfg.sync=newCode();persist();connect()}
     drawRuns();drawTpl();
-    $('msgedit').value=cfg.messages.join('\n');$('synccode').value=cfg.sync;
+    $('msgedit').value=cfg.messages.join('\n');$('synccode').value=cfg.sync;$('stagesel').value=cfg.stage||'main';
     drawPreview();drawLinks();s.scrollIntoView({behavior:'smooth'});
   }
 };
@@ -680,6 +723,7 @@ function persist(){
   drawPreview();drawLinks();sig='';
 }
 
+$('stagesel').onchange=function(){cfg.stage=this.value;persist();draw()};
 $('msgedit').oninput=function(){cfg.messages=this.value.split('\n').map(function(x){return x.trim().toUpperCase()}).filter(Boolean);persist()};
 $('synccode').onchange=function(){
   cfg.sync=this.value.trim().replace(/[^A-Za-z0-9_-]/g,'').slice(0,64);this.value=cfg.sync;persist();connect();
@@ -730,9 +774,17 @@ function drawRuns(){
 }
 // Mainstage weekend: Fri 8, Sat 2 and 8, Sun 2
 var WEEKEND={fri:['20:00'],sat:['14:00','20:00'],sun:['14:00']};
+var KIDS_WEEKEND={sat:['11:00','13:00']};
+function stageWeekend(){return clone(cfg.stage==='kids'?KIDS_WEEKEND:WEEKEND)}
 // Snapshot of the dashboard's Mainstage list, used when this device has never
 // opened the dashboard. Same origin on GitHub Pages, so a device that has
 // opened it gets the live list (including any shows you've edited there).
+var DASH_SNAPSHOT_KIDS=[
+  {name:'Lion King Kids',start:'2026-09-12',end:'2026-09-26'},
+  {name:'The Great Pumpkin',start:'2026-10-10',end:'2026-10-24'},
+  {name:'James and the Giant Peach',start:'2026-10-31',end:'2026-11-14'},
+  {name:'Frosty & Rudolph',start:'2026-11-28',end:'2026-12-19'}
+];
 var DASH_SNAPSHOT=[
   {name:'The Cher Show',start:'2026-09-04',end:'2026-09-27'},
   {name:'And Then There Were None',start:'2026-10-02',end:'2026-10-18'},
@@ -741,13 +793,14 @@ var DASH_SNAPSHOT=[
   {name:'Big Band Holiday Concert',start:'2026-12-18',end:'2026-12-20'}
 ];
 function dashboardShows(){
+  var kids=cfg.stage==='kids';
   try{
-    var st=JSON.parse(sget('mmt_shows')||'null');
-    if(st&&Array.isArray(st.mainstage)&&st.mainstage.length)return {list:st.mainstage,live:true};
-    var ms=JSON.parse(sget('mmt_shows_ms')||'null');
+    var st=JSON.parse(sget('mmt_shows')||'null'),arr=st&&(kids?st.childrens:st.mainstage);
+    if(Array.isArray(arr)&&arr.length)return {list:arr,live:true};
+    var ms=JSON.parse(sget(kids?'mmt_shows_ct':'mmt_shows_ms')||'null');
     if(Array.isArray(ms)&&ms.length)return {list:ms.map(function(x){return {name:x.name,start:x.start||x.startDate,end:x.end||x.endDate}}),live:true};
   }catch(e){}
-  return {list:DASH_SNAPSHOT,live:false};
+  return {list:kids?DASH_SNAPSHOT_KIDS:DASH_SNAPSHOT,live:false};
 }
 $('importdash').onclick=function(){
   var src=dashboardShows(),today=ymd(new Date()),added=0,updated=0,btn=this;
@@ -755,7 +808,7 @@ $('importdash').onclick=function(){
     if(!sh||!sh.name||!sh.start||!sh.end||sh.end<today)return;
     var hit=cfg.runs.filter(function(r){return (r.show||'').toLowerCase()===sh.name.toLowerCase()})[0];
     if(hit){if(hit.start!==sh.start||hit.end!==sh.end){hit.start=sh.start;hit.end=sh.end;updated++}return}
-    cfg.runs.push({show:sh.name,start:sh.start,end:sh.end,pattern:clone(WEEKEND),exceptions:[]});added++;
+    cfg.runs.push({show:sh.name,start:sh.start,end:sh.end,pattern:stageWeekend(),exceptions:[]});added++;
   });
   cfg.runs.sort(function(a,b){return (a.start||'').localeCompare(b.start||'')});
   persist();drawRuns();
@@ -764,7 +817,7 @@ $('importdash').onclick=function(){
 };
 $('addrun').onclick=function(){
   var s=new Date(),e=new Date();e.setDate(e.getDate()+21);
-  cfg.runs.push({show:'',start:ymd(s),end:ymd(e),pattern:clone(WEEKEND),exceptions:[]});
+  cfg.runs.push({show:'',start:ymd(s),end:ymd(e),pattern:stageWeekend(),exceptions:[]});
   persist();drawRuns();
 };
 
