@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 1.9. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.1. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -229,6 +229,13 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
     </div>
 
     <div class="card">
+      <h2>Stream Deck</h2>
+      <p class="hint">Each button below is a web address. In the Stream Deck app, drag a <b>Website</b> action (under System) onto a key, paste the address, and tick <b>GET request in background</b>. The key then works from anywhere with internet, with no computer needing the timer open. These addresses include the sync code, so tap <b>New code</b> and you'll need to redo them.</p>
+      <div id="deckkeys"></div>
+      <p class="hint" style="margin:14px 0 0">If the Stream Deck is plugged into the booth computer with the controller open and in front, <b>Hotkey</b> actions work too: Space GO, B back, H hold, + one minute, 1 to 9 the deck calls in order, 0 or Esc clears the call.</p>
+    </div>
+
+    <div class="card">
       <h2>Next two weeks</h2>
       <p class="hint">What the display will do.</p>
       <div id="preview" style="font-size:14px"></div>
@@ -258,7 +265,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='1.9';
+var VERSION='2.1';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -360,14 +367,43 @@ function nextPerf(now){
 // ---------- shared show state ----------
 // Every device holds a copy. Any press bumps n and goes out to the others;
 // the highest n wins, so a device that was asleep just adopts the latest.
-var BLANK={key:null,idx:null,target:0,paused:false,left:0,msg:null,log:[],adhoc:null,n:0,t:0,by:''};
+var BLANK={key:null,idx:null,target:0,paused:false,left:0,msg:null,log:[],adhoc:null,seen:[],n:0,t:0,by:''};
 var S;try{S=Object.assign({},BLANK,JSON.parse(sget('mmt-timer-shared')||'{}'))}catch(e){S=clone(BLANK)}
 var ME=Math.random().toString(36).slice(2,8);
 
+// Presses from a Stream Deck arrive as short commands ("cmd:go") that every
+// screen applies for itself, at the time the relay stamped on them, so they
+// all land on the same state without anyone re-sending it. S.seen remembers
+// which commands are already in the state so none is applied twice.
+var remoteAt=null;
+function nowMs(){return remoteAt||Date.now()}
 function commit(patch){
-  Object.assign(S,patch);S.n=(S.n||0)+1;S.t=Date.now();S.by=ME;
+  Object.assign(S,patch);S.n=(S.n||0)+1;
+  if(remoteAt){S.t=remoteAt;S.by='deck';sset('mmt-timer-shared',JSON.stringify(S));draw();return}
+  S.t=Date.now();S.by=ME;
   sset('mmt-timer-shared',JSON.stringify(S));
   publish();draw();
+}
+var DECK={
+  go:function(){go()},back:function(){back()},hold:function(){hold()},plus:function(){plusOne()},
+  clear:function(){if(S.msg)commit({msg:null})},
+  call:function(t){if(t)call(String(t).trim().toUpperCase())}
+};
+function applyCommand(text,id,at){
+  var m=String(text).match(/^cmd:([a-z]+)(?::(.*))?$/i);if(!m)return false;
+  var seen=S.seen||[];
+  if(id&&seen.indexOf(id)>=0)return true;
+  // anything older than this screen's state that it hasn't seen is from before
+  // the state was made; applying it now would replay an old press
+  if(at&&S.t&&at<S.t-5*6e4)return true;
+  var fn=DECK[m[1].toLowerCase()];
+  S.seen=seen.concat(id?[id]:[]).slice(-80);
+  if(!fn){sset('mmt-timer-shared',JSON.stringify(S));return true}
+  remoteAt=at||Date.now();
+  var arg=m[2]||'';try{arg=decodeURIComponent(arg)}catch(x){}
+  try{fn(arg)}catch(x){}finally{remoteAt=null}
+  sset('mmt-timer-shared',JSON.stringify(S));draw();
+  return true;
 }
 function receive(s){
   if(!s||typeof s.n!=='number')return;
@@ -458,7 +494,7 @@ function colorAt(c,f){
     var left=f.ms/1000;
     rules.forEach(function(r){if((r.at===0?left<=0:left<=r.at)&&(!best||r.at<best.at))best=r});
   }
-  return best?best.c:'white';
+  return best?best.c:(c.start||'white');
 }
 function parseClock(t){
   t=String(t).trim();if(!t)return null;
@@ -473,7 +509,7 @@ function msgNow(now){return S.msg&&now-S.msg.at<60*6e4?S.msg.text:null}
 
 // ---------- actions ----------
 function go(){
-  var now=Date.now(),f=frame(now);if(f.idle||f.done)return;
+  var now=nowMs(),f=frame(now);if(f.idle||f.done)return;
   var L=f.L,next=f.idx==null?f.nA:f.idx+1;
   var log=S.key===f.perf.key?S.log.slice():[];
   log.push({i:next,at:now});
@@ -481,29 +517,29 @@ function go(){
   else commit({key:f.perf.key,idx:next,target:now+(L[next].minutes||0)*6e4,paused:false,left:0,log:log,msg:null});
 }
 function back(){
-  var f=frame(Date.now());if(f.idle||f.idx==null)return;
+  var f=frame(nowMs());if(f.idle||f.idx==null)return;
   var log=S.log.slice();log.pop();
   var prev=f.idx-1;
   if(prev<f.nA){commit({idx:null,target:0,paused:false,log:[]});return}
-  var last=log[log.length-1],started=last?last.at:Date.now();
+  var last=log[log.length-1],started=last?last.at:nowMs();
   commit({idx:prev,target:started+(f.L[prev].minutes||0)*6e4,paused:false,log:log});
 }
 function jump(i){
-  var now=Date.now(),f=frame(now);if(f.idle)return;
+  var now=nowMs(),f=frame(now);if(f.idle)return;
   var log=S.key===f.perf.key?S.log.slice():[];log.push({i:i,at:now});
   commit({key:f.perf.key,idx:i,target:now+(f.L[i].minutes||0)*6e4,paused:false,left:0,log:log});
 }
 function hold(){
-  var f=frame(Date.now());if(f.idle||f.auto||f.done)return;
-  if(S.paused)commit({paused:false,target:Date.now()+S.left});
-  else commit({paused:true,left:S.target-Date.now()});
+  var f=frame(nowMs());if(f.idle||f.auto||f.done)return;
+  if(S.paused)commit({paused:false,target:nowMs()+S.left});
+  else commit({paused:true,left:S.target-nowMs()});
 }
 function plusOne(){
-  var f=frame(Date.now());if(f.idle||f.auto||f.done)return;
+  var f=frame(nowMs());if(f.idle||f.auto||f.done)return;
   if(S.paused)commit({left:S.left+6e4});else commit({target:S.target+6e4});
 }
 function call(text){
-  var now=Date.now(),cur=msgNow(now);
+  var now=nowMs(),cur=msgNow(now);
   commit({msg:cur===text?null:{text:text,at:now}});
 }
 
@@ -518,6 +554,7 @@ function topicUrl(){return SYNC_HOST+encodeURIComponent(cfg.sync)}
 function handle(txt){
   var m,s;try{m=JSON.parse(txt)}catch(x){return}
   if(!m||(m.event&&m.event!=='message'))return;
+  if(applyCommand(m.message,m.id,m.time?m.time*1000:null))return;
   try{s=JSON.parse(m.message)}catch(x){return}
   receive(s);
 }
@@ -535,7 +572,7 @@ function connect(){
     try{ws=new WebSocket(topicUrl().replace(/^http/,'ws')+'/ws?since=latest')}catch(e){ws=null}
   }
   if(ws){
-    ws.onopen=function(){syncState='live';backoff=2000;paintPill()};
+    ws.onopen=function(){syncState='live';backoff=2000;paintPill();catchUp()};
     ws.onmessage=function(e){handle(e.data)};
     ws.onclose=function(){ws=null;syncState='down';paintPill();again()};
     ws.onerror=function(){};
@@ -549,7 +586,7 @@ function connect(){
 }
 function catchUp(){
   if(!cfg.sync||typeof fetch==='undefined')return;
-  fetch(topicUrl()+'/json?poll=1&since=latest')
+  fetch(topicUrl()+'/json?poll=1&since=all')
     .then(function(r){return r.ok?r.text():''})
     .then(function(t){String(t).split('\n').forEach(function(line){if(line.trim())handle(line)})})
     .catch(function(){});
@@ -765,7 +802,13 @@ document.addEventListener('keydown',function(e){
     return;
   }
   if(!$('settings').hidden)return;
-  if(e.code==='Space'){e.preventDefault();go()}
+  if(e.code==='Space'){e.preventDefault();go();return}
+  var k=e.key.toLowerCase();
+  if(k==='b')back();
+  else if(k==='h')hold();
+  else if(k==='+'||k==='=')plusOne();
+  else if(k==='escape'||k==='0'){if(S.msg)commit({msg:null})}
+  else if(/^[1-9]$/.test(k)&&cfg.messages[Number(k)-1])call(cfg.messages[Number(k)-1]);
 });
 
 function copy(text,btn,label){
@@ -791,7 +834,24 @@ function linkFor(view){
   var base=location.href.split('#')[0];
   return base+'#s='+enc(cfg)+(view==='display'?'&v=display':view==='full'?'&v=display&mode=full':'');
 }
+function deckUrl(cmd){return topicUrl()+'/publish?message='+encodeURIComponent('cmd:'+cmd)}
+function drawDeck(){
+  var box=$('deckkeys');if(!box)return;box.innerHTML='';
+  if(!cfg.sync){box.innerHTML='<p class="muted">Turn on sync above first.</p>';return}
+  var keys=[['GO','go'],['Back','back'],['Hold / Resume','hold'],['+1 min','plus']]
+    .concat(cfg.messages.map(function(t){return [t,'call:'+t]}))
+    .concat([['Clear the call','clear']]);
+  keys.forEach(function(k){
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)';
+    var l=document.createElement('span');l.style.cssText='flex:1;font-weight:600;font-size:14px';l.textContent=k[0];
+    var b=document.createElement('button');b.className='small';b.textContent='Copy address';
+    b.onclick=function(){copy(deckUrl(k[1]),b,'Copy address')};
+    row.appendChild(l);row.appendChild(b);box.appendChild(row);
+  });
+}
 function drawLinks(){
+  drawDeck();
   $('lk-control').textContent=linkFor('');$('lk-display').textContent=linkFor('display');$('lk-full').textContent=linkFor('full');
 }
 Array.prototype.forEach.call(document.querySelectorAll('[data-copy]'),function(b){
@@ -943,7 +1003,8 @@ function colorEditor(c,i){
 
   // one-line summary that opens the menu: White > Yellow 2:00 > Red 0:00
   var btn=document.createElement('button');btn.className='colorbtn';
-  var html='<span class="sw" style="background:#fff"></span><span>White</span>';
+  var st=c.start||'white';
+  var html='<span class="sw" style="background:'+hexOf(st)+'"></span><span>'+nameOf(st)+'</span>';
   rules.forEach(function(r){
     html+='<span class="ar">\u203a</span><span class="sw" style="background:'+hexOf(r.c)+'"></span><span>'+nameOf(r.c)+' '+(!up&&r.at===0?'when over':fmt(r.at*1000))+'</span>';
   });
@@ -962,6 +1023,20 @@ function colorEditor(c,i){
       :'Counts down. Each color takes over once this much time is left. 0:00 means once it runs over.')
     +' Red, blue and green are darker than white and can drop out of the ATEM luma key; yellow, amber and orange hold.';
   panel.appendChild(hint);
+
+  var srow=document.createElement('div');srow.className='crule';
+  var slead=document.createElement('div');slead.className='lead';slead.style.gridColumn='1/-1';
+  slead.textContent='Starts '+nameOf(c.start||'white');
+  srow.appendChild(slead);
+  var ssw=document.createElement('div');ssw.className='swatches';
+  PALETTE.forEach(function(pc){
+    var b=document.createElement('button');b.style.background=pc[2];b.title=pc[1];b.setAttribute('aria-label','Start '+pc[1]);
+    if(pc[0]===(c.start||'white'))b.className='pick';
+    b.onclick=function(){if(pc[0]==='white')delete c.start;else c.start=pc[0];persist();drawTpl()};
+    ssw.appendChild(b);
+  });
+  srow.appendChild(ssw);
+  panel.appendChild(srow);
 
   if(!Array.isArray(c.colors))c.colors=rulesOf(c).map(function(r){return {at:r.at,c:r.c}});
   sortRules(c);
@@ -994,7 +1069,7 @@ function colorEditor(c,i){
   };
   panel.appendChild(add);
   var reset=document.createElement('button');reset.className='quiet small';reset.style.width='100%';reset.style.marginTop='8px';reset.textContent='Back to the standard colors';
-  reset.onclick=function(){delete c.colors;persist();drawTpl()};
+  reset.onclick=function(){delete c.colors;delete c.start;persist();drawTpl()};
   panel.appendChild(reset);
   box.appendChild(panel);
   return box;
