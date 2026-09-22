@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#101315">
+<title>MMT Show Timer</title>
+<style>
+:root{
+  --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
+  --type:#E9ECED;--dim:#8A9499;--go:#2FBF5C;--amber:#E8A317;--hot:#E2513F;
+  --radius:10px;
+  /* Display tuning: the only numbers you'd normally touch */
+  --digit:9vw;--label:2.1vw;--note:1.4vw;--edge-r:3.2vw;--edge-b:4vh;
+  --over:#FFB000;--standby:#FFD24A;--quiet:#9EA4A6;
+}
+body.wings{
+  --shell:#000;--panel:#0E0302;--raised:#1A0604;--line:#3A0C06;
+  --type:#FF4A38;--dim:#93281C;--go:#FF4A38;--amber:#FF4A38;--hot:#FF4A38;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{
+  min-height:100vh;background:var(--shell);color:var(--type);
+  font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;
+  -webkit-font-smoothing:antialiased;
+  padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));
+}
+#panel{max-width:620px;margin:0 auto}
+
+/* ---------- display view (the Wyse / ATEM feed) ---------- */
+body.display{background:#000;padding:0;overflow:hidden;cursor:none;height:100vh}
+body.display #panel{display:none}
+#stage{display:none}
+body.display #stage{display:block;position:absolute;right:var(--edge-r);bottom:var(--edge-b);text-align:right;line-height:1}
+body.display.full #stage{right:auto;bottom:auto;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;--digit:18vw;--label:3vw;--note:2vw}
+body.display.wings #big,body.display.wings #msg{color:#FF4A38}
+body.display.wings #slug,body.display.wings #sub{color:#93281C}
+#msg{font-size:calc(var(--label)*1.6);font-weight:700;letter-spacing:.18em;color:#fff;margin-bottom:.4em;display:none}
+#msg.on{display:block;animation:pulse 1.6s steps(1,end) infinite}
+@keyframes pulse{0%,60%{opacity:1}61%,100%{opacity:0}}
+#slug{font-size:var(--label);letter-spacing:.2em;color:var(--quiet);margin-bottom:.18em}
+#big{font-size:var(--digit);font-weight:600;letter-spacing:-.02em;color:#fff}
+#big.warn{color:var(--standby)}#big.over{color:var(--over)}
+#sub{font-size:var(--note);letter-spacing:.1em;color:var(--quiet);margin-top:.5em;min-height:1.2em}
+
+/* ---------- control view ---------- */
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.bar h1{font-size:17px;font-weight:600}
+.bar .sub{font-size:13px;color:var(--dim);margin-top:2px}
+.bar .right{display:flex;align-items:center;gap:8px;flex:none}
+.pill{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--dim);display:inline-block}
+.pill.live i{background:var(--go)}.pill.down i{background:var(--hot)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.note{border-color:var(--amber);color:var(--type);font-size:14px}
+.now{text-align:center;padding:22px 16px 18px}
+.now .slug{font-size:15px;letter-spacing:.2em;color:var(--dim);margin-bottom:8px}
+.now .face{font-size:68px;font-weight:600;line-height:1;letter-spacing:-.03em}
+.now .face.warn{color:var(--amber)}.now .face.over{color:var(--hot)}
+.now .ends{font-size:14px;color:var(--dim);margin-top:10px}
+.now .flag{display:none;margin:0 auto 12px;font-weight:700;letter-spacing:.18em;color:var(--shell);background:var(--amber);border-radius:6px;padding:6px 12px;width:max-content}
+.now .flag.on{display:block}
+
+button{font:inherit;font-weight:600;color:var(--type);background:var(--raised);border:1px solid var(--line);border-radius:var(--radius);padding:14px 12px;min-height:48px;cursor:pointer;touch-action:manipulation;transition:transform .06s}
+button:active{transform:scale(.98)}
+button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+button[disabled]{opacity:.35;cursor:default}
+button.go{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:96px;background:var(--go);border-color:var(--go);color:#05130A}
+button.go .l{font-size:32px;letter-spacing:.16em;line-height:1}
+button.go .n{font-size:13px;letter-spacing:.18em;opacity:.72;line-height:1}
+body.wings button.go{background:transparent;color:var(--go);border-width:2px}
+button.quiet{background:transparent;color:var(--dim);font-weight:500}
+button.small{min-height:36px;padding:8px 12px;font-size:13px}
+button.on{background:var(--amber);border-color:var(--amber);color:#140C00}
+body.wings button.on{background:transparent;color:var(--amber);border-width:2px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.msgs{display:flex;flex-wrap:wrap;gap:8px}
+.msgs button{flex:1 1 40%;min-height:52px;font-size:15px;letter-spacing:.12em}
+
+ul.cues{list-style:none}
+ul.cues li{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line)}
+ul.cues li.tap{cursor:pointer}
+ul.cues li:last-child{border-bottom:0}
+ul.cues .nm{flex:1;font-weight:600;letter-spacing:.08em;font-size:14px}
+ul.cues .wh{font-size:13px;color:var(--dim);text-align:right}
+ul.cues li.done .nm{color:var(--dim);font-weight:400}
+ul.cues li.live .nm{color:var(--go)}
+body.wings ul.cues li.live .nm{color:var(--type)}
+ul.cues .dot{width:8px;height:8px;border-radius:50%;background:var(--line);flex:none}
+ul.cues li.live .dot{background:var(--go)}ul.cues li.done .dot{background:var(--dim)}
+
+pre.report{font-family:inherit;font-size:13px;line-height:1.55;white-space:pre-wrap;color:var(--type);margin-bottom:12px}
+label{display:block;font-size:12px;color:var(--dim);margin-bottom:5px}
+input,select,textarea{font:inherit;width:100%;color:var(--type);background:var(--shell);border:1px solid var(--line);border-radius:8px;padding:11px 10px;min-height:44px}
+textarea{min-height:88px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber)}
+.field{margin-bottom:12px}
+.pair{display:flex;gap:10px}.pair>*{flex:1}
+.days{display:grid;grid-template-columns:48px 1fr;gap:8px 10px;align-items:center}
+.days .d{font-size:13px;color:var(--dim);font-weight:600}
+.days input{min-height:40px;padding:8px 10px}
+.cue{display:grid;grid-template-columns:1fr 112px 70px 36px;gap:8px;margin-bottom:8px;align-items:center}
+.cue input,.cue select{min-height:40px;padding:8px}
+.cue .x{background:transparent;border-color:transparent;color:var(--dim);min-height:40px;padding:0}
+.muted{color:var(--dim);font-size:13px}
+h2{font-size:15px;font-weight:600;margin-bottom:4px}
+.hint{font-size:13px;color:var(--dim);margin-bottom:14px;line-height:1.45}
+.link{word-break:break-all;font-size:12px;color:var(--dim);background:var(--shell);border:1px solid var(--line);border-radius:8px;padding:10px;margin:6px 0 8px;max-height:64px;overflow:hidden}
+.foot{display:flex;flex-wrap:wrap;gap:8px}.foot button{flex:1 1 30%;font-size:14px}
+[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="msg"></div>
+  <div id="slug"></div>
+  <div id="big">--:--</div>
+  <div id="sub"></div>
+</div>
+
+<div id="panel">
+  <div class="bar">
+    <div><h1 id="title">Show timer</h1><div class="sub" id="subtitle"></div></div>
+    <div class="right">
+      <span class="pill" id="pill"><i></i><span></span></span>
+      <button class="quiet small" id="wings">Wings</button>
+    </div>
+  </div>
+
+  <div class="card note" id="nosync" hidden>This link doesn't sync between devices yet. Tap Schedule, then copy the new link to every device.</div>
+
+  <div id="run">
+    <div class="card now">
+      <div class="flag" id="cmsg"></div>
+      <div class="slug" id="cslug"></div>
+      <div class="face" id="cface">--:--</div>
+      <div class="ends" id="cends"></div>
+    </div>
+    <button class="go" id="go"><span class="l">GO</span><span class="n" id="gonext"></span></button>
+    <div class="row" style="margin-top:10px">
+      <button id="hold">Hold</button><button id="plus">+1 min</button><button id="back">Back</button>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <label>Call the deck</label>
+      <div class="msgs" id="msgs"></div>
+    </div>
+    <div class="card"><ul class="cues" id="cuelist"></ul></div>
+  </div>
+
+  <div class="card" id="idlecard" hidden>
+    <div class="now" style="padding:10px 0 14px"><div class="face" id="iclock"></div></div>
+    <div id="idletext"></div>
+  </div>
+
+  <div class="card" id="reportcard" hidden>
+    <h2>Show report</h2>
+    <pre class="report" id="report"></pre>
+    <button class="small" id="copyreport">Copy report</button>
+  </div>
+
+  <div class="foot">
+    <button class="quiet" id="setup">Schedule</button>
+    <button class="quiet" id="rehearse">Start run-through</button>
+    <button class="quiet" id="reset">Reset show</button>
+    <button class="quiet" id="screen">Open display</button>
+  </div>
+
+  <div id="settings" hidden style="margin-top:18px">
+    <h2>Runs</h2>
+    <p class="hint">One production and the weeks it plays. Type curtain times per day, like 2:00 PM, 8:00 PM. Leave a day blank for no show.</p>
+    <div id="runs"></div>
+    <button class="quiet" id="addrun" style="width:100%;margin-bottom:20px">Add a run</button>
+
+    <div class="card">
+      <h2>Cue times</h2>
+      <p class="hint">Clock-time cues are minutes from curtain (−60 is an hour before) and roll over by themselves. Timed cues start when the SM presses GO.</p>
+      <div id="tpl"></div>
+      <button class="quiet" id="addcue" style="width:100%;margin-top:6px">Add a cue</button>
+    </div>
+
+    <div class="card">
+      <h2>Deck calls</h2>
+      <p class="hint">One per line. These are the buttons the SM taps to flash a call on the backstage screen.</p>
+      <textarea id="msgedit"></textarea>
+    </div>
+
+    <div class="card">
+      <h2>Sync between devices</h2>
+      <p class="hint">Every device on this link shares GO, holds and deck calls. It uses the internet; if the connection drops, each screen keeps counting from the last update it got and catches up when it's back. Anyone with the code can press GO, so keep the link inside the building.</p>
+      <label>Sync code</label>
+      <div class="row"><input id="synccode" autocomplete="off" spellcheck="false"><button class="small" id="newcode" style="flex:none">New code</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Next two weeks</h2>
+      <p class="hint">What the display will do.</p>
+      <div id="preview" style="font-size:14px"></div>
+    </div>
+
+    <div class="card">
+      <h2>Links</h2>
+      <p class="hint">The whole schedule is packed into these addresses. After you change anything here, send the new links to every device.</p>
+      <label>Controller (SM, booth, your phone)</label>
+      <div class="link" id="lk-control"></div>
+      <button class="small" data-copy="control">Copy controller link</button>
+      <div style="height:14px"></div>
+      <label>Backstage display, corner layout for the ATEM key</label>
+      <div class="link" id="lk-display"></div>
+      <button class="small" data-copy="display">Copy display link</button>
+      <div style="height:14px"></div>
+      <label>Full-screen display (green room, dressing rooms)</label>
+      <div class="link" id="lk-full"></div>
+      <button class="small" data-copy="full">Copy full-screen link</button>
+    </div>
+    <button id="done" style="width:100%">Done</button>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id)};
+var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
+var SYNC_HOST='https://ntfy.sh/';
+var DEFAULT={
+  template:[
+    {name:'CALL',type:'anchor',offset:-60},
+    {name:'MIC CHECK',type:'anchor',offset:-45},
+    {name:'HOUSE OPEN',type:'anchor',offset:-30},
+    {name:'SHOW START',type:'anchor',offset:0},
+    {name:'CURTAIN SPEECH',type:'duration',minutes:3},
+    {name:'ACT 1',type:'duration',minutes:60},
+    {name:'INTERMISSION',type:'duration',minutes:15},
+    {name:'ACT 2',type:'duration',minutes:50}
+  ],
+  messages:['PLACES','HOLD','5 MINUTES','STANDBY'],
+  runs:[],
+  sync:''
+};
+
+// ---------- storage that never throws ----------
+function sget(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sset(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function clone(o){return JSON.parse(JSON.stringify(o))}
+
+// ---------- the season rides in the address ----------
+function enc(o){return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_')}
+function dec(s){
+  if(!s)return null;
+  try{s=s.replace(/ /g,'+').replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';
+    return JSON.parse(decodeURIComponent(escape(atob(s))))}catch(e){return null}
+}
+function hp(k){var m=location.hash.match(new RegExp('[#&]'+k+'=([^&]*)'));return m?decodeURIComponent(m[1]):''}
+
+var cfg=dec(hp('s'))||dec(sget('mmt-timer-cfg'))||clone(DEFAULT);
+if(!cfg.template||!cfg.template.length)cfg.template=clone(DEFAULT.template);
+cfg.messages=cfg.messages||DEFAULT.messages.slice();
+cfg.runs=cfg.runs||[];
+cfg.sync=cfg.sync||'';
+sset('mmt-timer-cfg',enc(cfg));
+
+var isDisplay=hp('v')==='display';
+if(isDisplay)document.body.classList.add('display');
+if(hp('mode')==='full')document.body.classList.add('full');
+if(sget('mmt-wings')==='1')document.body.classList.add('wings');
+
+// ---------- dates ----------
+function pad(n){return String(n).padStart(2,'0')}
+function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function at(date,time){var a=date.split('-').map(Number),b=time.split(':').map(Number);return new Date(a[0],a[1]-1,a[2],b[0],b[1],0,0).getTime()}
+function dow(date){var a=date.split('-').map(Number);return ['sun','mon','tue','wed','thu','fri','sat'][new Date(a[0],a[1]-1,a[2]).getDay()]}
+function clockOf(ms){var d=new Date(ms),h=d.getHours();return (h%12||12)+':'+pad(d.getMinutes())+' '+(h>=12?'PM':'AM')}
+function pretty(t){var p=t.split(':'),h=Number(p[0]);return (h%12||12)+':'+p[1]+' '+(h>=12?'PM':'AM')}
+function dayLabel(date,long){var a=date.split('-').map(Number);return new Date(a[0],a[1]-1,a[2]).toLocaleDateString(undefined,{weekday:long?'long':'short',month:'short',day:'numeric'})}
+function parseTimes(str){return String(str).split(',').map(function(t){return t.trim()}).filter(Boolean).map(function(t){
+  var m=t.match(/^(\d{1,2}):?(\d{2})?\s*(a|p)?/i);if(!m)return null;
+  var h=Number(m[1]),mi=Number(m[2]||0),ap=(m[3]||'').toLowerCase();
+  if(ap==='p'&&h<12)h+=12;if(ap==='a'&&h===12)h=0;
+  if(!ap&&h>=1&&h<=11)h+=12;              // "7:30" means evening, nobody curtains at 7:30 AM
+  if(h>23||mi>59)return null;
+  return pad(h)+':'+pad(mi);
+}).filter(Boolean).sort()}
+function fmt(ms){
+  var t=Math.max(0,Math.floor(ms/1000)),h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;
+  return h>0?h+':'+pad(m)+':'+pad(s):m+':'+pad(s);
+}
+function countdown(ms){return ms>=0?fmt(Math.ceil(ms/1000)*1000):'+'+fmt(-ms)}
+
+// ---------- schedule ----------
+function perfsOn(date){
+  var out=[];
+  cfg.runs.forEach(function(r){
+    if(!r.start||!r.end||date<r.start||date>r.end)return;
+    if((r.exceptions||[]).indexOf(date)>=0)return;
+    ((r.pattern||{})[dow(date)]||[]).forEach(function(t){
+      out.push({key:date+'T'+t,show:r.show||'Performance',date:date,time:t,curtain:at(date,t)});
+    });
+  });
+  out.sort(function(a,b){return a.curtain-b.curtain});
+  return out;
+}
+function cueList(){
+  var a=[],d=[];
+  cfg.template.forEach(function(c){(c.type==='anchor'?a:d).push(c)});
+  a.sort(function(x,y){return (x.offset||0)-(y.offset||0)});
+  if(!a.length)a=[{name:'CURTAIN',type:'anchor',offset:0}];
+  return {list:a.concat(d),nA:a.length};
+}
+function leadMin(){return Math.min.apply(null,[0].concat(cfg.template.filter(function(c){return c.type==='anchor'}).map(function(c){return c.offset||0})))}
+function nextPerf(now){
+  for(var i=0;i<60;i++){
+    var d=new Date(now);d.setDate(d.getDate()+i);
+    var ps=perfsOn(ymd(d));
+    for(var j=0;j<ps.length;j++)if(ps[j].curtain>now)return ps[j];
+  }
+  return null;
+}
+
+// ---------- shared show state ----------
+// Every device holds a copy. Any press bumps n and goes out to the others;
+// the highest n wins, so a device that was asleep just adopts the latest.
+var BLANK={key:null,idx:null,target:0,paused:false,left:0,msg:null,log:[],adhoc:null,n:0,t:0,by:''};
+var S;try{S=Object.assign({},BLANK,JSON.parse(sget('mmt-timer-shared')||'{}'))}catch(e){S=clone(BLANK)}
+var ME=Math.random().toString(36).slice(2,8);
+
+function commit(patch){
+  Object.assign(S,patch);S.n=(S.n||0)+1;S.t=Date.now();S.by=ME;
+  sset('mmt-timer-shared',JSON.stringify(S));
+  publish();draw();
+}
+function receive(s){
+  if(!s||typeof s.n!=='number')return;
+  if(s.n<S.n||(s.n===S.n&&(s.t<=S.t)))return;
+  S=Object.assign({},BLANK,s);
+  sset('mmt-timer-shared',JSON.stringify(S));
+  draw();
+}
+
+function isDone(p){return S.key===p.key&&S.idx!=null&&S.idx>=cueList().list.length}
+function activePerf(now){
+  if(S.adhoc&&now-S.adhoc.curtain<6*36e5&&!(isDone(S.adhoc)&&now-S.target>20*6e4))return S.adhoc;
+  var ps=perfsOn(ymd(new Date(now)));
+  // Walk backwards: on a two-show Saturday the evening's window takes over
+  // the moment it opens instead of the matinee hanging around.
+  for(var i=ps.length-1;i>=0;i--){
+    var p=ps[i];
+    if(now<p.curtain+leadMin()*6e4-90*6e4)continue;
+    if(isDone(p))return now-S.target<20*6e4?p:null;
+    var running=S.key===p.key&&S.idx!=null&&now-p.curtain<8*36e5;
+    if(running||now<p.curtain+4*36e5)return p;
+    return null;
+  }
+  return null;
+}
+
+function frame(now){
+  var p=activePerf(now);
+  if(!p)return {idle:true,next:nextPerf(now)};
+  var C=cueList(),L=C.list,idx=S.key===p.key?S.idx:null;
+  var f={idle:false,perf:p,L:L,nA:C.nA,idx:idx};
+  if(idx==null){
+    // Pre-show runs off the wall clock: count toward the next clock cue,
+    // and once they've all passed, sit on the last one in overtime until GO.
+    var k=-1;
+    for(var i=0;i<C.nA;i++){if(p.curtain+(L[i].offset||0)*6e4>now){k=i;break}}
+    if(k<0)k=C.nA-1;
+    var when=p.curtain+(L[k].offset||0)*6e4;
+    f.pos=k;f.label=L[k].name;f.ms=when-now;f.when=when;f.auto=true;
+    f.goNext=L[C.nA]?L[C.nA].name:'SHOW DOWN';
+  }else if(idx>=L.length){
+    var up=firstUp();
+    f.pos=L.length;f.label='SHOW DOWN';f.done=true;f.ms=up?S.target-up:0;f.when=S.target;
+  }else{
+    f.pos=idx;f.label=L[idx].name;f.paused=S.paused;
+    f.ms=S.paused?S.left:S.target-now;f.when=S.target;
+    f.goNext=L[idx+1]?L[idx+1].name:'SHOW DOWN';
+  }
+  return f;
+}
+function firstUp(){var nA=cueList().nA;for(var i=0;i<S.log.length;i++)if(S.log[i].i>=nA)return S.log[i].at;return null}
+function msgNow(now){return S.msg&&now-S.msg.at<60*6e4?S.msg.text:null}
+
+// ---------- actions ----------
+function go(){
+  var now=Date.now(),f=frame(now);if(f.idle||f.done)return;
+  var L=f.L,next=f.idx==null?f.nA:f.idx+1;
+  var log=S.key===f.perf.key?S.log.slice():[];
+  log.push({i:next,at:now});
+  if(next>=L.length)commit({key:f.perf.key,idx:L.length,target:now,paused:false,log:log,msg:null});
+  else commit({key:f.perf.key,idx:next,target:now+(L[next].minutes||0)*6e4,paused:false,left:0,log:log,msg:null});
+}
+function back(){
+  var f=frame(Date.now());if(f.idle||f.idx==null)return;
+  var log=S.log.slice();log.pop();
+  var prev=f.idx-1;
+  if(prev<f.nA){commit({idx:null,target:0,paused:false,log:[]});return}
+  var last=log[log.length-1],started=last?last.at:Date.now();
+  commit({idx:prev,target:started+(f.L[prev].minutes||0)*6e4,paused:false,log:log});
+}
+function jump(i){
+  var now=Date.now(),f=frame(now);if(f.idle)return;
+  var log=S.key===f.perf.key?S.log.slice():[];log.push({i:i,at:now});
+  commit({key:f.perf.key,idx:i,target:now+(f.L[i].minutes||0)*6e4,paused:false,left:0,log:log});
+}
+function hold(){
+  var f=frame(Date.now());if(f.idle||f.auto||f.done)return;
+  if(S.paused)commit({paused:false,target:Date.now()+S.left});
+  else commit({paused:true,left:S.target-Date.now()});
+}
+function plusOne(){
+  var f=frame(Date.now());if(f.idle||f.auto||f.done)return;
+  if(S.paused)commit({left:S.left+6e4});else commit({target:S.target+6e4});
+}
+function call(text){
+  var now=Date.now(),cur=msgNow(now);
+  commit({msg:cur===text?null:{text:text,at:now}});
+}
+
+// ---------- sync over ntfy.sh (free, no account, no install) ----------
+var es=null,syncState='off',retry=null;
+function connect(){
+  if(es){try{es.close()}catch(e){}es=null}
+  clearTimeout(retry);
+  if(!cfg.sync||typeof EventSource==='undefined'){syncState='off';return}
+  syncState='connecting';
+  try{es=new EventSource(SYNC_HOST+encodeURIComponent(cfg.sync)+'/sse?since=latest')}catch(e){syncState='down';return}
+  es.onopen=function(){syncState='live';paintPill()};
+  es.onerror=function(){
+    syncState='down';paintPill();
+    if(es&&es.readyState===2){retry=setTimeout(connect,10000)}   // closed for good: retry ourselves
+  };
+  es.onmessage=function(e){
+    var m,s;try{m=JSON.parse(e.data)}catch(x){return}
+    if(m.event&&m.event!=='message')return;
+    try{s=JSON.parse(m.message)}catch(x){return}
+    receive(s);
+  };
+}
+function publish(){
+  if(!cfg.sync||typeof fetch==='undefined')return;
+  fetch(SYNC_HOST+encodeURIComponent(cfg.sync),{method:'POST',body:JSON.stringify(S)})
+    .then(function(r){if(!r.ok){syncState='down';paintPill()}})
+    .catch(function(){syncState='down';paintPill()});
+}
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'){if(!es||es.readyState!==1)connect();wake()}
+});
+window.addEventListener('online',connect);
+
+// keep the iPad and the Wyse from sleeping
+var lock=null;
+function wake(){try{if(navigator.wakeLock&&!lock)navigator.wakeLock.request('screen').then(function(l){lock=l;l.addEventListener('release',function(){lock=null})}).catch(function(){})}catch(e){}}
+
+// ---------- rendering ----------
+var sig='';
+function draw(){sig='';tick()}
+function paintPill(){
+  var p=$('pill');p.className='pill '+(syncState==='live'?'live':syncState==='down'?'down':'');
+  p.querySelector('span').textContent={live:'Synced',down:'Offline',connecting:'Connecting',off:'Sync off'}[syncState];
+}
+
+function tick(){
+  var now=Date.now(),f=frame(now),m=msgNow(now);
+  var tone=f.idle||f.done?'':(f.ms<0?'over':(f.ms<=12e4?'warn':''));
+
+  // display layer
+  if(f.idle){
+    var d=new Date(now);
+    $('slug').textContent='';
+    $('big').textContent=(d.getHours()%12||12)+':'+pad(d.getMinutes());$('big').className='';
+    $('sub').textContent=f.next?(dayLabel(f.next.date,true).split(',')[0].toUpperCase()+'  '+pretty(f.next.time)):'';
+  }else{
+    $('slug').textContent=f.label;
+    $('big').textContent=countdown(f.ms).replace(/^\+/,f.done?'':'+');
+    $('big').className=tone;
+    $('sub').textContent=f.done?'RUNNING TIME':f.paused?'HELD':f.auto?(f.ms<0?'CURTAIN WAS '+clockOf(f.when):'AT '+clockOf(f.when)):(f.ms<0?'OVER':'ENDS '+clockOf(f.when));
+    if(f.done)$('big').textContent=fmt(f.ms);
+  }
+  $('msg').textContent=m||'';$('msg').classList.toggle('on',!!m);
+  if(isDisplay)return;
+
+  // control face
+  if(f.idle){
+    var d2=new Date(now);$('iclock').textContent=clockOf(now).replace(/ (AM|PM)$/,'');
+  }else{
+    $('cslug').textContent=f.label;
+    $('cface').textContent=f.done?fmt(f.ms):countdown(f.ms);
+    $('cface').className='face '+tone;
+    $('cends').textContent=f.done?'Running time, down at '+clockOf(f.when)
+      :f.paused?'Held'
+      :f.auto?(f.ms<0?'Curtain was '+clockOf(f.when)+'. Press GO to start.':'At '+clockOf(f.when))
+      :(f.ms<0?'Over since '+clockOf(f.when):'Ends '+clockOf(f.when));
+    $('cmsg').textContent=m||'';$('cmsg').classList.toggle('on',!!m);
+  }
+
+  // structure only when something actually changed
+  var s=[f.idle?'idle':f.perf.key,f.pos,f.idx,f.paused,m,S.n,syncState,S.adhoc?1:0].join('|');
+  if(s===sig)return;sig=s;
+  paintPill();
+  $('nosync').hidden=!!cfg.sync;
+  $('run').hidden=f.idle;$('idlecard').hidden=!f.idle;
+  $('rehearse').textContent=S.adhoc?'End run-through':'Start run-through';
+  $('reset').hidden=f.idle||(f.idx==null&&!S.adhoc);
+
+  if(f.idle){
+    $('title').textContent='Show timer';
+    var today=perfsOn(ymd(new Date(now)));
+    $('subtitle').textContent=today.length?'Standing by':'No performance today';
+    $('idletext').innerHTML='';
+    if(f.next){
+      var a=document.createElement('div');a.style.cssText='font-weight:600;margin-bottom:4px';a.textContent='Next: '+f.next.show;
+      var b=document.createElement('div');b.className='muted';
+      b.textContent=dayLabel(f.next.date,true)+', curtain '+pretty(f.next.time)+', call '+clockOf(f.next.curtain+leadMin()*6e4);
+      $('idletext').appendChild(a);$('idletext').appendChild(b);
+    }else{
+      $('idletext').innerHTML='<p class="muted">Nothing on the calendar. Tap Schedule to add a run, or start a run-through.</p>';
+    }
+  }else{
+    $('title').textContent=f.perf.show;
+    $('subtitle').textContent=S.adhoc&&f.perf===S.adhoc?'Started '+clockOf(f.perf.curtain):dayLabel(f.perf.date)+', '+pretty(f.perf.time)+' curtain';
+    $('go').disabled=!!f.done;
+    $('go').querySelector('.l').textContent=f.done?'SHOW DOWN':'GO';
+    $('gonext').textContent=f.done?'':f.goNext;
+    $('hold').textContent=f.paused?'Resume':'Hold';
+    $('hold').classList.toggle('on',!!f.paused);
+    $('hold').disabled=$('plus').disabled=!!(f.auto||f.done);
+    $('back').disabled=f.idx==null;
+
+    var mw=$('msgs');mw.innerHTML='';
+    cfg.messages.forEach(function(t){
+      var bt=document.createElement('button');bt.textContent=t;bt.classList.toggle('on',m===t);
+      bt.onclick=function(){call(t)};mw.appendChild(bt);
+    });
+
+    var ul=$('cuelist');ul.innerHTML='';
+    f.L.forEach(function(c,i){
+      var li=document.createElement('li');
+      li.className=(i<f.pos?'done':i===f.pos&&!f.done?'live':'')+(i>=f.nA?' tap':'');
+      li.innerHTML='<span class="dot"></span><span class="nm"></span><span class="wh"></span>';
+      li.querySelector('.nm').textContent=c.name;
+      var wh;
+      if(i<f.nA)wh=clockOf(f.perf.curtain+(c.offset||0)*6e4);
+      else{
+        var hit=null;for(var j=S.log.length-1;j>=0;j--)if(S.log[j].i===i){hit=S.log[j];break}
+        wh=(c.minutes||0)+' min'+(hit&&S.key===f.perf.key?', went '+clockOf(hit.at):'');
+      }
+      li.querySelector('.wh').textContent=wh;
+      if(i>=f.nA)li.onclick=function(){
+        if(i===f.idx)return;
+        if(confirm('Jump to '+c.name+' and start its clock now?'))jump(i);
+      };
+      ul.appendChild(li);
+    });
+  }
+
+  var rep=report(f);
+  $('reportcard').hidden=!rep;$('report').textContent=rep||'';
+}
+
+function report(f){
+  if(f.idle||S.key!==f.perf.key||!S.log.length)return '';
+  var L=f.L,nA=f.nA,lines=[f.perf.show+', '+(S.adhoc&&f.perf===S.adhoc?'run-through':dayLabel(f.perf.date)+' '+pretty(f.perf.time))];
+  var up=firstUp();
+  if(up&&!(S.adhoc&&f.perf===S.adhoc)){
+    var late=Math.round((up-f.perf.curtain)/6e4);
+    lines.push('Up at '+clockOf(up)+(late>0?' ('+late+' min late)':late<0?' ('+(-late)+' min early)':' (on time)'));
+  }
+  for(var k=0;k<S.log.length;k++){
+    var e=S.log[k];if(e.i>=L.length)break;
+    var end=S.log[k+1]?S.log[k+1].at:null,c=L[e.i];
+    if(!end){lines.push(c.name+': running');continue}
+    var ran=end-e.at,plan=(c.minutes||0)*6e4,diff=Math.round((ran-plan)/1000);
+    lines.push(c.name+': '+fmt(ran)+(Math.abs(diff)>=30?(diff>0?' ('+fmt(diff*1000)+' over)':' ('+fmt(-diff*1000)+' under)'):''));
+  }
+  if(f.done&&up)lines.push('Down at '+clockOf(S.target)+', running time '+fmt(S.target-up));
+  return lines.join('\n');
+}
+
+setInterval(tick,250);
+
+// ---------- controls ----------
+$('go').onclick=go;
+$('back').onclick=back;
+$('hold').onclick=hold;
+$('plus').onclick=plusOne;
+$('wings').onclick=toggleWings;
+function toggleWings(){
+  document.body.classList.toggle('wings');
+  sset('mmt-wings',document.body.classList.contains('wings')?'1':'0');
+}
+$('screen').onclick=function(){window.open(linkFor('display'),'_blank')};
+$('rehearse').onclick=function(){
+  if(S.adhoc){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false});return}
+  var now=Date.now(),d=new Date(now),p={key:'adhoc-'+now,show:'Run-through',date:ymd(d),time:pad(d.getHours())+':'+pad(d.getMinutes()),curtain:now};
+  commit({adhoc:p,key:p.key,idx:null,log:[],msg:null,paused:false});
+};
+$('reset').onclick=function(){
+  if(!confirm('Clear the running clock and go back to pre-show? The show report for this performance is lost.'))return;
+  commit({idx:null,log:[],paused:false,msg:null});
+};
+$('copyreport').onclick=function(){copy($('report').textContent,$('copyreport'),'Copy report')};
+document.addEventListener('keydown',function(e){
+  var tag=(e.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea'||tag==='select')return;
+  if(isDisplay){
+    if(e.key==='w')toggleWings();
+    if(e.key==='f')document.body.classList.toggle('full');
+    return;
+  }
+  if(!$('settings').hidden)return;
+  if(e.code==='Space'){e.preventDefault();go()}
+});
+
+function copy(text,btn,label){
+  var done=function(){btn.textContent='Copied';setTimeout(function(){btn.textContent=label},1800)};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done,function(){prompt('Copy this:',text)});
+  else prompt('Copy this:',text);
+}
+
+// ---------- schedule editor ----------
+function newCode(){var a='abcdefghjkmnpqrstuvwxyz23456789',s='mmt-';for(var i=0;i<14;i++)s+=a[Math.floor(Math.random()*a.length)];return s}
+$('setup').onclick=function(){
+  var s=$('settings');s.hidden=!s.hidden;
+  if(!s.hidden){
+    if(!cfg.sync){cfg.sync=newCode();persist();connect()}
+    drawRuns();drawTpl();
+    $('msgedit').value=cfg.messages.join('\n');$('synccode').value=cfg.sync;
+    drawPreview();drawLinks();s.scrollIntoView({behavior:'smooth'});
+  }
+};
+$('done').onclick=function(){$('settings').hidden=true;window.scrollTo(0,0);draw()};
+
+function linkFor(view){
+  var base=location.href.split('#')[0];
+  return base+'#s='+enc(cfg)+(view==='display'?'&v=display':view==='full'?'&v=display&mode=full':'');
+}
+function drawLinks(){
+  $('lk-control').textContent=linkFor('');$('lk-display').textContent=linkFor('display');$('lk-full').textContent=linkFor('full');
+}
+Array.prototype.forEach.call(document.querySelectorAll('[data-copy]'),function(b){
+  var label=b.textContent;b.onclick=function(){copy(linkFor(b.dataset.copy),b,label)};
+});
+
+function persist(){
+  sset('mmt-timer-cfg',enc(cfg));
+  try{history.replaceState(null,'',linkFor(isDisplay?(document.body.classList.contains('full')?'full':'display'):''))}catch(e){}
+  drawPreview();drawLinks();sig='';
+}
+
+$('msgedit').oninput=function(){cfg.messages=this.value.split('\n').map(function(x){return x.trim().toUpperCase()}).filter(Boolean);persist()};
+$('synccode').onchange=function(){
+  cfg.sync=this.value.trim().replace(/[^A-Za-z0-9_-]/g,'').slice(0,64);this.value=cfg.sync;persist();connect();
+};
+$('newcode').onclick=function(){
+  if(cfg.sync&&!confirm('Devices on the old link will stop getting updates until they open the new one. Make a new code?'))return;
+  cfg.sync=newCode();$('synccode').value=cfg.sync;persist();connect();
+};
+
+function drawRuns(){
+  var box=$('runs');box.innerHTML='';
+  cfg.runs.forEach(function(run,ri){
+    var el=document.createElement('div');el.className='card';
+    var f=document.createElement('div');f.className='field';f.innerHTML='<label>Production</label>';
+    var nm=document.createElement('input');nm.value=run.show||'';nm.placeholder='The Cher Show';
+    nm.oninput=function(){run.show=nm.value;persist()};f.appendChild(nm);el.appendChild(f);
+
+    var dates=document.createElement('div');dates.className='pair field';
+    [['start','Opens'],['end','Closes']].forEach(function(k){
+      var w=document.createElement('div');w.innerHTML='<label>'+k[1]+'</label>';
+      var i=document.createElement('input');i.type='date';i.value=run[k[0]]||'';
+      i.onchange=function(){run[k[0]]=i.value;persist()};w.appendChild(i);dates.appendChild(w);
+    });
+    el.appendChild(dates);
+
+    var g=document.createElement('div');g.className='days';run.pattern=run.pattern||{};
+    DAYS.forEach(function(d){
+      var l=document.createElement('div');l.className='d';l.textContent=d[1];
+      var i=document.createElement('input');
+      i.value=(run.pattern[d[0]]||[]).map(pretty).join(', ');
+      i.placeholder=d[0]==='sat'?'2:00 PM, 8:00 PM':'';
+      i.onchange=function(){run.pattern[d[0]]=parseTimes(i.value);i.value=run.pattern[d[0]].map(pretty).join(', ');persist()};
+      g.appendChild(l);g.appendChild(i);
+    });
+    el.appendChild(g);
+
+    var sk=document.createElement('div');sk.className='field';sk.style.marginTop='14px';
+    sk.innerHTML='<label>Cancelled dates</label>';
+    var si=document.createElement('input');si.value=(run.exceptions||[]).join(', ');si.placeholder='2026-10-10, 2026-10-11';
+    si.onchange=function(){run.exceptions=si.value.split(',').map(function(x){return x.trim()}).filter(function(x){return /^\d{4}-\d{2}-\d{2}$/.test(x)});si.value=run.exceptions.join(', ');persist()};
+    sk.appendChild(si);el.appendChild(sk);
+
+    var del=document.createElement('button');del.className='quiet';del.style.width='100%';del.textContent='Remove this run';
+    del.onclick=function(){if(confirm('Remove '+(run.show||'this run')+'?')){cfg.runs.splice(ri,1);persist();drawRuns()}};
+    el.appendChild(del);
+    box.appendChild(el);
+  });
+}
+$('addrun').onclick=function(){
+  var s=new Date(),e=new Date();e.setDate(e.getDate()+21);
+  cfg.runs.push({show:'',start:ymd(s),end:ymd(e),pattern:{fri:['19:30'],sat:['14:00','19:30'],sun:['14:00']},exceptions:[]});
+  persist();drawRuns();
+};
+
+function drawTpl(){
+  var box=$('tpl');box.innerHTML='';
+  cfg.template.forEach(function(c,i){
+    var r=document.createElement('div');r.className='cue';
+    var nm=document.createElement('input');nm.value=c.name;
+    nm.oninput=function(){c.name=nm.value.toUpperCase();persist()};
+    var ty=document.createElement('select');
+    ty.innerHTML='<option value="anchor">Clock time</option><option value="duration">Timed, min</option>';
+    ty.value=c.type;
+    ty.onchange=function(){
+      c.type=ty.value;
+      if(c.type==='anchor'){c.offset=-(c.minutes||30);delete c.minutes}else{c.minutes=Math.abs(c.offset||10);delete c.offset}
+      persist();drawTpl();
+    };
+    var n=document.createElement('input');n.type='number';n.inputMode='numeric';
+    n.value=c.type==='anchor'?(c.offset||0):(c.minutes||0);
+    n.onchange=function(){var v=Number(n.value)||0;if(c.type==='anchor')c.offset=Math.min(0,v);else c.minutes=Math.max(0,v);n.value=c.type==='anchor'?c.offset:c.minutes;persist()};
+    var x=document.createElement('button');x.className='x';x.textContent='\u00d7';x.setAttribute('aria-label','Remove '+c.name);
+    x.onclick=function(){cfg.template.splice(i,1);persist();drawTpl()};
+    r.appendChild(nm);r.appendChild(ty);r.appendChild(n);r.appendChild(x);box.appendChild(r);
+  });
+}
+$('addcue').onclick=function(){cfg.template.push({name:'NEW CUE',type:'duration',minutes:10});persist();drawTpl()};
+
+function drawPreview(){
+  var box=$('preview');box.innerHTML='';var found=0;
+  for(var i=0;i<14&&found<14;i++){
+    var d=new Date();d.setDate(d.getDate()+i);
+    perfsOn(ymd(d)).forEach(function(p){
+      var row=document.createElement('div');
+      row.style.cssText='padding:7px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px';
+      var l=document.createElement('span');l.textContent=dayLabel(p.date)+', '+pretty(p.time)+(cfg.runs.length>1?'  '+p.show:'');
+      var r=document.createElement('span');r.className='muted';r.textContent='call '+clockOf(p.curtain+leadMin()*6e4);
+      row.appendChild(l);row.appendChild(r);box.appendChild(row);found++;
+    });
+  }
+  if(!found)box.innerHTML='<p class="muted">Nothing in the next two weeks. The display stays on the wall clock.</p>';
+}
+
+// ---------- start ----------
+if(!cfg.runs.length&&!isDisplay&&!hp('s')){setTimeout(function(){$('setup').click()},50)}
+connect();wake();draw();
+})();
+</script>
+</body>
+</html>
