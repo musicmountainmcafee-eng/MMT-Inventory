@@ -6,7 +6,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#101315">
-<title>MMT Show Timer</title>
+<meta name="apple-mobile-web-app-title" content="Show Timer">
+<link rel="icon" id="favicon" href="data:,">
+<title>Show Timer</title>
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -511,7 +513,24 @@ function wake(){try{if(navigator.wakeLock&&!lock)navigator.wakeLock.request('scr
 
 // ---------- rendering ----------
 var sig='';
-function draw(){sig='';tick()}
+function draw(){sig='';nameTab();tick()}
+// Name the tab (and the home-screen icon) for what this screen is, so the
+// controller and the displays can be told apart in a row of tabs.
+function nameTab(){
+  var stage=cfg.stage==='kids'?"Children's Theatre":'Mainstage';
+  var full=document.body.classList.contains('full');
+  var role=isDisplay?(full?'Full-screen display':'Display'):'Controller';
+  var t=role+': '+stage;
+  if(document.title!==t){
+    document.title=t;
+    var m=document.querySelector('meta[name="apple-mobile-web-app-title"]');if(m)m.content=(isDisplay?(full?'Full Display':'Display'):'Controller')+(cfg.stage==='kids'?' CT':' MS');
+    // green GO button for controllers, a black screen with a white bar for displays
+    var svg=isDisplay
+      ?'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect x="1" y="4" width="30" height="22" rx="3" fill="#000" stroke="#8A9499" stroke-width="2"/><rect x="9" y="13" width="14" height="4" rx="1" fill="#fff"/></svg>'
+      :'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect x="1" y="1" width="30" height="30" rx="7" fill="#2FBF5C"/><text x="16" y="21.5" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="13" fill="#05130A">GO</text></svg>';
+    var link=document.getElementById('favicon');if(link)link.href='data:image/svg+xml,'+encodeURIComponent(svg);
+  }
+}
 function paintPill(){
   var p=$('pill');p.className='pill '+(syncState==='live'?'live':syncState==='down'?'down':'');
   p.querySelector('span').textContent={live:'Synced',down:'Offline',connecting:'Connecting',off:'Sync off'}[syncState];
@@ -680,7 +699,7 @@ document.addEventListener('keydown',function(e){
   if(tag==='input'||tag==='textarea'||tag==='select')return;
   if(isDisplay){
     if(e.key==='w')toggleWings();
-    if(e.key==='f'){document.body.classList.toggle('full');$('stage').removeAttribute('style');fitKey='';fit()}
+    if(e.key==='f'){document.body.classList.toggle('full');nameTab();$('stage').removeAttribute('style');fitKey='';fit()}
     return;
   }
   if(!$('settings').hidden)return;
