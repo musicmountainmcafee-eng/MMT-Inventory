@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 1.7. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 1.9. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -111,6 +111,21 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber)}
 .days{display:grid;grid-template-columns:48px 1fr;gap:8px 10px;align-items:center}
 .days .d{font-size:13px;color:var(--dim);font-weight:600}
 .days input{min-height:40px;padding:8px 10px}
+.cuewrap{border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:10px}
+.cuewrap:last-child{border-bottom:0}
+.colorbtn{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;min-height:36px;padding:6px 10px;font-size:12px;font-weight:500;background:transparent;color:var(--dim);text-align:left;justify-content:flex-start}
+.colorbtn .sw{width:14px;height:14px;border-radius:3px;border:1px solid var(--line);display:inline-block;flex:none}
+.colorbtn .ar{opacity:.6}
+.colors{background:var(--shell);border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px}
+.colors .hint{margin-bottom:10px}
+.crule{display:grid;grid-template-columns:1fr 88px 36px;gap:8px;align-items:center;margin-bottom:8px}
+.crule .lead{font-size:13px;color:var(--dim)}
+.crule+.crule{border-top:1px solid var(--line);padding-top:10px}
+.crule .x{background:transparent;border-color:transparent;color:var(--dim);min-height:40px;padding:0}
+.crule input{min-height:40px;padding:8px;text-align:center}
+.swatches{display:flex;flex-wrap:wrap;gap:6px;grid-column:1/-1}
+.swatches button{width:34px;height:34px;min-height:34px;padding:0;border-radius:8px;border:2px solid transparent}
+.swatches button.pick{border-color:var(--type);box-shadow:0 0 0 2px var(--shell) inset}
 .cue{display:grid;grid-template-columns:1fr 112px 70px 36px;gap:8px;margin-bottom:8px;align-items:center}
 .cue input,.cue select{min-height:40px;padding:8px}
 .cue .x{background:transparent;border-color:transparent;color:var(--dim);min-height:40px;padding:0}
@@ -195,7 +210,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 
     <div class="card">
       <h2>Cue times</h2>
-      <p class="hint">Clock-time cues are minutes from show time (−60 is an hour before) and roll over by themselves. Timed cues start when the SM presses GO. Curtain speech and acts count up from zero; intermission counts down.</p>
+      <p class="hint">Clock-time cues are minutes from show time (−60 is an hour before) and roll over by themselves. Timed cues start when the SM presses GO. Curtain speech and acts count up from zero; intermission counts down. Tap Colors under any cue to choose when its clock changes color.</p>
       <div id="tpl"></div>
       <button class="quiet" id="addcue" style="width:100%;margin-top:6px">Add a cue</button>
     </div>
@@ -243,7 +258,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='1.7';
+var VERSION='1.9';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -416,6 +431,43 @@ function frame(now){
   return f;
 }
 function firstUp(){var nA=cueList().nA;for(var i=0;i<S.log.length;i++)if(S.log[i].i>=nA)return S.log[i].at;return null}
+// ---------- timer colors ----------
+// Each cue carries color changes: [{at:seconds,c:'red'}]. On a countdown
+// a change applies once that much time or less is left (0:00 means when it
+// runs over). On a count-up it applies once that much time has gone by.
+var PALETTE=[
+  ['white','White','#FFFFFF'],['yellow','Yellow','#FFD24A'],['amber','Amber','#FFB000'],
+  ['orange','Orange','#FF7A1A'],['red','Red','#FF3B30'],['pink','Pink','#FF5FA2'],
+  ['green','Green','#3DDC6A'],['blue','Blue','#4DA3FF']
+];
+function hexOf(k){for(var i=0;i<PALETTE.length;i++)if(PALETTE[i][0]===k)return PALETTE[i][2];return '#FFFFFF'}
+function nameOf(k){for(var i=0;i<PALETTE.length;i++)if(PALETTE[i][0]===k)return PALETTE[i][1];return 'White'}
+function counts(c){return c.type!=='anchor'&&isUp(c)?'up':'down'}
+function rulesOf(c){
+  if(Array.isArray(c.colors))return c.colors;
+  // what the timer did before colors were editable
+  if(counts(c)==='up')return (c.minutes||0)>0?[{at:(c.minutes||0)*60,c:'amber'}]:[];
+  return [{at:120,c:'yellow'},{at:0,c:'amber'}];
+}
+function colorAt(c,f){
+  var rules=rulesOf(c),best=null;
+  if(counts(c)==='up'){
+    var el=f.el/1000;
+    rules.forEach(function(r){if(el>=r.at&&(!best||r.at>best.at))best=r});
+  }else{
+    var left=f.ms/1000;
+    rules.forEach(function(r){if((r.at===0?left<=0:left<=r.at)&&(!best||r.at<best.at))best=r});
+  }
+  return best?best.c:'white';
+}
+function parseClock(t){
+  t=String(t).trim();if(!t)return null;
+  var p=t.split(':').map(function(x){return Number(x)});
+  if(p.some(function(x){return isNaN(x)||x<0}))return null;
+  if(p.length===1)return Math.round(p[0]*60);            // a bare number is minutes
+  if(p.length===2)return p[0]*60+p[1];
+  return p[0]*3600+p[1]*60+p[2];
+}
 function cap(t){t=String(t).toLowerCase();return t.charAt(0).toUpperCase()+t.slice(1)}
 function msgNow(now){return S.msg&&now-S.msg.at<60*6e4?S.msg.text:null}
 
@@ -546,18 +598,20 @@ function paintPill(){
 
 function tick(){
   var now=Date.now(),f=frame(now),m=msgNow(now);
-  var tone=f.idle||f.done?'':f.up?(f.el>f.planned&&f.planned>0?'over':''):(f.ms<0?'over':(f.ms<=12e4?'warn':''));
+  var colorKey=f.idle||f.done?'white':colorAt(f.L[f.pos],f);
+  var wingsOn=document.body.classList.contains('wings');
+  var ink=colorKey==='white'?'':hexOf(colorKey);
 
   // display layer
   if(f.idle){
     var d=new Date(now);
     $('slug').textContent='';
-    $('big').textContent=(d.getHours()%12||12)+':'+pad(d.getMinutes());$('big').className='';
+    $('big').textContent=(d.getHours()%12||12)+':'+pad(d.getMinutes());$('big').className='';$('big').style.color='';
     $('sub').textContent=f.next?(dayLabel(f.next.date,true).split(',')[0].toUpperCase()+'  '+pretty(f.next.time)):'';
   }else{
     $('slug').textContent=f.label;
     $('big').textContent=f.up?fmt(f.el):countdown(f.ms);
-    $('big').className=tone;
+    $('big').style.color=wingsOn?'':ink;
     $('sub').textContent=f.done?'RUNNING TIME':f.paused?'HELD':f.up?'PLANNED '+fmt(f.planned):f.auto?(f.ms<0?f.cue+' WAS '+clockOf(f.when):'AT '+clockOf(f.when)):(f.ms<0?'OVER':'ENDS '+clockOf(f.when));
     if(f.done)$('big').textContent=fmt(f.ms);
   }
@@ -570,7 +624,7 @@ function tick(){
   }else{
     $('cslug').textContent=f.label;
     $('cface').textContent=f.done?fmt(f.ms):f.up?fmt(f.el):countdown(f.ms);
-    $('cface').className='face '+tone;
+    $('cface').style.color=wingsOn?'':ink;
     $('cends').textContent=f.done?'Running time, down at '+clockOf(f.when)
       :f.paused?'Held'
       :f.up?'Planned '+fmt(f.planned)+(f.el>f.planned&&f.planned>0?', over by '+fmt(f.el-f.planned):'')
@@ -691,7 +745,7 @@ function toggleWings(){
   document.body.classList.toggle('wings');
   sset('mmt-wings',document.body.classList.contains('wings')?'1':'0');
 }
-$('screen').onclick=function(){window.open(linkFor('display'),'_blank')};
+$('screen').onclick=function(){window.open(linkFor('full'),'_blank')};
 $('rehearse').onclick=function(){
   if(S.adhoc){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false});return}
   var now=Date.now(),d=new Date(now),p={key:'adhoc-'+now,show:'Run-through',date:ymd(d),time:pad(d.getHours())+':'+pad(d.getMinutes()),curtain:now};
@@ -861,15 +915,89 @@ function drawTpl(){
       var was=c.type;
       if(ty.value==='anchor'){c.type='anchor';c.offset=-(c.minutes||30);delete c.minutes;delete c.up}
       else{c.type='duration';if(was==='anchor'){c.minutes=Math.abs(c.offset||10);delete c.offset}c.up=ty.value==='up'}
+      delete c.colors;   // times mean something different once the direction changes
       persist();drawTpl();
     };
     var n=document.createElement('input');n.type='number';n.inputMode='numeric';
     n.value=c.type==='anchor'?(c.offset||0):(c.minutes||0);
     n.onchange=function(){var v=Number(n.value)||0;if(c.type==='anchor')c.offset=Math.min(0,v);else c.minutes=Math.max(0,v);n.value=c.type==='anchor'?c.offset:c.minutes;persist()};
     var x=document.createElement('button');x.className='x';x.textContent='\u00d7';x.setAttribute('aria-label','Remove '+c.name);
-    x.onclick=function(){cfg.template.splice(i,1);persist();drawTpl()};
-    r.appendChild(nm);r.appendChild(ty);r.appendChild(n);r.appendChild(x);box.appendChild(r);
+    x.onclick=function(){cfg.template.splice(i,1);openColors={};persist();drawTpl()};
+    r.appendChild(nm);r.appendChild(ty);r.appendChild(n);r.appendChild(x);
+    var wrap=document.createElement('div');wrap.className='cuewrap';wrap.appendChild(r);
+    wrap.appendChild(colorEditor(c,i));
+    box.appendChild(wrap);
   });
+}
+
+// ---------- per-cue color menu ----------
+var openColors={};
+function sortRules(c){
+  var up=counts(c)==='up';
+  c.colors.sort(function(a,b){return up?a.at-b.at:b.at-a.at});
+}
+function colorEditor(c,i){
+  var box=document.createElement('div');
+  var up=counts(c)==='up';
+  var rules=rulesOf(c).slice().sort(function(a,b){return up?a.at-b.at:b.at-a.at});
+
+  // one-line summary that opens the menu: White > Yellow 2:00 > Red 0:00
+  var btn=document.createElement('button');btn.className='colorbtn';
+  var html='<span class="sw" style="background:#fff"></span><span>White</span>';
+  rules.forEach(function(r){
+    html+='<span class="ar">\u203a</span><span class="sw" style="background:'+hexOf(r.c)+'"></span><span>'+nameOf(r.c)+' '+(!up&&r.at===0?'when over':fmt(r.at*1000))+'</span>';
+  });
+  btn.innerHTML=html+'<span style="margin-left:auto">'+(openColors[i]?'Close':'Colors')+'</span>';
+  btn.setAttribute('aria-expanded',openColors[i]?'true':'false');
+  btn.onclick=function(){openColors[i]=!openColors[i];drawTpl()};
+  box.appendChild(btn);
+  if(!openColors[i])return box;
+
+  var panel=document.createElement('div');panel.className='colors';
+  var hint=document.createElement('p');hint.className='hint';
+  hint.textContent=(up
+    ?'Counts up from 0:00. Each color takes over once the clock reaches its time.'
+    :c.type==='anchor'
+      ?'Counts down to '+c.name+'. Each color takes over once this much time is left. 0:00 colors the late start (house hold).'
+      :'Counts down. Each color takes over once this much time is left. 0:00 means once it runs over.')
+    +' Red, blue and green are darker than white and can drop out of the ATEM luma key; yellow, amber and orange hold.';
+  panel.appendChild(hint);
+
+  if(!Array.isArray(c.colors))c.colors=rulesOf(c).map(function(r){return {at:r.at,c:r.c}});
+  sortRules(c);
+  c.colors.forEach(function(rule,ri){
+    var row=document.createElement('div');row.className='crule';
+    var lead=document.createElement('div');lead.className='lead';
+    lead.textContent=up?'Turn '+nameOf(rule.c)+' at':'Turn '+nameOf(rule.c)+' with';
+    var t=document.createElement('input');t.inputMode='numeric';t.value=fmt(rule.at*1000);
+    t.setAttribute('aria-label',nameOf(rule.c)+' time');
+    t.onchange=function(){var v=parseClock(t.value);if(v==null){t.value=fmt(rule.at*1000);return}rule.at=v;sortRules(c);persist();drawTpl()};
+    var del=document.createElement('button');del.className='x';del.textContent='\u00d7';del.setAttribute('aria-label','Remove '+nameOf(rule.c));
+    del.onclick=function(){c.colors.splice(ri,1);persist();drawTpl()};
+    row.appendChild(lead);row.appendChild(t);row.appendChild(del);
+    var sw=document.createElement('div');sw.className='swatches';
+    PALETTE.forEach(function(pc){
+      var b=document.createElement('button');b.style.background=pc[2];b.title=pc[1];b.setAttribute('aria-label',pc[1]);
+      if(pc[0]===rule.c)b.className='pick';
+      b.onclick=function(){rule.c=pc[0];persist();drawTpl()};
+      sw.appendChild(b);
+    });
+    row.appendChild(sw);
+    if(!up){var tail=document.createElement('div');tail.className='lead';tail.style.gridColumn='1/-1';tail.style.marginTop='-4px';tail.textContent=rule.at===0?'left (when it runs over)':'left';row.appendChild(tail)}
+    panel.appendChild(row);
+  });
+
+  var add=document.createElement('button');add.className='quiet small';add.style.width='100%';add.textContent='Add a color change';
+  add.onclick=function(){
+    var guess=up?Math.max(60,(c.minutes||10)*60):60;
+    c.colors.push({at:guess,c:'red'});sortRules(c);persist();drawTpl();
+  };
+  panel.appendChild(add);
+  var reset=document.createElement('button');reset.className='quiet small';reset.style.width='100%';reset.style.marginTop='8px';reset.textContent='Back to the standard colors';
+  reset.onclick=function(){delete c.colors;persist();drawTpl()};
+  panel.appendChild(reset);
+  box.appendChild(panel);
+  return box;
 }
 $('addcue').onclick=function(){cfg.template.push({name:'NEW CUE',type:'duration',minutes:10});persist();drawTpl()};
 
