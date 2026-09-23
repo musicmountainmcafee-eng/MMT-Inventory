@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 2.9. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.10. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -182,6 +182,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
     </div>
   </div>
 
+  <div class="card note" id="relaylimit" hidden>The free relay has hit its daily message limit, so presses on this device aren't reaching the other screens (and Stream Deck keys won't work). This screen still keeps time on its own. It clears by itself once the relay's daily allowance resets.</div>
   <div class="card note" id="toobig" hidden>The schedule is too big to send to the other screens automatically. After changing it, copy the links again from Schedule.</div>
   <div class="card note" id="nosync" hidden>This link doesn't sync between devices yet. Tap Schedule, then copy the new link to every device.</div>
 
@@ -300,7 +301,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='2.9';
+var VERSION='2.10';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -635,7 +636,7 @@ function topicUrl(){return SYNC_HOST+encodeURIComponent(cfg.sync)}
 function handle(txt){
   var m,s;try{m=JSON.parse(txt)}catch(x){return}
   if(!m||(m.event&&m.event!=='message'))return;
-  if(typeof m.message==='string'&&m.message.slice(0,4)==='cfg:'){receiveCfg(m.message.slice(4));return}
+  if(typeof m.message==='string'&&m.message.slice(0,4)==='cfg:'){noteRelayCfg(m.message.slice(4));receiveCfg(m.message.slice(4));return}
   if(applyCommand(m.message,m.id,m.time?m.time*1000:null))return;
   try{s=JSON.parse(m.message)}catch(x){return}
   receive(s);
@@ -654,7 +655,7 @@ function connect(){
     try{ws=new WebSocket(topicUrl().replace(/^http/,'ws')+'/ws?since=latest')}catch(e){ws=null}
   }
   if(ws){
-    ws.onopen=function(){syncState='live';backoff=2000;paintPill();catchUp();sendCfg()};
+    ws.onopen=function(){syncState='live';backoff=2000;paintPill();catchUp(true)};
     ws.onmessage=function(e){handle(e.data)};
     ws.onclose=function(){ws=null;syncState='down';paintPill();again()};
     ws.onerror=function(){};
@@ -673,14 +674,18 @@ function connect(){
 // each screen re-announces what it has when it connects, so a screen opened
 // from an old link days later still picks up the latest.
 var cfgTimer=null,cfgTooBig=false;
-function sendCfgSoon(){clearTimeout(cfgTimer);cfgTimer=setTimeout(sendCfg,800)}
+var cfgPending=false,relayCfgV=null;   // relayCfgV: newest schedule stamp seen on the relay
+function sendCfgSoon(){cfgPending=true;clearTimeout(cfgTimer);cfgTimer=setTimeout(sendCfg,5000)}
 function sendCfg(){
+  clearTimeout(cfgTimer);cfgPending=false;
   if(!cfg.sync||!cfg.v||typeof fetch==='undefined')return;
+  if(relayCfgV!=null&&relayCfgV>=cfg.v)return;       // the relay already has this (or newer)
   var body='cfg:'+JSON.stringify(cfg);
   cfgTooBig=body.length>3900;          // the relay only carries about 4 KB
   if(cfgTooBig){sig='';return}
-  fetch(topicUrl(),{method:'POST',body:body}).catch(function(){});
+  fetch(topicUrl(),{method:'POST',body:body}).then(function(r){if(r.ok)relayCfgV=cfg.v;sent(r)}).catch(function(){});
 }
+function noteRelayCfg(txt){try{var c=JSON.parse(txt);if(c&&c.sync===cfg.sync)relayCfgV=Math.max(relayCfgV||0,c.v||0)}catch(e){}}
 function receiveCfg(txt){
   var c;try{c=JSON.parse(txt)}catch(e){return}
   if(!c||c.sync!==cfg.sync)return;
@@ -695,23 +700,38 @@ function receiveCfg(txt){
   }
   draw();
 }
-function catchUp(){
+function catchUp(announce){
   if(!cfg.sync||typeof fetch==='undefined')return;
   fetch(topicUrl()+'/json?poll=1&since=all')
-    .then(function(r){return r.ok?r.text():''})
-    .then(function(t){String(t).split('\n').forEach(function(line){if(line.trim())handle(line)})})
+    .then(function(r){if(r.status===429){relayLimited=true;sig='';paintPill()}return r.ok?r.text():''})
+    .then(function(t){
+      String(t).split('\n').forEach(function(line){if(line.trim())handle(line)});
+      // A controller whose schedule is newer than anything on the relay (the relay
+      // forgets after about 12 hours) sends it once. Displays never send it.
+      if(announce&&!isDisplay&&cfg.v&&(relayCfgV==null||relayCfgV<cfg.v))sendCfg();
+    })
     .catch(function(){});
 }
-setInterval(catchUp,60000);
+// A healthy live connection needs no polling; only check in while it's down.
+setInterval(function(){if(!linkUp())catchUp()},5*60000);
 function linkUp(){return (ws&&ws.readyState===1)||(es&&es.readyState===1)}
+// The free relay allows about 250 messages a day per internet connection, and
+// every device in the building shares one. When it refuses (HTTP 429), say so
+// plainly: this screen keeps working, but presses won't reach the others.
+var relayLimited=false;
+function sent(r){
+  if(r.status===429){relayLimited=true;sig='';paintPill();return}
+  if(r.ok){if(relayLimited){relayLimited=false;sig=''}paintPill();return}
+  syncState='down';paintPill();
+}
 function publish(){
   if(!cfg.sync||typeof fetch==='undefined')return;
   fetch(SYNC_HOST+encodeURIComponent(cfg.sync),{method:'POST',body:JSON.stringify(S)})
-    .then(function(r){if(!r.ok){syncState='down';paintPill()}})
+    .then(sent)
     .catch(function(){syncState='down';paintPill()});
 }
 document.addEventListener('visibilitychange',function(){
-  if(document.visibilityState==='visible'){if(!linkUp())connect();catchUp();wake()}
+  if(document.visibilityState==='visible'){if(!linkUp())connect();else catchUp();wake()}
 });
 window.addEventListener('online',connect);
 
@@ -740,8 +760,9 @@ function nameTab(){
   }
 }
 function paintPill(){
-  var p=$('pill');p.className='pill '+(syncState==='live'?'live':syncState==='down'?'down':'');
-  p.querySelector('span').textContent={live:'Synced',down:'Offline',connecting:'Connecting',off:'Sync off'}[syncState];
+  var p=$('pill'),lim=relayLimited&&syncState!=='off';
+  p.className='pill '+(lim?'down':syncState==='live'?'live':syncState==='down'?'down':'');
+  p.querySelector('span').textContent=lim?'Relay limit':{live:'Synced',down:'Offline',connecting:'Connecting',off:'Sync off'}[syncState];
 }
 
 // ---------- display scene ----------
@@ -834,6 +855,7 @@ function tick(){
   paintPill();
   $('nosync').hidden=!!cfg.sync;
   $('toobig').hidden=!cfgTooBig;
+  $('relaylimit').hidden=!relayLimited;
   $('run').hidden=f.idle;$('idlecard').hidden=!f.idle;
   var onRun=!!(S.adhoc&&!f.idle&&f.perf===S.adhoc);
   $('rehearse').textContent=onRun?'End run-through':'Start run-through';
@@ -1017,7 +1039,7 @@ $('setup').onclick=function(){
     drawPreview();drawLinks();s.scrollIntoView({behavior:'smooth'});
   }
 };
-$('done').onclick=function(){$('settings').hidden=true;window.scrollTo(0,0);draw()};
+$('done').onclick=function(){$('settings').hidden=true;window.scrollTo(0,0);if(cfgPending)sendCfg();draw()};
 
 function linkFor(view){
   var base=location.href.split('#')[0];
