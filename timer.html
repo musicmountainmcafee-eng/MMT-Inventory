@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 2.10. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.11. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -93,6 +93,8 @@ body.display.full #big,body.display.full #slug,body.display.full #sub,body.displ
 .now .face{font-size:68px;font-weight:600;line-height:1;letter-spacing:-.03em}
 .now .face.warn{color:var(--amber)}.now .face.over{color:var(--hot)}
 .now .ends{font-size:14px;color:var(--dim);margin-top:10px}
+.now .proj{font-size:15px;font-weight:600;margin-top:8px;min-height:1.2em}
+.now .proj.long{color:var(--amber)}
 .now .flag{display:none;margin:0 auto 12px;font-weight:700;letter-spacing:.18em;color:var(--shell);background:var(--amber);border-radius:6px;padding:6px 12px;width:max-content}
 .now .flag.on{display:block}
 
@@ -192,6 +194,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
       <div class="slug" id="cslug"></div>
       <div class="face" id="cface">--:--</div>
       <div class="ends" id="cends"></div>
+      <div class="proj" id="cproj"></div>
     </div>
     <button class="go" id="go"><span class="l">GO</span><span class="n" id="gonext"></span></button>
     <div class="row" style="margin-top:10px">
@@ -301,7 +304,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='2.10';
+var VERSION='2.11';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -533,6 +536,27 @@ function frame(now){
     f.goNext=L[idx+1]?L[idx+1].name:endLabel();
   }
   return f;
+}
+// When the show will come down. Planned: show time plus every timed cue's
+// planned length. Projected: before GO, the later of now and show time plus
+// all of them; during the show, what's left of the current cue plus the planned
+// lengths still to come. Holds, long acts and dial changes all push it later.
+function plannedTotal(f){var t=0;for(var i=f.nA;i<f.L.length;i++)t+=(f.L[i].minutes||0)*6e4;return t}
+function projection(f,now){
+  if(f.idle)return null;
+  var total=plannedTotal(f),base=f.perf.curtain+total,down;
+  if(f.done)return {down:S.target,base:base,done:true};
+  if(f.idx==null)down=Math.max(now,f.perf.curtain)+total;
+  else{
+    var left=f.up?Math.max(0,f.planned-f.el):Math.max(0,f.ms),rest=0;
+    for(var i=f.idx+1;i<f.L.length;i++)rest+=(f.L[i].minutes||0)*6e4;
+    down=now+left+rest;
+  }
+  return {down:down,base:base};
+}
+function offPlan(p){
+  var d=Math.round((p.down-p.base)/6e4);
+  return Math.abs(d)<=1?'on time':d>0?d+' min long':(-d)+' min ahead';
 }
 function firstUp(){var nA=cueList().nA;for(var i=0;i<S.log.length;i++)if(S.log[i].i>=nA)return S.log[i].at;return null}
 // ---------- timer colors ----------
@@ -850,6 +874,14 @@ function tick(){
   }
 
   // structure only when something actually changed
+  var pj=projection(f,now),pr=$('cproj');
+  if(!pj){pr.textContent='';pr.classList.remove('long')}
+  else{
+    var late=Math.round((pj.down-pj.base)/6e4),downAt=clockOf(Math.round(pj.down/6e4)*6e4);
+    pr.textContent=pj.done?'Came down '+downAt+', '+(Math.abs(late)<=1?'on time':late>0?late+' min later than planned':(-late)+' min earlier than planned')
+      :(late>1?'Down about '+downAt+', running '+offPlan(pj):late<-1?'Down about '+downAt+', '+offPlan(pj):'Down about '+downAt);
+    pr.classList.toggle('long',!pj.done&&late>=5);
+  }
   var s=[f.idle?'idle':f.perf.key,f.pos,f.idx,f.paused,m,S.n,syncState,S.adhoc?1:0,f.preCall?1:0,f.ready?1:0].join('|');
   if(s===sig)return;sig=s;
   paintPill();
@@ -879,6 +911,10 @@ function tick(){
         ul.appendChild(li);
       }
       var note=document.createElement('p');note.className='muted';note.style.marginTop='8px';
+      var tot=0;for(var j=C.nA;j<C.list.length;j++)tot+=(C.list[j].minutes||0)*6e4;
+      var dl=document.createElement('li');dl.innerHTML='<span class="dot"></span><span class="nm"></span><span class="wh"></span>';
+      dl.querySelector('.nm').textContent='PLANNED DOWN';dl.querySelector('.wh').textContent=clockOf(f.next.curtain+tot);
+      dl.style.opacity='.75';ul.appendChild(dl);
       note.textContent='These run on their own. No need to press anything until the show starts.';
       $('idletext').appendChild(ul);$('idletext').appendChild(note);
     }else{
@@ -941,7 +977,11 @@ function report(f){
     var ran=end-e.at,plan=(c.minutes||0)*6e4,diff=Math.round((ran-plan)/1000);
     lines.push(c.name+': '+fmt(ran)+(Math.abs(diff)>=30?(diff>0?' ('+fmt(diff*1000)+' over)':' ('+fmt(-diff*1000)+' under)'):''));
   }
-  if(f.done&&up)lines.push('Down at '+clockOf(S.target)+', running time '+fmt(S.target-up));
+  if(f.done&&up){
+    var pd=Math.round((S.target-(f.perf.curtain+plannedTotal(f)))/6e4);
+    lines.push('Down at '+clockOf(S.target)+', running time '+fmt(S.target-up)
+      +(S.adhoc&&f.perf===S.adhoc?'':', '+(Math.abs(pd)<=1?'on time':pd>0?pd+' min later than planned':(-pd)+' min earlier than planned')));
+  }
   return lines.join('\n');
 }
 
