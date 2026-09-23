@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 2.19. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.20. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -221,6 +221,9 @@ body.display:not(.full) #idwhen{display:none}
 #rtstart{background:var(--go);border-color:var(--go);color:#05130A}
 body.wings #rtstart{background:transparent;color:var(--go)}
 #rtpreview{font-size:13px;line-height:1.45;margin:2px 0 14px;color:var(--dim)}
+.check{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--type);margin:4px 0 10px;cursor:pointer}
+.check input{width:20px;height:20px;min-height:0;margin:0;flex:none;accent-color:var(--go)}
+.stdtimes{font-size:13px;color:var(--dim);margin:-2px 0 12px}
 .smrow{display:grid;grid-template-columns:1fr 1fr 1fr 36px;gap:8px;margin-bottom:8px;align-items:center}
 .smrow input{min-height:40px;padding:8px}
 .smrow .x{background:transparent;border-color:transparent;color:var(--dim);min-height:40px;padding:0}
@@ -356,8 +359,14 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
     <div class="field"><label>Stage</label>
       <select id="stagesel"><option value="main">Mainstage</option><option value="kids">Children's Theatre</option></select></div>
       </div>
+      <div class="card" id="timescard">
+        <h2>Show times</h2>
+        <p class="hint">Every run plays these times. Change them here and every show updates at once. Type times like 2:00 PM, 8:00 PM; leave a day blank for no show.</p>
+        <div class="days" id="timesgrid"></div>
+        <p class="muted" id="timesnote" style="margin-top:10px"></p>
+      </div>
       <h2 class="sec">Runs</h2>
-      <p class="hint">One production and the weeks it plays. Type show times per day, like 2:00 PM, 8:00 PM. Leave a day blank for no show.</p>
+      <p class="hint">One production and the dates it plays. Tap a run to edit it. A run that plays different times, like school matinees, can have its own. Leave a day blank for no show.</p>
       <div id="runs"></div>
     <div class="row" style="margin-bottom:20px">
       <button class="quiet" id="importdash">Import from dashboard</button>
@@ -446,7 +455,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='2.19';
+var VERSION='2.20';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -494,6 +503,23 @@ function normalizeCfg(){
   cfg.messages=cfg.messages||DEFAULT.messages.slice();
   cfg.runs=cfg.runs||[];
   cfg.sms=cfg.sms||[];
+  // One set of weekly show times for the stage; every run uses it unless it
+  // has its own (run.custom). Older schedules had times on each run: the times
+  // most runs use become the standard, and any run that differs keeps its own.
+  if(!cfg.times){
+    var tally={},best=null,most=0;
+    cfg.runs.forEach(function(r){var k=patKey(r.pattern);tally[k]=(tally[k]||0)+1;if(tally[k]>most){most=tally[k];best=r.pattern}});
+    cfg.times=best?clone(best):(cfg.stage==='kids'?{sat:['11:00','13:00']}:{fri:['20:00'],sat:['14:00','20:00'],sun:['14:00']});
+  }
+  var std=patKey(cfg.times);
+  cfg.runs.forEach(function(r){
+    if(r.custom==null)r.custom=!!r.pattern&&patKey(r.pattern)!==std;
+    if(!r.custom)r.pattern=clone(cfg.times);   // kept in step, so older screens and the Stream Deck still read it
+  });
+}
+function patKey(p){
+  p=p||{};
+  return DAYS.map(function(d){return d[0]+':'+((p[d[0]]||[]).slice().sort().join(','))}).join('|');
 }
 normalizeCfg();
 sset('mmt-timer-cfg',enc(cfg));
@@ -877,7 +903,7 @@ function receiveCfg(txt){
   try{history.replaceState(null,'',linkFor(isDisplay?(document.body.classList.contains('full')?'full':'display'):''))}catch(e){}
   fitKey='';
   if(!$('settings').hidden){
-    drawRuns();drawTpl();drawPreview();drawLinks();
+    drawTimes();drawRuns();drawTpl();drawPreview();drawLinks();
     drawSMList();
     $('msgedit').value=cfg.messages.join('\n');$('stagesel').value=cfg.stage||'main';$('endlabel').value=cfg.endLabel||'';
   }
@@ -1446,7 +1472,7 @@ $('setup').onclick=function(){
   document.body.classList.toggle('setting',!s.hidden);
   if(!s.hidden){
     if(!cfg.sync){cfg.sync=newCode();persist();connect()}
-    drawRuns();drawTpl();
+    drawTimes();drawRuns();drawTpl();
     drawSMList();
     $('msgedit').value=cfg.messages.join('\n');$('synccode').value=cfg.sync;$('stagesel').value=cfg.stage||'main';$('endlabel').value=cfg.endLabel||'';
     drawPreview();drawLinks();
@@ -1492,7 +1518,11 @@ function persist(){
 }
 
 $('endlabel').oninput=function(){cfg.endLabel=this.value.trim().toUpperCase();persist();draw()};
-$('stagesel').onchange=function(){cfg.stage=this.value;persist();draw()};
+$('stagesel').onchange=function(){
+  cfg.stage=this.value;
+  if(!cfg.runs.length){cfg.times=stageWeekend();drawTimes()}   // a fresh schedule starts from that stage's usual times
+  persist();draw();
+};
 $('msgedit').oninput=function(){cfg.messages=this.value.split('\n').map(function(x){return x.trim().toUpperCase()}).filter(Boolean);persist()};
 $('synccode').onchange=function(){
   cfg.sync=this.value.trim().replace(/[^A-Za-z0-9_-]/g,'').slice(0,64);this.value=cfg.sync;persist();connect();
@@ -1526,7 +1556,31 @@ function runTimes(run){
 }
 function runSummary(run){
   var x=(run.exceptions||[]).length;
-  return runDates(run)+'. '+runTimes(run)+(x?'. '+x+' cancelled':'');
+  return runDates(run)+(run.custom?'. Own times: '+runTimes(run):'')+(x?'. '+x+' cancelled':'');
+}
+// the stage-wide grid; a change goes to every run that uses the standard times
+function applyTimes(){var n=0;cfg.runs.forEach(function(r){if(!r.custom){r.pattern=clone(cfg.times);n++}});return n}
+function drawTimes(){
+  var g=$('timesgrid');if(!g)return;g.innerHTML='';
+  DAYS.forEach(function(d){
+    var l=document.createElement('div');l.className='d';l.textContent=d[1];
+    var i=document.createElement('input');i.value=(cfg.times[d[0]]||[]).map(pretty).join(', ');
+    i.setAttribute('aria-label',d[1]+' show times');
+    i.onchange=function(){
+      var v=parseTimes(i.value);if(v.length)cfg.times[d[0]]=v;else delete cfg.times[d[0]];
+      i.value=v.map(pretty).join(', ');
+      var n=applyTimes();persist();drawRuns();drawTimesNote(n);
+    };
+    g.appendChild(l);g.appendChild(i);
+  });
+  drawTimesNote();
+}
+function drawTimesNote(changed){
+  var std=cfg.runs.filter(function(r){return !r.custom}).length,own=cfg.runs.filter(function(r){return r.custom});
+  var t=(changed!=null?'Updated '+changed+' run'+(changed===1?'':'s')+'. ':'')+
+    (std?std+' run'+(std===1?' uses':'s use')+' these times.':'No runs use these times yet.')+
+    (own.length?' '+(own.length===1?'1 run has':own.length+' runs have')+' its own: '+own.map(function(r){return r.show||'New run'}).join(', ')+'.':'');
+  $('timesnote').textContent=t;
 }
 function drawRuns(){
   var box=$('runs');box.innerHTML='';
@@ -1563,8 +1617,19 @@ function drawRuns(){
     });
     body.appendChild(dates);
 
-    var lab=document.createElement('label');lab.textContent='Show times (like 2:00 PM, 8:00 PM; blank for no show)';body.appendChild(lab);
+    // standard times unless this run has its own
+    var tog=document.createElement('label');tog.className='check';
+    var cb=document.createElement('input');cb.type='checkbox';cb.checked=!!run.custom;
+    tog.appendChild(cb);tog.appendChild(document.createTextNode('This run has its own show times'));
+    cb.onchange=function(){run.custom=cb.checked;run.pattern=clone(cfg.times);persist();drawRuns();drawTimesNote()};
+    body.appendChild(tog);
+    if(!run.custom){
+      var st=document.createElement('p');st.className='stdtimes';
+      st.textContent='Plays the standard show times: '+runTimes({pattern:cfg.times})+'.';
+      body.appendChild(st);
+    }
     var g=document.createElement('div');g.className='days';run.pattern=run.pattern||{};
+    if(!run.custom)g.hidden=true;
     DAYS.forEach(function(d){
       var l=document.createElement('div');l.className='d';l.textContent=d[1];
       var i=document.createElement('input');
@@ -1633,7 +1698,7 @@ $('importdash').onclick=function(){
     if(!sh||!sh.name||!sh.start||!sh.end||sh.end<today)return;
     var hit=cfg.runs.filter(function(r){return (r.show||'').toLowerCase()===sh.name.toLowerCase()})[0];
     if(hit){if(hit.start!==sh.start||hit.end!==sh.end){hit.start=sh.start;hit.end=sh.end;updated++}return}
-    cfg.runs.push({show:sh.name,start:sh.start,end:sh.end,pattern:stageWeekend(),exceptions:[]});added++;
+    cfg.runs.push({show:sh.name,start:sh.start,end:sh.end,pattern:clone(cfg.times),custom:false,exceptions:[]});added++;
   });
   cfg.runs.sort(function(a,b){return (a.start||'').localeCompare(b.start||'')});
   persist();drawRuns();
@@ -1642,7 +1707,7 @@ $('importdash').onclick=function(){
 };
 $('addrun').onclick=function(){
   var s=new Date(),e=new Date();e.setDate(e.getDate()+21);
-  cfg.runs.push({show:'',start:ymd(s),end:ymd(e),pattern:stageWeekend(),exceptions:[]});
+  cfg.runs.push({show:'',start:ymd(s),end:ymd(e),pattern:clone(cfg.times),custom:false,exceptions:[]});
   openRuns.push(cfg.runs[cfg.runs.length-1]);
   persist();drawRuns();
 };
