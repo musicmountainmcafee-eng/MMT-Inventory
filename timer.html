@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 2.7. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.8. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -54,6 +54,9 @@ body.display.wings #wall{color:#93281C}
 #msg{font-size:calc(var(--label)*1.6);font-weight:700;letter-spacing:.18em;color:#fff;margin-bottom:.4em;display:none}
 #msg.on{display:block;animation:pulse 1.6s steps(1,end) infinite}
 @keyframes pulse{0%,60%{opacity:1}61%,100%{opacity:0}}
+/* a held clock flashes (dim, not gone, so it stays readable and keyed) */
+.held{animation:heldflash 1s steps(1,end) infinite}
+@keyframes heldflash{0%,55%{opacity:1}56%,100%{opacity:.18}}
 #slug{font-size:var(--label);letter-spacing:.2em;color:var(--quiet);margin-bottom:.18em}
 #big{font-size:var(--digit);font-weight:600;letter-spacing:-.02em;color:#fff}
 #big.warn{color:var(--standby)}#big.over{color:var(--over)}
@@ -281,7 +284,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='2.7';
+var VERSION='2.8';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -733,6 +736,9 @@ function tick(){
   $('wall').textContent=wallText;$('wall').hidden=clockMode;
   if(!isDisplay)$('hclock').textContent=wallText;
   var wingsOn=document.body.classList.contains('wings');
+  var heldNow=!clockMode&&!f.done&&!!f.paused;
+  $('big').classList.toggle('held',heldNow);
+  if(!isDisplay)$('cface').classList.toggle('held',heldNow);
   var ink=colorKey==='white'?'':hexOf(colorKey);
 
   // display layer
@@ -743,10 +749,10 @@ function tick(){
     $('sub').textContent=f.idle?(f.next?'NEXT SHOW: '+f.next.show.toUpperCase()+', '+whenLabel(f.next,now):'')
       :f.preCall?f.perf.show.toUpperCase()+', '+f.cue+' AT '+clockOf(f.when):'READY TO START';
   }else{
-    $('slug').textContent=f.label;
+    $('slug').textContent=f.paused?'HOLDING':f.label;
     $('big').textContent=f.up?fmt(f.el):countdown(f.ms);
     $('big').style.color=wingsOn?'':ink;
-    $('sub').textContent=f.done?endLabel()+' '+clockOf(f.when):f.paused?'HELD':f.up?'PLANNED '+fmt(f.planned):f.auto?(f.ms<0?f.cue+' WAS '+clockOf(f.when):'AT '+clockOf(f.when)):(f.ms<0?'OVER':'ENDS '+clockOf(f.when));
+    $('sub').textContent=f.done?endLabel()+' '+clockOf(f.when):f.paused?f.label:f.up?'PLANNED '+fmt(f.planned):f.auto?(f.ms<0?f.cue+' WAS '+clockOf(f.when):'AT '+clockOf(f.when)):(f.ms<0?'OVER':'ENDS '+clockOf(f.when));
     if(f.done)$('big').textContent=fmt(f.ms);
   }
   $('msg').textContent=m||'';$('msg').classList.toggle('on',!!m);
@@ -761,11 +767,11 @@ function tick(){
     $('cends').textContent=f.preCall?cap(f.cue)+' at '+clockOf(f.when)+'. Countdowns start then.':'Show time was '+clockOf(f.when)+'. Press GO to begin.';
     $('cmsg').textContent=m||'';$('cmsg').classList.toggle('on',!!m);
   }else{
-    $('cslug').textContent=f.label;
+    $('cslug').textContent=f.paused?'HOLDING':f.label;
     $('cface').textContent=f.done?fmt(f.ms):f.up?fmt(f.el):countdown(f.ms);
     $('cface').style.color=wingsOn?'':ink;
     $('cends').textContent=f.done?cap(endLabel())+' at '+clockOf(f.when)
-      :f.paused?'Held'
+      :f.paused?cap(f.label)+' is held. Press Resume to restart the clock.'
       :f.up?'Planned '+fmt(f.planned)+(f.el>f.planned&&f.planned>0?', over by '+fmt(f.el-f.planned):'')
       :f.auto?(f.ms<0?'Late start. '+cap(f.cue)+' was '+clockOf(f.when)+'. Press GO to begin.':'At '+clockOf(f.when))
       :(f.ms<0?'Over since '+clockOf(f.when):'Ends '+clockOf(f.when));
