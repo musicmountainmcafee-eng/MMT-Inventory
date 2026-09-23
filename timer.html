@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 2.2. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.3. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -47,6 +47,10 @@ body.display.wings #slug,body.display.wings #sub{color:#93281C}
 #ver{position:fixed;left:2vw;bottom:2vh;font-size:14px;letter-spacing:.1em;color:#9EA4A6;transition:opacity 1s}
 #ver.gone{opacity:0}
 .version{text-align:center;font-size:12px;color:var(--dim);margin-top:18px}
+#wall{font-size:calc(var(--note)*1.35);letter-spacing:.08em;color:var(--quiet);margin-bottom:.5em}
+body.display.full #wall{position:fixed;top:max(2vh,env(safe-area-inset-top,0px));right:2.5vw;margin:0;font-size:max(20px,5vh)}
+body.display.wings #wall{color:#93281C}
+.hclock{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 #msg{font-size:calc(var(--label)*1.6);font-weight:700;letter-spacing:.18em;color:#fff;margin-bottom:.4em;display:none}
 #msg.on{display:block;animation:pulse 1.6s steps(1,end) infinite}
 @keyframes pulse{0%,60%{opacity:1}61%,100%{opacity:0}}
@@ -142,6 +146,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 
 <div id="ver" hidden></div>
 <div id="stage">
+  <div id="wall" hidden></div>
   <div id="msg"></div>
   <div id="slug"></div>
   <div id="big">--:--</div>
@@ -152,6 +157,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
   <div class="bar">
     <div><h1 id="title">Show timer</h1><div class="sub" id="subtitle"></div></div>
     <div class="right">
+      <span class="hclock" id="hclock"></span>
       <span class="pill" id="pill"><i></i><span></span></span>
       <button class="quiet small" id="wings">Wings</button>
     </div>
@@ -187,6 +193,13 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
     <h2>Show report</h2>
     <pre class="report" id="report"></pre>
     <button class="small" id="copyreport">Copy report</button>
+  </div>
+
+  <div class="card" id="rtpanel" hidden>
+    <h2>Start a run-through</h2>
+    <p class="hint">Nothing starts counting until you're ready. Leave the show time as now and the screens show the clock until you press GO. Set a later time and the call, mic check and house open countdowns run on schedule for it.</p>
+    <div class="pair field"><div><label>Show time</label><input type="time" id="rttime"></div></div>
+    <div class="row"><button class="quiet" id="rtcancel">Cancel</button><button id="rtstart">Start run-through</button></div>
   </div>
 
   <div class="foot">
@@ -266,7 +279,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='2.2';
+var VERSION='2.3';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -461,6 +474,11 @@ function frame(now){
     f.pos=k;f.cue=L[k].name;f.ms=when-now;f.when=when;f.auto=true;
     f.label=f.ms<0?'HOUSE HOLD':L[k].name+' IN';
     f.goNext=L[C.nA]?L[C.nA].name:'SHOW DOWN';
+    // Before the first clock cue (call) nothing counts: the screens show the
+    // wall clock with the call time underneath. A run-through that has passed
+    // its show time waits on the clock for GO instead of a house hold.
+    if(k===0&&f.ms>0){f.preCall=true;f.pos=-1}
+    else if(f.ms<=0&&(p.adhoc||p===S.adhoc)){f.ready=true;f.pos=C.nA}
   }else if(idx>=L.length){
     var up=firstUp();
     f.pos=L.length;f.label='SHOW DOWN';f.done=true;f.ms=up?S.target-up:0;f.when=S.target;
@@ -671,16 +689,21 @@ function paintPill(){
 
 function tick(){
   var now=Date.now(),f=frame(now),m=msgNow(now);
-  var colorKey=f.idle||f.done?'white':colorAt(f.L[f.pos],f);
+  var clockMode=f.idle||f.preCall||f.ready;
+  var colorKey=clockMode||f.done?'white':colorAt(f.L[f.pos],f);
+  var wallText=clockOf(now);
+  $('wall').textContent=wallText;$('wall').hidden=clockMode;
+  if(!isDisplay)$('hclock').textContent=wallText;
   var wingsOn=document.body.classList.contains('wings');
   var ink=colorKey==='white'?'':hexOf(colorKey);
 
   // display layer
-  if(f.idle){
+  if(clockMode){
     var d=new Date(now);
-    $('slug').textContent='';
+    $('slug').textContent=f.preCall||f.ready?(S.adhoc&&f.perf===S.adhoc?'RUN-THROUGH':''):'';
     $('big').textContent=(d.getHours()%12||12)+':'+pad(d.getMinutes());$('big').className='';$('big').style.color='';
-    $('sub').textContent=f.next?(dayLabel(f.next.date,true).split(',')[0].toUpperCase()+'  '+pretty(f.next.time)):'';
+    $('sub').textContent=f.idle?(f.next?(dayLabel(f.next.date,true).split(',')[0].toUpperCase()+'  '+pretty(f.next.time)):'')
+      :f.preCall?f.cue+' AT '+clockOf(f.when):'READY TO START';
   }else{
     $('slug').textContent=f.label;
     $('big').textContent=f.up?fmt(f.el):countdown(f.ms);
@@ -694,6 +717,11 @@ function tick(){
   // control face
   if(f.idle){
     var d2=new Date(now);$('iclock').textContent=clockOf(now).replace(/ (AM|PM)$/,'');
+  }else if(f.preCall||f.ready){
+    $('cslug').textContent=f.preCall?'BEFORE CALL':'READY';
+    $('cface').textContent=clockOf(now).replace(/ (AM|PM)$/,'');$('cface').style.color='';
+    $('cends').textContent=f.preCall?cap(f.cue)+' at '+clockOf(f.when)+'. Countdowns start then.':'Show time was '+clockOf(f.when)+'. Press GO to begin.';
+    $('cmsg').textContent=m||'';$('cmsg').classList.toggle('on',!!m);
   }else{
     $('cslug').textContent=f.label;
     $('cface').textContent=f.done?fmt(f.ms):f.up?fmt(f.el):countdown(f.ms);
@@ -707,7 +735,7 @@ function tick(){
   }
 
   // structure only when something actually changed
-  var s=[f.idle?'idle':f.perf.key,f.pos,f.idx,f.paused,m,S.n,syncState,S.adhoc?1:0].join('|');
+  var s=[f.idle?'idle':f.perf.key,f.pos,f.idx,f.paused,m,S.n,syncState,S.adhoc?1:0,f.preCall?1:0,f.ready?1:0].join('|');
   if(s===sig)return;sig=s;
   paintPill();
   $('nosync').hidden=!!cfg.sync;
@@ -731,7 +759,7 @@ function tick(){
     }
   }else{
     $('title').textContent=f.perf.show;
-    $('subtitle').textContent=S.adhoc&&f.perf===S.adhoc?'Started '+clockOf(f.perf.curtain):dayLabel(f.perf.date)+', '+pretty(f.perf.time)+' show';
+    $('subtitle').textContent=S.adhoc&&f.perf===S.adhoc?'Run-through, show at '+clockOf(f.perf.curtain):dayLabel(f.perf.date)+', '+pretty(f.perf.time)+' show';
     $('go').disabled=!!f.done;
     $('go').querySelector('.l').textContent=f.done?'SHOW DOWN':'GO';
     $('gonext').textContent=f.done?'':f.goNext;
@@ -749,7 +777,7 @@ function tick(){
     var ul=$('cuelist');ul.innerHTML='';
     f.L.forEach(function(c,i){
       var li=document.createElement('li');
-      li.className=(i<f.pos?'done':i===f.pos&&!f.done?'live':'')+(i>=f.nA?' tap':'');
+      li.className=(i<f.pos?'done':i===f.pos&&!f.done&&!f.ready&&!f.preCall?'live':'')+(i>=f.nA?' tap':'');
       li.innerHTML='<span class="dot"></span><span class="nm"></span><span class="wh"></span>';
       li.querySelector('.nm').textContent=c.name;
       var wh;
@@ -800,7 +828,7 @@ function fit(){
   if(k===fitKey)return;fitKey=k;
   st.style.setProperty('--digit','100px');
   var w=big.scrollWidth||1,h=big.offsetHeight||1;
-  var room=$("msg").textContent?0.52:0.64;          // leave space for the cue name and deck call
+  var room=$("msg").textContent?0.5:0.6;          // leave space for the cue name and deck call
   var size=Math.min(innerWidth*0.96/w*100,innerHeight*room/h*100);
   st.style.setProperty('--digit',size+'px');
   st.style.setProperty('--label',Math.max(18,size*0.16)+'px');
@@ -822,7 +850,16 @@ function toggleWings(){
 $('screen').onclick=function(){window.open(linkFor('full'),'_blank')};
 $('rehearse').onclick=function(){
   if(S.adhoc){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false});return}
-  var now=Date.now(),d=new Date(now),p={key:'adhoc-'+now,show:'Run-through',date:ymd(d),time:pad(d.getHours())+':'+pad(d.getMinutes()),curtain:now};
+  var d=new Date();$('rttime').value=pad(d.getHours())+':'+pad(d.getMinutes());
+  $('rtpanel').hidden=false;$('rtpanel').scrollIntoView({behavior:'smooth',block:'center'});
+};
+$('rtcancel').onclick=function(){$('rtpanel').hidden=true};
+$('rtstart').onclick=function(){
+  var now=Date.now(),d=new Date(now),t=$('rttime').value||(pad(d.getHours())+':'+pad(d.getMinutes()));
+  var curtain=at(ymd(d),t);
+  if(curtain<now-12*36e5)curtain+=24*36e5;               // a time that already passed long ago means tomorrow
+  var p={key:'adhoc-'+now,show:'Run-through',date:ymd(new Date(curtain)),time:t,curtain:curtain,adhoc:true};
+  $('rtpanel').hidden=true;
   commit({adhoc:p,key:p.key,idx:null,log:[],msg:null,paused:false});
 };
 $('reset').onclick=function(){
