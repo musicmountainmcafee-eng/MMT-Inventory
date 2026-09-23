@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 2.12. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.14. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -37,6 +37,13 @@ body{
 /* ---------- display view (the Wyse / ATEM feed) ---------- */
 body.display{background:#000;padding:0;overflow:hidden;cursor:none;height:100vh}
 body.display.pointer{cursor:auto}
+#dmenu{position:fixed;left:50%;bottom:3vh;transform:translateX(-50%);z-index:6;width:min(620px,94vw);background:rgba(10,12,13,.94);
+  border:1px solid #2E363B;border-radius:14px;padding:14px 16px 10px;box-shadow:0 12px 40px rgba(0,0,0,.6);opacity:0;transition:opacity .3s ease}
+#dmenu.on{opacity:1}
+#dmenu .row{display:flex;gap:8px;flex-wrap:wrap}
+#dmenu button{flex:1 1 150px;font:inherit;font-size:14px;font-weight:600;min-height:44px;padding:10px 12px;border-radius:10px;border:1px solid #2E363B;background:#232A2E;color:#E9ECED;cursor:pointer}
+#dmenu button:first-child{background:#2FBF5C;border-color:#2FBF5C;color:#05130A}
+#dmenu p{color:#9EA4A6;font-size:12px;line-height:1.45;margin-top:8px}
 #fsbox{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;width:min(460px,90vw);background:rgba(10,12,13,.94);border:1px solid #2E363B;border-radius:16px;padding:26px 26px 20px;box-shadow:0 12px 40px rgba(0,0,0,.6)}
 #fsbox button{font:inherit;font-size:22px;font-weight:700;letter-spacing:.06em;padding:18px 30px;background:#2FBF5C;color:#05130A;border:0;border-radius:12px;cursor:pointer}
 #fsbox p{color:#9EA4A6;font-size:14px;margin-top:14px;line-height:1.45}
@@ -177,6 +184,10 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
   <div id="sub"></div>
 </div>
 <div id="measure" aria-hidden="true"></div>
+<div id="dmenu" hidden>
+  <div class="row"><button id="dm-fs">Full screen</button><button id="dm-mac">Window launcher: Mac</button><button id="dm-win">Window launcher: Windows</button></div>
+  <p>The launcher opens this display in its own window with no browser bars, at any size. Unzip it and double-click it (Mac: the first time, right-click it and choose Open). Needs Chrome, or Edge on Windows.</p>
+</div>
 <div id="fsbox" hidden>
   <button id="fsgo">Go full screen</button>
   <p>Drag this window onto the screen you want first. Press Esc to leave full screen, or double-click to switch.</p>
@@ -302,6 +313,10 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
       <label>Full-screen display (green room, dressing rooms)</label>
       <div class="link" id="lk-full"></div>
       <button class="small" data-copy="full">Copy full-screen link</button>
+      <div style="height:14px"></div>
+      <label>A small display window with no browser bars</label>
+      <p class="hint" style="margin-bottom:8px">Download a launcher on the computer that will show the display. It already has this display's link inside. Unzip it and double-click it, then drag the window to any size. On a Mac, the first time, right-click it and choose Open. Needs Chrome (or Edge on Windows). You can also get it from the display itself: move the mouse over a full-screen display.</p>
+      <div class="row"><button class="small" id="dl-mac">Launcher for Mac</button><button class="small" id="dl-win">Launcher for Windows</button></div>
     </div>
     <button id="done" style="width:100%">Done</button>
   </div>
@@ -312,7 +327,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='2.12';
+var VERSION='2.14';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -1387,6 +1402,130 @@ if(isDisplay){
   document.addEventListener('dblclick',function(){inFS()?exitFS():goFS()});
   ['fullscreenchange','webkitfullscreenchange'].forEach(function(e){document.addEventListener(e,function(){paintFS();fitKey='';fit()})});
   paintFS();
+}
+
+// ---------- window launchers ----------
+// Browsers won't let a page hide its own address bar, but Chrome and Edge can
+// open a link as an app window with none. These tiny launchers do that, with
+// this display's link already inside, zipped so the Mac one keeps permission
+// to run. They're built right here, so there's nothing extra in the repo.
+function macLauncher(link){
+  link=String(link).replace(/'/g,"'\\''");
+  return [
+    '#!/bin/bash',
+    '# MMT Show Timer window launcher (made by timer '+VERSION+').',
+    '# Opens the display in its own Chrome window with no address bar or tabs.',
+    '# Drag the window corner to any size; the timer scales to fit.',
+    '# To open a different timer link just once: copy it, then double-click this.',
+    '',
+    "LINK='"+link+"'",
+    'CLIP="$(pbpaste 2>/dev/null)"',
+    'case "$CLIP" in',
+    '  *timer.html*"#s="*) LINK="$(printf "%s" "$CLIP" | tr -d "\\r\\n")" ;;',
+    'esac',
+    '',
+    'if ! open -Ra "Google Chrome" 2>/dev/null; then',
+    "  osascript -e 'display dialog \"This needs Google Chrome. Install Chrome on this Mac, then double-click this again.\" buttons {\"OK\"} default button \"OK\" with title \"MMT Timer Display\"' >/dev/null",
+    '  exit 1',
+    'fi',
+    '',
+    'open -na "Google Chrome" --args --app="$LINK"',
+    'echo "Opened. You can close this window."',
+    ''
+  ].join('\n');
+}
+function winLauncher(link){
+  link=String(link).replace(/%/g,'%%');
+  // single-line IFs on purpose: "Program Files (x86)" breaks bracketed blocks
+  var CH='\\Google\\Chrome\\Application\\chrome.exe',ED='\\Microsoft\\Edge\\Application\\msedge.exe';
+  return [
+    '@echo off',
+    'rem MMT Show Timer window launcher (made by timer '+VERSION+').',
+    'rem Opens the display in its own Chrome or Edge window with no address bar or tabs.',
+    'rem Drag the window corner to any size; the timer scales to fit.',
+    'set "LINK='+link+'"',
+    'set "B="',
+    'if exist "%ProgramFiles%'+CH+'" set "B=%ProgramFiles%'+CH+'"',
+    'if not defined B if exist "%ProgramFiles(x86)%'+CH+'" set "B=%ProgramFiles(x86)%'+CH+'"',
+    'if not defined B if exist "%LocalAppData%'+CH+'" set "B=%LocalAppData%'+CH+'"',
+    'if not defined B if exist "%ProgramFiles(x86)%'+ED+'" set "B=%ProgramFiles(x86)%'+ED+'"',
+    'if not defined B if exist "%ProgramFiles%'+ED+'" set "B=%ProgramFiles%'+ED+'"',
+    'if not defined B goto nobrowser',
+    'start "" "%B%" --app="%LINK%"',
+    'exit /b 0',
+    ':nobrowser',
+    'echo This needs Google Chrome or Microsoft Edge. Install one, then double-click this again.',
+    'pause',
+    ''
+  ].join('\r\n');
+}
+var CRC=null;
+function crc32(b){
+  if(!CRC){CRC=new Uint32Array(256);for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;CRC[n]=c>>>0}}
+  var x=0xFFFFFFFF;for(var i=0;i<b.length;i++)x=CRC[(x^b[i])&255]^(x>>>8);return (x^0xFFFFFFFF)>>>0;
+}
+function put(dv,fields){fields.forEach(function(f){f[2]===4?dv.setUint32(f[0],f[1]>>>0,true):dv.setUint16(f[0],f[1],true)})}
+// one file, stored uncompressed; on the Mac one, marked runnable (Unix 755)
+function zipOne(name,text,runnable){
+  var te=new TextEncoder(),data=te.encode(text),fn=te.encode(name),crc=crc32(data),d=new Date();
+  var tm=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1))&0xFFFF;
+  var dt=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF;
+  var lh=new DataView(new ArrayBuffer(30)),ch=new DataView(new ArrayBuffer(46)),eo=new DataView(new ArrayBuffer(22));
+  put(lh,[[0,0x04034b50,4],[4,20,2],[6,0,2],[8,0,2],[10,tm,2],[12,dt,2],[14,crc,4],[18,data.length,4],[22,data.length,4],[26,fn.length,2],[28,0,2]]);
+  put(ch,[[0,0x02014b50,4],[4,runnable?(3<<8)|20:20,2],[6,20,2],[8,0,2],[10,0,2],[12,tm,2],[14,dt,2],[16,crc,4],[20,data.length,4],[24,data.length,4],
+    [28,fn.length,2],[30,0,2],[32,0,2],[34,0,2],[36,0,2],[38,runnable?(0x81ED<<16):0,4],[42,0,4]]);
+  put(eo,[[0,0x06054b50,4],[4,0,2],[6,0,2],[8,1,2],[10,1,2],[12,46+fn.length,4],[16,30+fn.length+data.length,4],[20,0,2]]);
+  return new Blob([lh,fn,data,ch,fn,eo],{type:'application/zip'});
+}
+function downloadLauncher(kind,btn){
+  var link=linkFor('full'),stage=cfg.stage==='kids'?" (Children's Theatre)":'';
+  var blob=kind==='mac'
+    ?zipOne('Open Timer Display.command',macLauncher(link),true)
+    :zipOne('Open Timer Display.bat',winLauncher(link),false);
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='Open Timer Display'+stage+(kind==='mac'?' (Mac)':' (Windows)')+'.zip';
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},2000);
+  if(btn){var l=btn.textContent;btn.textContent='Downloaded';setTimeout(function(){btn.textContent=l},2000)}
+}
+$('dl-mac').onclick=function(){downloadLauncher('mac',this)};
+$('dl-win').onclick=function(){downloadLauncher('win',this)};
+
+// ---------- display menu: appears when the mouse moves over a full-screen display ----------
+// Never on the corner layout (that's the Wyse's ATEM feed), never on touch,
+// and it fades after 3 seconds without movement.
+if(isDisplay){
+  var dmTimer=null,dmOver=false;
+  function dmShow(){
+    if(!document.body.classList.contains('full'))return;
+    if(!$('fsbox').hidden)return;                        // the Go full screen box is already up
+    var m=$('dmenu');m.hidden=false;void m.offsetWidth;m.classList.add('on');
+    document.body.classList.add('pointer');
+    $('dm-fs').textContent=inFS()?'Leave full screen':'Full screen';
+    clearTimeout(dmTimer);dmTimer=setTimeout(dmHide,3000);
+  }
+  function dmHide(){
+    if(dmOver){dmTimer=setTimeout(dmHide,1000);return}
+    var m=$('dmenu');m.classList.remove('on');
+    if(!(isPop&&!inFS()))document.body.classList.remove('pointer');
+    setTimeout(function(){if(!m.classList.contains('on'))m.hidden=true},320);
+  }
+  var lastX=null,lastY=null;
+  document.addEventListener('pointermove',function(e){
+    if(e.pointerType!=='mouse')return;
+    if(lastX!==null&&Math.abs(e.clientX-lastX)<4&&Math.abs(e.clientY-lastY)<4)return;
+    lastX=e.clientX;lastY=e.clientY;dmShow();
+  });
+  // iPads and iPhones can't run a launcher (iPadOS says "Macintosh" but has touch points)
+  var ua=navigator.userAgent||'',iOS=/iPad|iPhone|iPod/.test(ua)||(/Macintosh/.test(ua)&&(navigator.maxTouchPoints||0)>1);
+  if(iOS)$('dm-mac').hidden=$('dm-win').hidden=true;
+  if(/Win/i.test((navigator.platform||'')+' '+(navigator.userAgent||'')))$('dm-mac').parentNode.insertBefore($('dm-win'),$('dm-mac'));
+  $('dmenu').addEventListener('pointerenter',function(){dmOver=true});
+  $('dmenu').addEventListener('pointerleave',function(){dmOver=false});
+  $('dmenu').addEventListener('dblclick',function(e){e.stopPropagation()});   // don't toggle full screen from the menu
+  $('dm-fs').onclick=function(){inFS()?exitFS():goFS();dmHide()};
+  $('dm-mac').onclick=function(){downloadLauncher('mac',this)};
+  $('dm-win').onclick=function(){downloadLauncher('win',this)};
 }
 
 // ---------- start ----------
