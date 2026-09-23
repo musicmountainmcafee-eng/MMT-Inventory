@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 2.1. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.2. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -157,6 +157,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
     </div>
   </div>
 
+  <div class="card note" id="toobig" hidden>The schedule is too big to send to the other screens automatically. After changing it, copy the links again from Schedule.</div>
   <div class="card note" id="nosync" hidden>This link doesn't sync between devices yet. Tap Schedule, then copy the new link to every device.</div>
 
   <div id="run">
@@ -265,7 +266,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='2.1';
+var VERSION='2.2';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -302,6 +303,11 @@ if(!cfg.template||!cfg.template.length)cfg.template=clone(DEFAULT.template);
 cfg.messages=cfg.messages||DEFAULT.messages.slice();
 cfg.runs=cfg.runs||[];
 cfg.sync=cfg.sync||'';
+function normalizeCfg(){
+  if(!cfg.template||!cfg.template.length)cfg.template=clone(DEFAULT.template);
+  cfg.messages=cfg.messages||DEFAULT.messages.slice();
+  cfg.runs=cfg.runs||[];
+}
 sset('mmt-timer-cfg',enc(cfg));
 
 var isDisplay=hp('v')==='display';
@@ -554,6 +560,7 @@ function topicUrl(){return SYNC_HOST+encodeURIComponent(cfg.sync)}
 function handle(txt){
   var m,s;try{m=JSON.parse(txt)}catch(x){return}
   if(!m||(m.event&&m.event!=='message'))return;
+  if(typeof m.message==='string'&&m.message.slice(0,4)==='cfg:'){receiveCfg(m.message.slice(4));return}
   if(applyCommand(m.message,m.id,m.time?m.time*1000:null))return;
   try{s=JSON.parse(m.message)}catch(x){return}
   receive(s);
@@ -572,7 +579,7 @@ function connect(){
     try{ws=new WebSocket(topicUrl().replace(/^http/,'ws')+'/ws?since=latest')}catch(e){ws=null}
   }
   if(ws){
-    ws.onopen=function(){syncState='live';backoff=2000;paintPill();catchUp()};
+    ws.onopen=function(){syncState='live';backoff=2000;paintPill();catchUp();sendCfg()};
     ws.onmessage=function(e){handle(e.data)};
     ws.onclose=function(){ws=null;syncState='down';paintPill();again()};
     ws.onerror=function(){};
@@ -583,6 +590,35 @@ function connect(){
   es.onopen=function(){syncState='live';backoff=2000;paintPill()};
   es.onerror=function(){syncState='down';paintPill();if(es&&es.readyState===2)again()};
   es.onmessage=function(e){handle(e.data)};
+}
+// ---------- schedule and color changes travel with the sync ----------
+// Before 2.2 the schedule lived only in each screen's link, so a change on the
+// controller never reached a display until its link was recopied. Now every
+// edit goes out on the sync code, the newest edit wins on every screen, and
+// each screen re-announces what it has when it connects, so a screen opened
+// from an old link days later still picks up the latest.
+var cfgTimer=null,cfgTooBig=false;
+function sendCfgSoon(){clearTimeout(cfgTimer);cfgTimer=setTimeout(sendCfg,800)}
+function sendCfg(){
+  if(!cfg.sync||!cfg.v||typeof fetch==='undefined')return;
+  var body='cfg:'+JSON.stringify(cfg);
+  cfgTooBig=body.length>3900;          // the relay only carries about 4 KB
+  if(cfgTooBig){sig='';return}
+  fetch(topicUrl(),{method:'POST',body:body}).catch(function(){});
+}
+function receiveCfg(txt){
+  var c;try{c=JSON.parse(txt)}catch(e){return}
+  if(!c||c.sync!==cfg.sync)return;
+  if((c.v||0)<=(cfg.v||0))return;
+  cfg=c;normalizeCfg();
+  sset('mmt-timer-cfg',enc(cfg));
+  try{history.replaceState(null,'',linkFor(isDisplay?(document.body.classList.contains('full')?'full':'display'):''))}catch(e){}
+  fitKey='';
+  if(!$('settings').hidden){
+    drawRuns();drawTpl();drawPreview();drawLinks();
+    $('msgedit').value=cfg.messages.join('\n');$('stagesel').value=cfg.stage||'main';
+  }
+  draw();
 }
 function catchUp(){
   if(!cfg.sync||typeof fetch==='undefined')return;
@@ -675,6 +711,7 @@ function tick(){
   if(s===sig)return;sig=s;
   paintPill();
   $('nosync').hidden=!!cfg.sync;
+  $('toobig').hidden=!cfgTooBig;
   $('run').hidden=f.idle;$('idlecard').hidden=!f.idle;
   $('rehearse').textContent=S.adhoc?'End run-through':'Start run-through';
   $('reset').hidden=f.idle||(f.idx==null&&!S.adhoc);
@@ -859,7 +896,9 @@ Array.prototype.forEach.call(document.querySelectorAll('[data-copy]'),function(b
 });
 
 function persist(){
+  cfg.v=Date.now();
   sset('mmt-timer-cfg',enc(cfg));
+  sendCfgSoon();
   try{history.replaceState(null,'',linkFor(isDisplay?(document.body.classList.contains('full')?'full':'display'):''))}catch(e){}
   drawPreview();drawLinks();sig='';
 }
