@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 2.4. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.6. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -281,7 +281,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='2.4';
+var VERSION='2.6';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -495,7 +495,7 @@ function frame(now){
     if(k<0)k=C.nA-1;
     var when=p.curtain+(L[k].offset||0)*6e4;
     f.pos=k;f.cue=L[k].name;f.ms=when-now;f.when=when;f.auto=true;
-    f.label=f.ms<0?'HOUSE HOLD':L[k].name+' IN';
+    f.label=f.ms<0?'HOUSE HOLD':L[k].name;       // "MIC CHECK 10:00" counts down to mic check
     f.goNext=L[C.nA]?L[C.nA].name:endLabel();
     // Before the first clock cue (call) nothing counts: the screens show the
     // wall clock with the call time underneath. A run-through that has passed
@@ -550,6 +550,12 @@ function parseClock(t){
   if(p.length===1)return Math.round(p[0]*60);            // a bare number is minutes
   if(p.length===2)return p[0]*60+p[1];
   return p[0]*3600+p[1]*60+p[2];
+}
+// "TONIGHT 8:00 PM", "FRIDAY 8:00 PM" within the week, "FRIDAY, OCT 2 8:00 PM" further out
+function whenLabel(p,now){
+  var today=ymd(new Date(now)),days=Math.round((at(p.date,'12:00')-at(today,'12:00'))/864e5);
+  var day=days===0?'TODAY':days===1?'TOMORROW':days<7?dayLabel(p.date,true).split(',')[0].toUpperCase():dayLabel(p.date,true).toUpperCase();
+  return day+' '+pretty(p.time);
 }
 function cap(t){t=String(t).toLowerCase();return t.charAt(0).toUpperCase()+t.slice(1)}
 function msgNow(now){return S.msg&&now-S.msg.at<60*6e4?S.msg.text:null}
@@ -725,8 +731,8 @@ function tick(){
     var d=new Date(now);
     $('slug').textContent=f.preCall||f.ready?(S.adhoc&&f.perf===S.adhoc?'RUN-THROUGH':''):'';
     $('big').textContent=(d.getHours()%12||12)+':'+pad(d.getMinutes());$('big').className='';$('big').style.color='';
-    $('sub').textContent=f.idle?(f.next?(dayLabel(f.next.date,true).split(',')[0].toUpperCase()+'  '+pretty(f.next.time)):'')
-      :f.preCall?f.cue+' AT '+clockOf(f.when):'READY TO START';
+    $('sub').textContent=f.idle?(f.next?'NEXT SHOW: '+f.next.show.toUpperCase()+', '+whenLabel(f.next,now):'')
+      :f.preCall?f.perf.show.toUpperCase()+', '+f.cue+' AT '+clockOf(f.when):'READY TO START';
   }else{
     $('slug').textContent=f.label;
     $('big').textContent=f.up?fmt(f.el):countdown(f.ms);
@@ -858,7 +864,7 @@ function report(f){
 var fitKey='';
 function fit(){
   if(!isDisplay||!document.body.classList.contains('full'))return;
-  var big=$('big'),st=$('stage'),k=big.textContent.length+'|'+innerWidth+'|'+innerHeight+'|'+(!!$('msg').textContent);
+  var big=$('big'),st=$('stage'),k=big.textContent.length+'|'+$('sub').textContent.length+'|'+innerWidth+'|'+innerHeight+'|'+(!!$('msg').textContent);
   if(k===fitKey)return;fitKey=k;
   st.style.setProperty('--digit','100px');
   var w=big.scrollWidth||1,h=big.offsetHeight||1;
@@ -867,6 +873,8 @@ function fit(){
   st.style.setProperty('--digit',size+'px');
   st.style.setProperty('--label',Math.max(18,size*0.16)+'px');
   st.style.setProperty('--note',Math.max(14,size*0.1)+'px');
+  var sub=$('sub'),sw=sub.scrollWidth,room2=innerWidth*0.94;
+  if(sw>room2)st.style.setProperty('--note',Math.max(12,size*0.1*room2/sw)+'px');
 }
 window.addEventListener('resize',function(){fitKey='';fit()});
 setInterval(function(){tick();fit()},250);
