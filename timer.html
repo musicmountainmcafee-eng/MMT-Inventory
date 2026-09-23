@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 2.11. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.12. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -36,6 +36,10 @@ body{
 
 /* ---------- display view (the Wyse / ATEM feed) ---------- */
 body.display{background:#000;padding:0;overflow:hidden;cursor:none;height:100vh}
+body.display.pointer{cursor:auto}
+#fsbox{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;width:min(460px,90vw);background:rgba(10,12,13,.94);border:1px solid #2E363B;border-radius:16px;padding:26px 26px 20px;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+#fsbox button{font:inherit;font-size:22px;font-weight:700;letter-spacing:.06em;padding:18px 30px;background:#2FBF5C;color:#05130A;border:0;border-radius:12px;cursor:pointer}
+#fsbox p{color:#9EA4A6;font-size:14px;margin-top:14px;line-height:1.45}
 body.display #panel{display:none}
 #stage{display:none}
 body.display #stage{display:block;position:absolute;right:var(--edge-r);bottom:var(--edge-b);text-align:right;line-height:1}
@@ -173,6 +177,10 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
   <div id="sub"></div>
 </div>
 <div id="measure" aria-hidden="true"></div>
+<div id="fsbox" hidden>
+  <button id="fsgo">Go full screen</button>
+  <p>Drag this window onto the screen you want first. Press Esc to leave full screen, or double-click to switch.</p>
+</div>
 
 <div id="panel">
   <div class="bar">
@@ -304,7 +312,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='2.11';
+var VERSION='2.12';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -356,6 +364,20 @@ sset('mmt-timer-cfg',enc(cfg));
 
 var isDisplay=hp('v')==='display';
 if(isDisplay)document.body.classList.add('display');
+// ---------- full screen ----------
+// Pages can't hide the browser's bars, but full screen hides all of it. The
+// button only shows in windows opened from a controller (pop=1), never on the
+// Wyse's own display link, so it can't end up in the camera feed.
+var isPop=hp('pop')==='1';
+function inFS(){return !!(document.fullscreenElement||document.webkitFullscreenElement)}
+function goFS(){var el=document.documentElement,f=el.requestFullscreen||el.webkitRequestFullscreen;if(f){try{var r=f.call(el);if(r&&r.catch)r.catch(function(){})}catch(e){}}}
+function exitFS(){var f=document.exitFullscreen||document.webkitExitFullscreen;if(f){try{var r=f.call(document);if(r&&r.catch)r.catch(function(){})}catch(e){}}}
+function paintFS(){
+  if(!isDisplay)return;
+  var show=isPop&&!inFS();
+  document.getElementById('fsbox').hidden=!show;
+  document.body.classList.toggle('pointer',show);
+}
 if(hp('mode')==='full')document.body.classList.add('full');
 if(sget('mmt-wings')==='1')document.body.classList.add('wings');
 
@@ -878,8 +900,8 @@ function tick(){
   if(!pj){pr.textContent='';pr.classList.remove('long')}
   else{
     var late=Math.round((pj.down-pj.base)/6e4),downAt=clockOf(Math.round(pj.down/6e4)*6e4);
-    pr.textContent=pj.done?'Came down '+downAt+', '+(Math.abs(late)<=1?'on time':late>0?late+' min later than planned':(-late)+' min earlier than planned')
-      :(late>1?'Down about '+downAt+', running '+offPlan(pj):late<-1?'Down about '+downAt+', '+offPlan(pj):'Down about '+downAt);
+    pr.textContent=pj.done?'Show ended '+downAt+', '+(Math.abs(late)<=1?'on time':late>0?late+' min later than planned':(-late)+' min earlier than planned')
+      :(late>1?'Show ends around '+downAt+', running '+offPlan(pj):late<-1?'Show ends around '+downAt+', '+offPlan(pj):'Show ends around '+downAt);
     pr.classList.toggle('long',!pj.done&&late>=5);
   }
   var s=[f.idle?'idle':f.perf.key,f.pos,f.idx,f.paused,m,S.n,syncState,S.adhoc?1:0,f.preCall?1:0,f.ready?1:0].join('|');
@@ -913,7 +935,7 @@ function tick(){
       var note=document.createElement('p');note.className='muted';note.style.marginTop='8px';
       var tot=0;for(var j=C.nA;j<C.list.length;j++)tot+=(C.list[j].minutes||0)*6e4;
       var dl=document.createElement('li');dl.innerHTML='<span class="dot"></span><span class="nm"></span><span class="wh"></span>';
-      dl.querySelector('.nm').textContent='PLANNED DOWN';dl.querySelector('.wh').textContent=clockOf(f.next.curtain+tot);
+      dl.querySelector('.nm').textContent='PLANNED END';dl.querySelector('.wh').textContent=clockOf(f.next.curtain+tot);
       dl.style.opacity='.75';ul.appendChild(dl);
       note.textContent='These run on their own. No need to press anything until the show starts.';
       $('idletext').appendChild(ul);$('idletext').appendChild(note);
@@ -1022,7 +1044,11 @@ function toggleWings(){
   document.body.classList.toggle('wings');
   sset('mmt-wings',document.body.classList.contains('wings')?'1':'0');
 }
-$('screen').onclick=function(){window.open(linkFor('full'),'_blank')};
+// its own window (not a tab), sized like a TV, ready to drag to another screen
+$('screen').onclick=function(){
+  var w=window.open(linkFor('full')+'&pop=1','mmt-display','popup,width=1280,height=720');
+  if(!w)window.open(linkFor('full')+'&pop=1','_blank');
+};
 $('rehearse').onclick=function(){
   var f=frame(Date.now());
   if(S.adhoc&&!f.idle&&f.perf===S.adhoc){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false});return}
@@ -1354,6 +1380,13 @@ if(isDisplay){
   $('ver').textContent='VERSION '+VERSION;$('ver').hidden=false;
   setTimeout(function(){$('ver').classList.add('gone')},10000);
   setTimeout(function(){$('ver').hidden=true},11500);
+}
+
+if(isDisplay){
+  $('fsgo').onclick=goFS;
+  document.addEventListener('dblclick',function(){inFS()?exitFS():goFS()});
+  ['fullscreenchange','webkitfullscreenchange'].forEach(function(e){document.addEventListener(e,function(){paintFS();fitKey='';fit()})});
+  paintFS();
 }
 
 // ---------- start ----------
