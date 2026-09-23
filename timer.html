@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 2.14. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.16. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -37,6 +37,8 @@ body{
 /* ---------- display view (the Wyse / ATEM feed) ---------- */
 body.display{background:#000;padding:0;overflow:hidden;cursor:none;height:100vh}
 body.display.pointer{cursor:auto}
+#sndnote{position:fixed;left:2vw;bottom:calc(2vh + 26px);z-index:4;font:inherit;font-size:13px;font-weight:600;letter-spacing:.06em;
+  padding:8px 12px;border-radius:999px;border:1px solid #2E363B;background:rgba(10,12,13,.9);color:#9EA4A6;cursor:pointer}
 #dmenu{position:fixed;left:50%;bottom:3vh;transform:translateX(-50%);z-index:6;width:min(620px,94vw);background:rgba(10,12,13,.94);
   border:1px solid #2E363B;border-radius:14px;padding:14px 16px 10px;box-shadow:0 12px 40px rgba(0,0,0,.6);opacity:0;transition:opacity .3s ease}
 #dmenu.on{opacity:1}
@@ -162,6 +164,10 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber)}
 .swatches{display:flex;flex-wrap:wrap;gap:6px;grid-column:1/-1}
 .swatches button{width:34px;height:34px;min-height:34px;padding:0;border-radius:8px;border:2px solid transparent}
 .swatches button.pick{border-color:var(--type);box-shadow:0 0 0 2px var(--shell) inset}
+.smrow{display:grid;grid-template-columns:1fr 1fr 1fr 36px;gap:8px;margin-bottom:8px;align-items:center}
+.smrow input{min-height:40px;padding:8px}
+.smrow .x{background:transparent;border-color:transparent;color:var(--dim);min-height:40px;padding:0}
+@media(max-width:560px){.smrow{grid-template-columns:1fr 1fr 36px}.smrow input.ph{grid-column:1/3}}
 .cue{display:grid;grid-template-columns:1fr 112px 70px 36px;gap:8px;margin-bottom:8px;align-items:center}
 .cue input,.cue select{min-height:40px;padding:8px}
 .cue .x{background:transparent;border-color:transparent;color:var(--dim);min-height:40px;padding:0}
@@ -185,9 +191,10 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 </div>
 <div id="measure" aria-hidden="true"></div>
 <div id="dmenu" hidden>
-  <div class="row"><button id="dm-fs">Full screen</button><button id="dm-mac">Window launcher: Mac</button><button id="dm-win">Window launcher: Windows</button></div>
-  <p>The launcher opens this display in its own window with no browser bars, at any size. Unzip it and double-click it (Mac: the first time, right-click it and choose Open). Needs Chrome, or Edge on Windows.</p>
+  <div class="row"><button id="dm-fs">Full screen</button><button id="dm-snd">Sound: on</button><button id="dm-mac">Window launcher: Mac</button><button id="dm-win">Window launcher: Windows</button></div>
+  <p>The launcher opens this display in its own window with no browser bars, at any size. Unzip it and double-click it. On a Mac, if it's blocked the first time: System Settings, Privacy &amp; Security, scroll down, Open Anyway. Needs Chrome, or Edge on Windows.</p>
 </div>
+<button id="sndnote" hidden>Tap for sound</button>
 <div id="fsbox" hidden>
   <button id="fsgo">Go full screen</button>
   <p>Drag this window onto the screen you want first. Press Esc to leave full screen, or double-click to switch.</p>
@@ -206,6 +213,12 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
   <div class="card note" id="relaylimit" hidden>The free relay has hit its daily message limit, so presses on this device aren't reaching the other screens (and Stream Deck keys won't work). This screen still keeps time on its own. It clears by itself once the relay's daily allowance resets.</div>
   <div class="card note" id="toobig" hidden>The schedule is too big to send to the other screens automatically. After changing it, copy the links again from Schedule.</div>
   <div class="card note" id="nosync" hidden>This link doesn't sync between devices yet. Tap Schedule, then copy the new link to every device.</div>
+
+  <div class="card" id="smcard">
+    <label>Stage manager tonight</label>
+    <div class="msgs" id="smchips"></div>
+    <p class="muted" id="smnone" hidden>Add stage managers under Schedule, then pick who's running the show here.</p>
+  </div>
 
   <div id="run">
     <div class="card now">
@@ -234,7 +247,12 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
   <div class="card" id="reportcard" hidden>
     <h2>Show report</h2>
     <pre class="report" id="report"></pre>
-    <button class="small" id="copyreport">Copy report</button>
+    <div class="row" style="flex-wrap:wrap">
+      <button class="small" id="copyreport">Copy report</button>
+      <button class="small" id="mailreport" hidden>Email report</button>
+      <button class="small" id="textreport" hidden>Text report</button>
+    </div>
+    <p class="muted" id="sendhint" style="margin-top:8px" hidden></p>
   </div>
 
   <div class="card" id="rtpanel" hidden>
@@ -271,6 +289,15 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
       <div class="field" style="margin-top:12px"><label>End of show label (shown under the running time after the last GO)</label>
         <input id="endlabel" autocomplete="off" spellcheck="false" placeholder="SHOW DOWN"></div>
       <button class="quiet" id="addcue" style="width:100%;margin-top:6px">Add a cue</button>
+    </div>
+
+    <div class="card">
+      <h2>Stage managers</h2>
+      <p class="hint">Pick tonight's stage manager with one tap on the controller. After the show, the report can be emailed or texted to them. Names, emails and phone numbers travel with the schedule (inside the links and over the relay), so keep the links in the building.</p>
+      <div id="smlist"></div>
+      <button class="quiet" id="addsm" style="width:100%;margin-top:6px">Add a stage manager</button>
+      <div class="field" style="margin-top:12px"><label>Also send every report to (optional email, like the TD)</label>
+        <input id="smcc" type="email" autocomplete="off" spellcheck="false" placeholder="name@example.com"></div>
     </div>
 
     <div class="card">
@@ -315,7 +342,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
       <button class="small" data-copy="full">Copy full-screen link</button>
       <div style="height:14px"></div>
       <label>A small display window with no browser bars</label>
-      <p class="hint" style="margin-bottom:8px">Download a launcher on the computer that will show the display. It already has this display's link inside. Unzip it and double-click it, then drag the window to any size. On a Mac, the first time, right-click it and choose Open. Needs Chrome (or Edge on Windows). You can also get it from the display itself: move the mouse over a full-screen display.</p>
+      <p class="hint" style="margin-bottom:8px">Download a launcher on the computer that will show the display. It already has this display's link inside. Unzip it and double-click it, then drag the window to any size. On a Mac, if it's blocked the first time, open System Settings, Privacy &amp; Security, scroll down and click Open Anyway. Needs Chrome (or Edge on Windows). You can also get it from the display itself: move the mouse over a full-screen display.</p>
       <div class="row"><button class="small" id="dl-mac">Launcher for Mac</button><button class="small" id="dl-win">Launcher for Windows</button></div>
     </div>
     <button id="done" style="width:100%">Done</button>
@@ -327,7 +354,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='2.14';
+var VERSION='2.16';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -374,7 +401,9 @@ function normalizeCfg(){
   if(!cfg.template||!cfg.template.length)cfg.template=clone(DEFAULT.template);
   cfg.messages=cfg.messages||DEFAULT.messages.slice();
   cfg.runs=cfg.runs||[];
+  cfg.sms=cfg.sms||[];
 }
+normalizeCfg();
 sset('mmt-timer-cfg',enc(cfg));
 
 var isDisplay=hp('v')==='display';
@@ -454,7 +483,7 @@ function nextPerf(now){
 // ---------- shared show state ----------
 // Every device holds a copy. Any press bumps n and goes out to the others;
 // the highest n wins, so a device that was asleep just adopts the latest.
-var BLANK={key:null,idx:null,target:0,paused:false,left:0,extra:0,msg:null,log:[],adhoc:null,seen:[],n:0,t:0,by:''};
+var BLANK={key:null,idx:null,target:0,paused:false,left:0,extra:0,msg:null,log:[],adhoc:null,seen:[],sm:null,n:0,t:0,by:''};
 var S;try{S=Object.assign({},BLANK,JSON.parse(sget('mmt-timer-shared')||'{}'))}catch(e){S=clone(BLANK)}
 var ME=Math.random().toString(36).slice(2,8);
 
@@ -757,6 +786,7 @@ function receiveCfg(txt){
   fitKey='';
   if(!$('settings').hidden){
     drawRuns();drawTpl();drawPreview();drawLinks();
+    drawSMList();
     $('msgedit').value=cfg.messages.join('\n');$('stagesel').value=cfg.stage||'main';$('endlabel').value=cfg.endLabel||'';
   }
   draw();
@@ -826,6 +856,49 @@ function paintPill(){
   p.querySelector('span').textContent=lim?'Relay limit':{live:'Synced',down:'Offline',connecting:'Connecting',off:'Sync off'}[syncState];
 }
 
+// ---------- chimes ----------
+// Made in the page with Web Audio, so there's no sound file to host. Browsers
+// won't play sound until the page has been clicked or tapped once, so a small
+// "Tap for sound" note shows until then. On by default for full-screen
+// displays, never on the ATEM corner layout; each screen can switch it off.
+var AC=null,soundReady=false,chimeQuietUntil=Date.now()+4000;
+function soundWanted(){
+  if(!isDisplay||!document.body.classList.contains('full'))return false;
+  return sget('mmt-chime')!=='0';
+}
+function unlockSound(){
+  if(!soundWanted()||soundReady)return;
+  try{
+    var C=window.AudioContext||window.webkitAudioContext;if(!C)return;
+    AC=AC||new C();
+    var r=AC.resume&&AC.resume();
+    var done=function(){soundReady=AC.state==='running';paintSound()};
+    if(r&&r.then)r.then(done,done);else done();
+  }catch(e){}
+}
+function tone(freq,start,len,vol){
+  var o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+start;
+  o.type='sine';o.frequency.value=freq;
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+len);
+  o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+len+0.05);
+}
+// 'call': a two-note ding-dong when a deck call goes up
+// 'cue' : one soft tone when the cue changes
+function chime(kind,force){
+  if(!soundWanted()||!soundReady||!AC)return;
+  if(!force&&Date.now()<chimeQuietUntil)return;       // not while loading or catching up
+  if(kind==='call'){tone(880,0,0.9,0.28);tone(659.25,0.42,1.2,0.28)}
+  else tone(587.33,0,0.9,0.2);
+}
+function paintSound(){
+  if(!isDisplay)return;
+  var n=$('sndnote');
+  n.hidden=!(soundWanted()&&!soundReady);
+  $('dm-snd').textContent='Sound: '+(sget('mmt-chime')==='0'?'off':'on');
+}
+var lastCall=null;
+
 // ---------- display scene ----------
 var shownScene=null,fading=false,sizeScene='',sizeLen=0,cScene='';
 function sceneOf(f,clockMode){
@@ -873,6 +946,7 @@ function tick(){
   var scene=sceneOf(f,clockMode);
   if(shownScene===null)shownScene=scene;
   if(isDisplay&&scene!==shownScene&&!fading){
+    chime('cue');
     fading=true;$('stage').classList.add('fade');
     setTimeout(function(){shownScene=sceneOf(frame(Date.now()),null);fading=false;fitKey='';tick();fit();$('stage').classList.remove('fade')},240);
   }
@@ -882,6 +956,8 @@ function tick(){
   }
   // deck calls fade on their own, without touching the layout; the text stays
   // put while it fades out so it doesn't vanish mid-fade
+  if(m&&m!==lastCall)chime('call');
+  lastCall=m||null;
   if(m)$('msgtext').textContent=m;
   $('msg').classList.toggle('on',!!m);$('topline').classList.toggle('calling',!!m);
   if(isDisplay)return;
@@ -997,11 +1073,75 @@ function tick(){
 
   var rep=report(f);
   $('reportcard').hidden=!rep;$('report').textContent=rep||'';
+  paintSend(f,rep);
+  drawSMChips();
+}
+
+// ---------- stage managers ----------
+function smById(id){for(var i=0;i<cfg.sms.length;i++)if(cfg.sms[i].id===id)return cfg.sms[i];return null}
+function smNow(){return S.sm?smById(S.sm):null}
+function drawSMChips(){
+  var box=$('smchips');box.innerHTML='';
+  $('smnone').hidden=cfg.sms.length>0;
+  cfg.sms.forEach(function(m){
+    var b=document.createElement('button');b.textContent=m.name||'(no name)';
+    b.classList.toggle('on',S.sm===m.id);
+    b.onclick=function(){commit({sm:S.sm===m.id?null:m.id})};     // tap again to clear
+    box.appendChild(b);
+  });
+}
+function drawSMList(){
+  var box=$('smlist');box.innerHTML='';
+  cfg.sms.forEach(function(m,i){
+    var r=document.createElement('div');r.className='smrow';
+    [['name','Name','text',''],['email','Email','email',''],['phone','Phone','tel','ph']].forEach(function(f){
+      var inp=document.createElement('input');inp.type=f[2];inp.placeholder=f[1];inp.value=m[f[0]]||'';inp.className=f[3];
+      inp.setAttribute('aria-label',f[1]);inp.autocomplete='off';
+      inp.oninput=function(){m[f[0]]=inp.value.trim();persist();sig=''};
+      r.appendChild(inp);
+    });
+    var x=document.createElement('button');x.className='x';x.textContent='\u00d7';x.setAttribute('aria-label','Remove '+(m.name||'stage manager'));
+    x.onclick=function(){if(!confirm('Remove '+(m.name||'this stage manager')+'?'))return;cfg.sms.splice(i,1);persist();drawSMList();sig=''};
+    r.appendChild(x);box.appendChild(r);
+  });
+  $('smcc').value=cfg.reportCc||'';
+}
+// ready-to-send messages: the device's Mail or Messages opens filled in
+function reportSubject(f){return 'Show report: '+f.perf.show+', '+(S.adhoc&&f.perf===S.adhoc?'run-through':dayLabel(f.perf.date)+' '+pretty(f.perf.time))}
+function mailLink(f,text){
+  var sm=smNow(),to=sm&&sm.email?sm.email:'',cc=cfg.reportCc||'';
+  if(!to&&!cc)return null;
+  if(!to){to=cc;cc=''}
+  var q=[];if(cc&&cc!==to)q.push('cc='+encodeURIComponent(cc));
+  q.push('subject='+encodeURIComponent(reportSubject(f)));
+  q.push('body='+encodeURIComponent(text.replace(/\n/g,'\r\n')));
+  return 'mailto:'+encodeURIComponent(to).replace(/%40/g,'@')+'?'+q.join('&');
+}
+function textLink(text){
+  var sm=smNow();if(!sm||!sm.phone)return null;
+  var num=sm.phone.replace(/[^0-9+]/g,'');if(!num)return null;
+  var apple=/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent||'');
+  return 'sms:'+num+(apple?'&':'?')+'body='+encodeURIComponent(text);   // Apple Messages wants &body
+}
+function paintSend(f,rep){
+  var sm=smNow(),ml=rep?mailLink(f,rep):null,tl=rep?textLink(rep):null;
+  $('mailreport').hidden=!ml;$('textreport').hidden=!tl;
+  var first=sm?(sm.name||'').split(' ')[0]:'';
+  $('mailreport').textContent=sm&&sm.email?'Email report to '+first:'Email report';
+  $('textreport').textContent='Text report to '+first;
+  $('mailreport').onclick=function(){if(ml)location.href=ml};
+  $('textreport').onclick=function(){if(tl)location.href=tl};
+  var h=$('sendhint');
+  h.hidden=!!(ml||tl)||!rep;
+  h.textContent=!cfg.sms.length?'To email or text this report, add stage managers under Schedule.'
+    :!sm?'Pick tonight\'s stage manager above to email or text this report.'
+    :first+' has no email or phone saved. Add one under Schedule.';
 }
 
 function report(f){
   if(f.idle||S.key!==f.perf.key||!S.log.length)return '';
   var L=f.L,nA=f.nA,lines=[f.perf.show+', '+(S.adhoc&&f.perf===S.adhoc?'run-through':dayLabel(f.perf.date)+' '+pretty(f.perf.time))];
+  var sm=smNow();if(sm&&sm.name)lines.push('Stage manager: '+sm.name);
   var up=firstUp();
   if(up&&!(S.adhoc&&f.perf===S.adhoc)){
     var late=Math.round((up-f.perf.curtain)/6e4);
@@ -1084,6 +1224,11 @@ $('reset').onclick=function(){
   commit({idx:null,log:[],paused:false,msg:null});
 };
 $('copyreport').onclick=function(){copy($('report').textContent,$('copyreport'),'Copy report')};
+$('addsm').onclick=function(){
+  cfg.sms.push({id:'sm'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:'',email:'',phone:''});
+  persist();drawSMList();var ins=$('smlist').querySelectorAll('input');if(ins.length)ins[ins.length-3].focus();sig='';
+};
+$('smcc').oninput=function(){cfg.reportCc=this.value.trim();persist()};
 document.addEventListener('keydown',function(e){
   var tag=(e.target.tagName||'').toLowerCase();
   if(tag==='input'||tag==='textarea'||tag==='select')return;
@@ -1116,6 +1261,7 @@ $('setup').onclick=function(){
   if(!s.hidden){
     if(!cfg.sync){cfg.sync=newCode();persist();connect()}
     drawRuns();drawTpl();
+    drawSMList();
     $('msgedit').value=cfg.messages.join('\n');$('synccode').value=cfg.sync;$('stagesel').value=cfg.stage||'main';$('endlabel').value=cfg.endLabel||'';
     drawPreview();drawLinks();s.scrollIntoView({behavior:'smooth'});
   }
@@ -1526,6 +1672,17 @@ if(isDisplay){
   $('dm-fs').onclick=function(){inFS()?exitFS():goFS();dmHide()};
   $('dm-mac').onclick=function(){downloadLauncher('mac',this)};
   $('dm-win').onclick=function(){downloadLauncher('win',this)};
+  $('dm-snd').onclick=function(){
+    var off=sget('mmt-chime')!=='0';sset('mmt-chime',off?'0':'1');
+    if(!off){unlockSound();setTimeout(function(){chime('cue',true)},150)}
+    paintSound();
+  };
+  ['pointerdown','keydown','touchend'].forEach(function(e){document.addEventListener(e,unlockSound,true)});
+  // respond on finger/mouse down: turning sound on hides the note, so a
+  // click handler would never land (the note is gone before the click ends)
+  $('sndnote').addEventListener('pointerdown',function(){unlockSound();setTimeout(function(){chime('cue',true)},150)});
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')chimeQuietUntil=Date.now()+3000});
+  paintSound();
 }
 
 // ---------- start ----------
