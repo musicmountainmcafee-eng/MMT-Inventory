@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 2.3. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.4. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -226,6 +226,8 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
       <h2>Cue times</h2>
       <p class="hint">Clock-time cues are minutes from show time (−60 is an hour before) and roll over by themselves. Timed cues start when the SM presses GO. Curtain speech and acts count up from zero; intermission counts down. Tap Colors under any cue to choose when its clock changes color.</p>
       <div id="tpl"></div>
+      <div class="field" style="margin-top:12px"><label>End of show label (shown under the running time after the last GO)</label>
+        <input id="endlabel" autocomplete="off" spellcheck="false" placeholder="SHOW DOWN"></div>
       <button class="quiet" id="addcue" style="width:100%;margin-top:6px">Add a cue</button>
     </div>
 
@@ -279,7 +281,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='2.3';
+var VERSION='2.4';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -311,11 +313,17 @@ function dec(s){
 }
 function hp(k){var m=location.hash.match(new RegExp('[#&]'+k+'=([^&]*)'));return m?decodeURIComponent(m[1]):''}
 
-var cfg=dec(hp('s'))||dec(sget('mmt-timer-cfg'))||clone(DEFAULT);
+// The link carries a copy of the settings, but this device may already hold a
+// newer copy (from an edit here or one that arrived over the sync). Same sync
+// code and a newer stamp means the saved copy wins.
+var fromLink=dec(hp('s')),fromDevice=dec(sget('mmt-timer-cfg'));
+var cfg=fromLink&&fromDevice&&fromDevice.sync===fromLink.sync&&(fromDevice.v||0)>(fromLink.v||0)?fromDevice
+  :fromLink||fromDevice||clone(DEFAULT);
 if(!cfg.template||!cfg.template.length)cfg.template=clone(DEFAULT.template);
 cfg.messages=cfg.messages||DEFAULT.messages.slice();
 cfg.runs=cfg.runs||[];
 cfg.sync=cfg.sync||'';
+function endLabel(){return (cfg.endLabel||'SHOW DOWN').toUpperCase()}
 function normalizeCfg(){
   if(!cfg.template||!cfg.template.length)cfg.template=clone(DEFAULT.template);
   cfg.messages=cfg.messages||DEFAULT.messages.slice();
@@ -434,7 +442,22 @@ function receive(s){
 
 function isDone(p){return S.key===p.key&&S.idx!=null&&S.idx>=cueList().list.length}
 function activePerf(now){
-  if(S.adhoc&&now-S.adhoc.curtain<6*36e5&&!(isDone(S.adhoc)&&now-S.target>20*6e4))return S.adhoc;
+  var sched=scheduledPerf(now);
+  var a=S.adhoc;
+  if(a&&now-a.curtain<6*36e5&&!(isDone(a)&&now-S.target>20*6e4)){
+    // A run-through never blocks a real performance. If the SM hasn't pressed
+    // GO on it (or it's finished), the scheduled show takes the screens as
+    // soon as its window opens. A run-through that's mid-act keeps going
+    // until the real show's call time, then the real show takes over.
+    var len=cueList().list.length;
+    var running=S.key===a.key&&S.idx!=null&&S.idx<len;
+    if(!sched)return a;
+    if(!running)return sched;
+    return now>=sched.curtain+leadMin()*6e4?sched:a;
+  }
+  return sched;
+}
+function scheduledPerf(now){
   var ps=perfsOn(ymd(new Date(now)));
   // Walk backwards: on a two-show Saturday the evening's window takes over
   // the moment it opens instead of the matinee hanging around.
@@ -473,7 +496,7 @@ function frame(now){
     var when=p.curtain+(L[k].offset||0)*6e4;
     f.pos=k;f.cue=L[k].name;f.ms=when-now;f.when=when;f.auto=true;
     f.label=f.ms<0?'HOUSE HOLD':L[k].name+' IN';
-    f.goNext=L[C.nA]?L[C.nA].name:'SHOW DOWN';
+    f.goNext=L[C.nA]?L[C.nA].name:endLabel();
     // Before the first clock cue (call) nothing counts: the screens show the
     // wall clock with the call time underneath. A run-through that has passed
     // its show time waits on the clock for GO instead of a house hold.
@@ -481,12 +504,12 @@ function frame(now){
     else if(f.ms<=0&&(p.adhoc||p===S.adhoc)){f.ready=true;f.pos=C.nA}
   }else if(idx>=L.length){
     var up=firstUp();
-    f.pos=L.length;f.label='SHOW DOWN';f.done=true;f.ms=up?S.target-up:0;f.when=S.target;
+    f.pos=L.length;f.label='RUNNING TIME';f.done=true;f.ms=up?S.target-up:0;f.when=S.target;
   }else{
     f.pos=idx;f.label=L[idx].name;f.paused=S.paused;
     f.ms=S.paused?S.left:S.target-now;f.when=S.target;
     if(isUp(L[idx])){f.up=true;f.planned=(L[idx].minutes||0)*6e4;f.el=f.planned-f.ms}
-    f.goNext=L[idx+1]?L[idx+1].name:'SHOW DOWN';
+    f.goNext=L[idx+1]?L[idx+1].name:endLabel();
   }
   return f;
 }
@@ -634,7 +657,7 @@ function receiveCfg(txt){
   fitKey='';
   if(!$('settings').hidden){
     drawRuns();drawTpl();drawPreview();drawLinks();
-    $('msgedit').value=cfg.messages.join('\n');$('stagesel').value=cfg.stage||'main';
+    $('msgedit').value=cfg.messages.join('\n');$('stagesel').value=cfg.stage||'main';$('endlabel').value=cfg.endLabel||'';
   }
   draw();
 }
@@ -708,7 +731,7 @@ function tick(){
     $('slug').textContent=f.label;
     $('big').textContent=f.up?fmt(f.el):countdown(f.ms);
     $('big').style.color=wingsOn?'':ink;
-    $('sub').textContent=f.done?'RUNNING TIME':f.paused?'HELD':f.up?'PLANNED '+fmt(f.planned):f.auto?(f.ms<0?f.cue+' WAS '+clockOf(f.when):'AT '+clockOf(f.when)):(f.ms<0?'OVER':'ENDS '+clockOf(f.when));
+    $('sub').textContent=f.done?endLabel()+' '+clockOf(f.when):f.paused?'HELD':f.up?'PLANNED '+fmt(f.planned):f.auto?(f.ms<0?f.cue+' WAS '+clockOf(f.when):'AT '+clockOf(f.when)):(f.ms<0?'OVER':'ENDS '+clockOf(f.when));
     if(f.done)$('big').textContent=fmt(f.ms);
   }
   $('msg').textContent=m||'';$('msg').classList.toggle('on',!!m);
@@ -726,7 +749,7 @@ function tick(){
     $('cslug').textContent=f.label;
     $('cface').textContent=f.done?fmt(f.ms):f.up?fmt(f.el):countdown(f.ms);
     $('cface').style.color=wingsOn?'':ink;
-    $('cends').textContent=f.done?'Running time, down at '+clockOf(f.when)
+    $('cends').textContent=f.done?cap(endLabel())+' at '+clockOf(f.when)
       :f.paused?'Held'
       :f.up?'Planned '+fmt(f.planned)+(f.el>f.planned&&f.planned>0?', over by '+fmt(f.el-f.planned):'')
       :f.auto?(f.ms<0?'Late start. '+cap(f.cue)+' was '+clockOf(f.when)+'. Press GO to begin.':'At '+clockOf(f.when))
@@ -741,7 +764,8 @@ function tick(){
   $('nosync').hidden=!!cfg.sync;
   $('toobig').hidden=!cfgTooBig;
   $('run').hidden=f.idle;$('idlecard').hidden=!f.idle;
-  $('rehearse').textContent=S.adhoc?'End run-through':'Start run-through';
+  var onRun=!!(S.adhoc&&!f.idle&&f.perf===S.adhoc);
+  $('rehearse').textContent=onRun?'End run-through':'Start run-through';
   $('reset').hidden=f.idle||(f.idx==null&&!S.adhoc);
 
   if(f.idle){
@@ -754,6 +778,16 @@ function tick(){
       var b=document.createElement('div');b.className='muted';
       b.textContent=dayLabel(f.next.date,true)+', show '+pretty(f.next.time)+', call '+clockOf(f.next.curtain+leadMin()*6e4);
       $('idletext').appendChild(a);$('idletext').appendChild(b);
+      var C=cueList(),ul=document.createElement('ul');ul.className='cues';ul.style.marginTop='10px';
+      for(var i=0;i<C.nA;i++){
+        var li=document.createElement('li');li.innerHTML='<span class="dot"></span><span class="nm"></span><span class="wh"></span>';
+        li.querySelector('.nm').textContent=C.list[i].name;
+        li.querySelector('.wh').textContent=clockOf(f.next.curtain+(C.list[i].offset||0)*6e4);
+        ul.appendChild(li);
+      }
+      var note=document.createElement('p');note.className='muted';note.style.marginTop='8px';
+      note.textContent='These run on their own. No need to press anything until the show starts.';
+      $('idletext').appendChild(ul);$('idletext').appendChild(note);
     }else{
       $('idletext').innerHTML='<p class="muted">Nothing on the calendar. Tap Schedule to add a run, or start a run-through.</p>';
     }
@@ -761,7 +795,7 @@ function tick(){
     $('title').textContent=f.perf.show;
     $('subtitle').textContent=S.adhoc&&f.perf===S.adhoc?'Run-through, show at '+clockOf(f.perf.curtain):dayLabel(f.perf.date)+', '+pretty(f.perf.time)+' show';
     $('go').disabled=!!f.done;
-    $('go').querySelector('.l').textContent=f.done?'SHOW DOWN':'GO';
+    $('go').querySelector('.l').textContent=f.done?endLabel():'GO';
     $('gonext').textContent=f.done?'':f.goNext;
     $('hold').textContent=f.paused?'Resume':'Hold';
     $('hold').classList.toggle('on',!!f.paused);
@@ -849,7 +883,8 @@ function toggleWings(){
 }
 $('screen').onclick=function(){window.open(linkFor('full'),'_blank')};
 $('rehearse').onclick=function(){
-  if(S.adhoc){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false});return}
+  var f=frame(Date.now());
+  if(S.adhoc&&!f.idle&&f.perf===S.adhoc){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false});return}
   var d=new Date();$('rttime').value=pad(d.getHours())+':'+pad(d.getMinutes());
   $('rtpanel').hidden=false;$('rtpanel').scrollIntoView({behavior:'smooth',block:'center'});
 };
@@ -898,7 +933,7 @@ $('setup').onclick=function(){
   if(!s.hidden){
     if(!cfg.sync){cfg.sync=newCode();persist();connect()}
     drawRuns();drawTpl();
-    $('msgedit').value=cfg.messages.join('\n');$('synccode').value=cfg.sync;$('stagesel').value=cfg.stage||'main';
+    $('msgedit').value=cfg.messages.join('\n');$('synccode').value=cfg.sync;$('stagesel').value=cfg.stage||'main';$('endlabel').value=cfg.endLabel||'';
     drawPreview();drawLinks();s.scrollIntoView({behavior:'smooth'});
   }
 };
@@ -940,6 +975,7 @@ function persist(){
   drawPreview();drawLinks();sig='';
 }
 
+$('endlabel').oninput=function(){cfg.endLabel=this.value.trim().toUpperCase();persist();draw()};
 $('stagesel').onchange=function(){cfg.stage=this.value;persist();draw()};
 $('msgedit').oninput=function(){cfg.messages=this.value.split('\n').map(function(x){return x.trim().toUpperCase()}).filter(Boolean);persist()};
 $('synccode').onchange=function(){
