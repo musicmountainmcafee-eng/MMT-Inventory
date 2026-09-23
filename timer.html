@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 2.16. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.19. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -164,6 +164,63 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber)}
 .swatches{display:flex;flex-wrap:wrap;gap:6px;grid-column:1/-1}
 .swatches button{width:34px;height:34px;min-height:34px;padding:0;border-radius:8px;border:2px solid transparent}
 .swatches button.pick{border-color:var(--type);box-shadow:0 0 0 2px var(--shell) inset}
+/* ---------- Schedule: its own screen, one section at a time ---------- */
+body.setting #panel>:not(#settings){display:none!important}
+.setbar{position:sticky;top:0;z-index:10;background:var(--shell);margin:0 -16px 16px;padding:max(10px,env(safe-area-inset-top,0px)) 16px 0;border-bottom:1px solid var(--line)}
+.settop{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:6px}
+.settop h1{font-size:20px;font-weight:700}
+#done{min-height:40px;padding:8px 20px;background:var(--go);border-color:var(--go);color:#05130A}
+body.wings #done{background:transparent;color:var(--go)}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin:0 -8px}
+.tabs::-webkit-scrollbar{display:none}
+/* on a narrow screen the tabs scroll sideways; fade the edge so it's clear there are more */
+.tabs.more{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}
+.tabs button{flex:none;background:transparent;border:0;border-bottom:3px solid transparent;border-radius:0;color:var(--dim);
+  font-size:14px;font-weight:600;padding:10px 10px 9px;min-height:44px;white-space:nowrap}
+.tabs button.on{color:var(--type);border-bottom-color:var(--go)}
+.tabs button:active{transform:none}
+h2.sec{font-size:17px;margin:4px 0 4px}
+.tabpane>.card:first-child{margin-top:0}
+/* runs fold to one line each */
+.run{padding:0;overflow:hidden}
+.runhead{width:100%;display:flex;align-items:center;gap:12px;text-align:left;background:transparent;border:0;border-radius:0;padding:14px 16px;min-height:60px}
+.runhead:active{transform:none}
+.runhead .rtxt{flex:1;min-width:0}
+.runhead .rn{display:block;font-size:16px;font-weight:700;color:var(--type)}
+.runhead .rs{display:block;font-size:13px;font-weight:500;color:var(--dim);margin-top:3px;line-height:1.4}
+.runhead .chev{flex:none;color:var(--dim);font-size:18px;transition:transform .2s}
+.run.open .runhead .chev{transform:rotate(180deg)}
+.runbody{padding:4px 16px 16px;border-top:1px solid var(--line)}
+.badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;padding:2px 7px;border-radius:5px;background:var(--go);color:#05130A;margin-left:8px;vertical-align:2px}
+.pasthead{width:100%;background:transparent;border:1px dashed var(--line);color:var(--dim);font-weight:600;margin:4px 0 14px}
+/* the stage manager picker takes less room */
+#smcard{padding:12px 14px}
+#smchips{gap:6px}
+#smchips button{flex:0 1 auto;min-height:38px;font-size:14px;letter-spacing:.04em;padding:8px 16px}
+/* ---------- show name and time: one fixed spot on the displays ---------- */
+#ident{display:flex;align-items:baseline;justify-content:flex-end;gap:.6em;white-space:nowrap;overflow:hidden;
+  text-transform:uppercase;letter-spacing:.1em;font-size:calc(var(--note)*1.05);color:#7E8689;margin-bottom:.45em}
+#ident[hidden]{display:none}
+#idname{color:#D8DCDD;font-weight:600;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#idpre{font-size:.72em;font-weight:700;letter-spacing:.14em;color:#9EA4A6}
+#idtag{font-size:.7em;font-weight:700;letter-spacing:.12em;color:#FFB000;border:1px solid #FFB000;border-radius:.35em;padding:.1em .45em}
+body.display.full #ident{position:fixed;top:max(2vh,env(safe-area-inset-top,0px));left:2.5vw;max-width:76vw;justify-content:flex-start;margin:0;font-size:max(18px,4.2vh)}
+body.display.wings #idname{color:#FF4A38}body.display.wings #ident,body.display.wings #idpre{color:#93281C}
+body.display.wings #idtag{color:#FF4A38;border-color:#FF4A38}
+/* corner layout: the name only, so the show time doesn't stack on top of the time of day */
+body.display:not(.full) #idwhen{display:none}
+/* ---------- controller header ---------- */
+.bar h1{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px}
+.badge.rt{background:var(--amber);color:#140C00;margin-left:0}
+.bar .sub{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px}
+.endrt{min-height:28px;padding:3px 10px;font-size:12px;font-weight:600;background:transparent;border-color:var(--amber);color:var(--amber)}
+/* ---------- compact choice buttons (run-through setup) ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chips button{flex:0 1 auto;min-height:38px;font-size:14px;padding:8px 14px}
+#rtpanel label{margin-top:4px}
+#rtstart{background:var(--go);border-color:var(--go);color:#05130A}
+body.wings #rtstart{background:transparent;color:var(--go)}
+#rtpreview{font-size:13px;line-height:1.45;margin:2px 0 14px;color:var(--dim)}
 .smrow{display:grid;grid-template-columns:1fr 1fr 1fr 36px;gap:8px;margin-bottom:8px;align-items:center}
 .smrow input{min-height:40px;padding:8px}
 .smrow .x{background:transparent;border-color:transparent;color:var(--dim);min-height:40px;padding:0}
@@ -184,6 +241,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 
 <div id="ver" hidden></div>
 <div id="stage">
+  <div id="ident" hidden><span id="idpre" hidden></span><span id="idname"></span><span id="idtag" hidden>RUN-THROUGH</span><span id="idwhen"></span></div>
   <div id="wall" hidden></div>
   <div id="topline"><div id="slug"></div><div id="msg"><span id="msgtext"></span></div></div>
   <div id="big">--:--</div>
@@ -202,7 +260,8 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 
 <div id="panel">
   <div class="bar">
-    <div><h1 id="title">Show timer</h1><div class="sub" id="subtitle"></div></div>
+    <div><h1><span id="title">Show timer</span><span class="badge rt" id="tbadge" hidden>RUN-THROUGH</span></h1>
+      <div class="sub"><span id="subtitle"></span><button class="endrt" id="rtend" hidden>End run-through</button></div></div>
     <div class="right">
       <span class="hclock" id="hclock"></span>
       <span class="pill" id="pill"><i></i><span></span></span>
@@ -211,13 +270,25 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
   </div>
 
   <div class="card note" id="relaylimit" hidden>The free relay has hit its daily message limit, so presses on this device aren't reaching the other screens (and Stream Deck keys won't work). This screen still keeps time on its own. It clears by itself once the relay's daily allowance resets.</div>
-  <div class="card note" id="toobig" hidden>The schedule is too big to send to the other screens automatically. After changing it, copy the links again from Schedule.</div>
-  <div class="card note" id="nosync" hidden>This link doesn't sync between devices yet. Tap Schedule, then copy the new link to every device.</div>
+  <div class="card note" id="toobig" hidden>The schedule is too big to send to the other screens automatically. After changing it, copy the links again from Settings, Screens.</div>
+  <div class="card note" id="nosync" hidden>This link doesn't sync between devices yet. Tap Settings, then copy the new link from Screens to every device.</div>
+
+  <div class="card" id="rtpanel" hidden>
+    <h2>Start a run-through</h2>
+    <label>Which show</label>
+    <div class="chips" id="rtshows"></div>
+    <input id="rtname" placeholder="Name it, like Tech rehearsal" autocomplete="off" hidden style="margin:-4px 0 12px">
+    <label>Starts</label>
+    <div class="chips" id="rtwhen"></div>
+    <input type="time" id="rttime" hidden style="margin:-4px 0 12px;max-width:200px">
+    <p id="rtpreview"></p>
+    <div class="row"><button class="quiet" id="rtcancel">Cancel</button><button id="rtstart">Start run-through</button></div>
+  </div>
 
   <div class="card" id="smcard">
     <label>Stage manager tonight</label>
     <div class="msgs" id="smchips"></div>
-    <p class="muted" id="smnone" hidden>Add stage managers under Schedule, then pick who's running the show here.</p>
+    <p class="muted" id="smnone" hidden>Add stage managers under Settings, SMs, then pick who's running the show here.</p>
   </div>
 
   <div id="run">
@@ -242,6 +313,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
   <div class="card" id="idlecard" hidden>
     <div class="now" style="padding:10px 0 14px"><div class="face" id="iclock"></div></div>
     <div id="idletext"></div>
+    <button id="rtidle" style="width:100%;margin-top:14px">Start a run-through</button>
   </div>
 
   <div class="card" id="reportcard" hidden>
@@ -255,15 +327,9 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
     <p class="muted" id="sendhint" style="margin-top:8px" hidden></p>
   </div>
 
-  <div class="card" id="rtpanel" hidden>
-    <h2>Start a run-through</h2>
-    <p class="hint">Nothing starts counting until you're ready. Leave the show time as now and the screens show the clock until you press GO. Set a later time and the call, mic check and house open countdowns run on schedule for it.</p>
-    <div class="pair field"><div><label>Show time</label><input type="time" id="rttime"></div></div>
-    <div class="row"><button class="quiet" id="rtcancel">Cancel</button><button id="rtstart">Start run-through</button></div>
-  </div>
 
   <div class="foot">
-    <button class="quiet" id="setup">Schedule</button>
+    <button class="quiet" id="setup">Settings</button>
     <button class="quiet" id="rehearse">Start run-through</button>
     <button class="quiet" id="reset">Reset show</button>
     <button class="quiet" id="screen">Open display</button>
@@ -271,17 +337,40 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 
   <div class="version" id="vercontrol"></div>
 
-  <div id="settings" hidden style="margin-top:18px">
+  <div id="settings" hidden>
+    <div class="setbar">
+      <div class="settop"><h1>Settings</h1><button id="done">Done</button></div>
+      <nav class="tabs" role="tablist" aria-label="Settings sections">
+        <button data-tab="shows" role="tab">Shows</button>
+        <button data-tab="cues" role="tab">Cues &amp; colors</button>
+        <button data-tab="people" role="tab">SMs</button>
+        <button data-tab="calls" role="tab">Calls</button>
+        <button data-tab="screens" role="tab">Screens</button>
+        <button data-tab="deck" role="tab">Stream Deck</button>
+        <button data-tab="sync" role="tab">Sync</button>
+      </nav>
+    </div>
+
+    <section class="tabpane" data-pane="shows" hidden>
+      <div class="card">
     <div class="field"><label>Stage</label>
       <select id="stagesel"><option value="main">Mainstage</option><option value="kids">Children's Theatre</option></select></div>
-    <h2>Runs</h2>
-    <p class="hint">One production and the weeks it plays. Type show times per day, like 2:00 PM, 8:00 PM. Leave a day blank for no show.</p>
-    <div id="runs"></div>
+      </div>
+      <h2 class="sec">Runs</h2>
+      <p class="hint">One production and the weeks it plays. Type show times per day, like 2:00 PM, 8:00 PM. Leave a day blank for no show.</p>
+      <div id="runs"></div>
     <div class="row" style="margin-bottom:20px">
       <button class="quiet" id="importdash">Import from dashboard</button>
       <button class="quiet" id="addrun">Add a run</button>
     </div>
+    <div class="card">
+      <h2>Next two weeks</h2>
+      <p class="hint">What the display will do.</p>
+      <div id="preview" style="font-size:14px"></div>
+    </div>
+    </section>
 
+    <section class="tabpane" data-pane="cues" hidden>
     <div class="card">
       <h2>Cue times</h2>
       <p class="hint">Clock-time cues are minutes from show time (−60 is an hour before) and roll over by themselves. Timed cues start when the SM presses GO. Curtain speech and acts count up from zero; intermission counts down. Tap Colors under any cue to choose when its clock changes color.</p>
@@ -290,7 +379,9 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
         <input id="endlabel" autocomplete="off" spellcheck="false" placeholder="SHOW DOWN"></div>
       <button class="quiet" id="addcue" style="width:100%;margin-top:6px">Add a cue</button>
     </div>
+    </section>
 
+    <section class="tabpane" data-pane="people" hidden>
     <div class="card">
       <h2>Stage managers</h2>
       <p class="hint">Pick tonight's stage manager with one tap on the controller. After the show, the report can be emailed or texted to them. Names, emails and phone numbers travel with the schedule (inside the links and over the relay), so keep the links in the building.</p>
@@ -299,36 +390,20 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
       <div class="field" style="margin-top:12px"><label>Also send every report to (optional email, like the TD)</label>
         <input id="smcc" type="email" autocomplete="off" spellcheck="false" placeholder="name@example.com"></div>
     </div>
+    </section>
 
+    <section class="tabpane" data-pane="calls" hidden>
     <div class="card">
       <h2>Deck calls</h2>
       <p class="hint">One per line. These are the buttons the SM taps to flash a call on the backstage screen.</p>
       <textarea id="msgedit"></textarea>
     </div>
+    </section>
 
-    <div class="card">
-      <h2>Sync between devices</h2>
-      <p class="hint">Every device on this link shares GO, holds and deck calls. It uses the internet; if the connection drops, each screen keeps counting from the last update it got and catches up when it's back. Anyone with the code can press GO, so keep the link inside the building.</p>
-      <label>Sync code</label>
-      <div class="row"><input id="synccode" autocomplete="off" spellcheck="false"><button class="small" id="newcode" style="flex:none">New code</button></div>
-    </div>
-
-    <div class="card">
-      <h2>Stream Deck</h2>
-      <p class="hint">Each button below is a web address. In the Stream Deck app, drag a <b>Website</b> action (under System) onto a key, paste the address, and tick <b>GET request in background</b>. The key then works from anywhere with internet, with no computer needing the timer open. These addresses include the sync code, so tap <b>New code</b> and you'll need to redo them.</p>
-      <div id="deckkeys"></div>
-      <p class="hint" style="margin:14px 0 0">If the Stream Deck is plugged into the booth computer with the controller open and in front, <b>Hotkey</b> actions work too: Space GO, B back, H hold, + one minute, − one minute, 1 to 9 the deck calls in order, 0 or Esc clears the call.</p>
-    </div>
-
-    <div class="card">
-      <h2>Next two weeks</h2>
-      <p class="hint">What the display will do.</p>
-      <div id="preview" style="font-size:14px"></div>
-    </div>
-
+    <section class="tabpane" data-pane="screens" hidden>
     <div class="card">
       <h2>Links</h2>
-      <p class="hint">The whole schedule is packed into these addresses. After you change anything here, send the new links to every device.</p>
+      <p class="hint">Use these to set up a new device. Changes you make in Settings reach every screen on their own, so there's no need to resend links after editing.</p>
       <label>Controller (SM, booth, your phone)</label>
       <div class="link" id="lk-control"></div>
       <button class="small" data-copy="control">Copy controller link</button>
@@ -345,8 +420,25 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
       <p class="hint" style="margin-bottom:8px">Download a launcher on the computer that will show the display. It already has this display's link inside. Unzip it and double-click it, then drag the window to any size. On a Mac, if it's blocked the first time, open System Settings, Privacy &amp; Security, scroll down and click Open Anyway. Needs Chrome (or Edge on Windows). You can also get it from the display itself: move the mouse over a full-screen display.</p>
       <div class="row"><button class="small" id="dl-mac">Launcher for Mac</button><button class="small" id="dl-win">Launcher for Windows</button></div>
     </div>
-    <button id="done" style="width:100%">Done</button>
-  </div>
+    </section>
+
+    <section class="tabpane" data-pane="deck" hidden>
+    <div class="card">
+      <h2>Stream Deck</h2>
+      <p class="hint">Each button below is a web address. In the Stream Deck app, drag a <b>Website</b> action (under System) onto a key, paste the address, and tick <b>GET request in background</b>. The key then works from anywhere with internet, with no computer needing the timer open. These addresses include the sync code, so tap <b>New code</b> and you'll need to redo them.</p>
+      <div id="deckkeys"></div>
+      <p class="hint" style="margin:14px 0 0">If the Stream Deck is plugged into the booth computer with the controller open and in front, <b>Hotkey</b> actions work too: Space GO, B back, H hold, + one minute, − one minute, 1 to 9 the deck calls in order, 0 or Esc clears the call.</p>
+    </div>
+    </section>
+
+    <section class="tabpane" data-pane="sync" hidden>
+    <div class="card">
+      <h2>Sync between devices</h2>
+      <p class="hint">Every device on this link shares GO, holds and deck calls. It uses the internet; if the connection drops, each screen keeps counting from the last update it got and catches up when it's back. Anyone with the code can press GO, so keep the link inside the building.</p>
+      <label>Sync code</label>
+      <div class="row"><input id="synccode" autocomplete="off" spellcheck="false"><button class="small" id="newcode" style="flex:none">New code</button></div>
+    </div>
+    </section>  </div>
 </div>
 
 <script>
@@ -354,7 +446,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='2.16';
+var VERSION='2.19';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -905,13 +997,32 @@ function sceneOf(f,clockMode){
   if(clockMode==null)clockMode=f.idle||f.preCall||f.ready;
   return [f.idle?'idle':f.perf.key,clockMode?'clock':'run',f.pos,f.idx,f.done?1:0,f.paused?1:0,f.label||''].join('|');
 }
+// Which show this screen is about, always in the same spot: top left on the
+// full-screen display, above the clock on the corner layout.
+function paintIdent(f,now){
+  var name='',when='',pre='',rt=false;
+  if(f.idle){if(f.next){pre='Next show';name=f.next.show;when=whenLabel(f.next,now)}}
+  else{name=f.perf.show;rt=!!(S.adhoc&&f.perf===S.adhoc);when=rt?clockOf(f.perf.curtain):pretty(f.perf.time)}
+  $('ident').hidden=!name;
+  $('idpre').hidden=!pre;$('idpre').textContent=pre;
+  var key=name+'|'+when+'|'+rt+'|'+pre+'|'+innerWidth;
+  if(key!==identKey){
+    identKey=key;$('idname').textContent=name;$('idwhen').textContent=when;$('idtag').hidden=!rt;
+    var el=$('ident');el.style.fontSize='';
+    if(document.body.classList.contains('full')&&name){
+      var base=parseFloat(getComputedStyle(el).fontSize),sz=base;
+      while(el.scrollWidth>el.clientWidth+1&&sz>base*0.6){sz*=0.92;el.style.fontSize=sz+'px'}
+    }
+  }
+}
+var identKey='';
 function paintStage(f,now,clockMode,wingsOn,heldNow,ink,scene){
+  paintIdent(f,now);
   if(clockMode){
     var d=new Date(now);
-    $('slug').textContent=f.preCall||f.ready?(S.adhoc&&f.perf===S.adhoc?'RUN-THROUGH':''):'';
+    $('slug').textContent='';
     $('big').textContent=(d.getHours()%12||12)+':'+pad(d.getMinutes());$('big').className='';$('big').style.color='';
-    $('sub').textContent=f.idle?(f.next?'NEXT SHOW: '+f.next.show.toUpperCase()+', '+whenLabel(f.next,now):'')
-      :f.preCall?f.perf.show.toUpperCase()+', '+f.cue+' AT '+clockOf(f.when):'READY TO START';
+    $('sub').textContent=f.idle?'':f.preCall?f.cue+' AT '+clockOf(f.when):'READY TO START';
   }else{
     $('slug').textContent=f.paused?'HOLDING':f.label;
     $('big').textContent=f.up?fmt(f.el):countdown(f.ms);
@@ -920,14 +1031,11 @@ function paintStage(f,now,clockMode,wingsOn,heldNow,ink,scene){
     if(f.done)$('big').textContent=fmt(f.ms);
   }
   $('big').classList.toggle('held',heldNow);
-  // Size for the widest this cue will get, and never shrink within a cue, so
-  // 10:00 -> 9:59 doesn't jump. An hour-long act is sized for 1:00:00 from the start.
-  var want=$('big').textContent.length;
-  if(clockMode)want=Math.max(want,5);
-  else if(!f.done&&!f.auto){
-    if(f.up)want=Math.max(want,fmt(Math.max(f.planned,f.el)).length);
-    else want=Math.max(want,fmt(Math.max(f.ms,(f.L[f.idx].minutes||0)*6e4)).length);
-  }
+  // Every cue is sized for five characters ("35:00"), so the clock, the
+  // countdowns and the acts all match. It only gets smaller if the time really
+  // needs more room (an act past the hour, 1:00:00), and never shrinks back
+  // within a cue, so 10:00 -> 9:59 doesn't jump. Size changes glide.
+  var want=Math.max(5,$('big').textContent.length);
   if(scene===sizeScene)sizeLen=Math.max(sizeLen,want);else{sizeScene=scene;sizeLen=want}
 }
 function tick(){
@@ -972,7 +1080,7 @@ function tick(){
   }else if(f.preCall||f.ready){
     $('cslug').textContent=f.preCall?'BEFORE CALL':'READY';
     $('cface').textContent=clockOf(now).replace(/ (AM|PM)$/,'');$('cface').style.color='';
-    $('cends').textContent=f.preCall?cap(f.cue)+' at '+clockOf(f.when)+'. Countdowns start then.':'Show time was '+clockOf(f.when)+'. Press GO to begin.';
+    $('cends').textContent=f.preCall?cap(f.cue)+' at '+clockOf(f.when)+'. Countdowns start then.':(S.adhoc&&f.perf===S.adhoc?'Press GO to begin.':'Show time was '+clockOf(f.when)+'. Press GO to begin.');
     $('cmsg').textContent=m||'';$('cmsg').classList.toggle('on',!!m);
   }else{
     $('cslug').textContent=f.paused?'HOLDING':f.label;
@@ -1003,13 +1111,13 @@ function tick(){
   $('relaylimit').hidden=!relayLimited;
   $('run').hidden=f.idle;$('idlecard').hidden=!f.idle;
   var onRun=!!(S.adhoc&&!f.idle&&f.perf===S.adhoc);
+  $('tbadge').hidden=!onRun;$('rtend').hidden=!onRun;
   $('rehearse').textContent=onRun?'End run-through':'Start run-through';
   $('reset').hidden=f.idle||(f.idx==null&&!S.adhoc);
 
   if(f.idle){
     $('title').textContent=cfg.stage==='kids'?"Children's Theatre":'Mainstage';
-    var today=perfsOn(ymd(new Date(now)));
-    $('subtitle').textContent=today.length?'Standing by':'No performance today';
+    $('subtitle').textContent=f.next?'Next show: '+f.next.show+', '+dayLabel(f.next.date)+', '+pretty(f.next.time):'Nothing scheduled';
     $('idletext').innerHTML='';
     if(f.next){
       var a=document.createElement('div');a.style.cssText='font-weight:600;margin-bottom:4px';a.textContent='Next: '+f.next.show;
@@ -1031,11 +1139,11 @@ function tick(){
       note.textContent='These run on their own. No need to press anything until the show starts.';
       $('idletext').appendChild(ul);$('idletext').appendChild(note);
     }else{
-      $('idletext').innerHTML='<p class="muted">Nothing on the calendar. Tap Schedule to add a run, or start a run-through.</p>';
+      $('idletext').innerHTML='<p class="muted">Nothing on the calendar. Tap Settings to add a run, or start a run-through.</p>';
     }
   }else{
     $('title').textContent=f.perf.show;
-    $('subtitle').textContent=S.adhoc&&f.perf===S.adhoc?'Run-through, show at '+clockOf(f.perf.curtain):dayLabel(f.perf.date)+', '+pretty(f.perf.time)+' show';
+    $('subtitle').textContent=dayLabel(f.perf.date,true)+', '+clockOf(f.perf.curtain);
     $('go').disabled=!!f.done;
     $('go').querySelector('.l').textContent=f.done?endLabel():'GO';
     $('gonext').textContent=f.done?'':f.goNext;
@@ -1107,7 +1215,7 @@ function drawSMList(){
   $('smcc').value=cfg.reportCc||'';
 }
 // ready-to-send messages: the device's Mail or Messages opens filled in
-function reportSubject(f){return 'Show report: '+f.perf.show+', '+(S.adhoc&&f.perf===S.adhoc?'run-through':dayLabel(f.perf.date)+' '+pretty(f.perf.time))}
+function reportSubject(f){return 'Show report: '+f.perf.show+(S.adhoc&&f.perf===S.adhoc?' run-through, '+dayLabel(f.perf.date):', '+dayLabel(f.perf.date)+' '+pretty(f.perf.time))}
 function mailLink(f,text){
   var sm=smNow(),to=sm&&sm.email?sm.email:'',cc=cfg.reportCc||'';
   if(!to&&!cc)return null;
@@ -1133,14 +1241,14 @@ function paintSend(f,rep){
   $('textreport').onclick=function(){if(tl)location.href=tl};
   var h=$('sendhint');
   h.hidden=!!(ml||tl)||!rep;
-  h.textContent=!cfg.sms.length?'To email or text this report, add stage managers under Schedule.'
+  h.textContent=!cfg.sms.length?'To email or text this report, add stage managers under Settings, SMs.'
     :!sm?'Pick tonight\'s stage manager above to email or text this report.'
-    :first+' has no email or phone saved. Add one under Schedule.';
+    :first+' has no email or phone saved. Add one under Settings, SMs.';
 }
 
 function report(f){
   if(f.idle||S.key!==f.perf.key||!S.log.length)return '';
-  var L=f.L,nA=f.nA,lines=[f.perf.show+', '+(S.adhoc&&f.perf===S.adhoc?'run-through':dayLabel(f.perf.date)+' '+pretty(f.perf.time))];
+  var L=f.L,nA=f.nA,lines=[f.perf.show+(S.adhoc&&f.perf===S.adhoc?', run-through, '+dayLabel(f.perf.date)+' '+clockOf(f.perf.curtain):', '+dayLabel(f.perf.date)+' '+pretty(f.perf.time))];
   var sm=smNow();if(sm&&sm.name)lines.push('Stage manager: '+sm.name);
   var up=firstUp();
   if(up&&!(S.adhoc&&f.perf===S.adhoc)){
@@ -1204,18 +1312,83 @@ $('screen').onclick=function(){
   var w=window.open(linkFor('full')+'&pop=1','mmt-display','popup,width=1280,height=720');
   if(!w)window.open(linkFor('full')+'&pop=1','_blank');
 };
+// ---------- run-through setup ----------
+// Pick the show (current and upcoming productions, or Other with a name) and
+// when it starts with one tap. A line underneath says what the screens will do.
+var rtShow=null,rtWhen='now';
+function rtShows(){
+  var today=ymd(new Date()),seen={},out=[];
+  cfg.runs.filter(function(r){return r.show&&(!r.end||r.end>=today)})
+    .sort(function(a,b){return (a.start||'').localeCompare(b.start||'')})
+    .forEach(function(r){if(!seen[r.show]){seen[r.show]=1;out.push(r)}});
+  return out;
+}
+function rtName(){return rtShow==='other'?($('rtname').value.trim()||'Run-through'):rtShow}
+function rtCurtain(){
+  var now=Date.now();
+  if(rtWhen==='now')return now;
+  if(rtWhen==='set'){
+    var t=$('rttime').value;if(!t)return null;
+    var c=at(ymd(new Date(now)),t);if(c<now-12*36e5)c+=864e5;   // long past means tomorrow
+    return c;
+  }
+  return Math.ceil((now+rtWhen*6e4)/6e4)*6e4;
+}
+function rtPreview(){
+  var c=rtCurtain(),now=Date.now(),el=$('rtpreview');
+  if(c==null){el.textContent='Pick a start time.';return}
+  if(c<=now+60000){el.textContent='Screens show the clock and READY TO START until the SM presses GO.';return}
+  var C=cueList(),items=[],firstUp=-1;
+  for(var i=0;i<C.nA;i++){
+    var t=c+(C.list[i].offset||0)*6e4;
+    if(t>now){if(firstUp<0)firstUp=i;items.push(C.list[i].name.toLowerCase()+' '+clockOf(t))}
+  }
+  el.textContent=firstUp===0
+    ?'Clock until '+items[0].replace(/ (\d)/,' at $1')+(items.length>1?', then '+items.slice(1).join(', '):'')+'.'
+    :'Counts down right away: '+items.join(', ')+'.';
+}
+function rtChips(){
+  var sb=$('rtshows');sb.innerHTML='';
+  var shows=rtShows();
+  if(rtShow===null){
+    var today=ymd(new Date()),now=shows.filter(function(r){return r.start<=today})[0];
+    rtShow=now?now.show:shows.length?shows[0].show:'other';
+  }
+  shows.map(function(r){return r.show}).concat(['other']).forEach(function(v){
+    var b=document.createElement('button');b.textContent=v==='other'?'Other':v;b.classList.toggle('on',rtShow===v);
+    b.onclick=function(){rtShow=v;rtChips()};sb.appendChild(b);
+  });
+  $('rtname').hidden=rtShow!=='other';
+  var wb=$('rtwhen');wb.innerHTML='';
+  [['now','Now'],[15,'In 15 min'],[30,'In 30 min'],[60,'In 1 hour'],['set','Set a time']].forEach(function(o){
+    var b=document.createElement('button');b.textContent=o[1];b.classList.toggle('on',rtWhen===o[0]);
+    b.onclick=function(){
+      rtWhen=o[0];
+      if(o[0]==='set'&&!$('rttime').value){var d=new Date(Date.now()+30*6e4);$('rttime').value=pad(d.getHours())+':'+pad(d.getMinutes())}
+      rtChips();if(o[0]==='set')$('rttime').focus();
+    };
+    wb.appendChild(b);
+  });
+  $('rttime').hidden=rtWhen!=='set';
+  rtPreview();
+}
+function openRT(){rtShow=null;rtWhen='now';$('rtname').value='';rtChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
+function endRT(){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false})}
+$('rttime').oninput=rtPreview;
+$('rtname').oninput=rtPreview;
 $('rehearse').onclick=function(){
   var f=frame(Date.now());
-  if(S.adhoc&&!f.idle&&f.perf===S.adhoc){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false});return}
-  var d=new Date();$('rttime').value=pad(d.getHours())+':'+pad(d.getMinutes());
-  $('rtpanel').hidden=false;$('rtpanel').scrollIntoView({behavior:'smooth',block:'center'});
+  if(S.adhoc&&!f.idle&&f.perf===S.adhoc){endRT();return}
+  openRT();
 };
+$('rtidle').onclick=openRT;
+$('rtend').onclick=function(){if(confirm('End the run-through? The screens go back to the schedule.'))endRT()};
 $('rtcancel').onclick=function(){$('rtpanel').hidden=true};
 $('rtstart').onclick=function(){
-  var now=Date.now(),d=new Date(now),t=$('rttime').value||(pad(d.getHours())+':'+pad(d.getMinutes()));
-  var curtain=at(ymd(d),t);
-  if(curtain<now-12*36e5)curtain+=24*36e5;               // a time that already passed long ago means tomorrow
-  var p={key:'adhoc-'+now,show:'Run-through',date:ymd(new Date(curtain)),time:t,curtain:curtain,adhoc:true};
+  var now=Date.now(),c=rtCurtain();
+  if(c==null){$('rttime').focus();return}
+  var d=new Date(c);
+  var p={key:'adhoc-'+now,show:rtName(),date:ymd(d),time:pad(d.getHours())+':'+pad(d.getMinutes()),curtain:c,adhoc:true};
   $('rtpanel').hidden=true;
   commit({adhoc:p,key:p.key,idx:null,log:[],msg:null,paused:false});
 };
@@ -1256,17 +1429,31 @@ function copy(text,btn,label){
 
 // ---------- schedule editor ----------
 function newCode(){var a='abcdefghjkmnpqrstuvwxyz23456789',s='mmt-';for(var i=0;i<14;i++)s+=a[Math.floor(Math.random()*a.length)];return s}
+function showTab(t){
+  if(!document.querySelector('#settings .tabpane[data-pane="'+t+'"]'))t='shows';
+  Array.prototype.forEach.call(document.querySelectorAll('#settings .tabs button'),function(b){
+    var on=b.dataset.tab===t;b.classList.toggle('on',on);b.setAttribute('aria-selected',on?'true':'false');
+    if(on&&b.scrollIntoView)b.scrollIntoView({block:'nearest',inline:'nearest'});
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#settings .tabpane'),function(p){p.hidden=p.dataset.pane!==t});
+  sset('mmt-settab',t);window.scrollTo(0,0);tabEdge();
+}
+Array.prototype.forEach.call(document.querySelectorAll('#settings .tabs button'),function(b){b.onclick=function(){showTab(b.dataset.tab)}});
+function tabEdge(){var t=document.querySelector('#settings .tabs');if(t)t.classList.toggle('more',t.scrollWidth-t.clientWidth-t.scrollLeft>4)}
+document.querySelector('#settings .tabs').addEventListener('scroll',tabEdge);window.addEventListener('resize',tabEdge);
 $('setup').onclick=function(){
   var s=$('settings');s.hidden=!s.hidden;
+  document.body.classList.toggle('setting',!s.hidden);
   if(!s.hidden){
     if(!cfg.sync){cfg.sync=newCode();persist();connect()}
     drawRuns();drawTpl();
     drawSMList();
     $('msgedit').value=cfg.messages.join('\n');$('synccode').value=cfg.sync;$('stagesel').value=cfg.stage||'main';$('endlabel').value=cfg.endLabel||'';
-    drawPreview();drawLinks();s.scrollIntoView({behavior:'smooth'});
+    drawPreview();drawLinks();
+    showTab(sget('mmt-settab')||'shows');
   }
 };
-$('done').onclick=function(){$('settings').hidden=true;window.scrollTo(0,0);if(cfgPending)sendCfg();draw()};
+$('done').onclick=function(){$('settings').hidden=true;document.body.classList.remove('setting');window.scrollTo(0,0);if(cfgPending)sendCfg();draw()};
 
 function linkFor(view){
   var base=location.href.split('#')[0];
@@ -1315,44 +1502,100 @@ $('newcode').onclick=function(){
   cfg.sync=newCode();$('synccode').value=cfg.sync;persist();connect();
 };
 
+// Each run is a one-line summary until you tap it; finished runs fold into
+// a "Past runs" group so the list stays short as the season goes on.
+var openRuns=[],showPast=false;
+function shortTime(t){var p=pretty(t);return p.replace(':00 ',' ')}          // 8:00 PM -> 8 PM
+function runDates(run){
+  if(!run.start||!run.end)return 'Dates not set';
+  var a=run.start.split('-').map(Number),b=run.end.split('-').map(Number);
+  var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return a[1]===b[1]&&a[0]===b[0]?M[a[1]-1]+' '+a[2]+'\u2013'+b[2]:M[a[1]-1]+' '+a[2]+' \u2013 '+M[b[1]-1]+' '+b[2];
+}
+function runTimes(run){
+  var parts=[];
+  DAYS.forEach(function(d){
+    var ts=(run.pattern||{})[d[0]]||[];if(!ts.length)return;
+    var shown=ts.map(shortTime),ap=shown.map(function(x){return x.slice(-2)});
+    // "Sat 2 & 8 PM" when both are PM, otherwise spell each out
+    var txt=ap.every(function(x){return x===ap[0]})&&shown.length>1
+      ?shown.map(function(x){return x.slice(0,-3)}).join(' & ')+' '+ap[0]:shown.join(' & ');
+    parts.push(d[1]+' '+txt);
+  });
+  return parts.length?parts.join(', '):'No show times yet';
+}
+function runSummary(run){
+  var x=(run.exceptions||[]).length;
+  return runDates(run)+'. '+runTimes(run)+(x?'. '+x+' cancelled':'');
+}
 function drawRuns(){
   var box=$('runs');box.innerHTML='';
-  cfg.runs.forEach(function(run,ri){
-    var el=document.createElement('div');el.className='card';
-    var f=document.createElement('div');f.className='field';f.innerHTML='<label>Production</label>';
+  var today=ymd(new Date()),current=[],past=[];
+  cfg.runs.forEach(function(run,ri){(run.end&&run.end<today?past:current).push([run,ri])});
+  function card(run,ri){
+    var el=document.createElement('div');el.className='card run';
+    var open=openRuns.indexOf(run)>=0;el.classList.toggle('open',open);
+    var head=document.createElement('button');head.className='runhead';head.setAttribute('aria-expanded',open?'true':'false');
+    head.innerHTML='<span class="rtxt"><span class="rn"></span><span class="rs"></span></span><span class="chev" aria-hidden="true">\u25be</span>';
+    function paintHead(){
+      var n=head.querySelector('.rn');n.textContent=run.show||'New run';
+      if(run.start&&run.end&&run.start<=today&&today<=run.end){var bd=document.createElement('span');bd.className='badge';bd.textContent='NOW PLAYING';n.appendChild(bd)}
+      head.querySelector('.rs').textContent=runSummary(run);
+    }
+    paintHead();
+    head.onclick=function(){
+      var i=openRuns.indexOf(run);if(i>=0)openRuns.splice(i,1);else openRuns.push(run);
+      drawRuns();
+    };
+    el.appendChild(head);
+    if(!open){box.appendChild(el);return}
+
+    var body=document.createElement('div');body.className='runbody';
+    var f=document.createElement('div');f.className='field';f.style.marginTop='12px';f.innerHTML='<label>Production</label>';
     var nm=document.createElement('input');nm.value=run.show||'';nm.placeholder='The Cher Show';
-    nm.oninput=function(){run.show=nm.value;persist()};f.appendChild(nm);el.appendChild(f);
+    nm.oninput=function(){run.show=nm.value;persist();paintHead()};f.appendChild(nm);body.appendChild(f);
 
     var dates=document.createElement('div');dates.className='pair field';
     [['start','Opens'],['end','Closes']].forEach(function(k){
       var w=document.createElement('div');w.innerHTML='<label>'+k[1]+'</label>';
       var i=document.createElement('input');i.type='date';i.value=run[k[0]]||'';
-      i.onchange=function(){run[k[0]]=i.value;persist()};w.appendChild(i);dates.appendChild(w);
+      i.onchange=function(){run[k[0]]=i.value;persist();paintHead()};w.appendChild(i);dates.appendChild(w);
     });
-    el.appendChild(dates);
+    body.appendChild(dates);
 
+    var lab=document.createElement('label');lab.textContent='Show times (like 2:00 PM, 8:00 PM; blank for no show)';body.appendChild(lab);
     var g=document.createElement('div');g.className='days';run.pattern=run.pattern||{};
     DAYS.forEach(function(d){
       var l=document.createElement('div');l.className='d';l.textContent=d[1];
       var i=document.createElement('input');
       i.value=(run.pattern[d[0]]||[]).map(pretty).join(', ');
-      i.placeholder='';
-      i.onchange=function(){run.pattern[d[0]]=parseTimes(i.value);i.value=run.pattern[d[0]].map(pretty).join(', ');persist()};
+      i.setAttribute('aria-label',d[1]+' show times');
+      i.onchange=function(){run.pattern[d[0]]=parseTimes(i.value);i.value=run.pattern[d[0]].map(pretty).join(', ');persist();paintHead()};
       g.appendChild(l);g.appendChild(i);
     });
-    el.appendChild(g);
+    body.appendChild(g);
 
     var sk=document.createElement('div');sk.className='field';sk.style.marginTop='14px';
     sk.innerHTML='<label>Cancelled dates</label>';
     var si=document.createElement('input');si.value=(run.exceptions||[]).join(', ');si.placeholder='2026-10-10, 2026-10-11';
-    si.onchange=function(){run.exceptions=si.value.split(',').map(function(x){return x.trim()}).filter(function(x){return /^\d{4}-\d{2}-\d{2}$/.test(x)});si.value=run.exceptions.join(', ');persist()};
-    sk.appendChild(si);el.appendChild(sk);
+    si.onchange=function(){run.exceptions=si.value.split(',').map(function(x){return x.trim()}).filter(function(x){return /^\d{4}-\d{2}-\d{2}$/.test(x)});si.value=run.exceptions.join(', ');persist();paintHead()};
+    sk.appendChild(si);body.appendChild(sk);
 
     var del=document.createElement('button');del.className='quiet';del.style.width='100%';del.textContent='Remove this run';
     del.onclick=function(){if(confirm('Remove '+(run.show||'this run')+'?')){cfg.runs.splice(ri,1);persist();drawRuns()}};
-    el.appendChild(del);
+    body.appendChild(del);
+    el.appendChild(body);
     box.appendChild(el);
-  });
+  }
+  current.sort(function(a,b){return (a[0].start||'').localeCompare(b[0].start||'')}).forEach(function(x){card(x[0],x[1])});
+  if(!current.length){var e=document.createElement('p');e.className='muted';e.style.margin='6px 0 14px';e.textContent='No upcoming runs. Import from the dashboard or add one.';box.appendChild(e)}
+  if(past.length){
+    var ph=document.createElement('button');ph.className='pasthead';
+    ph.textContent=(showPast?'Hide past runs':'Past runs ('+past.length+')');
+    ph.onclick=function(){showPast=!showPast;drawRuns()};
+    box.appendChild(ph);
+    if(showPast)past.forEach(function(x){card(x[0],x[1])});
+  }
 }
 // Mainstage weekend: Fri 8, Sat 2 and 8, Sun 2
 var WEEKEND={fri:['20:00'],sat:['14:00','20:00'],sun:['14:00']};
@@ -1400,6 +1643,7 @@ $('importdash').onclick=function(){
 $('addrun').onclick=function(){
   var s=new Date(),e=new Date();e.setDate(e.getDate()+21);
   cfg.runs.push({show:'',start:ymd(s),end:ymd(e),pattern:stageWeekend(),exceptions:[]});
+  openRuns.push(cfg.runs[cfg.runs.length-1]);
   persist();drawRuns();
 };
 
