@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 2.20. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.21. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -253,7 +253,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 <div id="measure" aria-hidden="true"></div>
 <div id="dmenu" hidden>
   <div class="row"><button id="dm-fs">Full screen</button><button id="dm-snd">Sound: on</button><button id="dm-mac">Window launcher: Mac</button><button id="dm-win">Window launcher: Windows</button></div>
-  <p>The launcher opens this display in its own window with no browser bars, at any size. Unzip it and double-click it. On a Mac, if it's blocked the first time: System Settings, Privacy &amp; Security, scroll down, Open Anyway. Needs Chrome, or Edge on Windows.</p>
+  <p>The launcher opens this display in its own window with no browser bars, at any size. Unzip it and double-click it. On a Mac, if it's blocked the first time: System Settings, Privacy &amp; Security, scroll down, Open Anyway. Needs Firefox or Chrome on a Mac, or Chrome or Edge on Windows.</p>
 </div>
 <button id="sndnote" hidden>Tap for sound</button>
 <div id="fsbox" hidden>
@@ -426,7 +426,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
       <button class="small" data-copy="full">Copy full-screen link</button>
       <div style="height:14px"></div>
       <label>A small display window with no browser bars</label>
-      <p class="hint" style="margin-bottom:8px">Download a launcher on the computer that will show the display. It already has this display's link inside. Unzip it and double-click it, then drag the window to any size. On a Mac, if it's blocked the first time, open System Settings, Privacy &amp; Security, scroll down and click Open Anyway. Needs Chrome (or Edge on Windows). You can also get it from the display itself: move the mouse over a full-screen display.</p>
+      <p class="hint" style="margin-bottom:8px">Download a launcher on the computer that will show the display. It already has this display's link inside. Unzip it and double-click it, then drag the window to any size. On a Mac, if it's blocked the first time, open System Settings, Privacy &amp; Security, scroll down and click Open Anyway. Needs Firefox or Chrome on a Mac (Chrome or Edge on Windows). You can also get it from the display itself: move the mouse over a full-screen display.</p>
       <div class="row"><button class="small" id="dl-mac">Launcher for Mac</button><button class="small" id="dl-win">Launcher for Windows</button></div>
     </div>
     </section>
@@ -455,7 +455,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='2.20';
+var VERSION='2.21';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -1860,34 +1860,95 @@ if(isDisplay){
 }
 
 // ---------- window launchers ----------
-// Browsers won't let a page hide its own address bar, but Chrome and Edge can
-// open a link as an app window with none. These tiny launchers do that, with
+// Browsers won't let a page hide its own address bar. Chrome and Edge can open
+// a link as an app window with none, and on a Mac the launcher gets the same
+// result from Firefox with a separate profile that hides its toolbars. These tiny launchers do that, with
 // this display's link already inside, zipped so the Mac one keeps permission
 // to run. They're built right here, so there's nothing extra in the repo.
 function macLauncher(link){
   link=String(link).replace(/'/g,"'\\''");
   return [
-    '#!/bin/bash',
-    '# MMT Show Timer window launcher (made by timer '+VERSION+').',
-    '# Opens the display in its own Chrome window with no address bar or tabs.',
-    '# Drag the window corner to any size; the timer scales to fit.',
-    '# To open a different timer link just once: copy it, then double-click this.',
-    '',
+    "#!/bin/bash",
+    "# MMT Show Timer window launcher (made by timer "+VERSION+").",
+    "# Opens the display in its own small window with no address bar or tabs.",
+    "# Uses Firefox if it is installed, otherwise Google Chrome.",
+    "# Drag the window corner to any size; the timer scales to fit.",
+    "# To open a different timer link: quit the display window, copy the new link,",
+    "# then double-click this.",
+    "",
     "LINK='"+link+"'",
-    'CLIP="$(pbpaste 2>/dev/null)"',
-    'case "$CLIP" in',
-    '  *timer.html*"#s="*) LINK="$(printf "%s" "$CLIP" | tr -d "\\r\\n")" ;;',
-    'esac',
-    '',
-    'if ! open -Ra "Google Chrome" 2>/dev/null; then',
-    "  osascript -e 'display dialog \"This needs Google Chrome. Install Chrome on this Mac, then double-click this again.\" buttons {\"OK\"} default button \"OK\" with title \"MMT Timer Display\"' >/dev/null",
-    '  exit 1',
-    'fi',
-    '',
-    'open -na "Google Chrome" --args --app="$LINK"',
-    'echo "Opened. You can close this window."',
-    ''
-  ].join('\n');
+    "CLIP=\"$(pbpaste 2>/dev/null)\"",
+    "case \"$CLIP\" in",
+    "  *timer.html*\"#s=\"*) LINK=\"$(printf \"%s\" \"$CLIP\" | tr -d \"\\r\\n\")\" ;;",
+    "esac",
+    "",
+    "FF=\"\"",
+    "for c in \"/Applications/Firefox.app\" \"$HOME/Applications/Firefox.app\" \"/Applications/Firefox ESR.app\"; do",
+    "  if [ -d \"$c\" ]; then FF=\"$c\"; break; fi",
+    "done",
+    "",
+    "if [ -n \"$FF\" ]; then",
+    "  # Firefox: its own profile (~/.mmt-timer-firefox) with the toolbars hidden.",
+    "  # Your everyday Firefox is never touched and can stay open.",
+    "  PROFILE=\"$HOME/.mmt-timer-firefox\"",
+    "",
+    "  if pgrep -f \".mmt-timer-firefox\" >/dev/null 2>&1; then",
+    "    osascript -e 'display dialog \"The timer display window is already open. To load a different link, quit that window (click it, then press Cmd-Q), copy the link, and double-click this again.\" buttons {\"OK\"} default button \"OK\" with title \"MMT Timer Display\"' >/dev/null",
+    "    exit 0",
+    "  fi",
+    "",
+    "  mkdir -p \"$PROFILE/chrome\"",
+    "",
+    "  cat > \"$PROFILE/user.js\" <<'JS'",
+    "user_pref(\"toolkit.legacyUserProfileCustomizations.stylesheets\", true);",
+    "user_pref(\"browser.tabs.drawInTitlebar\", false);",
+    "user_pref(\"browser.shell.checkDefaultBrowser\", false);",
+    "user_pref(\"browser.startup.page\", 0);",
+    "user_pref(\"browser.startup.homepage_override.mstone\", \"ignore\");",
+    "user_pref(\"startup.homepage_welcome_url\", \"\");",
+    "user_pref(\"startup.homepage_welcome_url.additional\", \"\");",
+    "user_pref(\"browser.aboutwelcome.enabled\", false);",
+    "user_pref(\"browser.warnOnQuit\", false);",
+    "user_pref(\"browser.tabs.warnOnClose\", false);",
+    "user_pref(\"browser.sessionstore.resume_from_crash\", false);",
+    "user_pref(\"datareporting.policy.dataSubmissionPolicyBypassNotification\", true);",
+    "user_pref(\"browser.rights.3.shown\", true);",
+    "JS",
+    "",
+    "  cat > \"$PROFILE/chrome/userChrome.css\" <<'CSS'",
+    "@namespace url(\"http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul\");",
+    "/* Hide the tab strip, address bar and bookmarks bar. Only the slim window",
+    "   title bar is left, so the window can still be dragged. */",
+    "#TabsToolbar, #nav-bar, #PersonalToolbar, #toolbar-menubar {",
+    "  visibility: collapse !important;",
+    "}",
+    "#sidebar-box, #sidebar-header, #sidebar-splitter {",
+    "  display: none !important;",
+    "}",
+    "CSS",
+    "",
+    "  # First launch only: a small starting window. After that Firefox remembers",
+    "  # whatever size and spot you leave it in.",
+    "  if [ ! -f \"$PROFILE/xulstore.json\" ]; then",
+    "    cat > \"$PROFILE/xulstore.json\" <<'JSON'",
+    "{\"chrome://browser/content/browser.xhtml\":{\"main-window\":{\"screenX\":\"80\",\"screenY\":\"100\",\"width\":\"720\",\"height\":\"440\",\"sizemode\":\"normal\"}}}",
+    "JSON",
+    "  fi",
+    "",
+    "  open -n -a \"$FF\" --args -no-remote -profile \"$PROFILE\" \"$LINK\"",
+    "  echo \"Opened. You can close this window.\"",
+    "  exit 0",
+    "fi",
+    "",
+    "if open -Ra \"Google Chrome\" 2>/dev/null; then",
+    "  open -na \"Google Chrome\" --args --app=\"$LINK\"",
+    "  echo \"Opened. You can close this window.\"",
+    "  exit 0",
+    "fi",
+    "",
+    "osascript -e 'display dialog \"This needs Firefox or Google Chrome. Install one on this Mac, then double-click this again.\" buttons {\"OK\"} default button \"OK\" with title \"MMT Timer Display\"' >/dev/null",
+    "exit 1"
+  ].join('\n')+'\n';
 }
 function winLauncher(link){
   link=String(link).replace(/%/g,'%%');
