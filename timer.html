@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 2.21. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.23. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -455,7 +455,37 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 'use strict';
 var $=function(id){return document.getElementById(id)};
 var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-var VERSION='2.21';
+// ---------- clock correction ----------
+// Every press stamps the time from the clock of the device that made it, and every
+// screen counts from that stamp using its own clock. A screen whose clock is off
+// (a new Wyse with no network time, say) therefore starts every cue that many
+// seconds in. So each screen now measures its own clock against the relay's, and
+// against the stamps on presses it receives live, and adds the difference to
+// every time it reads. NOW() is the corrected time; nothing else changes.
+// Only differences of 2.5 seconds or more are corrected, so clocks that are
+// already close are left alone and two screens can never chase each other.
+var SKEW=0,skewPts=[],skewEpoch=null,wsOpenT=Infinity;
+try{var _sk=parseInt(localStorage.getItem('mmt-timer-skew'),10);if(isFinite(_sk))SKEW=_sk}catch(e){}
+function NOW(){return Date.now()+SKEW}
+function skewSample(v){
+  var t=Date.now(),ep=t-(window.performance&&performance.now?performance.now():0);
+  // the clock was set or stepped since the last sample (or the device slept):
+  // older samples are on the wrong footing, so start over
+  if(skewEpoch!==null&&Math.abs(ep-skewEpoch)>1500)skewPts=[];
+  skewEpoch=ep;
+  skewPts.push({at:t,v:v});
+  skewPts=skewPts.filter(function(p){return t-p.at<5*6e4});
+  // Every sample can only read low (a delay in the network, or the relay rounding
+  // its clock down to the second), never high, so the highest one is the best.
+  var best=-Infinity;skewPts.forEach(function(p){if(p.v>best)best=p.v});
+  var next=Math.abs(best)>=2500?Math.round(best):0;
+  if(next!==SKEW){
+    SKEW=next;
+    try{localStorage.setItem('mmt-timer-skew',String(SKEW))}catch(e){}
+    if(typeof paintClockNote==='function')paintClockNote();
+  }
+}
+var VERSION='2.23';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -610,11 +640,11 @@ var ME=Math.random().toString(36).slice(2,8);
 // all land on the same state without anyone re-sending it. S.seen remembers
 // which commands are already in the state so none is applied twice.
 var remoteAt=null;
-function nowMs(){return remoteAt||Date.now()}
+function nowMs(){return remoteAt||NOW()}
 function commit(patch){
   Object.assign(S,patch);S.n=(S.n||0)+1;
   if(remoteAt){S.t=remoteAt;S.by='deck';sset('mmt-timer-shared',JSON.stringify(S));draw();return}
-  S.t=Date.now();S.by=ME;
+  S.t=NOW();S.by=ME;
   sset('mmt-timer-shared',JSON.stringify(S));
   publish();draw();
 }
@@ -634,7 +664,7 @@ function applyCommand(text,id,at){
   var fn=DECK[m[1].toLowerCase()];
   S.seen=seen.concat(id?[id]:[]).slice(-80);
   if(!fn){sset('mmt-timer-shared',JSON.stringify(S));return true}
-  remoteAt=at||Date.now();
+  remoteAt=at||NOW();
   var arg=m[2]||'';try{arg=decodeURIComponent(arg)}catch(x){}
   try{fn(arg)}catch(x){}finally{remoteAt=null}
   sset('mmt-timer-shared',JSON.stringify(S));draw();
@@ -841,12 +871,26 @@ function call(text){
 // minute and whenever a screen wakes up, in case anything was missed.
 var ws=null,es=null,syncState='off',retry=null,backoff=2000;
 function topicUrl(){return SYNC_HOST+encodeURIComponent(cfg.sync)}
-function handle(txt){
+function handle(txt,live){
   var m,s;try{m=JSON.parse(txt)}catch(x){return}
-  if(!m||(m.event&&m.event!=='message'))return;
+  if(!m)return;
+  // The relay says what time it is when a connection opens and every 30 to 45
+  // seconds after that. That is the reference each screen corrects itself to.
+  if(live&&m.time&&(m.event==='open'||m.event==='keepalive')){
+    if(m.event==='open')wsOpenT=m.time;
+    skewSample(m.time*1000-Date.now());
+  }
+  if(m.event&&m.event!=='message')return;
+  // Only messages sent after this connection opened count as live. An older one
+  // replayed from the relay's cache says nothing about the clock.
+  var fresh=!!live&&m.time>=wsOpenT;
+  if(fresh)skewSample(m.time*1000-Date.now());
   if(typeof m.message==='string'&&m.message.slice(0,4)==='cfg:'){noteRelayCfg(m.message.slice(4));receiveCfg(m.message.slice(4));return}
   if(applyCommand(m.message,m.id,m.time?m.time*1000:null))return;
   try{s=JSON.parse(m.message)}catch(x){return}
+  // A press from another device carries the exact time on its clock, to the
+  // millisecond, so it sharpens the correction. Read before the press is applied.
+  if(fresh&&s&&s.by&&s.by!==ME&&typeof s.t==='number')skewSample(s.t-Date.now());
   receive(s);
 }
 function hangUp(){
@@ -860,11 +904,11 @@ function connect(){
   if(!cfg.sync){syncState='off';paintPill();return}
   syncState='connecting';paintPill();
   if(typeof WebSocket!=='undefined'){
-    try{ws=new WebSocket(topicUrl().replace(/^http/,'ws')+'/ws?since=latest')}catch(e){ws=null}
+    try{wsOpenT=Infinity;ws=new WebSocket(topicUrl().replace(/^http/,'ws')+'/ws?since=latest')}catch(e){ws=null}
   }
   if(ws){
     ws.onopen=function(){syncState='live';backoff=2000;paintPill();catchUp(true)};
-    ws.onmessage=function(e){handle(e.data)};
+    ws.onmessage=function(e){handle(e.data,true)};
     ws.onclose=function(){ws=null;syncState='down';paintPill();again()};
     ws.onerror=function(){};
     return;
@@ -1065,7 +1109,7 @@ function paintStage(f,now,clockMode,wingsOn,heldNow,ink,scene){
   if(scene===sizeScene)sizeLen=Math.max(sizeLen,want);else{sizeScene=scene;sizeLen=want}
 }
 function tick(){
-  var now=Date.now(),f=frame(now),m=msgNow(now);
+  var now=NOW(),f=frame(now),m=msgNow(now);
   var clockMode=f.idle||f.preCall||f.ready;
   var colorKey=clockMode||f.done?'white':colorAt(f.L[f.pos],f);
   var wallText=clockOf(now);
@@ -1082,7 +1126,7 @@ function tick(){
   if(isDisplay&&scene!==shownScene&&!fading){
     chime('cue');
     fading=true;$('stage').classList.add('fade');
-    setTimeout(function(){shownScene=sceneOf(frame(Date.now()),null);fading=false;fitKey='';tick();fit();$('stage').classList.remove('fade')},240);
+    setTimeout(function(){shownScene=sceneOf(frame(NOW()),null);fading=false;fitKey='';tick();fit();$('stage').classList.remove('fade')},240);
   }
   if(!fading){
     shownScene=isDisplay?shownScene:scene;
@@ -1343,7 +1387,7 @@ $('screen').onclick=function(){
 // when it starts with one tap. A line underneath says what the screens will do.
 var rtShow=null,rtWhen='now';
 function rtShows(){
-  var today=ymd(new Date()),seen={},out=[];
+  var today=ymd(new Date(NOW())),seen={},out=[];
   cfg.runs.filter(function(r){return r.show&&(!r.end||r.end>=today)})
     .sort(function(a,b){return (a.start||'').localeCompare(b.start||'')})
     .forEach(function(r){if(!seen[r.show]){seen[r.show]=1;out.push(r)}});
@@ -1351,7 +1395,7 @@ function rtShows(){
 }
 function rtName(){return rtShow==='other'?($('rtname').value.trim()||'Run-through'):rtShow}
 function rtCurtain(){
-  var now=Date.now();
+  var now=NOW();
   if(rtWhen==='now')return now;
   if(rtWhen==='set'){
     var t=$('rttime').value;if(!t)return null;
@@ -1361,7 +1405,7 @@ function rtCurtain(){
   return Math.ceil((now+rtWhen*6e4)/6e4)*6e4;
 }
 function rtPreview(){
-  var c=rtCurtain(),now=Date.now(),el=$('rtpreview');
+  var c=rtCurtain(),now=NOW(),el=$('rtpreview');
   if(c==null){el.textContent='Pick a start time.';return}
   if(c<=now+60000){el.textContent='Screens show the clock and READY TO START until the SM presses GO.';return}
   var C=cueList(),items=[],firstUp=-1;
@@ -1377,7 +1421,7 @@ function rtChips(){
   var sb=$('rtshows');sb.innerHTML='';
   var shows=rtShows();
   if(rtShow===null){
-    var today=ymd(new Date()),now=shows.filter(function(r){return r.start<=today})[0];
+    var today=ymd(new Date(NOW())),now=shows.filter(function(r){return r.start<=today})[0];
     rtShow=now?now.show:shows.length?shows[0].show:'other';
   }
   shows.map(function(r){return r.show}).concat(['other']).forEach(function(v){
@@ -1390,7 +1434,7 @@ function rtChips(){
     var b=document.createElement('button');b.textContent=o[1];b.classList.toggle('on',rtWhen===o[0]);
     b.onclick=function(){
       rtWhen=o[0];
-      if(o[0]==='set'&&!$('rttime').value){var d=new Date(Date.now()+30*6e4);$('rttime').value=pad(d.getHours())+':'+pad(d.getMinutes())}
+      if(o[0]==='set'&&!$('rttime').value){var d=new Date(NOW()+30*6e4);$('rttime').value=pad(d.getHours())+':'+pad(d.getMinutes())}
       rtChips();if(o[0]==='set')$('rttime').focus();
     };
     wb.appendChild(b);
@@ -1403,7 +1447,7 @@ function endRT(){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:fal
 $('rttime').oninput=rtPreview;
 $('rtname').oninput=rtPreview;
 $('rehearse').onclick=function(){
-  var f=frame(Date.now());
+  var f=frame(NOW());
   if(S.adhoc&&!f.idle&&f.perf===S.adhoc){endRT();return}
   openRT();
 };
@@ -1411,7 +1455,7 @@ $('rtidle').onclick=openRT;
 $('rtend').onclick=function(){if(confirm('End the run-through? The screens go back to the schedule.'))endRT()};
 $('rtcancel').onclick=function(){$('rtpanel').hidden=true};
 $('rtstart').onclick=function(){
-  var now=Date.now(),c=rtCurtain();
+  var now=NOW(),c=rtCurtain();
   if(c==null){$('rttime').focus();return}
   var d=new Date(c);
   var p={key:'adhoc-'+now,show:rtName(),date:ymd(d),time:pad(d.getHours())+':'+pad(d.getMinutes()),curtain:c,adhoc:true};
@@ -1510,7 +1554,7 @@ Array.prototype.forEach.call(document.querySelectorAll('[data-copy]'),function(b
 });
 
 function persist(){
-  cfg.v=Date.now();
+  cfg.v=NOW();
   sset('mmt-timer-cfg',enc(cfg));
   sendCfgSoon();
   try{history.replaceState(null,'',linkFor(isDisplay?(document.body.classList.contains('full')?'full':'display'):''))}catch(e){}
@@ -1584,7 +1628,7 @@ function drawTimesNote(changed){
 }
 function drawRuns(){
   var box=$('runs');box.innerHTML='';
-  var today=ymd(new Date()),current=[],past=[];
+  var today=ymd(new Date(NOW())),current=[],past=[];
   cfg.runs.forEach(function(run,ri){(run.end&&run.end<today?past:current).push([run,ri])});
   function card(run,ri){
     var el=document.createElement('div');el.className='card run';
@@ -1693,7 +1737,7 @@ function dashboardShows(){
   return {list:kids?DASH_SNAPSHOT_KIDS:DASH_SNAPSHOT,live:false};
 }
 $('importdash').onclick=function(){
-  var src=dashboardShows(),today=ymd(new Date()),added=0,updated=0,btn=this;
+  var src=dashboardShows(),today=ymd(new Date(NOW())),added=0,updated=0,btn=this;
   src.list.forEach(function(sh){
     if(!sh||!sh.name||!sh.start||!sh.end||sh.end<today)return;
     var hit=cfg.runs.filter(function(r){return (r.show||'').toLowerCase()===sh.name.toLowerCase()})[0];
@@ -1845,9 +1889,14 @@ function drawPreview(){
 // Controllers show it at the bottom of the page. A display shows it in the
 // corner for ten seconds after it loads, then fades it out so it's not in
 // the camera feed, which is enough to confirm a screen picked up a new copy.
+function paintClockNote(){
+  var n=SKEW?' · clock adjusted '+(SKEW>0?'+':'−')+(Math.abs(SKEW)/1000).toFixed(1)+' s':'';
+  $('vercontrol').textContent='Show Timer '+VERSION+n;
+  if(isDisplay&&!$('ver').hidden)$('ver').textContent='VERSION '+VERSION+n;
+}
 $('vercontrol').textContent='Show Timer '+VERSION;
 if(isDisplay){
-  $('ver').textContent='VERSION '+VERSION;$('ver').hidden=false;
+  $('ver').textContent='VERSION '+VERSION;$('ver').hidden=false;paintClockNote();
   setTimeout(function(){$('ver').classList.add('gone')},10000);
   setTimeout(function(){$('ver').hidden=true},11500);
 }
