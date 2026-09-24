@@ -1,15 +1,395 @@
 <!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MMT Capture</title>
-<body style="margin:0;background:#000">
-<video id="v" autoplay muted playsinline
- style="width:100vw;height:100vh;object-fit:contain"></video>
+<!--
+  MMT Capture 1.0
+  Live HDMI capture feed (USB capture card) with the MMT Show Timer laid over it.
+
+  Setup: keep this file in the same folder as timer.html.
+  Open it with the same address part your timer display link uses, e.g.
+      timer.html#s=XXXX&v=display   ->   capture.html#s=XXXX&v=display
+  (v=display and mode=full are added for you if they're missing.)
+  With no #... at all it uses whatever schedule that browser already has saved.
+
+  Settings: press C, or tap the top-left corner. Drag the green box to move the
+  timer, drag its corner to resize. Everything is remembered on this device.
+
+  The timer page is not changed at all. Its black background is keyed out
+  (screen blend), so only the digits and text sit over the picture.
+-->
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+body{font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;color:#E9ECED;cursor:none;
+  -webkit-user-select:none;user-select:none}
+body.mv,body.editing{cursor:auto}
+
+/* ---- picture and timer layers ---- */
+#v{position:fixed;left:0;top:0;width:100vw;height:100vh;object-fit:contain;background:#000;z-index:0}
+#scrim{position:fixed;z-index:1;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(0,0,0,.92) 0%,rgba(0,0,0,.8) 50%,rgba(0,0,0,0) 100%)}
+#tf{position:fixed;z-index:2;pointer-events:none;mix-blend-mode:screen;background:#000;overflow:hidden}
+#tf iframe{display:block;width:100%;height:100%;border:0;background:#000}
+#nosig{position:fixed;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;pointer-events:none;
+  color:#6B7377;font-size:max(14px,2.4vh);letter-spacing:.14em;text-transform:uppercase;text-align:center;padding:0 8vw}
+#nosig[hidden]{display:none}
+
+/* ---- edit box (only while settings are open) ---- */
+#edit{position:fixed;z-index:4;display:none;border:2px dashed #2FBF5C;background:rgba(47,191,92,.07)}
+body.editing #edit{display:block}
+#grab{position:absolute;inset:0;cursor:move;touch-action:none}
+#rz{position:absolute;right:-2px;bottom:-2px;width:34px;height:34px;background:#2FBF5C;border-radius:10px 0 0 0;
+  cursor:nwse-resize;touch-action:none}
+#rz::after{content:"";position:absolute;right:6px;bottom:6px;width:12px;height:12px;border-right:3px solid #05130A;border-bottom:3px solid #05130A}
+
+/* ---- hidden hot corner + first-run hint ---- */
+#hot{position:fixed;left:0;top:0;width:72px;height:72px;z-index:8}
+#hint{position:fixed;left:16px;top:16px;z-index:8;padding:10px 14px;border-radius:10px;background:rgba(10,12,13,.92);
+  border:1px solid #2E363B;font-size:14px;color:#E9ECED;pointer-events:none;transition:opacity .8s}
+#hint.gone{opacity:0}
+
+/* ---- settings panel ---- */
+#panel{position:fixed;top:12px;right:12px;z-index:9;width:310px;max-height:calc(100vh - 24px);overflow-y:auto;
+  background:rgba(16,19,21,.97);border:1px solid #2E363B;border-radius:14px;padding:14px 14px 12px;
+  box-shadow:0 12px 40px rgba(0,0,0,.6);-webkit-user-select:none;user-select:none}
+#panel.left{right:auto;left:12px}
+#panel[hidden]{display:none}
+.ph{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.ph b{font-size:15px;letter-spacing:.04em}
+.ph small{color:#8A9499;font-size:11px;flex:1}
+.sec{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#8A9499;margin:14px 0 6px}
+label{display:block;font-size:12px;color:#B4BBBE;margin-bottom:8px}
+label output{float:right;color:#8A9499}
+select,button{font:inherit;color:#E9ECED}
+select{width:100%;margin-top:4px;min-height:40px;padding:8px;background:#101315;border:1px solid #2E363B;border-radius:8px;font-size:13px}
+input[type=range]{width:100%;margin:6px 0 0;accent-color:#2FBF5C;min-height:28px}
+button{min-height:40px;padding:8px 10px;background:#232A2E;border:1px solid #2E363B;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+button:active{transform:scale(.98)}
+#done{min-height:34px;padding:6px 16px;background:#2FBF5C;border-color:#2FBF5C;color:#05130A}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:4px 0 8px}
+.grid button{font-size:18px;min-height:42px}
+.row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px}
+.row button{font-size:12px;padding:6px 4px}
+#status{font-size:12px;color:#8A9499;margin:10px 0 2px;min-height:1.3em}
+.help{font-size:11px;line-height:1.5;color:#8A9499;margin:8px 0 0}
+</style>
+</head>
+<body>
+
+<video id="v" autoplay muted playsinline></video>
+<div id="scrim"></div>
+<div id="tf"><iframe id="fr" scrolling="no" allow="autoplay" tabindex="-1" title="Show timer"></iframe></div>
+<div id="nosig" hidden>Waiting for capture device…</div>
+
+<div id="edit"><div id="grab"></div><div id="rz"></div></div>
+<div id="hot" title=""></div>
+<div id="hint" hidden>Settings: press C, or tap this corner</div>
+
+<div id="panel" hidden>
+  <div class="ph"><b>MMT Capture</b><small id="ver"></small><button id="done">Done</button></div>
+
+  <div class="sec">Picture</div>
+  <label>Capture device
+    <select id="cam"><option value="">Auto (first available)</option></select>
+  </label>
+  <div class="two">
+    <label>Capture size
+      <select id="res"><option value="1080">1080p</option><option value="720">720p (lighter)</option></select>
+    </label>
+    <label>Picture
+      <select id="fit"><option value="contain">Whole picture</option><option value="cover">Fill screen</option></select>
+    </label>
+  </div>
+  <label>Dim picture <output id="o-dim"></output>
+    <input type="range" id="dim" min="20" max="100" step="1">
+  </label>
+
+  <div class="sec">Timer</div>
+  <label>Size <output id="o-size"></output>
+    <input type="range" id="size" min="10" max="100" step="1">
+  </label>
+  <label>Timer opacity <output id="o-op"></output>
+    <input type="range" id="op" min="30" max="100" step="1">
+  </label>
+  <label>Dark backing <output id="o-scrim"></output>
+    <input type="range" id="scr" min="0" max="100" step="1">
+  </label>
+  <div class="grid" id="snap">
+    <button data-ax="0" data-ay="0" aria-label="Top left">↖</button>
+    <button data-ax=".5" data-ay="0" aria-label="Top">↑</button>
+    <button data-ax="1" data-ay="0" aria-label="Top right">↗</button>
+    <button data-ax="0" data-ay=".5" aria-label="Left">←</button>
+    <button data-ax=".5" data-ay=".5" aria-label="Center">●</button>
+    <button data-ax="1" data-ay=".5" aria-label="Right">→</button>
+    <button data-ax="0" data-ay="1" aria-label="Bottom left">↙</button>
+    <button data-ax=".5" data-ay="1" aria-label="Bottom">↓</button>
+    <button data-ax="1" data-ay="1" aria-label="Bottom right">↘</button>
+  </div>
+
+  <div id="status"></div>
+  <div class="row">
+    <button id="reset">Reset layout</button>
+    <button id="reload">Reload timer</button>
+    <button id="fs">Full screen</button>
+  </div>
+  <p class="help">Drag the green box to move the timer, drag its corner to resize. Arrow keys nudge (Shift = bigger steps), + and − resize, mouse wheel resizes, C closes this panel.</p>
+</div>
+
 <script>
-async function go(){
-  try{
-    v.srcObject = await navigator.mediaDevices.getUserMedia(
-      {video:{width:1920,height:1080,frameRate:30}});
-  }catch(e){ setTimeout(go,3000); }
+(function(){
+'use strict';
+var CAPTURE_VERSION='1.0';
+var KEY='mmt-capture-cfg-v1';
+var DEF={cx:.815,cy:.85,w:.32,h:.24,op:1,dim:1,scrim:.5,fit:'contain',res:1080,cam:''};
+
+function $(id){return document.getElementById(id)}
+function clamp(x,a,b){return Math.min(b,Math.max(a,x))}
+function num(x,d){x=parseFloat(x);return isFinite(x)?x:d}
+
+/* ---------- settings (remembered per device) ---------- */
+var S={},k,fresh=true;
+for(k in DEF)S[k]=DEF[k];
+try{
+  var raw=localStorage.getItem(KEY);
+  if(raw){var o=JSON.parse(raw);for(k in DEF)if(o&&o[k]!==undefined)S[k]=o[k];fresh=false}
+}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+/* ---------- the timer layer ---------- */
+function timerSrc(){
+  var h=location.hash||'';
+  if(h==='#')h='';
+  if(!/[#&]v=display(&|$)/.test(h))h=(h?h+'&':'#')+'v=display';
+  if(!/[#&]mode=full(&|$)/.test(h))h+='&mode=full';
+  h=h.replace(/&pop=1/,'');
+  return 'timer.html'+h;
 }
-go();
+var fr=$('fr');
+function loadTimer(){fr.src=timerSrc()}
+fr.addEventListener('load',function(){
+  // Same-origin only (hosted or same folder in most browsers): hide the tiny
+  // "Tap for sound" chip so it can't show up over the picture. Harmless if blocked.
+  try{
+    var d=fr.contentDocument;
+    if(d&&d.head){var st=d.createElement('style');st.textContent='#sndnote{display:none!important}';d.head.appendChild(st)}
+  }catch(e){}
+});
+
+/* ---------- layout ---------- */
+var v=$('v'),tf=$('tf'),edit=$('edit'),scrim=$('scrim');
+function apply(){
+  S.w=clamp(num(S.w,DEF.w),.08,1);S.h=clamp(num(S.h,DEF.h),.05,1);
+  S.cx=clamp(num(S.cx,DEF.cx),0,1);S.cy=clamp(num(S.cy,DEF.cy),0,1);
+  S.op=clamp(num(S.op,1),.3,1);S.dim=clamp(num(S.dim,1),.2,1);S.scrim=clamp(num(S.scrim,.5),0,1);
+  var l=(S.cx-S.w/2)*100,t=(S.cy-S.h/2)*100,w=S.w*100,h=S.h*100;
+  [tf,edit].forEach(function(el){el.style.left=l+'vw';el.style.top=t+'vh';el.style.width=w+'vw';el.style.height=h+'vh'});
+  scrim.style.width=(w*1.5)+'vw';scrim.style.height=(h*1.6)+'vh';
+  scrim.style.left=(S.cx*100-w*.75)+'vw';scrim.style.top=(S.cy*100-h*.8)+'vh';
+  scrim.style.opacity=S.scrim;
+  tf.style.opacity=S.op;
+  v.style.filter=S.dim<1?'brightness('+S.dim+')':'none';
+  v.style.objectFit=S.fit==='cover'?'cover':'contain';
+}
+function syncUI(){
+  $('size').value=Math.round(S.w*100);$('o-size').textContent=Math.round(S.w*100)+'%';
+  $('op').value=Math.round(S.op*100);$('o-op').textContent=Math.round(S.op*100)+'%';
+  $('scr').value=Math.round(S.scrim*100);$('o-scrim').textContent=Math.round(S.scrim*100)+'%';
+  $('dim').value=Math.round(S.dim*100);$('o-dim').textContent=Math.round(S.dim*100)+'%';
+  $('fit').value=S.fit==='cover'?'cover':'contain';
+  $('res').value=String(S.res)==='720'?'720':'1080';
+  $('panel').classList.toggle('left',S.cx>.5);
+}
+function changed(){apply();save();syncUI()}
+
+function snap(ax,ay){
+  var mx=.02,my=.03;
+  S.cx=ax===0?S.w/2+mx:ax===1?1-S.w/2-mx:.5;
+  S.cy=ay===0?S.h/2+my:ay===1?1-S.h/2-my:.5;
+  changed();
+}
+function scaleBy(f){
+  var w=clamp(S.w*f,.08,1),r=w/S.w;
+  S.h=clamp(S.h*r,.05,1);S.w=w;changed();
+}
+
+/* ---------- drag to move / resize ---------- */
+var drag=null;
+$('grab').addEventListener('pointerdown',function(e){
+  e.preventDefault();
+  drag={m:'move',x:e.clientX,y:e.clientY,cx:S.cx,cy:S.cy};
+  try{this.setPointerCapture(e.pointerId)}catch(_){}
+});
+$('rz').addEventListener('pointerdown',function(e){
+  e.preventDefault();e.stopPropagation();
+  drag={m:'size',x:e.clientX,y:e.clientY,w:S.w,h:S.h,cx:S.cx,cy:S.cy};
+  try{this.setPointerCapture(e.pointerId)}catch(_){}
+});
+window.addEventListener('pointermove',function(e){
+  if(!drag)return;
+  var dx=(e.clientX-drag.x)/innerWidth,dy=(e.clientY-drag.y)/innerHeight;
+  if(drag.m==='move'){
+    S.cx=drag.cx+dx;S.cy=drag.cy+dy;
+  }else{
+    var l0=drag.cx-drag.w/2,t0=drag.cy-drag.h/2;      // top-left stays put
+    S.w=clamp(drag.w+dx,.08,1);S.h=clamp(drag.h+dy,.05,1);
+    S.cx=l0+S.w/2;S.cy=t0+S.h/2;
+  }
+  apply();
+});
+function endDrag(){if(!drag)return;drag=null;changed()}
+window.addEventListener('pointerup',endDrag);
+window.addEventListener('pointercancel',endDrag);
+edit.addEventListener('wheel',function(e){e.preventDefault();scaleBy(e.deltaY<0?1.04:1/1.04)},{passive:false});
+
+/* ---------- settings panel ---------- */
+var panel=$('panel');
+function openPanel(on){
+  panel.hidden=!on;
+  document.body.classList.toggle('editing',!!on);
+  if(on){syncUI();var h=$('hint');if(h)h.hidden=true}
+}
+$('hot').addEventListener('click',function(){openPanel(true)});
+$('done').addEventListener('click',function(){openPanel(false)});
+$('snap').addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('button'):null;
+  if(b)snap(parseFloat(b.getAttribute('data-ax')),parseFloat(b.getAttribute('data-ay')));
+});
+$('size').addEventListener('input',function(){
+  var w=clamp(num(this.value,32)/100,.08,1),r=w/S.w;
+  S.h=clamp(S.h*r,.05,1);S.w=w;changed();
+});
+$('op').addEventListener('input',function(){S.op=num(this.value,100)/100;changed()});
+$('scr').addEventListener('input',function(){S.scrim=num(this.value,50)/100;changed()});
+$('dim').addEventListener('input',function(){S.dim=num(this.value,100)/100;changed()});
+$('fit').addEventListener('change',function(){S.fit=this.value;changed()});
+$('res').addEventListener('change',function(){S.res=parseInt(this.value,10)||1080;save();startCam()});
+$('cam').addEventListener('change',function(){S.cam=this.value;save();startCam()});
+$('reset').addEventListener('click',function(){
+  ['cx','cy','w','h','op','dim','scrim','fit'].forEach(function(q){S[q]=DEF[q]});changed();
+});
+$('reload').addEventListener('click',function(){loadTimer()});
+$('fs').addEventListener('click',toggleFS);
+$('ver').textContent='v'+CAPTURE_VERSION;
+
+function toggleFS(){
+  var d=document,el=d.documentElement;
+  try{
+    if(d.fullscreenElement||d.webkitFullscreenElement){(d.exitFullscreen||d.webkitExitFullscreen).call(d)}
+    else{var f=el.requestFullscreen||el.webkitRequestFullscreen;if(f){var p=f.call(el);if(p&&p.catch)p.catch(function(){})}}
+  }catch(e){}
+}
+
+document.addEventListener('keydown',function(e){
+  var tag=(e.target&&e.target.tagName)||'';
+  var typing=(tag==='SELECT'||tag==='INPUT'||tag==='TEXTAREA');
+  if(e.key==='Escape'){if(!panel.hidden)openPanel(false);return}
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(!typing){
+    if(e.key==='c'||e.key==='C'){openPanel(panel.hidden);return}
+    if(e.key==='f'||e.key==='F'){toggleFS();return}
+  }
+  if(panel.hidden||typing)return;
+  var st=e.shiftKey?.02:.005,used=true;
+  if(e.key==='ArrowLeft')S.cx-=st;
+  else if(e.key==='ArrowRight')S.cx+=st;
+  else if(e.key==='ArrowUp')S.cy-=st;
+  else if(e.key==='ArrowDown')S.cy+=st;
+  else if(e.key==='+'||e.key==='=')scaleBy(1.05);
+  else if(e.key==='-'||e.key==='_')scaleBy(1/1.05);
+  else used=false;
+  if(used){e.preventDefault();changed()}
+});
+
+/* show the mouse pointer briefly when it moves, then hide it again */
+var mvT=null;
+document.addEventListener('mousemove',function(){
+  document.body.classList.add('mv');clearTimeout(mvT);
+  mvT=setTimeout(function(){document.body.classList.remove('mv')},2000);
+});
+
+/* ---------- capture ---------- */
+var stream=null,retryT=null,gen=0;
+function setStatus(t){$('status').textContent=t}
+function nosig(msg){var n=$('nosig');if(msg){n.textContent=msg;n.hidden=false}else n.hidden=true}
+function stopCam(){
+  if(stream){stream.getTracks().forEach(function(t){t.onended=null;try{t.stop()}catch(e){}});stream=null}
+  try{v.srcObject=null}catch(e){}
+}
+function retry(ms){clearTimeout(retryT);retryT=setTimeout(startCam,ms||3000)}
+
+function listCams(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.enumerateDevices)return;
+  navigator.mediaDevices.enumerateDevices().then(function(ds){
+    var sel=$('cam'),n=0;
+    while(sel.firstChild)sel.removeChild(sel.firstChild);
+    var a=document.createElement('option');a.value='';a.textContent='Auto (first available)';sel.appendChild(a);
+    ds.forEach(function(d){
+      if(d.kind!=='videoinput')return;
+      n++;
+      var o=document.createElement('option');o.value=d.deviceId;o.textContent=d.label||('Camera '+n);sel.appendChild(o);
+    });
+    sel.value=S.cam;if(sel.value!==S.cam)sel.value='';
+  }).catch(function(){});
+}
+
+function startCam(){
+  clearTimeout(retryT);
+  var my=++gen;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    nosig('Camera access is not available here');
+    setStatus('This browser blocks camera access on this address (needs https or a local file).');
+    return;
+  }
+  stopCam();
+  var r=String(S.res)==='720'?[1280,720]:[1920,1080];
+  var vid={width:{ideal:r[0]},height:{ideal:r[1]},frameRate:{ideal:30}};
+  var tries=[];
+  if(S.cam){var c=JSON.parse(JSON.stringify(vid));c.deviceId={exact:S.cam};tries.push({video:c,audio:false})}
+  tries.push({video:vid,audio:false});
+  var lastErr=null;
+  (function next(i){
+    if(my!==gen)return;
+    if(i>=tries.length)return fail();
+    navigator.mediaDevices.getUserMedia(tries[i]).then(function(s){
+      if(my!==gen){s.getTracks().forEach(function(t){t.stop()});return}
+      ok(s);
+    }).catch(function(err){lastErr=err;next(i+1)});
+  })(0);
+
+  function ok(s){
+    stream=s;v.srcObject=s;
+    var p=v.play();if(p&&p.catch)p.catch(function(){});
+    var tr=s.getVideoTracks()[0];
+    if(tr){
+      tr.onended=function(){nosig('Capture device lost. Reconnecting…');setStatus('Capture device lost. Reconnecting…');retry(2000)};
+      var st=tr.getSettings?tr.getSettings():{};
+      setStatus('Live'+(st.width?' · '+st.width+'×'+st.height:'')+(st.frameRate?' @ '+Math.round(st.frameRate)+' fps':''));
+    }
+    nosig(null);
+    listCams();
+  }
+  function fail(){
+    var blocked=lastErr&&(lastErr.name==='NotAllowedError'||lastErr.name==='SecurityError');
+    nosig(blocked?'Camera permission is blocked':'Waiting for capture device…');
+    setStatus(blocked?'Camera permission blocked. Allow it in the browser, then it retries.':'No capture device found. Plug it into a blue USB 3 port. Retrying…');
+    retry(blocked?10000:3000);
+  }
+}
+if(navigator.mediaDevices&&navigator.mediaDevices.addEventListener){
+  navigator.mediaDevices.addEventListener('devicechange',function(){listCams();if(!stream)retry(500)});
+}
+
+/* ---------- go ---------- */
+apply();syncUI();loadTimer();startCam();
+if(fresh){
+  var h=$('hint');h.hidden=false;
+  setTimeout(function(){h.classList.add('gone');setTimeout(function(){h.hidden=true},900)},9000);
+}
+})();
 </script>
+</body>
+</html>
