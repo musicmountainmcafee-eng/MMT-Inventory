@@ -247,7 +247,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 
 <div id="ver" hidden></div>
 <div id="stage">
-  <div id="ident" hidden><span id="idpre" hidden></span><span id="idname"></span><span id="idtag" hidden>RUN-THROUGH</span><span id="idwhen"></span></div>
+  <div id="ident" hidden><span id="idpre" hidden></span><span id="idname"></span><span id="idtag" hidden></span><span id="idwhen"></span></div>
   <div id="wall" hidden></div>
   <div id="topline"><div id="slug"></div><div id="msg"><span id="msgtext"></span></div></div>
   <div id="big">--:--</div>
@@ -266,7 +266,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 
 <div id="panel">
   <div class="bar">
-    <div><h1><span id="title">Show timer</span><span class="badge rt" id="tbadge" hidden>RUN-THROUGH</span></h1>
+    <div><h1><span id="title">Show timer</span><span class="badge rt" id="tbadge" hidden></span></h1>
       <div class="sub"><span id="subtitle"></span><button class="endrt" id="rtend" hidden>End run-through</button></div></div>
     <div class="right">
       <span class="hclock" id="hclock"></span>
@@ -280,7 +280,9 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
   <div class="card note" id="nosync" hidden>This link doesn't sync between devices yet. Tap Settings, then copy the new link from Screens to every device.</div>
 
   <div class="card" id="rtpanel" hidden>
-    <h2>Start a run-through</h2>
+    <h2 id="rttitle">Start now</h2>
+    <label>What is this</label>
+    <div class="chips" id="rtkind"></div>
     <label>Which show</label>
     <div class="chips" id="rtshows"></div>
     <input id="rtname" placeholder="Name it, like Tech rehearsal" autocomplete="off" hidden style="margin:-4px 0 12px">
@@ -319,7 +321,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
   <div class="card" id="idlecard" hidden>
     <div class="now" style="padding:10px 0 14px"><div class="face" id="iclock"></div></div>
     <div id="idletext"></div>
-    <button id="rtidle" style="width:100%;margin-top:14px">Start a run-through</button>
+    <button id="rtidle" style="width:100%;margin-top:14px">Start now</button>
   </div>
 
   <div class="card" id="reportcard" hidden>
@@ -336,7 +338,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 
   <div class="foot">
     <button class="quiet" id="setup">Settings</button>
-    <button class="quiet" id="rehearse">Start run-through</button>
+    <button class="quiet" id="rehearse">Start now</button>
     <button class="quiet" id="reset">Reset show</button>
     <button class="quiet" id="screen">Open display</button>
   </div>
@@ -488,7 +490,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='2.25';
+var VERSION='2.26';
 var SYNC_HOST='https://ntfy.sh/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1116,9 +1118,14 @@ function sceneOf(f,clockMode){
 // Which show this screen is about, always in the same spot: top left on the
 // full-screen display, above the clock on the corner layout.
 function paintIdent(f,now,clockMode){
-  var name='',when='',pre='',rt=false;
+  var name='',when='',pre='',rt=false,kind='';
   if(f.idle){if(f.next){pre='Next show';name=f.next.show;when=whenLabel(f.next,now)}}
-  else{name=f.perf.show;rt=!!(S.adhoc&&f.perf===S.adhoc);when=rt?clockOf(f.perf.curtain):pretty(f.perf.time)}
+  else{
+    name=f.perf.show;
+    kind=(S.adhoc&&f.perf===S.adhoc)?(S.adhoc.kind||'rehearsal'):'';
+    rt=!!kind;
+    when=rt?clockOf(f.perf.curtain):pretty(f.perf.time);
+  }
   // Once a run-through is actually running, its "started at" time reads the
   // same as the wall clock in the opposite corner for a while, so it's
   // dropped from the corner to stop the two clocks from repeating each
@@ -1126,9 +1133,10 @@ function paintIdent(f,now,clockMode){
   var showWhen=when&&!(rt&&!clockMode);
   $('ident').hidden=!name;
   $('idpre').hidden=!pre;$('idpre').textContent=pre;
-  var key=name+'|'+when+'|'+rt+'|'+pre+'|'+showWhen+'|'+innerWidth;
+  var key=name+'|'+when+'|'+kind+'|'+pre+'|'+showWhen+'|'+innerWidth;
   if(key!==identKey){
-    identKey=key;$('idname').textContent=name;$('idwhen').textContent=when;$('idwhen').hidden=!showWhen;$('idtag').hidden=!rt;
+    identKey=key;$('idname').textContent=name;$('idwhen').textContent=when;$('idwhen').hidden=!showWhen;
+    $('idtag').hidden=!rt;$('idtag').textContent=kind==='performance'?'PERFORMANCE':'RUN-THROUGH';
     var el=$('ident');el.style.fontSize='';
     if(document.body.classList.contains('full')&&name){
       var base=parseFloat(getComputedStyle(el).fontSize),sz=base;
@@ -1232,8 +1240,10 @@ function tick(){
   $('relaylimit').hidden=!relayLimited;
   $('run').hidden=f.idle;$('idlecard').hidden=!f.idle;
   var onRun=!!(S.adhoc&&!f.idle&&f.perf===S.adhoc);
-  $('tbadge').hidden=!onRun;$('rtend').hidden=!onRun;
-  $('rehearse').textContent=onRun?'End run-through':'Start run-through';
+  var runKind=onRun?(S.adhoc.kind||'rehearsal'):'';
+  $('tbadge').hidden=!onRun;$('tbadge').textContent=runKind==='performance'?'PERFORMANCE':'RUN-THROUGH';
+  $('rtend').hidden=!onRun;$('rtend').textContent=runKind==='performance'?'End performance':'End run-through';
+  $('rehearse').textContent=onRun?(runKind==='performance'?'End performance':'End run-through'):'Start now';
   $('reset').hidden=f.idle||(f.idx==null&&!S.adhoc);
 
   if(f.idle){
@@ -1260,7 +1270,7 @@ function tick(){
       note.textContent='These run on their own. No need to press anything until the show starts.';
       $('idletext').appendChild(ul);$('idletext').appendChild(note);
     }else{
-      $('idletext').innerHTML='<p class="muted">Nothing on the calendar. Tap Settings to add a run, or start a run-through.</p>';
+      $('idletext').innerHTML='<p class="muted">Nothing on the calendar. Tap Settings to add a run, or tap Start now for a run-through or an off-schedule performance.</p>';
     }
   }else{
     $('title').textContent=f.perf.show;
@@ -1336,7 +1346,10 @@ function drawSMList(){
   $('smcc').value=cfg.reportCc||'';
 }
 // ready-to-send messages: the device's Mail or Messages opens filled in
-function reportSubject(f){return 'Show report: '+f.perf.show+(S.adhoc&&f.perf===S.adhoc?' run-through, '+dayLabel(f.perf.date):', '+dayLabel(f.perf.date)+' '+pretty(f.perf.time))}
+// An ad-hoc performance (started off the printed schedule) reads exactly like
+// a normal scheduled show in the report; only a rehearsal gets called out.
+function adhocKindOf(f){return (S.adhoc&&f.perf===S.adhoc)?(S.adhoc.kind||'rehearsal'):null}
+function reportSubject(f){var k=adhocKindOf(f);return 'Show report: '+f.perf.show+(k==='rehearsal'?' run-through, '+dayLabel(f.perf.date):', '+dayLabel(f.perf.date)+' '+pretty(f.perf.time))}
 function mailLink(f,text){
   var sm=smNow(),to=sm&&sm.email?sm.email:'',cc=cfg.reportCc||'';
   if(!to&&!cc)return null;
@@ -1369,10 +1382,11 @@ function paintSend(f,rep){
 
 function report(f){
   if(f.idle||S.key!==f.perf.key||!S.log.length)return '';
-  var L=f.L,nA=f.nA,lines=[f.perf.show+(S.adhoc&&f.perf===S.adhoc?', run-through, '+dayLabel(f.perf.date)+' '+clockOf(f.perf.curtain):', '+dayLabel(f.perf.date)+' '+pretty(f.perf.time))];
+  var kind=adhocKindOf(f);
+  var L=f.L,nA=f.nA,lines=[f.perf.show+(kind==='rehearsal'?', run-through, '+dayLabel(f.perf.date)+' '+clockOf(f.perf.curtain):', '+dayLabel(f.perf.date)+' '+pretty(f.perf.time))];
   var sm=smNow();if(sm&&sm.name)lines.push('Stage manager: '+sm.name);
   var up=firstUp();
-  if(up&&!(S.adhoc&&f.perf===S.adhoc)){
+  if(up&&kind!=='rehearsal'){
     var late=Math.round((up-f.perf.curtain)/6e4);
     lines.push('Up at '+clockOf(up)+(late>0?' ('+late+' min late)':late<0?' ('+(-late)+' min early)':' (on time)'));
   }
@@ -1436,7 +1450,21 @@ $('screen').onclick=function(){
 // ---------- run-through setup ----------
 // Pick the show (current and upcoming productions, or Other with a name) and
 // when it starts with one tap. A line underneath says what the screens will do.
-var rtShow=null,rtWhen='now';
+var rtShow=null,rtWhen='now',rtKind='rehearsal';
+// A run-through never carries the weight of a real show: it's exempt from
+// the on-time/late reporting and gets flagged everywhere ("RUN-THROUGH").
+// A performance started this way (off the printed schedule, or early) is a
+// real show in every other respect, so it reads exactly like a scheduled one
+// except for a plain "PERFORMANCE" tag while it's running.
+function rtKindChips(){
+  var box=$('rtkind');box.innerHTML='';
+  [['rehearsal','Run-through'],['performance','Performance']].forEach(function(o){
+    var b=document.createElement('button');b.textContent=o[1];b.classList.toggle('on',rtKind===o[0]);
+    b.onclick=function(){rtKind=o[0];rtKindChips()};box.appendChild(b);
+  });
+  $('rttitle').textContent=rtKind==='performance'?'Start a performance':'Start a run-through';
+  $('rtstart').textContent=rtKind==='performance'?'Start performance':'Start run-through';
+}
 function rtShows(){
   var today=ymd(new Date(NOW())),seen={},out=[];
   cfg.runs.filter(function(r){return r.show&&(!r.end||r.end>=today)})
@@ -1444,7 +1472,7 @@ function rtShows(){
     .forEach(function(r){if(!seen[r.show]){seen[r.show]=1;out.push(r)}});
   return out;
 }
-function rtName(){return rtShow==='other'?($('rtname').value.trim()||'Run-through'):rtShow}
+function rtName(){return rtShow==='other'?($('rtname').value.trim()||(rtKind==='performance'?'Performance':'Run-through')):rtShow}
 function rtCurtain(){
   var now=NOW();
   if(rtWhen==='now')return now;
@@ -1493,7 +1521,7 @@ function rtChips(){
   $('rttime').hidden=rtWhen!=='set';
   rtPreview();
 }
-function openRT(){rtShow=null;rtWhen='now';$('rtname').value='';rtChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
+function openRT(){rtShow=null;rtWhen='now';rtKind='rehearsal';$('rtname').value='';rtKindChips();rtChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
 function endRT(){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false})}
 $('rttime').oninput=rtPreview;
 $('rtname').oninput=rtPreview;
@@ -1503,13 +1531,16 @@ $('rehearse').onclick=function(){
   openRT();
 };
 $('rtidle').onclick=openRT;
-$('rtend').onclick=function(){if(confirm('End the run-through? The screens go back to the schedule.'))endRT()};
+$('rtend').onclick=function(){
+  var label=(S.adhoc&&S.adhoc.kind==='performance')?'performance':'run-through';
+  if(confirm('End the '+label+'? The screens go back to the schedule.'))endRT();
+};
 $('rtcancel').onclick=function(){$('rtpanel').hidden=true};
 $('rtstart').onclick=function(){
   var now=NOW(),c=rtCurtain();
   if(c==null){$('rttime').focus();return}
   var d=new Date(c);
-  var p={key:'adhoc-'+now,show:rtName(),date:ymd(d),time:pad(d.getHours())+':'+pad(d.getMinutes()),curtain:c,adhoc:true};
+  var p={key:'adhoc-'+now,show:rtName(),date:ymd(d),time:pad(d.getHours())+':'+pad(d.getMinutes()),curtain:c,adhoc:true,kind:rtKind};
   $('rtpanel').hidden=true;
   commit({adhoc:p,key:p.key,idx:null,log:[],msg:null,paused:false});
 };
