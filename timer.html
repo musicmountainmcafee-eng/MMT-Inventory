@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Show Timer">
 <link rel="icon" id="favicon" href="data:,">
 <title>Show Timer</title>
-<!-- Version 2.23. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<!-- Version 2.24. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
 <style>
 :root{
   --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
@@ -52,7 +52,10 @@ body.display.pointer{cursor:auto}
 body.display #panel{display:none}
 #stage{display:none}
 body.display #stage{display:block;position:absolute;right:var(--edge-r);bottom:var(--edge-b);text-align:right;line-height:1}
-body.display.full #stage{right:auto;bottom:auto;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;--digit:18vw;--label:3vw;--note:2vw}
+body.display.full #stage{right:auto;bottom:auto;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;--digit:18vw;--label:3vw;--note:2vw;
+  /* Reserves room for the fixed name/clock corners above, so on a wide-but-short
+     capture window the centered act/countdown stack never rides up under them. */
+  padding-top:max(64px,13vh);padding-bottom:max(24px,4vh)}
 body.display.full #big{white-space:nowrap;letter-spacing:-.03em;line-height:.9}
 body.display.full #slug,body.display.full #sub{white-space:nowrap}
 body.display.wings #big,body.display.wings #msg{color:#FF4A38}
@@ -485,7 +488,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='2.23';
+var VERSION='2.24';
 var SYNC_HOST='https://ntfy.sh/';
 var DEFAULT={
   template:[
@@ -1069,15 +1072,20 @@ function sceneOf(f,clockMode){
 }
 // Which show this screen is about, always in the same spot: top left on the
 // full-screen display, above the clock on the corner layout.
-function paintIdent(f,now){
+function paintIdent(f,now,clockMode){
   var name='',when='',pre='',rt=false;
   if(f.idle){if(f.next){pre='Next show';name=f.next.show;when=whenLabel(f.next,now)}}
   else{name=f.perf.show;rt=!!(S.adhoc&&f.perf===S.adhoc);when=rt?clockOf(f.perf.curtain):pretty(f.perf.time)}
+  // Once a run-through is actually running, its "started at" time reads the
+  // same as the wall clock in the opposite corner for a while, so it's
+  // dropped from the corner to stop the two clocks from repeating each
+  // other. A scheduled show's date/time stays put; that one's never a dupe.
+  var showWhen=when&&!(rt&&!clockMode);
   $('ident').hidden=!name;
   $('idpre').hidden=!pre;$('idpre').textContent=pre;
-  var key=name+'|'+when+'|'+rt+'|'+pre+'|'+innerWidth;
+  var key=name+'|'+when+'|'+rt+'|'+pre+'|'+showWhen+'|'+innerWidth;
   if(key!==identKey){
-    identKey=key;$('idname').textContent=name;$('idwhen').textContent=when;$('idtag').hidden=!rt;
+    identKey=key;$('idname').textContent=name;$('idwhen').textContent=when;$('idwhen').hidden=!showWhen;$('idtag').hidden=!rt;
     var el=$('ident');el.style.fontSize='';
     if(document.body.classList.contains('full')&&name){
       var base=parseFloat(getComputedStyle(el).fontSize),sz=base;
@@ -1087,7 +1095,7 @@ function paintIdent(f,now){
 }
 var identKey='';
 function paintStage(f,now,clockMode,wingsOn,heldNow,ink,scene){
-  paintIdent(f,now);
+  paintIdent(f,now,clockMode);
   if(clockMode){
     var d=new Date(now);
     $('slug').textContent='';
