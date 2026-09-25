@@ -488,8 +488,16 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='2.24';
+var VERSION='2.25';
 var SYNC_HOST='https://ntfy.sh/';
+// Settings' permanent home: the same Apps Script backend the MMT Dashboard
+// already uses, via its generic get/save-KV actions. The ntfy relay above is
+// still used for instant live propagation while devices are open, but it only
+// holds ~12 hours of history. The backend never forgets, so a device that's
+// brand new, been off for weeks, or lost its localStorage always recovers the
+// real settings on load instead of falling back to blank defaults.
+var BACKEND_URL='https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
+var CFG_KV_KEY='timer_cfg';
 var DEFAULT={
   template:[
     {name:'CALL',type:'anchor',offset:-60},
@@ -930,7 +938,7 @@ function connect(){
 // from an old link days later still picks up the latest.
 var cfgTimer=null,cfgTooBig=false;
 var cfgPending=false,relayCfgV=null;   // relayCfgV: newest schedule stamp seen on the relay
-function sendCfgSoon(){cfgPending=true;clearTimeout(cfgTimer);cfgTimer=setTimeout(sendCfg,5000)}
+function sendCfgSoon(){cfgPending=true;clearTimeout(cfgTimer);cfgTimer=setTimeout(function(){sendCfg();saveCfgToBackend()},5000)}
 function sendCfg(){
   clearTimeout(cfgTimer);cfgPending=false;
   if(!cfg.sync||!cfg.v||typeof fetch==='undefined')return;
@@ -941,10 +949,10 @@ function sendCfg(){
   fetch(topicUrl(),{method:'POST',body:body}).then(function(r){if(r.ok)relayCfgV=cfg.v;sent(r)}).catch(function(){});
 }
 function noteRelayCfg(txt){try{var c=JSON.parse(txt);if(c&&c.sync===cfg.sync)relayCfgV=Math.max(relayCfgV||0,c.v||0)}catch(e){}}
-function receiveCfg(txt){
-  var c;try{c=JSON.parse(txt)}catch(e){return}
-  if(!c||c.sync!==cfg.sync)return;
-  if((c.v||0)<=(cfg.v||0))return;
+// Shared by both sync paths (the live relay and the durable backend) so a
+// received config is always adopted and redrawn the same way, whichever one
+// it came from.
+function applyIncomingCfg(c){
   cfg=c;normalizeCfg();
   sset('mmt-timer-cfg',enc(cfg));
   try{history.replaceState(null,'',linkFor(isDisplay?(document.body.classList.contains('full')?'full':'display'):''))}catch(e){}
@@ -956,6 +964,39 @@ function receiveCfg(txt){
   }
   draw();
 }
+function receiveCfg(txt){
+  var c;try{c=JSON.parse(txt)}catch(e){return}
+  if(!c||c.sync!==cfg.sync)return;
+  if((c.v||0)<=(cfg.v||0))return;
+  applyIncomingCfg(c);
+}
+// ---------- settings' durable copy on the Apps Script backend ----------
+// The relay only remembers ~12 hours, so any device that's been away longer
+// than that (or has never opened this timer before) needs a copy that never
+// expires. This is that copy: read on every load, written a few seconds after
+// every edit (see persist(), below), same debounce as the relay push.
+function loadCfgFromBackend(){
+  if(typeof fetch==='undefined')return;
+  fetch(BACKEND_URL+'?action=getKV&key='+CFG_KV_KEY+'&_='+Date.now())
+    .then(function(r){return r.json()})
+    .then(function(d){
+      var c=d&&d.value;
+      if(!c||typeof c!=='object'||(c.v||0)<=(cfg.v||0))return;
+      var hadSync=!!cfg.sync;
+      applyIncomingCfg(c);
+      // A device that started with no sync code (brand new, or opened from a
+      // bare link) only just got one from the backend, so the live relay
+      // connection needs to be (re)started now that there's a code to use.
+      if(!hadSync&&cfg.sync)connect();
+    })
+    .catch(function(){});
+}
+function saveCfgToBackend(){
+  if(typeof fetch==='undefined')return;
+  fetch(BACKEND_URL+'?action=saveKV&key='+CFG_KV_KEY+'&value='+encodeURIComponent(JSON.stringify(cfg))+'&_='+Date.now())
+    .catch(function(){});
+}
+loadCfgFromBackend();
 function catchUp(announce){
   if(!cfg.sync||typeof fetch==='undefined')return;
   fetch(topicUrl()+'/json?poll=1&since=all')
@@ -969,7 +1010,9 @@ function catchUp(announce){
     .catch(function(){});
 }
 // A healthy live connection needs no polling; only check in while it's down.
-setInterval(function(){if(!linkUp())catchUp()},5*60000);
+// The backend check rides along here too, so a device that's been offline or
+// disconnected longer than the relay's ~12-hour memory still self-heals.
+setInterval(function(){if(!linkUp()){catchUp();loadCfgFromBackend()}},5*60000);
 function linkUp(){return (ws&&ws.readyState===1)||(es&&es.readyState===1)}
 // The free relay allows about 250 messages a day per internet connection, and
 // every device in the building shares one. When it refuses (HTTP 429), say so
