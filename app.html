@@ -1943,6 +1943,25 @@
     .later-row { grid-template-columns: 32px minmax(0, 1fr) auto; }
     .later-dates { display: none; }
   }
+  /* Size to the card, not the window. A wide phone (or a tablet with the
+     sidebar open) has a wide viewport but a narrow card, so the viewport
+     query above never fires and the title gets squeezed to nothing. When the
+     card is narrow: title on top (wraps if it must), dates + countdown below. */
+  .home-later-card { container-type: inline-size; }
+  @container (max-width: 560px) {
+    .later-row {
+      grid-template-columns: 32px minmax(0, 1fr);
+      grid-template-areas: "tag name" ". meta";
+      row-gap: 2px; align-items: start; padding: 10px 2px;
+    }
+    .later-tag   { grid-area: tag; align-self: center; }
+    .later-name  { grid-area: name; white-space: normal; overflow: visible; line-height: 1.25; }
+    .later-dates { display: none; }
+    .later-when  {
+      grid-area: meta; min-width: 0; text-align: left; font-size: 13px;
+    }
+    .later-when::before { content: attr(data-dates) "  \00b7  "; color: var(--text-muted); }
+  }
   .show-page-btn {
     padding: 8px 14px; font-size:14px; font-weight: 600; font-family: inherit;
     border-radius: var(--radius-sm); border: 1px solid var(--purple);
@@ -5810,7 +5829,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.17 v43</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.27 v1</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -9234,7 +9253,7 @@ function renderHomeShowCards() {
           <span class="later-tag ${kids ? 'ct' : 'ms'}">${kids ? 'CT' : 'MS'}</span>
           <span class="later-name">${esc(sh.name)}</span>
           <span class="later-dates">${esc(formatDates(sh.start, sh.end))}</span>
-          <span class="later-when${st === 'current' || st === 'tech' ? ' is-live' : ''}">${esc(when)}</span>
+          <span class="later-when${st === 'current' || st === 'tech' ? ' is-live' : ''}" data-dates="${esc(formatDates(sh.start, sh.end))}">${esc(when)}</span>
         </div>`;
       }).join('')}
     </div>`;
