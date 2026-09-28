@@ -1962,6 +1962,25 @@
     }
     .later-when::before { content: attr(data-dates) "  \00b7  "; color: var(--text-muted); }
   }
+  /* Show cards on Notes: when the card is narrow (wide phone, sidebar open),
+     stack it. Title/dates/countdown get the full width on top; the badge and
+     buttons wrap underneath. Without this the title was squeezed to one word
+     per line beside the buttons. */
+  .show-section { container-type: inline-size; }
+  @container (max-width: 760px) {
+    .show-card-hero, .show-card-next, .show-card-current {
+      flex-wrap: wrap; align-items: flex-start; gap: 12px 14px;
+    }
+    .show-card-hero .show-info, .show-card-next .show-info, .show-card-current .show-info {
+      flex: 1 1 100%; min-width: 0;
+    }
+    .show-card-hero .show-name, .show-card-next .show-name { overflow-wrap: anywhere; }
+    .show-card-hero .show-actions, .show-card-next .show-actions, .show-card-current .show-actions {
+      flex-wrap: wrap; flex: 1 1 auto;
+    }
+    .show-card-mini { flex-wrap: wrap; }
+    .show-card-mini > div:first-child { flex: 1 1 100%; min-width: 0; }
+  }
   .show-page-btn {
     padding: 8px 14px; font-size:14px; font-weight: 600; font-family: inherit;
     border-radius: var(--radius-sm); border: 1px solid var(--purple);
@@ -5829,7 +5848,7 @@ table td { font-size: 14px !important; }
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.27 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.27 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -6043,6 +6062,49 @@ function initApp() {
   // including after a power cut, without anyone driving the menu.
   try { if (location.hash === '#tv') setTimeout(openTvMode, 400); } catch(e) {}
   try { loadHub(() => { if (_hubSlug) renderShowHub(); }); } catch(e) { console.warn('hub init:', e); }
+  // Once Home has settled, quietly load every other tab so switching is instant.
+  try { setTimeout(warmTabsInOrder, 600); } catch(e) {}
+}
+
+// ── TAB WARM-UP ─────────────────────────────────────────────────────────────
+// Loads and renders each tab in the background, top to bottom in the sidebar,
+// one at a time. Nothing switches on screen: each tab's normal loader runs
+// while its panel stays hidden, so the first tap finds it already built.
+// Skips a tab the user has already opened (or is on), so it never re-renders
+// something they are looking at, and stands down on Data Saver.
+var _warmRan = false;
+const WARM_ORDER = ['todo','notes','scripts','inventory','checklists','reference','shopping','cleaning','sidework'];
+function warmTabsInOrder() {
+  if (_warmRan) return;
+  _warmRan = true;
+  try { if (navigator.connection && navigator.connection.saveData) return; } catch(e) {}
+  const steps = WARM_ORDER.filter(t => TABS.includes(t));
+  let i = 0;
+  function whenIdle(cb, waited) {
+    // Wait for the previous tab's requests to finish (max ~10s) before starting the next
+    if (_netBusy <= 0 || (waited || 0) >= 10000) return cb();
+    setTimeout(() => whenIdle(cb, (waited || 0) + 250), 250);
+  }
+  function next() {
+    if (i >= steps.length) return;
+    const tab = steps[i++];
+    // Already visited, or the user is on it right now: leave it alone
+    if (_tabSeen[tab] || currentTab === tab) return whenIdle(next, 0);
+    try {
+      if (tab === 'todo'      && typeof renderTasksTab === 'function')       renderTasksTab();
+      else if (tab === 'notes'     && typeof renderNotesTab === 'function' && !_hubSlug) renderNotesTab();
+      else if (tab === 'scripts'   && typeof ensureScriptsLoaded === 'function')   ensureScriptsLoaded();
+      else if (tab === 'inventory' && typeof renderInventoryTab === 'function')    renderInventoryTab();
+      else if (tab === 'checklists'&& typeof ensureChecklistsLoaded === 'function')ensureChecklistsLoaded();
+      else if (tab === 'reference' && typeof ensureReferenceLoaded === 'function') ensureReferenceLoaded();
+      else if (tab === 'shopping'  && typeof renderShop === 'function')            renderShop();
+      else if (tab === 'cleaning'  && typeof ensureCleaningLoaded === 'function')  ensureCleaningLoaded();
+      else if (tab === 'sidework'  && typeof ensureSideWorkLoaded === 'function')  ensureSideWorkLoaded();
+    } catch(e) { console.warn('warm ' + tab + ':', e); }
+    // Small gap so the phone isn't fighting for the main thread mid-scroll
+    setTimeout(() => whenIdle(next, 0), 300);
+  }
+  whenIdle(next, 0);
 }
 
 function applyRoleVisibility() {
