@@ -120,6 +120,7 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 button[disabled]{opacity:.35;cursor:default}
 button.go{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:96px;background:var(--go);border-color:var(--go);color:#05130A}
 button.go .l{font-size:32px;letter-spacing:.16em;line-height:1}
+button.go.newshow .l{font-size:24px;letter-spacing:.1em}
 button.go .n{font-size:13px;letter-spacing:.18em;opacity:.72;line-height:1}
 body.wings button.go{background:transparent;color:var(--go);border-width:2px}
 button.quiet{background:transparent;color:var(--dim);font-weight:500}
@@ -238,6 +239,7 @@ body.wings #rtstart{background:transparent;color:var(--go)}
 h2{font-size:15px;font-weight:600;margin-bottom:4px}
 .hint{font-size:13px;color:var(--dim);margin-bottom:14px;line-height:1.45}
 .link{word-break:break-all;font-size:12px;color:var(--dim);background:var(--shell);border:1px solid var(--line);border-radius:8px;padding:10px;margin:6px 0 8px;max-height:64px;overflow:hidden}
+body.simple.showdone #reportcard:not([hidden]){display:block!important}
 body.simple #smcard,body.simple #callcard,body.simple #cuecard,body.simple #reportcard,body.simple #reset,body.simple #screen{display:none!important}
 .foot{display:flex;flex-wrap:wrap;gap:8px}.foot button{flex:1 1 30%;font-size:14px}
 [hidden]{display:none!important}
@@ -306,7 +308,7 @@ body.simple #smcard,body.simple #callcard,body.simple #cuecard,body.simple #repo
     </div>
     <button class="go" id="go"><span class="l">GO</span><span class="n" id="gonext"></span></button>
     <div class="row" style="margin-top:10px">
-      <button id="hold">Hold</button><button id="minus">−1 min</button><button id="plus">+1 min</button><button id="back">Back</button>
+      <button id="hold">Hold</button><button id="back">Back</button>
     </div>
     <div class="card" id="callcard" style="margin-top:14px">
       <label>Call the deck</label>
@@ -390,7 +392,7 @@ body.simple #smcard,body.simple #callcard,body.simple #cuecard,body.simple #repo
         <input id="endlabel" autocomplete="off" spellcheck="false" placeholder="SHOW DOWN"></div>
       <div class="field" style="margin-top:12px"><label>Act length aim</label>
         <select id="autoaim"><option value="on">Auto: average of the last 3 performances of the same show</option><option value="off">Off: use the planned length</option></select>
-        <p class="hint" style="margin-top:6px">Needs at least 2 past performances of the show. Held time and run-throughs don't count. Tap −1 / +1 min during an act to move the aim by hand.</p></div>
+        <p class="hint" style="margin-top:6px">Needs at least 2 past performances of the show. Held time and run-throughs don't count.</p></div>
       <button class="quiet" id="addcue" style="width:100%;margin-top:6px">Add a cue</button>
     </div>
     </section>
@@ -458,8 +460,8 @@ var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],
 // seconds in. So each screen now measures its own clock against the relay's, and
 // against the stamps on presses it receives live, and adds the difference to
 // every time it reads. NOW() is the corrected time; nothing else changes.
-// Only differences of 2.5 seconds or more are corrected, so clocks that are
-// already close are left alone and two screens can never chase each other.
+// Differences under 0.8 seconds are left alone, so clocks that are already
+// close stay put and two screens can never chase each other.
 var SKEW=0,skewPts=[],skewEpoch=null,wsOpenT=Infinity;
 try{var _sk=parseInt(localStorage.getItem('mmt-timer-skew-dev'),10);if(isFinite(_sk))SKEW=_sk}catch(e){}
 function NOW(){return Date.now()+SKEW}
@@ -474,14 +476,21 @@ function skewSample(v){
   // Every sample can only read low (a delay in the network, or the relay rounding
   // its clock down to the second), never high, so the highest one is the best.
   var best=-Infinity;skewPts.forEach(function(p){if(p.v>best)best=p.v});
-  var next=Math.abs(best)>=2500?Math.round(best):0;
+  // Big offsets (2.5 s and up) are corrected at once. Smaller ones (0.8 s and up)
+  // once a few samples agree, because the relay rounds its clock down to the
+  // second and one sample can read up to a second low. Until then keep what we
+  // have rather than snapping back to zero.
+  var ab=Math.abs(best),next;
+  if(ab>=2500||(ab>=800&&skewPts.length>=4))next=Math.round(best);
+  else if(ab>=800)next=SKEW;
+  else next=0;
   if(next!==SKEW){
     SKEW=next;
     try{localStorage.setItem('mmt-timer-skew-dev',String(SKEW))}catch(e){}
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='2.31-dev2';
+var VERSION='2.31-dev4';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1339,12 +1348,13 @@ function tick(){
   }else{
     $('title').textContent=f.perf.show;
     $('subtitle').textContent=dayLabel(f.perf.date,true)+', '+clockOf(f.perf.curtain);
-    $('go').disabled=!!f.done;
-    $('go').querySelector('.l').textContent=f.done?endLabel():'GO';
+    $('go').disabled=false;$('go').classList.toggle('newshow',!!f.done);
+    $('go').querySelector('.l').textContent=f.done?'START NEW SHOW':'GO';
+    document.body.classList.toggle('showdone',!!f.done);
     $('gonext').textContent=f.done?'':f.goNext;
     $('hold').textContent=f.paused?'Resume':'Hold';
     $('hold').classList.toggle('on',!!f.paused);
-    $('hold').disabled=!!(f.auto||f.done);$('plus').disabled=!!(f.auto||f.done);$('minus').disabled=!!(f.auto||f.done);
+    $('hold').disabled=!!(f.auto||f.done);
     $('back').disabled=f.idx==null;
 
     var mw=$('msgs');mw.innerHTML='';
@@ -1498,7 +1508,7 @@ window.addEventListener('resize',function(){fitKey='';fit()});
 setInterval(function(){tick();fit()},250);
 
 // ---------- controls ----------
-$('go').onclick=go;
+$('go').onclick=function(){var f=frame(NOW());if(!f.idle&&f.done){openRT();return}go()};
 $('back').onclick=back;
 $('hold').onclick=hold;
 (function(){   // simple view: GO, Hold, Back, +/-. Everything else is one tap away under Show more.
@@ -1509,8 +1519,7 @@ $('hold').onclick=hold;
   b.onclick=function(){document.body.classList.toggle('simple');sset('mmt-timer-simple-dev',document.body.classList.contains('simple')?'1':'0');paint()};
   paint();
 })();
-$('plus').onclick=plusOne;
-$('minus').onclick=function(){adjust(-60)};
+
 $('wings').onclick=toggleWings;
 function toggleWings(){
   document.body.classList.toggle('wings');
