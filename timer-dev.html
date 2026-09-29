@@ -285,6 +285,8 @@ body.simple #smcard,body.simple #callcard,body.simple #cuecard,body.simple #repo
     <h2 id="rttitle">Start now</h2>
     <label>What is this</label>
     <div class="chips" id="rtkind"></div>
+    <label>Test pre-show (dev only): pretend show time is</label>
+    <div class="chips" id="rtlead"></div>
     <label>Which show</label>
     <div class="chips" id="rtshows"></div>
     <input id="rtname" placeholder="Name it, like Tech rehearsal" autocomplete="off" hidden style="margin:-4px 0 12px">
@@ -496,7 +498,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='2.31-dev5';
+var VERSION='2.31-dev6';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1609,9 +1611,17 @@ function rtShows(){
 }
 function rtName(){return rtShow==='other'?($('rtname').value.trim()||(rtKind==='performance'?'Performance':'Run-through')):rtShow}
 // Starting now always means right now -- no scheduled-start picker to fill in.
-function rtCurtain(){return NOW()}
+var rtLead=0;
+function rtCurtain(){return NOW()+rtLead*6e4}
+function rtLeadChips(){
+  var box=$('rtlead');box.innerHTML='';
+  [[0,'Now'],[50,'50 min away'],[44,'44 min away'],[38,'38 min away']].forEach(function(o){
+    var b=document.createElement('button');b.textContent=o[1];b.classList.toggle('on',rtLead===o[0]);
+    b.onclick=function(){rtLead=o[0];rtLeadChips();rtPreview()};box.appendChild(b);
+  });
+}
 function rtPreview(){
-  $('rtpreview').textContent='Screens show the clock and READY TO START until the SM presses GO.';
+  $('rtpreview').textContent=rtLead?'Pretends show time is '+rtLead+' min away, so the pre-show runs live from there: mic check, then Ready to open house, then show start.':'Screens show the clock and READY TO START until the SM presses GO.';
 }
 function rtChips(){
   var sb=$('rtshows');sb.innerHTML='';
@@ -1627,7 +1637,7 @@ function rtChips(){
   $('rtname').hidden=rtShow!=='other';
   rtPreview();
 }
-function openRT(){rtShow=null;rtKind='rehearsal';$('rtname').value='';rtKindChips();rtChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
+function openRT(){rtShow=null;rtKind='rehearsal';rtLead=0;rtLeadChips();$('rtname').value='';rtKindChips();rtChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
 function endRT(){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false,holdAt:0,held:{}})}
 $('rtname').oninput=rtPreview;
 $('rehearse').onclick=function(){
