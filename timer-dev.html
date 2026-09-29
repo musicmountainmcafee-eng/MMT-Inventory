@@ -241,6 +241,10 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
 .link{word-break:break-all;font-size:12px;color:var(--dim);background:var(--shell);border:1px solid var(--line);border-radius:8px;padding:10px;margin:6px 0 8px;max-height:64px;overflow:hidden}
 body.simple.showdone #reportcard:not([hidden]){display:block!important}
 body.simple #smcard,body.simple #callcard,body.simple #cuecard,body.simple #reportcard,body.simple #reset,body.simple #screen{display:none!important}
+#netban{position:fixed;left:0;right:0;top:0;z-index:99998;background:#FFB000;color:#000;font:700 14px/1.3 system-ui,sans-serif;letter-spacing:.05em;text-align:center;padding:8px 12px;padding-top:calc(8px + env(safe-area-inset-top,0px))}
+body.netbad:not(.display) #panel{padding-top:46px}
+body.display #netban{right:auto;left:1.2vw;top:1.2vw;padding:.5vw 1.2vw;font-size:1.6vw;border-radius:.6vw}
+#checklist li{align-items:flex-start}#checklist .nm small{display:block;font-size:12px;letter-spacing:0;font-weight:400;opacity:.75;margin-top:2px;text-transform:none}
 .foot{display:flex;flex-wrap:wrap;gap:8px}.foot button{flex:1 1 30%;font-size:14px}
 [hidden]{display:none!important}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -262,6 +266,7 @@ body.simple #smcard,body.simple #callcard,body.simple #cuecard,body.simple #repo
   <p>The launcher opens this display in its own window with no browser bars, at any size. Unzip it and double-click it. On a Mac, if it's blocked the first time: System Settings, Privacy &amp; Security, scroll down, Open Anyway. Needs Firefox or Chrome on a Mac, or Chrome or Edge on Windows.</p>
 </div>
 <button id="sndnote" hidden>Tap for sound</button>
+<div id="netban" hidden></div>
 <div id="fsbox" hidden>
   <button id="fsgo">Go full screen</button>
   <p>Drag this window onto the screen you want first. Press Esc to leave full screen, or double-click to switch.</p>
@@ -292,6 +297,14 @@ body.simple #smcard,body.simple #callcard,body.simple #cuecard,body.simple #repo
     <input id="rtname" placeholder="Name it, like Tech rehearsal" autocomplete="off" hidden style="margin:-4px 0 12px">
     <p id="rtpreview"></p>
     <div class="row"><button class="quiet" id="rtcancel">Cancel</button><button id="rtstart">Start run-through</button></div>
+  </div>
+
+  <div class="card" id="checkcard" hidden>
+    <h2>Show-day check</h2>
+    <p class="muted" id="checksum" style="margin-bottom:8px"></p>
+    <ul class="cues" id="checklist"></ul>
+    <div class="row" style="margin-top:10px"><button class="small" id="checkagain">Check again</button><button class="quiet small" id="checkclose">Close</button></div>
+    <p class="hint" style="margin-top:8px">Each check sends one small message over the relay, and every other screen answers with one.</p>
   </div>
 
   <div class="card" id="smcard">
@@ -343,6 +356,7 @@ body.simple #smcard,body.simple #callcard,body.simple #cuecard,body.simple #repo
     <button class="quiet" id="rehearse">Start now</button>
     <button class="quiet" id="reset">Reset show</button>
     <button class="quiet" id="screen">Open display</button>
+    <button class="quiet" id="checkbtn">Check</button>
     <button class="quiet" id="viewtoggle">Show more</button>
   </div>
 
@@ -498,7 +512,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='2.31-dev7';
+var VERSION='2.31-dev8';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1009,6 +1023,10 @@ function handle(txt,live){
   // replayed from the relay's cache says nothing about the clock.
   var fresh=!!live&&m.time>=wsOpenT;
   if(fresh)skewSample(m.time*1000-Date.now());
+  if(typeof m.message==='string'){
+    if(m.message.slice(0,5)==='ping:'){if(fresh)replyPong(m.message.slice(5));return}
+    if(m.message.slice(0,5)==='pong:'){if(fresh)notePong(m.message.slice(5));return}
+  }
   if(typeof m.message==='string'&&m.message.slice(0,4)==='cfg:'){noteRelayCfg(m.message.slice(4));receiveCfg(m.message.slice(4));return}
   if(applyCommand(m.message,m.id,m.time?m.time*1000:null))return;
   try{s=JSON.parse(m.message)}catch(x){return}
@@ -1148,6 +1166,119 @@ window.addEventListener('online',connect);
 var lock=null;
 function wake(){try{if(navigator.wakeLock&&!lock)navigator.wakeLock.request('screen').then(function(l){lock=l;l.addEventListener('release',function(){lock=null})}).catch(function(){})}catch(e){}}
 
+// ---------- show-day check ----------
+// One tap on the controller sends a ping over the relay; every screen that is
+// open answers with what it is, its clock correction and whether its sound is
+// on. The controller also tests the relay, this device's clock, the settings
+// backup and storage. Screens that answered last time and are silent now show red.
+function devId(){var v=sget('mmt-timer-devid-dev');if(!v){v=Math.random().toString(36).slice(2,10);sset('mmt-timer-devid-dev',v)}return v}
+var DEVID=devId(),CHK={id:null,at:0,pongs:{},rtt:null,backend:'',done:true},lastPongAt=0;
+function devLabel(){
+  var ua=navigator.userAgent||'';
+  var pl=/iPad/.test(ua)||(/Macintosh/.test(ua)&&(navigator.maxTouchPoints||0)>1)?'iPad':/iPhone/.test(ua)?'iPhone':/Android/.test(ua)?'Android':/Windows/.test(ua)?'Windows':/Mac/.test(ua)?'Mac':/Linux|X11/.test(ua)?'Linux':'device';
+  var role=!isDisplay?'Controller':document.body.classList.contains('full')?'Full-screen display':'Capture display';
+  return role+' ('+pl+')';
+}
+function soundState(){return !isDisplay?'-':!soundWanted()?'off':soundReady?'ready':'needs a tap'}
+function sendMsg(t){if(typeof fetch==='undefined')return;fetch(topicUrl(),{method:'POST',body:t}).catch(function(){})}
+function replyPong(pid){
+  if(pid.indexOf(DEVID+'.')===0){if(pid===CHK.id&&CHK.rtt==null){CHK.rtt=Date.now()-CHK.at;paintCheck()}return}   // our own ping coming back
+  if(Date.now()-lastPongAt<3000)return;lastPongAt=Date.now();
+  sendMsg('pong:'+pid+'|'+DEVID+'|'+encodeURIComponent(devLabel())+'|'+SKEW+'|'+encodeURIComponent(soundState())+'|'+VERSION);
+}
+function notePong(t){
+  var a=t.split('|');if(a[0]!==CHK.id||a[1]===DEVID)return;
+  var lab='';try{lab=decodeURIComponent(a[2]||'')}catch(e){lab=a[2]||''}
+  var snd='';try{snd=decodeURIComponent(a[4]||'')}catch(e){snd=a[4]||''}
+  CHK.pongs[a[1]]={label:lab,skew:parseInt(a[3],10)||0,sound:snd,ver:a[5]||'',at:Date.now()};
+  paintCheck();
+}
+function knownDevs(){try{var k=JSON.parse(sget('mmt-timer-known-dev')||'{}');return k&&typeof k==='object'?k:{}}catch(e){return {}}}
+function runCheck(){
+  CHK={id:DEVID+'.'+Date.now(),at:Date.now(),pongs:{},rtt:null,backend:'wait',done:false};
+  var id=CHK.id;
+  sendMsg('ping:'+id);
+  if(typeof fetch==='undefined')CHK.backend='no';
+  else{
+    var ctl=typeof AbortController!=='undefined'?new AbortController():null;
+    var to=setTimeout(function(){if(ctl)ctl.abort();if(CHK.id===id&&CHK.backend==='wait'){CHK.backend='no';paintCheck()}},6000);
+    fetch(BACKEND_URL+'?action=getKV&key=timer_cfg&_='+Date.now(),ctl?{signal:ctl.signal}:{})
+      .then(function(r){return r.json()}).then(function(){clearTimeout(to);if(CHK.id===id){CHK.backend='ok';paintCheck()}})
+      .catch(function(){clearTimeout(to);if(CHK.id===id){CHK.backend='no';paintCheck()}});
+  }
+  setTimeout(function(){
+    if(CHK.id!==id)return;
+    CHK.done=true;
+    var k=knownDevs(),now=Date.now();
+    Object.keys(CHK.pongs).forEach(function(d){k[d]={label:CHK.pongs[d].label,at:now}});
+    sset('mmt-timer-known-dev',JSON.stringify(k));
+    paintCheck();
+  },4500);
+  paintCheck();
+}
+function paintCheck(){
+  var box=$('checklist');if(!box||$('checkcard').hidden)return;
+  var GREEN='#2FBF5C',AMBER='#FFD24A',RED='#E2513F',rows=[];
+  function add(c,label,detail){rows.push({c:c,label:label,detail:detail})}
+  // relay
+  if(relayLimited)add(RED,'Relay','Daily message limit reached. Presses are not reaching the other screens or the Stream Deck.');
+  else if(syncState==='live'){
+    if(CHK.rtt!=null)add(CHK.rtt>2500?AMBER:GREEN,'Relay','Connected. Round trip '+(CHK.rtt/1000).toFixed(1)+' s.');
+    else if(CHK.done)add(AMBER,'Relay','Connected, but this check\'s ping never came back.');
+    else add(AMBER,'Relay','Connected. Waiting for the ping to come back...');
+  }else if(syncState==='connecting')add(AMBER,'Relay','Connecting...');
+  else add(RED,'Relay','Not connected. This screen is keeping time on its own.');
+  // this device's clock
+  if(!skewPts.length&&!SKEW)add(AMBER,'This device\'s clock','No relay time received yet, so it can\'t be compared.');
+  else add(GREEN,'This device\'s clock',SKEW?'Corrected by '+(SKEW>0?'+':'\u2212')+(Math.abs(SKEW)/1000).toFixed(1)+' s to match the relay.':'In step with the relay.');
+  // other screens
+  var ids=Object.keys(CHK.pongs);
+  ids.forEach(function(d){
+    var q=CHK.pongs[d],bits=[];
+    var c=GREEN;
+    bits.push(q.ver?'v'+q.ver:'');
+    if(q.ver&&q.ver!==VERSION){c=AMBER;bits[0]+=' (this one is v'+VERSION+')'}
+    bits.push('clock '+(q.skew?(q.skew>0?'+':'\u2212')+(Math.abs(q.skew)/1000).toFixed(1)+' s adjusted':'in step'));
+    if(q.sound&&q.sound!=='-'){bits.push('sound '+q.sound);if(q.sound==='needs a tap'){c=AMBER}}
+    add(c,q.label||'Screen',bits.filter(Boolean).join(' · '));
+  });
+  if(CHK.done){
+    var k=knownDevs(),cut=Date.now()-3*864e5,missing=0;
+    Object.keys(k).forEach(function(d){
+      if(d===DEVID||CHK.pongs[d]||(k[d].at||0)<cut)return;
+      missing++;add(RED,k[d].label||'A screen','No answer. Last heard '+new Date(k[d].at).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+'.');
+    });
+    if(!ids.length&&!missing)add(AMBER,'Other screens','None answered. Open a display and check again if you expected one.');
+  }else add(AMBER,'Other screens','Listening for answers...');
+  // backend + storage
+  add(CHK.backend==='ok'?GREEN:CHK.backend==='no'?RED:AMBER,'Settings backup',CHK.backend==='ok'?'Reachable.':CHK.backend==='no'?'Not reachable. Settings still work from each device\'s own copy.':'Checking...');
+  var st=false;try{localStorage.setItem('mmt-timer-t','1');st=localStorage.getItem('mmt-timer-t')==='1';localStorage.removeItem('mmt-timer-t')}catch(e){}
+  add(st?GREEN:RED,'This device\'s storage',st?'Working.':'Blocked. Settings and show state won\'t survive a reload.');
+  box.innerHTML='';
+  var bad=0,warn=0;
+  rows.forEach(function(r){
+    if(r.c===RED)bad++;else if(r.c===AMBER)warn++;
+    var li=document.createElement('li');li.innerHTML='<span class="dot"></span><span class="nm"></span>';
+    li.querySelector('.dot').style.background=r.c;
+    var nm=li.querySelector('.nm');nm.textContent=r.label;
+    var sm=document.createElement('small');sm.textContent=r.detail;nm.appendChild(sm);
+    box.appendChild(li);
+  });
+  $('checksum').textContent=!CHK.done?'Checking...':bad?bad+' problem'+(bad>1?'s':'')+' to look at.':warn?'Working, with '+warn+' thing'+(warn>1?'s':'')+' to look at.':'Everything answered and looks good.';
+}
+// A sync problem that lasts more than 10 seconds puts a banner on the controller and the displays.
+var netBadSince=0;
+function paintNetBanner(){
+  var bad=syncState==='down'||syncState==='connecting'||relayLimited;
+  if(bad){if(!netBadSince)netBadSince=Date.now()}else netBadSince=0;
+  var show=!!netBadSince&&Date.now()-netBadSince>10000,nb=$('netban');
+  if(nb.hidden===show){nb.hidden=!show;document.body.classList.toggle('netbad',show)}
+  if(show){
+    var t=relayLimited?(isDisplay?'RELAY LIMIT':'RELAY LIMIT: presses are not reaching the other screens'):(isDisplay?'NOT SYNCED':'NOT SYNCED: this screen is keeping time on its own');
+    if(nb.textContent!==t)nb.textContent=t;
+  }
+}
+setInterval(paintNetBanner,1000);
 // ---------- rendering ----------
 var sig='';
 function draw(){sig='';nameTab();tick()}
@@ -1565,6 +1696,9 @@ $('go').onclick=function(){var f=frame(NOW());if(!f.idle&&f.done){openRT();retur
 $('back').onclick=back;
 $('hold').onclick=hold;
 $('ready').onclick=houseToggle;
+$('checkbtn').onclick=function(){$('checkcard').hidden=false;runCheck();window.scrollTo({top:0,behavior:'smooth'})};
+$('checkagain').onclick=runCheck;
+$('checkclose').onclick=function(){$('checkcard').hidden=true};
 (function(){   // simple view: GO, Hold, Back, +/-. Everything else is one tap away under Show more.
   var b=$('viewtoggle');if(!b)return;
   if(isDisplay){b.hidden=true;return}
