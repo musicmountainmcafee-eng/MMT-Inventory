@@ -1,5 +1,5 @@
 // Bump this version whenever the cached app changes so old caches are purged.
-const CACHE_NAME = 'mmt-cache-v6';
+const CACHE_NAME = 'mmt-cache-v7';
 const CACHE_URLS = [
   '/MMT-Inventory/app.html',
   '/MMT-Inventory/cue-list.html',
