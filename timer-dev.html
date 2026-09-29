@@ -238,6 +238,7 @@ body.wings #rtstart{background:transparent;color:var(--go)}
 h2{font-size:15px;font-weight:600;margin-bottom:4px}
 .hint{font-size:13px;color:var(--dim);margin-bottom:14px;line-height:1.45}
 .link{word-break:break-all;font-size:12px;color:var(--dim);background:var(--shell);border:1px solid var(--line);border-radius:8px;padding:10px;margin:6px 0 8px;max-height:64px;overflow:hidden}
+body.simple #smcard,body.simple #callcard,body.simple #cuecard,body.simple #reportcard,body.simple #reset,body.simple #screen{display:none!important}
 .foot{display:flex;flex-wrap:wrap;gap:8px}.foot button{flex:1 1 30%;font-size:14px}
 [hidden]{display:none!important}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -305,13 +306,13 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
     </div>
     <button class="go" id="go"><span class="l">GO</span><span class="n" id="gonext"></span></button>
     <div class="row" style="margin-top:10px">
-      <button id="hold">Hold</button><button id="plus">+1 min</button><button id="back">Back</button>
+      <button id="hold">Hold</button><button id="minus">−1 min</button><button id="plus">+1 min</button><button id="back">Back</button>
     </div>
-    <div class="card" style="margin-top:14px">
+    <div class="card" id="callcard" style="margin-top:14px">
       <label>Call the deck</label>
       <div class="msgs" id="msgs"></div>
     </div>
-    <div class="card"><ul class="cues" id="cuelist"></ul></div>
+    <div class="card" id="cuecard"><ul class="cues" id="cuelist"></ul></div>
   </div>
 
   <div class="card" id="idlecard" hidden>
@@ -337,6 +338,7 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
     <button class="quiet" id="rehearse">Start now</button>
     <button class="quiet" id="reset">Reset show</button>
     <button class="quiet" id="screen">Open display</button>
+    <button class="quiet" id="viewtoggle">Show more</button>
   </div>
 
   <div class="version" id="vercontrol"></div>
@@ -386,6 +388,9 @@ h2{font-size:15px;font-weight:600;margin-bottom:4px}
       <div id="tpl"></div>
       <div class="field" style="margin-top:12px"><label>End of show label (shown under the running time after the last GO)</label>
         <input id="endlabel" autocomplete="off" spellcheck="false" placeholder="SHOW DOWN"></div>
+      <div class="field" style="margin-top:12px"><label>Act length aim</label>
+        <select id="autoaim"><option value="on">Auto: average of the last 3 performances of the same show</option><option value="off">Off: use the planned length</option></select>
+        <p class="hint" style="margin-top:6px">Needs at least 2 past performances of the show. Held time and run-throughs don't count. Tap −1 / +1 min during an act to move the aim by hand.</p></div>
       <button class="quiet" id="addcue" style="width:100%;margin-top:6px">Add a cue</button>
     </div>
     </section>
@@ -476,7 +481,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='2.31-dev1';
+var VERSION='2.31-dev2';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -636,7 +641,7 @@ function nextPerf(now){
 // ---------- shared show state ----------
 // Every device holds a copy. Any press bumps n and goes out to the others;
 // the highest n wins, so a device that was asleep just adopts the latest.
-var BLANK={key:null,idx:null,target:0,paused:false,holdAt:0,held:{},left:0,extra:0,msg:null,log:[],adhoc:null,seen:[],sm:null,n:0,t:0,by:''};
+var BLANK={key:null,idx:null,target:0,paused:false,holdAt:0,held:{},aimAuto:false,left:0,extra:0,msg:null,log:[],adhoc:null,seen:[],sm:null,n:0,t:0,by:''};
 var S;try{S=Object.assign({},BLANK,JSON.parse(sget('mmt-timer-shared-dev')||'{}'))}catch(e){S=clone(BLANK)}
 var ME=Math.random().toString(36).slice(2,8);
 
@@ -765,10 +770,10 @@ function projection(f,now){
   if(f.idle)return null;
   var total=plannedTotal(f),base=f.perf.curtain+total,down;
   if(f.done)return {down:S.target,base:base,done:true};
-  if(f.idx==null)down=Math.max(now,f.perf.curtain)+total;
+  if(f.idx==null)down=Math.max(now,f.perf.curtain)+aimTotal(f);
   else{
     var left=f.up?Math.max(0,f.planned-f.el):Math.max(0,f.ms),rest=0;
-    for(var i=f.idx+1;i<f.L.length;i++)rest+=(f.L[i].minutes||0)*6e4;
+    for(var i=f.idx+1;i<f.L.length;i++)rest+=planMs(f,i);
     down=now+left+rest;
   }
   return {down:down,base:base};
@@ -776,6 +781,61 @@ function projection(f,now){
 function offPlan(p){
   var d=Math.round((p.down-p.base)/6e4);
   return Math.abs(d)<=1?'on time':d>0?d+' min long':(-d)+' min ahead';
+}
+// ---------- act length aim from past shows ----------
+// Every real performance leaves behind how long each act really ran (held time
+// left out). Once a show has two or more, its acts start with the average of the
+// last three as their planned length, instead of the number in the template.
+var HIST_LS='mmt-timer-hist-dev',HIST_KV='timer_hist_dev',HIST=[],histTimer=null;
+try{HIST=JSON.parse(sget(HIST_LS)||'[]');if(!Array.isArray(HIST))HIST=[]}catch(e){HIST=[]}
+function histPrune(){   // records are [perfKey, show, cue, ms, at]; keep 4 per show+cue, none older than 120 days
+  var by={},keep=[],cut=NOW()-120*864e5;
+  HIST.sort(function(a,b){return b[4]-a[4]});
+  HIST.forEach(function(r){var k=r[1]+'|'+r[2];by[k]=(by[k]||0)+1;if(by[k]<=4&&r[4]>cut)keep.push(r)});
+  HIST=keep;
+}
+function histStore(){sset(HIST_LS,JSON.stringify(HIST));clearTimeout(histTimer);histTimer=setTimeout(histPush,3000)}
+function histPush(){
+  if(typeof fetch==='undefined')return;
+  fetch(BACKEND_URL+'?action=saveKV&key='+HIST_KV+'&value='+encodeURIComponent(JSON.stringify(HIST))+'&_='+Date.now()).catch(function(){});
+}
+function histMerge(list){
+  if(!Array.isArray(list))return false;
+  var have={},add=false;HIST.forEach(function(r){have[r[0]+'|'+r[2]]=1});
+  list.forEach(function(r){if(Array.isArray(r)&&r.length>=5&&!have[r[0]+'|'+r[2]]){HIST.push(r);have[r[0]+'|'+r[2]]=1;add=true}});
+  if(add){histPrune();sset(HIST_LS,JSON.stringify(HIST))}
+  return add;
+}
+function histLoad(){
+  if(typeof fetch==='undefined')return;
+  fetch(BACKEND_URL+'?action=getKV&key='+HIST_KV+'&_='+Date.now()).then(function(r){return r.json()})
+    .then(function(d){var v=d&&d.value;if(typeof v==='string'){try{v=JSON.parse(v)}catch(e){v=null}}histMerge(v)})
+    .catch(function(){});
+}
+histLoad();
+function aimFor(show,c){
+  if(cfg.autoAim==='off'||!isUp(c))return null;
+  var m=HIST.filter(function(r){return r[1]===show&&r[2]===c.name}).sort(function(a,b){return b[4]-a[4]}).slice(0,3);
+  if(m.length<2)return null;
+  var t=0;m.forEach(function(r){t+=r[3]});
+  return Math.max(6e4,Math.round(t/m.length/6e4)*6e4);
+}
+function planMs(f,i){var c=f.L[i],a=isUp(c)?aimFor(f.perf.show,c):null;return a!=null?a:(c.minutes||0)*6e4}
+function aimTotal(f){var t=0;for(var i=f.nA;i<f.L.length;i++)t+=planMs(f,i);return t}
+// where a cue starts: when it ends and how far the aim sits from the template
+function enterCue(f,i,start){
+  var c=f.L[i],base=(c.minutes||0)*6e4,a=isUp(c)?aimFor(f.perf.show,c):null,extra=a!=null?a-base:0;
+  return {target:start+base+extra,extra:extra,aimAuto:a!=null};
+}
+function recordAct(f,now){   // called as GO leaves an act
+  if(f.idx==null||f.idx<f.nA||S.key!==f.perf.key)return;
+  var c=f.L[f.idx];if(!isUp(c)||adhocKindOf(f)==='rehearsal')return;
+  var ent=null;for(var j=S.log.length-1;j>=0;j--)if(S.log[j].i===f.idx){ent=S.log[j];break}
+  if(!ent)return;
+  var ran=now-ent.at-heldOf(heldWith(now),f.idx),plan=(c.minutes||0)*6e4;
+  if(ran<6e4||(plan>0&&ran<plan*0.4))return;   // a mis-tap or a skipped act isn't a real length
+  for(var i=0;i<HIST.length;i++)if(HIST[i][0]===f.perf.key&&HIST[i][2]===c.name)return;
+  HIST.push([f.perf.key,f.perf.show,c.name,Math.round(ran),now]);histPrune();histStore();
 }
 // Held time: the act clock already freezes on Hold, but the wall-clock times in
 // the log don't. S.held remembers, per cue, how long the clock sat held, and
@@ -841,9 +901,10 @@ function go(){
   var L=f.L,next=f.idx==null?f.nA:f.idx+1;
   var log=S.key===f.perf.key?S.log.slice():[];
   log.push({i:next,at:now});
+  recordAct(f,now);
   var hw=S.key===f.perf.key?heldWith(now):{};
-  if(next>=L.length)commit({key:f.perf.key,idx:L.length,target:now,paused:false,holdAt:0,held:hw,extra:0,log:log,msg:null});
-  else commit({key:f.perf.key,idx:next,target:now+(L[next].minutes||0)*6e4,paused:false,holdAt:0,held:hw,left:0,extra:0,log:log,msg:null});
+  if(next>=L.length)commit({key:f.perf.key,idx:L.length,target:now,paused:false,holdAt:0,held:hw,extra:0,aimAuto:false,log:log,msg:null});
+  else{var en=enterCue(f,next,now);commit({key:f.perf.key,idx:next,target:en.target,paused:false,holdAt:0,held:hw,left:0,extra:en.extra,aimAuto:en.aimAuto,log:log,msg:null})}
 }
 function back(){
   var f=frame(nowMs());if(f.idle||f.idx==null)return;
@@ -852,12 +913,14 @@ function back(){
   if(prev<f.nA){commit({idx:null,target:0,paused:false,holdAt:0,held:{},extra:0,log:[]});return}
   var last=log[log.length-1],started=last?last.at:nowMs();
   var hb=Object.assign({},S.held||{});delete hb[f.idx];   // the cue being left is redone from its start
-  commit({idx:prev,target:started+(f.L[prev].minutes||0)*6e4,paused:false,holdAt:0,held:hb,extra:0,log:log});
+  var eb=enterCue(f,prev,started);
+  commit({idx:prev,target:eb.target,paused:false,holdAt:0,held:hb,extra:eb.extra,aimAuto:eb.aimAuto,log:log});
 }
 function jump(i){
   var now=nowMs(),f=frame(now);if(f.idle)return;
   var log=S.key===f.perf.key?S.log.slice():[];log.push({i:i,at:now});
-  commit({key:f.perf.key,idx:i,target:now+(f.L[i].minutes||0)*6e4,paused:false,holdAt:0,held:S.key===f.perf.key?heldWith(now):{},left:0,extra:0,log:log});
+  var ej=enterCue(f,i,now);
+  commit({key:f.perf.key,idx:i,target:ej.target,paused:false,holdAt:0,held:S.key===f.perf.key?heldWith(now):{},left:0,extra:ej.extra,aimAuto:ej.aimAuto,log:log});
 }
 function hold(){
   var f=frame(nowMs());if(f.idle||f.auto||f.done)return;
@@ -873,7 +936,7 @@ function adjust(sec){
   var f=frame(nowMs());if(f.idle||f.auto||f.done||!sec)return;
   var ms=sec*1000,p={};
   if(S.paused)p.left=S.left+ms;else p.target=S.target+ms;
-  if(f.up)p.extra=Math.max(-(f.L[f.idx].minutes||0)*6e4,(S.extra||0)+ms);
+  if(f.up){p.extra=Math.max(-(f.L[f.idx].minutes||0)*6e4,(S.extra||0)+ms);p.aimAuto=false}
   commit(p);
 }
 function call(text){
@@ -966,7 +1029,7 @@ function applyIncomingCfg(c){
   if(!$('settings').hidden){
     drawTimes();drawRuns();drawTpl();drawPreview();drawLinks();
     drawSMList();
-    $('msgedit').value=cfg.messages.join('\n');$('stagesel').value=cfg.stage||'main';$('endlabel').value=cfg.endLabel||'';
+    $('msgedit').value=cfg.messages.join('\n');$('stagesel').value=cfg.stage||'main';$('endlabel').value=cfg.endLabel||'';$('autoaim').value=cfg.autoAim==='off'?'off':'on';
   }
   draw();
 }
@@ -1219,7 +1282,7 @@ function tick(){
     $('cface').style.color=wingsOn?'':ink;
     $('cends').textContent=f.done?cap(endLabel())+' at '+clockOf(f.when)
       :f.paused?cap(f.label)+' is held ('+fmt(f.heldNow)+'). Press Resume to restart the clock.'
-      :f.up?'Planned '+fmt(f.planned)+(f.el>f.planned&&f.planned>0?', over by '+fmt(f.el-f.planned):'')
+      :f.up?'Planned '+fmt(f.planned)+(S.aimAuto?' (from past shows)':'')+(f.el>f.planned&&f.planned>0?', over by '+fmt(f.el-f.planned):'')
       :f.auto?(f.ms<0?'Late start. '+cap(f.cue)+' was '+clockOf(f.when)+'. Press GO to begin.':'At '+clockOf(f.when))
       :(f.ms<0?'Over since '+clockOf(f.when):'Ends '+clockOf(f.when));
     $('cmsg').textContent=m||'';$('cmsg').classList.toggle('on',!!m);
@@ -1281,7 +1344,7 @@ function tick(){
     $('gonext').textContent=f.done?'':f.goNext;
     $('hold').textContent=f.paused?'Resume':'Hold';
     $('hold').classList.toggle('on',!!f.paused);
-    $('hold').disabled=!!(f.auto||f.done);$('plus').disabled=!!(f.auto||f.done||f.up);
+    $('hold').disabled=!!(f.auto||f.done);$('plus').disabled=!!(f.auto||f.done);$('minus').disabled=!!(f.auto||f.done);
     $('back').disabled=f.idx==null;
 
     var mw=$('msgs');mw.innerHTML='';
@@ -1438,7 +1501,16 @@ setInterval(function(){tick();fit()},250);
 $('go').onclick=go;
 $('back').onclick=back;
 $('hold').onclick=hold;
+(function(){   // simple view: GO, Hold, Back, +/-. Everything else is one tap away under Show more.
+  var b=$('viewtoggle');if(!b)return;
+  if(isDisplay){b.hidden=true;return}
+  function paint(){b.textContent=document.body.classList.contains('simple')?'Show more':'Show less'}
+  if(sget('mmt-timer-simple-dev')!=='0')document.body.classList.add('simple');
+  b.onclick=function(){document.body.classList.toggle('simple');sset('mmt-timer-simple-dev',document.body.classList.contains('simple')?'1':'0');paint()};
+  paint();
+})();
 $('plus').onclick=plusOne;
+$('minus').onclick=function(){adjust(-60)};
 $('wings').onclick=toggleWings;
 function toggleWings(){
   document.body.classList.toggle('wings');
@@ -1569,7 +1641,7 @@ $('setup').onclick=function(){
   if(!s.hidden){
     drawTimes();drawRuns();drawTpl();
     drawSMList();
-    $('msgedit').value=cfg.messages.join('\n');$('stagesel').value=cfg.stage||'main';$('endlabel').value=cfg.endLabel||'';
+    $('msgedit').value=cfg.messages.join('\n');$('stagesel').value=cfg.stage||'main';$('endlabel').value=cfg.endLabel||'';$('autoaim').value=cfg.autoAim==='off'?'off':'on';
     drawPreview();drawLinks();
     showTab(sget('mmt-settab')||'shows');
   }
@@ -1611,6 +1683,7 @@ function persist(){
   drawPreview();drawLinks();sig='';
 }
 
+$('autoaim').onchange=function(){cfg.autoAim=this.value==='off'?'off':'on';persist();draw()};
 $('endlabel').oninput=function(){cfg.endLabel=this.value.trim().toUpperCase();persist();draw()};
 $('stagesel').onchange=function(){
   cfg.stage=this.value;
