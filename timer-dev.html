@@ -1,0 +1,2156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#101315">
+<meta name="apple-mobile-web-app-title" content="Show Timer DEV">
+<link rel="icon" id="favicon" href="data:,">
+<title>Show Timer DEV</title>
+<!-- DEV COPY of 2.30 (hold accounting). Own channel, own storage. Bump VERSION below with every change, and match the Quick Start guide's change log. -->
+<style>
+:root{
+  --shell:#101315;--panel:#1A1E21;--raised:#232A2E;--line:#2E363B;
+  --type:#E9ECED;--dim:#8A9499;--go:#2FBF5C;--amber:#E8A317;--hot:#E2513F;
+  --radius:10px;
+  /* Display tuning: the only numbers you'd normally touch */
+  --digit:9vw;--label:2.1vw;--note:1.4vw;--edge-r:3.2vw;--edge-b:4vh;
+  --over:#FFB000;--standby:#FFD24A;--quiet:#9EA4A6;
+}
+body.wings{
+  --shell:#000;--panel:#0E0302;--raised:#1A0604;--line:#3A0C06;
+  --type:#FF4A38;--dim:#93281C;--go:#FF4A38;--amber:#FF4A38;--hot:#FF4A38;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{
+  min-height:100vh;background:var(--shell);color:var(--type);
+  font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;
+  -webkit-font-smoothing:antialiased;
+  padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));
+}
+#panel{max-width:620px;margin:0 auto}
+
+/* ---------- display view (the Wyse / ATEM feed) ---------- */
+body.display{background:#000;padding:0;overflow:hidden;cursor:none;height:100vh}
+body.display.pointer{cursor:auto}
+#sndnote{position:fixed;left:2vw;bottom:calc(2vh + 26px);z-index:4;font:inherit;font-size:13px;font-weight:600;letter-spacing:.06em;
+  padding:8px 12px;border-radius:999px;border:1px solid #2E363B;background:rgba(10,12,13,.9);color:#9EA4A6;cursor:pointer}
+#dmenu{position:fixed;left:50%;bottom:3vh;transform:translateX(-50%);z-index:6;width:min(620px,94vw);background:rgba(10,12,13,.94);
+  border:1px solid #2E363B;border-radius:14px;padding:14px 16px 10px;box-shadow:0 12px 40px rgba(0,0,0,.6);opacity:0;transition:opacity .3s ease}
+#dmenu.on{opacity:1}
+#dmenu .row{display:flex;gap:8px;flex-wrap:wrap}
+#dmenu button{flex:1 1 150px;font:inherit;font-size:14px;font-weight:600;min-height:44px;padding:10px 12px;border-radius:10px;border:1px solid #2E363B;background:#232A2E;color:#E9ECED;cursor:pointer}
+#dmenu button:first-child{background:#2FBF5C;border-color:#2FBF5C;color:#05130A}
+#dmenu p{color:#9EA4A6;font-size:12px;line-height:1.45;margin-top:8px}
+#fsbox{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;width:min(460px,90vw);background:rgba(10,12,13,.94);border:1px solid #2E363B;border-radius:16px;padding:26px 26px 20px;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+#fsbox button{font:inherit;font-size:22px;font-weight:700;letter-spacing:.06em;padding:18px 30px;background:#2FBF5C;color:#05130A;border:0;border-radius:12px;cursor:pointer}
+#fsbox p{color:#9EA4A6;font-size:14px;margin-top:14px;line-height:1.45}
+body.display #panel{display:none}
+#stage{display:none}
+body.display #stage{display:block;position:absolute;right:var(--edge-r);bottom:var(--edge-b);text-align:right;line-height:1}
+body.display.full #stage{right:auto;bottom:auto;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;--digit:18vw;--label:3vw;--note:2vw;
+  /* Reserves room for the fixed name/clock corners above, so on a wide-but-short
+     capture window the centered act/countdown stack never rides up under them. */
+  padding-top:max(64px,13vh);padding-bottom:max(24px,4vh)}
+body.display.full #big{white-space:nowrap;letter-spacing:-.03em;line-height:.9}
+body.display.full #slug,body.display.full #sub{white-space:nowrap}
+body.display.wings #big,body.display.wings #msg{color:#FF4A38}
+body.display.wings #slug,body.display.wings #sub{color:#93281C}
+#ver{position:fixed;left:2vw;bottom:2vh;font-size:14px;letter-spacing:.1em;color:#9EA4A6;transition:opacity 1s}
+#ver.gone{opacity:0}
+.version{text-align:center;font-size:12px;color:var(--dim);margin-top:18px}
+#wall{font-size:calc(var(--note)*1.35);letter-spacing:.08em;color:var(--quiet);margin-bottom:.5em}
+body.display.full #wall{position:fixed;top:max(2vh,env(safe-area-inset-top,0px));right:2.5vw;margin:0;font-size:max(20px,5vh)}
+body.display.wings #wall{color:#93281C}
+.hclock{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* Deck calls sit on top of the cue-name line and crossfade with it, so the
+   timer never moves or resizes when a call goes up or comes down. */
+#topline{position:relative}
+#slug{transition:opacity .35s ease}
+#topline.calling #slug{opacity:0}
+#msg{position:absolute;right:0;bottom:0;white-space:nowrap;font-size:var(--label);font-weight:700;letter-spacing:.18em;color:#fff;
+  opacity:0;transition:opacity .35s ease;transform:scale(1.25);transform-origin:right bottom;pointer-events:none}
+body.display.full #msg{right:auto;left:50%;transform:translateX(-50%) scale(1.45);transform-origin:center bottom}
+#msg.on{opacity:1}
+#msg.on #msgtext{display:inline-block;animation:callpulse 1.6s ease-in-out infinite}
+@keyframes callpulse{0%,50%{opacity:1}75%{opacity:.25}100%{opacity:1}}
+/* Cue changes fade the whole screen out and back in; size changes glide. */
+#stage{transition:opacity .3s ease}
+#stage.fade{opacity:0;transition:opacity .22s ease}
+body.display.full #big,body.display.full #slug,body.display.full #sub,body.display.full #msg{transition:font-size .5s ease,opacity .35s ease}
+#measure{position:absolute;left:-9999px;top:0;visibility:hidden;white-space:nowrap;font-size:100px;font-weight:600;letter-spacing:-.03em;line-height:.9;font-variant-numeric:tabular-nums}
+.swapin{animation:swapin .35s ease}
+@keyframes swapin{from{opacity:0}to{opacity:1}}
+@keyframes pulse{0%,60%{opacity:1}61%,100%{opacity:0}}
+/* a held clock flashes (dim, not gone, so it stays readable and keyed) */
+.held{animation:heldflash 1s steps(1,end) infinite}
+@keyframes heldflash{0%,55%{opacity:1}56%,100%{opacity:.18}}
+#slug{font-size:var(--label);letter-spacing:.2em;color:var(--quiet);margin-bottom:.18em;min-height:1em}
+#big{font-size:var(--digit);font-weight:600;letter-spacing:-.02em;color:#fff}
+#big.warn{color:var(--standby)}#big.over{color:var(--over)}
+#sub{font-size:var(--note);letter-spacing:.1em;color:var(--quiet);margin-top:.5em;min-height:1.2em}
+
+/* ---------- control view ---------- */
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.bar h1{font-size:17px;font-weight:600}
+.bar .sub{font-size:13px;color:var(--dim);margin-top:2px}
+.bar .right{display:flex;align-items:center;gap:8px;flex:none}
+.pill{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--dim);display:inline-block}
+.pill.live i{background:var(--go)}.pill.down i{background:var(--hot)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.note{border-color:var(--amber);color:var(--type);font-size:14px}
+.now{text-align:center;padding:22px 16px 18px}
+.now .slug{font-size:15px;letter-spacing:.2em;color:var(--dim);margin-bottom:8px}
+.now .face{font-size:68px;font-weight:600;line-height:1;letter-spacing:-.03em}
+.now .face.warn{color:var(--amber)}.now .face.over{color:var(--hot)}
+.now .ends{font-size:14px;color:var(--dim);margin-top:10px}
+.now .proj{font-size:15px;font-weight:600;margin-top:8px;min-height:1.2em}
+.now .proj.long{color:var(--amber)}
+.now .flag{display:none;margin:0 auto 12px;font-weight:700;letter-spacing:.18em;color:var(--shell);background:var(--amber);border-radius:6px;padding:6px 12px;width:max-content}
+.now .flag.on{display:block}
+
+button{font:inherit;font-weight:600;color:var(--type);background:var(--raised);border:1px solid var(--line);border-radius:var(--radius);padding:14px 12px;min-height:48px;cursor:pointer;touch-action:manipulation;transition:transform .06s}
+button:active{transform:scale(.98)}
+button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+button[disabled]{opacity:.35;cursor:default}
+button.go{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:96px;background:var(--go);border-color:var(--go);color:#05130A}
+button.go .l{font-size:32px;letter-spacing:.16em;line-height:1}
+button.go .n{font-size:13px;letter-spacing:.18em;opacity:.72;line-height:1}
+body.wings button.go{background:transparent;color:var(--go);border-width:2px}
+button.quiet{background:transparent;color:var(--dim);font-weight:500}
+button.small{min-height:36px;padding:8px 12px;font-size:13px}
+button.on{background:var(--amber);border-color:var(--amber);color:#140C00}
+body.wings button.on{background:transparent;color:var(--amber);border-width:2px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.msgs{display:flex;flex-wrap:wrap;gap:8px}
+.msgs button{flex:1 1 40%;min-height:52px;font-size:15px;letter-spacing:.12em}
+
+ul.cues{list-style:none}
+ul.cues li{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line)}
+ul.cues li.tap{cursor:pointer}
+ul.cues li:last-child{border-bottom:0}
+ul.cues .nm{flex:1;font-weight:600;letter-spacing:.08em;font-size:14px}
+ul.cues .wh{font-size:13px;color:var(--dim);text-align:right}
+ul.cues li.done .nm{color:var(--dim);font-weight:400}
+ul.cues li.live .nm{color:var(--go)}
+body.wings ul.cues li.live .nm{color:var(--type)}
+ul.cues .dot{width:8px;height:8px;border-radius:50%;background:var(--line);flex:none}
+ul.cues li.live .dot{background:var(--go)}ul.cues li.done .dot{background:var(--dim)}
+
+pre.report{font-family:inherit;font-size:13px;line-height:1.55;white-space:pre-wrap;color:var(--type);margin-bottom:12px}
+label{display:block;font-size:12px;color:var(--dim);margin-bottom:5px}
+input,select,textarea{font:inherit;width:100%;color:var(--type);background:var(--shell);border:1px solid var(--line);border-radius:8px;padding:11px 10px;min-height:44px}
+textarea{min-height:88px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber)}
+.field{margin-bottom:12px}
+.pair{display:flex;gap:10px}.pair>*{flex:1}
+.days{display:grid;grid-template-columns:48px 1fr;gap:8px 10px;align-items:center}
+.days .d{font-size:13px;color:var(--dim);font-weight:600}
+.days input{min-height:40px;padding:8px 10px}
+.cuewrap{border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:10px}
+.cuewrap:last-child{border-bottom:0}
+.colorbtn{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;min-height:36px;padding:6px 10px;font-size:12px;font-weight:500;background:transparent;color:var(--dim);text-align:left;justify-content:flex-start}
+.colorbtn .sw{width:14px;height:14px;border-radius:3px;border:1px solid var(--line);display:inline-block;flex:none}
+.colorbtn .ar{opacity:.6}
+.colors{background:var(--shell);border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px}
+.colors .hint{margin-bottom:10px}
+.crule{display:grid;grid-template-columns:1fr 88px 36px;gap:8px;align-items:center;margin-bottom:8px}
+.crule .lead{font-size:13px;color:var(--dim)}
+.crule+.crule{border-top:1px solid var(--line);padding-top:10px}
+.crule .x{background:transparent;border-color:transparent;color:var(--dim);min-height:40px;padding:0}
+.crule input{min-height:40px;padding:8px;text-align:center}
+.swatches{display:flex;flex-wrap:wrap;gap:6px;grid-column:1/-1}
+.swatches button{width:34px;height:34px;min-height:34px;padding:0;border-radius:8px;border:2px solid transparent}
+.swatches button.pick{border-color:var(--type);box-shadow:0 0 0 2px var(--shell) inset}
+/* ---------- Schedule: its own screen, one section at a time ---------- */
+body.setting #panel>:not(#settings){display:none!important}
+.setbar{position:sticky;top:0;z-index:10;background:var(--shell);margin:0 -16px 16px;padding:max(10px,env(safe-area-inset-top,0px)) 16px 0;border-bottom:1px solid var(--line)}
+.settop{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:6px}
+.settop h1{font-size:20px;font-weight:700}
+#done{min-height:40px;padding:8px 20px;background:var(--go);border-color:var(--go);color:#05130A}
+body.wings #done{background:transparent;color:var(--go)}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin:0 -8px}
+.tabs::-webkit-scrollbar{display:none}
+/* on a narrow screen the tabs scroll sideways; fade the edge so it's clear there are more */
+.tabs.more{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}
+.tabs button{flex:none;background:transparent;border:0;border-bottom:3px solid transparent;border-radius:0;color:var(--dim);
+  font-size:14px;font-weight:600;padding:10px 10px 9px;min-height:44px;white-space:nowrap}
+.tabs button.on{color:var(--type);border-bottom-color:var(--go)}
+.tabs button:active{transform:none}
+h2.sec{font-size:17px;margin:4px 0 4px}
+.tabpane>.card:first-child{margin-top:0}
+/* runs fold to one line each */
+.run{padding:0;overflow:hidden}
+.runhead{width:100%;display:flex;align-items:center;gap:12px;text-align:left;background:transparent;border:0;border-radius:0;padding:14px 16px;min-height:60px}
+.runhead:active{transform:none}
+.runhead .rtxt{flex:1;min-width:0}
+.runhead .rn{display:block;font-size:16px;font-weight:700;color:var(--type)}
+.runhead .rs{display:block;font-size:13px;font-weight:500;color:var(--dim);margin-top:3px;line-height:1.4}
+.runhead .chev{flex:none;color:var(--dim);font-size:18px;transition:transform .2s}
+.run.open .runhead .chev{transform:rotate(180deg)}
+.runbody{padding:4px 16px 16px;border-top:1px solid var(--line)}
+.badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;padding:2px 7px;border-radius:5px;background:var(--go);color:#05130A;margin-left:8px;vertical-align:2px}
+.pasthead{width:100%;background:transparent;border:1px dashed var(--line);color:var(--dim);font-weight:600;margin:4px 0 14px}
+/* the stage manager picker takes less room */
+#smcard{padding:12px 14px}
+#smchips{gap:6px}
+#smchips button{flex:0 1 auto;min-height:38px;font-size:14px;letter-spacing:.04em;padding:8px 16px}
+/* ---------- show name and time: one fixed spot on the displays ---------- */
+#ident{display:flex;align-items:baseline;justify-content:flex-end;gap:.6em;white-space:nowrap;overflow:hidden;
+  text-transform:uppercase;letter-spacing:.1em;font-size:calc(var(--note)*1.05);color:#7E8689;margin-bottom:.45em}
+#ident[hidden]{display:none}
+#idname{color:#D8DCDD;font-weight:600;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#idpre{font-size:.72em;font-weight:700;letter-spacing:.14em;color:#9EA4A6}
+#idtag{font-size:.7em;font-weight:700;letter-spacing:.12em;color:#FFB000;border:1px solid #FFB000;border-radius:.35em;padding:.1em .45em}
+body.display.full #ident{position:fixed;top:max(2vh,env(safe-area-inset-top,0px));left:2.5vw;max-width:76vw;justify-content:flex-start;margin:0;font-size:max(18px,4.2vh)}
+body.display.wings #idname{color:#FF4A38}body.display.wings #ident,body.display.wings #idpre{color:#93281C}
+body.display.wings #idtag{color:#FF4A38;border-color:#FF4A38}
+/* corner layout: the name only, so the show time doesn't stack on top of the time of day */
+body.display:not(.full) #idwhen{display:none}
+/* ---------- controller header ---------- */
+.bar h1{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px}
+.badge.rt{background:var(--amber);color:#140C00;margin-left:0}
+.bar .sub{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px}
+.endrt{min-height:28px;padding:3px 10px;font-size:12px;font-weight:600;background:transparent;border-color:var(--amber);color:var(--amber)}
+/* ---------- compact choice buttons (run-through setup) ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chips button{flex:0 1 auto;min-height:38px;font-size:14px;padding:8px 14px}
+#rtpanel label{margin-top:4px}
+#rtstart{background:var(--go);border-color:var(--go);color:#05130A}
+body.wings #rtstart{background:transparent;color:var(--go)}
+#rtpreview{font-size:13px;line-height:1.45;margin:2px 0 14px;color:var(--dim)}
+.check{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--type);margin:4px 0 10px;cursor:pointer}
+.check input{width:20px;height:20px;min-height:0;margin:0;flex:none;accent-color:var(--go)}
+.stdtimes{font-size:13px;color:var(--dim);margin:-2px 0 12px}
+.smrow{display:grid;grid-template-columns:1fr 1fr 1fr 36px;gap:8px;margin-bottom:8px;align-items:center}
+.smrow input{min-height:40px;padding:8px}
+.smrow .x{background:transparent;border-color:transparent;color:var(--dim);min-height:40px;padding:0}
+@media(max-width:560px){.smrow{grid-template-columns:1fr 1fr 36px}.smrow input.ph{grid-column:1/3}}
+.cue{display:grid;grid-template-columns:1fr 112px 70px 36px;gap:8px;margin-bottom:8px;align-items:center}
+.cue input,.cue select{min-height:40px;padding:8px}
+.cue .x{background:transparent;border-color:transparent;color:var(--dim);min-height:40px;padding:0}
+.muted{color:var(--dim);font-size:13px}
+h2{font-size:15px;font-weight:600;margin-bottom:4px}
+.hint{font-size:13px;color:var(--dim);margin-bottom:14px;line-height:1.45}
+.link{word-break:break-all;font-size:12px;color:var(--dim);background:var(--shell);border:1px solid var(--line);border-radius:8px;padding:10px;margin:6px 0 8px;max-height:64px;overflow:hidden}
+.foot{display:flex;flex-wrap:wrap;gap:8px}.foot button{flex:1 1 30%;font-size:14px}
+[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="ver" hidden></div>
+<div id="stage">
+  <div id="ident" hidden><span id="idpre" hidden></span><span id="idname"></span><span id="idtag" hidden></span><span id="idwhen"></span></div>
+  <div id="wall" hidden></div>
+  <div id="topline"><div id="slug"></div><div id="msg"><span id="msgtext"></span></div></div>
+  <div id="big">--:--</div>
+  <div id="sub"></div>
+</div>
+<div id="measure" aria-hidden="true"></div>
+<div id="dmenu" hidden>
+  <div class="row"><button id="dm-fs">Full screen</button><button id="dm-snd">Sound: on</button><button id="dm-mac">Window launcher: Mac</button><button id="dm-win">Window launcher: Windows</button></div>
+  <p>The launcher opens this display in its own window with no browser bars, at any size. Unzip it and double-click it. On a Mac, if it's blocked the first time: System Settings, Privacy &amp; Security, scroll down, Open Anyway. Needs Firefox or Chrome on a Mac, or Chrome or Edge on Windows.</p>
+</div>
+<button id="sndnote" hidden>Tap for sound</button>
+<div id="fsbox" hidden>
+  <button id="fsgo">Go full screen</button>
+  <p>Drag this window onto the screen you want first. Press Esc to leave full screen, or double-click to switch.</p>
+</div>
+
+<div id="panel">
+  <div class="bar">
+    <div><h1><span id="title">Show timer</span><span class="badge rt" id="tbadge" hidden></span></h1>
+      <div class="sub"><span id="subtitle"></span><button class="endrt" id="rtend" hidden>End run-through</button></div></div>
+    <div class="right">
+      <span class="hclock" id="hclock"></span>
+      <span class="pill" id="pill"><i></i><span></span></span>
+      <button class="quiet small" id="wings">Wings</button>
+    </div>
+  </div>
+
+  <div class="card note" id="relaylimit" hidden>The free relay has hit its daily message limit, so presses on this device aren't reaching the other screens (and Stream Deck keys won't work). This screen still keeps time on its own. It clears by itself once the relay's daily allowance resets.</div>
+  <div class="card note" id="toobig" hidden>The schedule is too big to send to the other screens automatically. After changing it, copy the links again from Settings, Screens.</div>
+
+  <div class="card" id="rtpanel" hidden>
+    <h2 id="rttitle">Start now</h2>
+    <label>What is this</label>
+    <div class="chips" id="rtkind"></div>
+    <label>Which show</label>
+    <div class="chips" id="rtshows"></div>
+    <input id="rtname" placeholder="Name it, like Tech rehearsal" autocomplete="off" hidden style="margin:-4px 0 12px">
+    <p id="rtpreview"></p>
+    <div class="row"><button class="quiet" id="rtcancel">Cancel</button><button id="rtstart">Start run-through</button></div>
+  </div>
+
+  <div class="card" id="smcard">
+    <label>Stage manager tonight</label>
+    <div class="msgs" id="smchips"></div>
+    <p class="muted" id="smnone" hidden>Add stage managers under Settings, SMs, then pick who's running the show here.</p>
+  </div>
+
+  <div id="run">
+    <div class="card now">
+      <div class="flag" id="cmsg"></div>
+      <div class="slug" id="cslug"></div>
+      <div class="face" id="cface">--:--</div>
+      <div class="ends" id="cends"></div>
+      <div class="proj" id="cproj"></div>
+    </div>
+    <button class="go" id="go"><span class="l">GO</span><span class="n" id="gonext"></span></button>
+    <div class="row" style="margin-top:10px">
+      <button id="hold">Hold</button><button id="plus">+1 min</button><button id="back">Back</button>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <label>Call the deck</label>
+      <div class="msgs" id="msgs"></div>
+    </div>
+    <div class="card"><ul class="cues" id="cuelist"></ul></div>
+  </div>
+
+  <div class="card" id="idlecard" hidden>
+    <div class="now" style="padding:10px 0 14px"><div class="face" id="iclock"></div></div>
+    <div id="idletext"></div>
+    <button id="rtidle" style="width:100%;margin-top:14px">Start now</button>
+  </div>
+
+  <div class="card" id="reportcard" hidden>
+    <h2>Show report</h2>
+    <pre class="report" id="report"></pre>
+    <div class="row" style="flex-wrap:wrap">
+      <button class="small" id="copyreport">Copy report</button>
+      <button class="small" id="mailreport" hidden>Email report</button>
+      <button class="small" id="textreport" hidden>Text report</button>
+    </div>
+    <p class="muted" id="sendhint" style="margin-top:8px" hidden></p>
+  </div>
+
+
+  <div class="foot">
+    <button class="quiet" id="setup">Settings</button>
+    <button class="quiet" id="rehearse">Start now</button>
+    <button class="quiet" id="reset">Reset show</button>
+    <button class="quiet" id="screen">Open display</button>
+  </div>
+
+  <div class="version" id="vercontrol"></div>
+
+  <div id="settings" hidden>
+    <div class="setbar">
+      <div class="settop"><h1>Settings</h1><button id="done">Done</button></div>
+      <nav class="tabs" role="tablist" aria-label="Settings sections">
+        <button data-tab="shows" role="tab">Shows</button>
+        <button data-tab="cues" role="tab">Cues &amp; colors</button>
+        <button data-tab="people" role="tab">SMs</button>
+        <button data-tab="calls" role="tab">Calls</button>
+        <button data-tab="screens" role="tab">Screens</button>
+        <button data-tab="deck" role="tab">Stream Deck</button>
+      </nav>
+    </div>
+
+    <section class="tabpane" data-pane="shows" hidden>
+      <div class="card">
+    <div class="field"><label>Stage</label>
+      <select id="stagesel"><option value="main">Mainstage</option><option value="kids">Children's Theatre</option></select></div>
+      </div>
+      <div class="card" id="timescard">
+        <h2>Show times</h2>
+        <p class="hint">Every run plays these times. Change them here and every show updates at once. Type times like 2:00 PM, 8:00 PM; leave a day blank for no show.</p>
+        <div class="days" id="timesgrid"></div>
+        <p class="muted" id="timesnote" style="margin-top:10px"></p>
+      </div>
+      <h2 class="sec">Runs</h2>
+      <p class="hint">One production and the dates it plays. Tap a run to edit it. A run that plays different times, like school matinees, can have its own. Leave a day blank for no show.</p>
+      <div id="runs"></div>
+    <div class="row" style="margin-bottom:20px">
+      <button class="quiet" id="importdash">Import from dashboard</button>
+      <button class="quiet" id="addrun">Add a run</button>
+    </div>
+    <div class="card">
+      <h2>Next two weeks</h2>
+      <p class="hint">What the display will do.</p>
+      <div id="preview" style="font-size:14px"></div>
+    </div>
+    </section>
+
+    <section class="tabpane" data-pane="cues" hidden>
+    <div class="card">
+      <h2>Cue times</h2>
+      <p class="hint">Clock-time cues are minutes from show time (−60 is an hour before) and roll over by themselves. Timed cues start when the SM presses GO. Curtain speech and acts count up from zero; intermission counts down. Tap Colors under any cue to choose when its clock changes color.</p>
+      <div id="tpl"></div>
+      <div class="field" style="margin-top:12px"><label>End of show label (shown under the running time after the last GO)</label>
+        <input id="endlabel" autocomplete="off" spellcheck="false" placeholder="SHOW DOWN"></div>
+      <button class="quiet" id="addcue" style="width:100%;margin-top:6px">Add a cue</button>
+    </div>
+    </section>
+
+    <section class="tabpane" data-pane="people" hidden>
+    <div class="card">
+      <h2>Stage managers</h2>
+      <p class="hint">Pick tonight's stage manager with one tap on the controller. After the show, the report can be emailed or texted to them. Names, emails and phone numbers travel with the schedule (inside the links and over the relay), so keep the links in the building.</p>
+      <div id="smlist"></div>
+      <button class="quiet" id="addsm" style="width:100%;margin-top:6px">Add a stage manager</button>
+      <div class="field" style="margin-top:12px"><label>Also send every report to (optional email, like the TD)</label>
+        <input id="smcc" type="email" autocomplete="off" spellcheck="false" placeholder="name@example.com"></div>
+    </div>
+    </section>
+
+    <section class="tabpane" data-pane="calls" hidden>
+    <div class="card">
+      <h2>Deck calls</h2>
+      <p class="hint">One per line. These are the buttons the SM taps to flash a call on the backstage screen.</p>
+      <textarea id="msgedit"></textarea>
+    </div>
+    </section>
+
+    <section class="tabpane" data-pane="screens" hidden>
+    <div class="card">
+      <h2>Links</h2>
+      <p class="hint">Use these to set up a new device. Changes you make in Settings reach every screen on their own, so there's no need to resend links after editing.</p>
+      <label>Controller (SM, booth, your phone)</label>
+      <div class="link" id="lk-control"></div>
+      <button class="small" data-copy="control">Copy controller link</button>
+      <div style="height:14px"></div>
+      <label>Backstage display, corner layout for the ATEM key</label>
+      <div class="link" id="lk-display"></div>
+      <button class="small" data-copy="display">Copy display link</button>
+      <div style="height:14px"></div>
+      <label>Full-screen display (green room, dressing rooms)</label>
+      <div class="link" id="lk-full"></div>
+      <button class="small" data-copy="full">Copy full-screen link</button>
+      <div style="height:14px"></div>
+      <label>A small display window with no browser bars</label>
+      <p class="hint" style="margin-bottom:8px">Download a launcher on the computer that will show the display. It already has this display's link inside. Unzip it and double-click it, then drag the window to any size. On a Mac, if it's blocked the first time, open System Settings, Privacy &amp; Security, scroll down and click Open Anyway. Needs Firefox or Chrome on a Mac (Chrome or Edge on Windows). You can also get it from the display itself: move the mouse over a full-screen display.</p>
+      <div class="row"><button class="small" id="dl-mac">Launcher for Mac</button><button class="small" id="dl-win">Launcher for Windows</button></div>
+    </div>
+    </section>
+
+    <section class="tabpane" data-pane="deck" hidden>
+    <div class="card">
+      <h2>Stream Deck</h2>
+      <p class="hint">Each button below is a web address. In the Stream Deck app, drag a <b>Website</b> action (under System) onto a key, paste the address, and tick <b>GET request in background</b>. The key then works from anywhere with internet, with no computer needing the timer open. These addresses are fixed, not tied to a code, so they never need to be redone.</p>
+      <div id="deckkeys"></div>
+      <p class="hint" style="margin:14px 0 0">If the Stream Deck is plugged into the booth computer with the controller open and in front, <b>Hotkey</b> actions work too: Space GO, B back, H hold, + one minute, − one minute, 1 to 9 the deck calls in order, 0 or Esc clears the call.</p>
+    </div>
+    </section>  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id)};
+var DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
+// ---------- clock correction ----------
+// Every press stamps the time from the clock of the device that made it, and every
+// screen counts from that stamp using its own clock. A screen whose clock is off
+// (a new Wyse with no network time, say) therefore starts every cue that many
+// seconds in. So each screen now measures its own clock against the relay's, and
+// against the stamps on presses it receives live, and adds the difference to
+// every time it reads. NOW() is the corrected time; nothing else changes.
+// Only differences of 2.5 seconds or more are corrected, so clocks that are
+// already close are left alone and two screens can never chase each other.
+var SKEW=0,skewPts=[],skewEpoch=null,wsOpenT=Infinity;
+try{var _sk=parseInt(localStorage.getItem('mmt-timer-skew-dev'),10);if(isFinite(_sk))SKEW=_sk}catch(e){}
+function NOW(){return Date.now()+SKEW}
+function skewSample(v){
+  var t=Date.now(),ep=t-(window.performance&&performance.now?performance.now():0);
+  // the clock was set or stepped since the last sample (or the device slept):
+  // older samples are on the wrong footing, so start over
+  if(skewEpoch!==null&&Math.abs(ep-skewEpoch)>1500)skewPts=[];
+  skewEpoch=ep;
+  skewPts.push({at:t,v:v});
+  skewPts=skewPts.filter(function(p){return t-p.at<5*6e4});
+  // Every sample can only read low (a delay in the network, or the relay rounding
+  // its clock down to the second), never high, so the highest one is the best.
+  var best=-Infinity;skewPts.forEach(function(p){if(p.v>best)best=p.v});
+  var next=Math.abs(best)>=2500?Math.round(best):0;
+  if(next!==SKEW){
+    SKEW=next;
+    try{localStorage.setItem('mmt-timer-skew-dev',String(SKEW))}catch(e){}
+    if(typeof paintClockNote==='function')paintClockNote();
+  }
+}
+var VERSION='2.31-dev1';
+var SYNC_HOST='https://ntfy.envs.net/';
+// Settings' permanent home: the same Apps Script backend the MMT Dashboard
+// already uses, via its generic get/save-KV actions. The ntfy relay above is
+// still used for instant live propagation while devices are open, but it only
+// holds ~12 hours of history. The backend never forgets, so a device that's
+// brand new, been off for weeks, or lost its localStorage always recovers the
+// real settings on load instead of falling back to blank defaults.
+var BACKEND_URL='https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
+var CFG_KV_KEY='timer_cfg_dev';
+var LIVE_CFG_KV_KEY='timer_cfg';   // read-only seed: the dev copy starts with the live settings but never writes to them
+var DEFAULT={
+  template:[
+    {name:'CALL',type:'anchor',offset:-60},
+    {name:'MIC CHECK',type:'anchor',offset:-45},
+    {name:'HOUSE OPEN',type:'anchor',offset:-30},
+    {name:'SHOW START',type:'anchor',offset:0},
+    {name:'CURTAIN SPEECH',type:'duration',minutes:3,up:true},
+    {name:'ACT 1',type:'duration',minutes:60,up:true},
+    {name:'INTERMISSION',type:'duration',minutes:15},
+    {name:'ACT 2',type:'duration',minutes:50,up:true}
+  ],
+  messages:['PLACES','HOLD','5 MINUTES','STANDBY'],
+  runs:[]
+};
+
+// ---------- storage that never throws ----------
+function sget(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sset(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function clone(o){return JSON.parse(JSON.stringify(o))}
+
+// ---------- the season rides in the address ----------
+function enc(o){return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_')}
+function dec(s){
+  if(!s)return null;
+  try{s=s.replace(/ /g,'+').replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';
+    return JSON.parse(decodeURIComponent(escape(atob(s))))}catch(e){return null}
+}
+function hp(k){var m=location.hash.match(new RegExp('[#&]'+k+'=([^&]*)'));return m?decodeURIComponent(m[1]):''}
+
+// The link carries a copy of the settings, but this device may already hold a
+// newer copy (from an edit here or one that arrived over the sync). Same sync
+// code and a newer stamp means the saved copy wins.
+var fromLink=dec(hp('s')),fromDevice=dec(sget('mmt-timer-cfg-dev'));
+var cfg=fromLink&&fromDevice&&fromDevice.sync===fromLink.sync&&(fromDevice.v||0)>(fromLink.v||0)?fromDevice
+  :fromLink||fromDevice||clone(DEFAULT);
+if(!cfg.template||!cfg.template.length)cfg.template=clone(DEFAULT.template);
+cfg.messages=cfg.messages||DEFAULT.messages.slice();
+cfg.runs=cfg.runs||[];
+// Every device syncs on the same fixed channel -- there's no code to lose,
+// mismatch, or hand out, and no separate channel per stage to keep straight.
+// Anyone who opens the link joins automatically.
+function syncTopic(){return 'mmt-timer-dev'}
+function endLabel(){return (cfg.endLabel||'SHOW DOWN').toUpperCase()}
+function normalizeCfg(){
+  if(!cfg.template||!cfg.template.length)cfg.template=clone(DEFAULT.template);
+  cfg.messages=cfg.messages||DEFAULT.messages.slice();
+  cfg.runs=cfg.runs||[];
+  cfg.sms=cfg.sms||[];
+  // One set of weekly show times for the stage; every run uses it unless it
+  // has its own (run.custom). Older schedules had times on each run: the times
+  // most runs use become the standard, and any run that differs keeps its own.
+  if(!cfg.times){
+    var tally={},best=null,most=0;
+    cfg.runs.forEach(function(r){var k=patKey(r.pattern);tally[k]=(tally[k]||0)+1;if(tally[k]>most){most=tally[k];best=r.pattern}});
+    cfg.times=best?clone(best):(cfg.stage==='kids'?{sat:['11:00','13:00']}:{fri:['20:00'],sat:['14:00','20:00'],sun:['14:00']});
+  }
+  var std=patKey(cfg.times);
+  cfg.runs.forEach(function(r){
+    if(r.custom==null)r.custom=!!r.pattern&&patKey(r.pattern)!==std;
+    if(!r.custom)r.pattern=clone(cfg.times);   // kept in step, so older screens and the Stream Deck still read it
+  });
+}
+function patKey(p){
+  p=p||{};
+  return DAYS.map(function(d){return d[0]+':'+((p[d[0]]||[]).slice().sort().join(','))}).join('|');
+}
+normalizeCfg();
+sset('mmt-timer-cfg-dev',enc(cfg));
+
+(function(){var b=document.createElement('div');b.id='devbadge';b.textContent='DEV';
+  b.style.cssText='position:fixed;left:8px;bottom:8px;z-index:99999;background:#7A1FA2;color:#fff;font:700 12px/1 system-ui,sans-serif;letter-spacing:.14em;padding:5px 8px;border-radius:6px;opacity:.9;pointer-events:none';
+  document.body.appendChild(b)})();
+var isDisplay=hp('v')==='display';
+if(isDisplay)document.body.classList.add('display');
+// ---------- full screen ----------
+// Pages can't hide the browser's bars, but full screen hides all of it. The
+// button only shows in windows opened from a controller (pop=1), never on the
+// Wyse's own display link, so it can't end up in the camera feed.
+var isPop=hp('pop')==='1';
+function inFS(){return !!(document.fullscreenElement||document.webkitFullscreenElement)}
+function goFS(){var el=document.documentElement,f=el.requestFullscreen||el.webkitRequestFullscreen;if(f){try{var r=f.call(el);if(r&&r.catch)r.catch(function(){})}catch(e){}}}
+function exitFS(){var f=document.exitFullscreen||document.webkitExitFullscreen;if(f){try{var r=f.call(document);if(r&&r.catch)r.catch(function(){})}catch(e){}}}
+function paintFS(){
+  if(!isDisplay)return;
+  var show=isPop&&!inFS();
+  document.getElementById('fsbox').hidden=!show;
+  document.body.classList.toggle('pointer',show);
+}
+if(hp('mode')==='full')document.body.classList.add('full');
+if(sget('mmt-wings')==='1')document.body.classList.add('wings');
+
+// ---------- dates ----------
+function pad(n){return String(n).padStart(2,'0')}
+function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function at(date,time){var a=date.split('-').map(Number),b=time.split(':').map(Number);return new Date(a[0],a[1]-1,a[2],b[0],b[1],0,0).getTime()}
+function dow(date){var a=date.split('-').map(Number);return ['sun','mon','tue','wed','thu','fri','sat'][new Date(a[0],a[1]-1,a[2]).getDay()]}
+function clockOf(ms){var d=new Date(ms),h=d.getHours();return (h%12||12)+':'+pad(d.getMinutes())+' '+(h>=12?'PM':'AM')}
+function pretty(t){var p=t.split(':'),h=Number(p[0]);return (h%12||12)+':'+p[1]+' '+(h>=12?'PM':'AM')}
+function dayLabel(date,long){var a=date.split('-').map(Number);return new Date(a[0],a[1]-1,a[2]).toLocaleDateString(undefined,{weekday:long?'long':'short',month:'short',day:'numeric'})}
+function parseTimes(str){return String(str).split(',').map(function(t){return t.trim()}).filter(Boolean).map(function(t){
+  var m=t.match(/^(\d{1,2}):?(\d{2})?\s*(a|p)?/i);if(!m)return null;
+  var h=Number(m[1]),mi=Number(m[2]||0),ap=(m[3]||'').toLowerCase();
+  if(ap==='p'&&h<12)h+=12;if(ap==='a'&&h===12)h=0;
+  if(!ap&&h>=1&&h<=9)h+=12;               // no AM/PM: 1-9 is afternoon/evening, 10-11 morning
+  if(h>23||mi>59)return null;
+  return pad(h)+':'+pad(mi);
+}).filter(Boolean).sort()}
+function fmt(ms){
+  var t=Math.max(0,Math.floor(ms/1000)),h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;
+  return h>0?h+':'+pad(m)+':'+pad(s):m+':'+pad(s);
+}
+function countdown(ms){return ms>=0?fmt(Math.ceil(ms/1000)*1000):'+'+fmt(-ms)}
+
+// ---------- schedule ----------
+function perfsOn(date){
+  var out=[];
+  cfg.runs.forEach(function(r){
+    if(!r.start||!r.end||date<r.start||date>r.end)return;
+    if((r.exceptions||[]).indexOf(date)>=0)return;
+    ((r.pattern||{})[dow(date)]||[]).forEach(function(t){
+      out.push({key:date+'T'+t,show:r.show||'Performance',date:date,time:t,curtain:at(date,t)});
+    });
+  });
+  out.sort(function(a,b){return a.curtain-b.curtain});
+  return out;
+}
+function cueList(){
+  var a=[],d=[];
+  cfg.template.forEach(function(c){(c.type==='anchor'?a:d).push(c)});
+  a.sort(function(x,y){return (x.offset||0)-(y.offset||0)});
+  if(!a.length)a=[{name:'SHOW START',type:'anchor',offset:0}];
+  return {list:a.concat(d),nA:a.length};
+}
+// Acts count up; breaks and speeches count down. Older links without the
+// setting treat anything named ACT as count-up.
+function isUp(c){return c.type!=='anchor'&&(c.up!=null?!!c.up:/^(ACT|SHOW|CURTAIN SPEECH)\b/i.test(c.name||''))}
+function leadMin(){return Math.min.apply(null,[0].concat(cfg.template.filter(function(c){return c.type==='anchor'}).map(function(c){return c.offset||0})))}
+function nextPerf(now){
+  for(var i=0;i<60;i++){
+    var d=new Date(now);d.setDate(d.getDate()+i);
+    var ps=perfsOn(ymd(d));
+    for(var j=0;j<ps.length;j++)if(ps[j].curtain>now)return ps[j];
+  }
+  return null;
+}
+
+// ---------- shared show state ----------
+// Every device holds a copy. Any press bumps n and goes out to the others;
+// the highest n wins, so a device that was asleep just adopts the latest.
+var BLANK={key:null,idx:null,target:0,paused:false,holdAt:0,held:{},left:0,extra:0,msg:null,log:[],adhoc:null,seen:[],sm:null,n:0,t:0,by:''};
+var S;try{S=Object.assign({},BLANK,JSON.parse(sget('mmt-timer-shared-dev')||'{}'))}catch(e){S=clone(BLANK)}
+var ME=Math.random().toString(36).slice(2,8);
+
+// Presses from a Stream Deck arrive as short commands ("cmd:go") that every
+// screen applies for itself, at the time the relay stamped on them, so they
+// all land on the same state without anyone re-sending it. S.seen remembers
+// which commands are already in the state so none is applied twice.
+var remoteAt=null;
+function nowMs(){return remoteAt||NOW()}
+function commit(patch){
+  Object.assign(S,patch);S.n=(S.n||0)+1;
+  if(remoteAt){S.t=remoteAt;S.by='deck';sset('mmt-timer-shared-dev',JSON.stringify(S));draw();return}
+  S.t=NOW();S.by=ME;
+  sset('mmt-timer-shared-dev',JSON.stringify(S));
+  publish();draw();
+}
+var DECK={
+  go:function(){go()},back:function(){back()},hold:function(){hold()},plus:function(){plusOne()},minus:function(){adjust(-60)},
+  adjust:function(a){var n=parseInt(a,10);if(n&&Math.abs(n)<=3600)adjust(n)},
+  clear:function(){if(S.msg)commit({msg:null})},
+  call:function(t){if(t)call(String(t).trim().toUpperCase())}
+};
+function applyCommand(text,id,at){
+  var m=String(text).match(/^cmd:([a-z]+)(?::(.*))?$/i);if(!m)return false;
+  var seen=S.seen||[];
+  if(id&&seen.indexOf(id)>=0)return true;
+  // anything older than this screen's state that it hasn't seen is from before
+  // the state was made; applying it now would replay an old press
+  if(at&&S.t&&at<S.t-5*6e4)return true;
+  var fn=DECK[m[1].toLowerCase()];
+  S.seen=seen.concat(id?[id]:[]).slice(-80);
+  if(!fn){sset('mmt-timer-shared-dev',JSON.stringify(S));return true}
+  remoteAt=at||NOW();
+  var arg=m[2]||'';try{arg=decodeURIComponent(arg)}catch(x){}
+  try{fn(arg)}catch(x){}finally{remoteAt=null}
+  sset('mmt-timer-shared-dev',JSON.stringify(S));draw();
+  return true;
+}
+function receive(s){
+  if(!s||typeof s.n!=='number')return;
+  if(s.n<S.n||(s.n===S.n&&(s.t<=S.t)))return;
+  S=Object.assign({},BLANK,s);
+  sset('mmt-timer-shared-dev',JSON.stringify(S));
+  draw();
+}
+
+function isDone(p){return S.key===p.key&&S.idx!=null&&S.idx>=cueList().list.length}
+function activePerf(now){
+  var sched=scheduledPerf(now);
+  var a=S.adhoc;
+  if(a&&now-a.curtain<6*36e5&&!(isDone(a)&&now-S.target>20*6e4)){
+    // A run-through never blocks a real performance. If the SM hasn't pressed
+    // GO on it (or it's finished), the scheduled show takes the screens as
+    // soon as its window opens. A run-through that's mid-act keeps going
+    // until the real show's call time, then the real show takes over.
+    var len=cueList().list.length;
+    var running=S.key===a.key&&S.idx!=null&&S.idx<len;
+    if(!sched)return a;
+    if(!running)return sched;
+    return now>=sched.curtain+leadMin()*6e4?sched:a;
+  }
+  return sched;
+}
+function scheduledPerf(now){
+  var ps=perfsOn(ymd(new Date(now)));
+  // Walk backwards: on a two-show Saturday the evening's window takes over
+  // the moment it opens instead of the matinee hanging around.
+  // A later show's window opens 90 min before its call, but never before the
+  // earlier show is 30 min past curtain, and never while that show is still
+  // running (11:00 and 1:00 kids shows overlap otherwise)...
+  var len=cueList().list.length;
+  for(var i=ps.length-1;i>=0;i--){
+    var p=ps[i],prev=ps[i-1];
+    var opens=p.curtain+leadMin()*6e4-90*6e4;
+    if(prev)opens=Math.max(opens,prev.curtain+30*6e4);
+    if(now<opens)continue;
+    // ...but a forgotten final GO can't hold it forever: the earlier show lets go
+    // 3 hours after its curtain or 30 min before this one's, whichever comes first.
+    var holdUntil=prev?Math.min(prev.curtain+3*36e5,p.curtain-30*6e4):0;
+    if(prev&&S.key===prev.key&&S.idx!=null&&S.idx<len&&now<holdUntil)continue;
+    if(isDone(p))return now-S.target<20*6e4?p:null;
+    var running=S.key===p.key&&S.idx!=null&&now-p.curtain<8*36e5;
+    if(running||now<p.curtain+4*36e5)return p;
+    return null;
+  }
+  return null;
+}
+
+function frame(now){
+  var p=activePerf(now);
+  if(!p)return {idle:true,next:nextPerf(now)};
+  var C=cueList(),L=C.list,idx=S.key===p.key?S.idx:null;
+  var f={idle:false,perf:p,L:L,nA:C.nA,idx:idx};
+  if(idx==null){
+    // Pre-show runs off the wall clock: count toward the next clock cue,
+    // and once they've all passed, sit on the last one in overtime until GO.
+    var k=-1;
+    for(var i=0;i<C.nA;i++){if(p.curtain+(L[i].offset||0)*6e4>now){k=i;break}}
+    if(k<0)k=C.nA-1;
+    var when=p.curtain+(L[k].offset||0)*6e4;
+    f.pos=k;f.cue=L[k].name;f.ms=when-now;f.when=when;f.auto=true;
+    f.label=f.ms<0?'HOUSE HOLD':L[k].name;       // "MIC CHECK 10:00" counts down to mic check
+    f.goNext=L[C.nA]?L[C.nA].name:endLabel();
+    // Before the first clock cue (call) nothing counts: the screens show the
+    // wall clock with the call time underneath. A run-through that has passed
+    // its show time waits on the clock for GO instead of a house hold.
+    if(k===0&&f.ms>0){f.preCall=true;f.pos=-1}
+    else if(f.ms<=0&&(p.adhoc||p===S.adhoc)){f.ready=true;f.pos=C.nA}
+  }else if(idx>=L.length){
+    var up=firstUp();
+    f.pos=L.length;f.label='RUNNING TIME';f.done=true;f.ms=up?S.target-up-heldTotal(S.held):0;f.when=S.target;
+  }else{
+    f.pos=idx;f.label=L[idx].name;f.paused=S.paused;f.heldNow=S.paused&&S.holdAt?Math.max(0,now-S.holdAt):0;
+    f.ms=S.paused?S.left:S.target-now;f.when=S.target;
+    if(isUp(L[idx])){f.up=true;f.planned=(L[idx].minutes||0)*6e4+(S.extra||0);f.el=f.planned-f.ms}
+    f.goNext=L[idx+1]?L[idx+1].name:endLabel();
+  }
+  return f;
+}
+// When the show will come down. Planned: show time plus every timed cue's
+// planned length. Projected: before GO, the later of now and show time plus
+// all of them; during the show, what's left of the current cue plus the planned
+// lengths still to come. Holds, long acts and dial changes all push it later.
+function plannedTotal(f){var t=0;for(var i=f.nA;i<f.L.length;i++)t+=(f.L[i].minutes||0)*6e4;return t}
+function projection(f,now){
+  if(f.idle)return null;
+  var total=plannedTotal(f),base=f.perf.curtain+total,down;
+  if(f.done)return {down:S.target,base:base,done:true};
+  if(f.idx==null)down=Math.max(now,f.perf.curtain)+total;
+  else{
+    var left=f.up?Math.max(0,f.planned-f.el):Math.max(0,f.ms),rest=0;
+    for(var i=f.idx+1;i<f.L.length;i++)rest+=(f.L[i].minutes||0)*6e4;
+    down=now+left+rest;
+  }
+  return {down:down,base:base};
+}
+function offPlan(p){
+  var d=Math.round((p.down-p.base)/6e4);
+  return Math.abs(d)<=1?'on time':d>0?d+' min long':(-d)+' min ahead';
+}
+// Held time: the act clock already freezes on Hold, but the wall-clock times in
+// the log don't. S.held remembers, per cue, how long the clock sat held, and
+// S.holdAt is when the hold in progress began, so running time can leave it out.
+function heldOf(h,i){return (h&&h[i])||0}
+function heldTotal(h){var t=0;for(var k in (h||{}))t+=h[k]||0;return t}
+function heldWith(now){   // the held map with any hold in progress folded in
+  var h=Object.assign({},S.held||{});
+  if(S.paused&&S.idx!=null&&S.holdAt)h[S.idx]=(h[S.idx]||0)+Math.max(0,now-S.holdAt);
+  return h;
+}
+function firstUp(){var nA=cueList().nA;for(var i=0;i<S.log.length;i++)if(S.log[i].i>=nA)return S.log[i].at;return null}
+// ---------- timer colors ----------
+// Each cue carries color changes: [{at:seconds,c:'red'}]. On a countdown
+// a change applies once that much time or less is left (0:00 means when it
+// runs over). On a count-up it applies once that much time has gone by.
+var PALETTE=[
+  ['white','White','#FFFFFF'],['yellow','Yellow','#FFD24A'],['amber','Amber','#FFB000'],
+  ['orange','Orange','#FF7A1A'],['red','Red','#FF3B30'],['pink','Pink','#FF5FA2'],
+  ['green','Green','#3DDC6A'],['blue','Blue','#4DA3FF']
+];
+function hexOf(k){for(var i=0;i<PALETTE.length;i++)if(PALETTE[i][0]===k)return PALETTE[i][2];return '#FFFFFF'}
+function nameOf(k){for(var i=0;i<PALETTE.length;i++)if(PALETTE[i][0]===k)return PALETTE[i][1];return 'White'}
+function counts(c){return c.type!=='anchor'&&isUp(c)?'up':'down'}
+function rulesOf(c,plannedSec){
+  if(Array.isArray(c.colors))return c.colors;
+  // what the timer did before colors were editable
+  var pl=plannedSec!=null?plannedSec:(c.minutes||0)*60;
+  if(counts(c)==='up')return pl>0?[{at:pl,c:'amber'}]:[];
+  return [{at:120,c:'yellow'},{at:0,c:'amber'}];
+}
+function colorAt(c,f){
+  var rules=rulesOf(c,f.up?f.planned/1000:null),best=null;
+  if(counts(c)==='up'){
+    var el=f.el/1000;
+    rules.forEach(function(r){if(el>=r.at&&(!best||r.at>best.at))best=r});
+  }else{
+    var left=f.ms/1000;
+    rules.forEach(function(r){if((r.at===0?left<=0:left<=r.at)&&(!best||r.at<best.at))best=r});
+  }
+  return best?best.c:(c.start||'white');
+}
+function parseClock(t){
+  t=String(t).trim();if(!t)return null;
+  var p=t.split(':').map(function(x){return Number(x)});
+  if(p.some(function(x){return isNaN(x)||x<0}))return null;
+  if(p.length===1)return Math.round(p[0]*60);            // a bare number is minutes
+  if(p.length===2)return p[0]*60+p[1];
+  return p[0]*3600+p[1]*60+p[2];
+}
+// "TONIGHT 8:00 PM", "FRIDAY 8:00 PM" within the week, "FRIDAY, OCT 2 8:00 PM" further out
+function whenLabel(p,now){
+  var today=ymd(new Date(now)),days=Math.round((at(p.date,'12:00')-at(today,'12:00'))/864e5);
+  var day=days===0?'TODAY':days===1?'TOMORROW':days<7?dayLabel(p.date,true).split(',')[0].toUpperCase():dayLabel(p.date,true).toUpperCase();
+  return day+' '+pretty(p.time);
+}
+function cap(t){t=String(t).toLowerCase();return t.charAt(0).toUpperCase()+t.slice(1)}
+function msgNow(now){return S.msg&&now-S.msg.at<60*6e4?S.msg.text:null}
+
+// ---------- actions ----------
+function go(){
+  var now=nowMs(),f=frame(now);if(f.idle||f.done)return;
+  var L=f.L,next=f.idx==null?f.nA:f.idx+1;
+  var log=S.key===f.perf.key?S.log.slice():[];
+  log.push({i:next,at:now});
+  var hw=S.key===f.perf.key?heldWith(now):{};
+  if(next>=L.length)commit({key:f.perf.key,idx:L.length,target:now,paused:false,holdAt:0,held:hw,extra:0,log:log,msg:null});
+  else commit({key:f.perf.key,idx:next,target:now+(L[next].minutes||0)*6e4,paused:false,holdAt:0,held:hw,left:0,extra:0,log:log,msg:null});
+}
+function back(){
+  var f=frame(nowMs());if(f.idle||f.idx==null)return;
+  var log=S.log.slice();log.pop();
+  var prev=f.idx-1;
+  if(prev<f.nA){commit({idx:null,target:0,paused:false,holdAt:0,held:{},extra:0,log:[]});return}
+  var last=log[log.length-1],started=last?last.at:nowMs();
+  var hb=Object.assign({},S.held||{});delete hb[f.idx];   // the cue being left is redone from its start
+  commit({idx:prev,target:started+(f.L[prev].minutes||0)*6e4,paused:false,holdAt:0,held:hb,extra:0,log:log});
+}
+function jump(i){
+  var now=nowMs(),f=frame(now);if(f.idle)return;
+  var log=S.key===f.perf.key?S.log.slice():[];log.push({i:i,at:now});
+  commit({key:f.perf.key,idx:i,target:now+(f.L[i].minutes||0)*6e4,paused:false,holdAt:0,held:S.key===f.perf.key?heldWith(now):{},left:0,extra:0,log:log});
+}
+function hold(){
+  var f=frame(nowMs());if(f.idle||f.auto||f.done)return;
+  var now=nowMs();
+  if(S.paused)commit({paused:false,target:now+S.left,held:heldWith(now),holdAt:0});
+  else commit({paused:true,left:S.target-now,holdAt:now});
+}
+function plusOne(){adjust(60)}
+// Countdowns (intermission): adds or removes time left. Count-ups (acts):
+// moves the planned length, so the elapsed time stays true and the color
+// change at the planned length moves with it.
+function adjust(sec){
+  var f=frame(nowMs());if(f.idle||f.auto||f.done||!sec)return;
+  var ms=sec*1000,p={};
+  if(S.paused)p.left=S.left+ms;else p.target=S.target+ms;
+  if(f.up)p.extra=Math.max(-(f.L[f.idx].minutes||0)*6e4,(S.extra||0)+ms);
+  commit(p);
+}
+function call(text){
+  var now=nowMs(),cur=msgNow(now);
+  commit({msg:cur===text?null:{text:text,at:now}});
+}
+
+// ---------- sync over ntfy.sh (free, no account, no install) ----------
+// Live updates come over a WebSocket. The first version used EventSource
+// (server-sent events), and Safari on iPad can sit on each event until the next
+// one arrives, so the iPad showed the previous cue. WebSocket frames arrive
+// whole. EventSource stays as a fallback, and a slow catch-up check runs every
+// minute and whenever a screen wakes up, in case anything was missed.
+var ws=null,es=null,syncState='off',retry=null,backoff=2000;
+function topicUrl(){return SYNC_HOST+encodeURIComponent(syncTopic())}
+function handle(txt,live){
+  var m,s;try{m=JSON.parse(txt)}catch(x){return}
+  if(!m)return;
+  // The relay says what time it is when a connection opens and every 30 to 45
+  // seconds after that. That is the reference each screen corrects itself to.
+  if(live&&m.time&&(m.event==='open'||m.event==='keepalive')){
+    if(m.event==='open')wsOpenT=m.time;
+    skewSample(m.time*1000-Date.now());
+  }
+  if(m.event&&m.event!=='message')return;
+  // Only messages sent after this connection opened count as live. An older one
+  // replayed from the relay's cache says nothing about the clock.
+  var fresh=!!live&&m.time>=wsOpenT;
+  if(fresh)skewSample(m.time*1000-Date.now());
+  if(typeof m.message==='string'&&m.message.slice(0,4)==='cfg:'){noteRelayCfg(m.message.slice(4));receiveCfg(m.message.slice(4));return}
+  if(applyCommand(m.message,m.id,m.time?m.time*1000:null))return;
+  try{s=JSON.parse(m.message)}catch(x){return}
+  // A press from another device carries the exact time on its clock, to the
+  // millisecond, so it sharpens the correction. Read before the press is applied.
+  if(fresh&&s&&s.by&&s.by!==ME&&typeof s.t==='number')skewSample(s.t-Date.now());
+  receive(s);
+}
+function hangUp(){
+  if(ws){ws.onopen=ws.onmessage=ws.onclose=ws.onerror=null;try{ws.close()}catch(e){}ws=null}
+  if(es){try{es.close()}catch(e){}es=null}
+  clearTimeout(retry);
+}
+function again(){clearTimeout(retry);retry=setTimeout(connect,backoff);backoff=Math.min(backoff*2,30000)}
+function connect(){
+  hangUp();
+  syncState='connecting';paintPill();
+  if(typeof WebSocket!=='undefined'){
+    try{wsOpenT=Infinity;ws=new WebSocket(topicUrl().replace(/^http/,'ws')+'/ws?since=latest')}catch(e){ws=null}
+  }
+  if(ws){
+    ws.onopen=function(){syncState='live';backoff=2000;paintPill();catchUp(true)};
+    ws.onmessage=function(e){handle(e.data,true)};
+    ws.onclose=function(){ws=null;syncState='down';paintPill();again()};
+    ws.onerror=function(){};
+    return;
+  }
+  if(typeof EventSource==='undefined'){syncState='off';paintPill();return}
+  try{es=new EventSource(topicUrl()+'/sse?since=latest')}catch(e){syncState='down';paintPill();again();return}
+  es.onopen=function(){syncState='live';backoff=2000;paintPill()};
+  es.onerror=function(){syncState='down';paintPill();if(es&&es.readyState===2)again()};
+  es.onmessage=function(e){handle(e.data)};
+}
+// ---------- schedule and color changes travel with the sync ----------
+// Before 2.2 the schedule lived only in each screen's link, so a change on the
+// controller never reached a display until its link was recopied. Now every
+// edit goes out on the sync channel, the newest edit wins on every screen, and
+// each screen re-announces what it has when it connects, so a screen opened
+// from an old link days later still picks up the latest.
+var cfgTimer=null,cfgTooBig=false;
+var cfgPending=false,relayCfgV=null;   // relayCfgV: newest schedule stamp seen on the relay
+function sendCfgSoon(){cfgPending=true;clearTimeout(cfgTimer);cfgTimer=setTimeout(function(){sendCfg();saveCfgToBackend()},5000)}
+function sendCfg(){
+  clearTimeout(cfgTimer);cfgPending=false;
+  if(!cfg.v||typeof fetch==='undefined')return;
+  if(relayCfgV!=null&&relayCfgV>=cfg.v)return;       // the relay already has this (or newer)
+  var body='cfg:'+JSON.stringify(cfg);
+  cfgTooBig=body.length>3900;          // the relay only carries about 4 KB
+  if(cfgTooBig){sig='';return}
+  fetch(topicUrl(),{method:'POST',body:body}).then(function(r){if(r.ok)relayCfgV=cfg.v;sent(r)}).catch(function(){});
+}
+function noteRelayCfg(txt){try{var c=JSON.parse(txt);if(c)relayCfgV=Math.max(relayCfgV||0,c.v||0)}catch(e){}}
+// Shared by both sync paths (the live relay and the durable backend) so a
+// received config is always adopted and redrawn the same way, whichever one
+// it came from.
+function applyIncomingCfg(c){
+  cfg=c;normalizeCfg();
+  sset('mmt-timer-cfg-dev',enc(cfg));
+  try{history.replaceState(null,'',linkFor(isDisplay?(document.body.classList.contains('full')?'full':'display'):''))}catch(e){}
+  fitKey='';
+  if(!$('settings').hidden){
+    drawTimes();drawRuns();drawTpl();drawPreview();drawLinks();
+    drawSMList();
+    $('msgedit').value=cfg.messages.join('\n');$('stagesel').value=cfg.stage||'main';$('endlabel').value=cfg.endLabel||'';
+  }
+  draw();
+}
+function receiveCfg(txt){
+  var c;try{c=JSON.parse(txt)}catch(e){return}
+  if(!c)return;
+  if((c.v||0)<=(cfg.v||0))return;
+  applyIncomingCfg(c);
+}
+// ---------- settings' durable copy on the Apps Script backend ----------
+// The relay only remembers ~12 hours, so any device that's been away longer
+// than that (or has never opened this timer before) needs a copy that never
+// expires. This is that copy: read on every load, written a few seconds after
+// every edit (see persist(), below), same debounce as the relay push.
+function loadCfgFromBackend(){
+  if(typeof fetch==='undefined')return;
+  function grab(key){
+    return fetch(BACKEND_URL+'?action=getKV&key='+key+'&_='+Date.now()).then(function(r){return r.json()})
+      .then(function(d){var c=d&&d.value;return c&&typeof c==='object'?c:null});
+  }
+  // the dev copy's own settings first; if it has none yet, borrow the live ones (read only)
+  grab(CFG_KV_KEY).then(function(c){return c||grab(LIVE_CFG_KV_KEY)})
+    .then(function(c){
+      if(!c||(c.v||0)<=(cfg.v||0))return;
+      applyIncomingCfg(c);
+    })
+    .catch(function(){});
+}
+function saveCfgToBackend(){
+  if(typeof fetch==='undefined')return;
+  fetch(BACKEND_URL+'?action=saveKV&key='+CFG_KV_KEY+'&value='+encodeURIComponent(JSON.stringify(cfg))+'&_='+Date.now())
+    .catch(function(){});
+}
+loadCfgFromBackend();
+function catchUp(announce){
+  if(typeof fetch==='undefined')return;
+  fetch(topicUrl()+'/json?poll=1&since=all')
+    .then(function(r){if(r.status===429){relayLimited=true;sig='';paintPill()}return r.ok?r.text():''})
+    .then(function(t){
+      String(t).split('\n').forEach(function(line){if(line.trim())handle(line)});
+      // A controller whose schedule is newer than anything on the relay (the relay
+      // forgets after about 12 hours) sends it once. Displays never send it.
+      if(announce&&!isDisplay&&cfg.v&&(relayCfgV==null||relayCfgV<cfg.v))sendCfg();
+    })
+    .catch(function(){});
+}
+// A healthy live connection needs no polling; only check in while it's down.
+// The backend check rides along here too, so a device that's been offline or
+// disconnected longer than the relay's ~12-hour memory still self-heals.
+setInterval(function(){if(!linkUp()){catchUp();loadCfgFromBackend()}},5*60000);
+function linkUp(){return (ws&&ws.readyState===1)||(es&&es.readyState===1)}
+// The free relay allows about 250 messages a day per internet connection, and
+// every device in the building shares one. When it refuses (HTTP 429), say so
+// plainly: this screen keeps working, but presses won't reach the others.
+var relayLimited=false;
+function sent(r){
+  if(r.status===429){relayLimited=true;sig='';paintPill();return}
+  if(r.ok){if(relayLimited){relayLimited=false;sig=''}paintPill();return}
+  syncState='down';paintPill();
+}
+function publish(){
+  if(typeof fetch==='undefined')return;
+  fetch(topicUrl(),{method:'POST',body:JSON.stringify(S)})
+    .then(sent)
+    .catch(function(){syncState='down';paintPill()});
+}
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'){if(!linkUp())connect();else catchUp();wake()}
+});
+window.addEventListener('online',connect);
+
+// keep the iPad and the Wyse from sleeping
+var lock=null;
+function wake(){try{if(navigator.wakeLock&&!lock)navigator.wakeLock.request('screen').then(function(l){lock=l;l.addEventListener('release',function(){lock=null})}).catch(function(){})}catch(e){}}
+
+// ---------- rendering ----------
+var sig='';
+function draw(){sig='';nameTab();tick()}
+// Name the tab (and the home-screen icon) for what this screen is, so the
+// controller and the displays can be told apart in a row of tabs.
+function nameTab(){
+  var stage=cfg.stage==='kids'?"Children's Theatre":'Mainstage';
+  var full=document.body.classList.contains('full');
+  var role=isDisplay?(full?'Full-screen display':'Display'):'Controller';
+  var t='DEV '+role+': '+stage;
+  if(document.title!==t){
+    document.title=t;
+    var m=document.querySelector('meta[name="apple-mobile-web-app-title"]');if(m)m.content='DEV '+(isDisplay?(full?'Full Display':'Display'):'Controller')+(cfg.stage==='kids'?' CT':' MS');
+    // green GO button for controllers, a black screen with a white bar for displays
+    var svg=isDisplay
+      ?'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect x="1" y="4" width="30" height="22" rx="3" fill="#000" stroke="#8A9499" stroke-width="2"/><rect x="9" y="13" width="14" height="4" rx="1" fill="#fff"/></svg>'
+      :'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect x="1" y="1" width="30" height="30" rx="7" fill="#2FBF5C"/><text x="16" y="21.5" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="13" fill="#05130A">GO</text></svg>';
+    var link=document.getElementById('favicon');if(link)link.href='data:image/svg+xml,'+encodeURIComponent(svg);
+  }
+}
+function paintPill(){
+  var p=$('pill'),lim=relayLimited&&syncState!=='off';
+  p.className='pill '+(lim?'down':syncState==='live'?'live':syncState==='down'?'down':'');
+  p.querySelector('span').textContent=lim?'Relay limit':{live:'Synced',down:'Offline',connecting:'Connecting',off:'Sync off'}[syncState];
+}
+
+// ---------- chimes ----------
+// Made in the page with Web Audio, so there's no sound file to host. Browsers
+// won't play sound until the page has been clicked or tapped once, so a small
+// "Tap for sound" note shows until then. On by default for full-screen
+// displays, never on the ATEM corner layout; each screen can switch it off.
+var AC=null,soundReady=false,chimeQuietUntil=Date.now()+4000;
+function soundWanted(){
+  if(!isDisplay||!document.body.classList.contains('full'))return false;
+  return sget('mmt-chime')!=='0';
+}
+function unlockSound(){
+  if(!soundWanted()||soundReady)return;
+  try{
+    var C=window.AudioContext||window.webkitAudioContext;if(!C)return;
+    AC=AC||new C();
+    var r=AC.resume&&AC.resume();
+    var done=function(){soundReady=AC.state==='running';paintSound()};
+    if(r&&r.then)r.then(done,done);else done();
+  }catch(e){}
+}
+function tone(freq,start,len,vol){
+  var o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+start;
+  o.type='sine';o.frequency.value=freq;
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+len);
+  o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+len+0.05);
+}
+// 'call': a two-note ding-dong when a deck call goes up
+// 'cue' : one soft tone when the cue changes
+function chime(kind,force){
+  if(!soundWanted()||!soundReady||!AC)return;
+  if(!force&&Date.now()<chimeQuietUntil)return;       // not while loading or catching up
+  if(kind==='call'){tone(880,0,0.9,0.28);tone(659.25,0.42,1.2,0.28)}
+  else tone(587.33,0,0.9,0.2);
+}
+function paintSound(){
+  if(!isDisplay)return;
+  var n=$('sndnote');
+  n.hidden=!(soundWanted()&&!soundReady);
+  $('dm-snd').textContent='Sound: '+(sget('mmt-chime')==='0'?'off':'on');
+}
+var lastCall=null;
+
+// ---------- display scene ----------
+var shownScene=null,fading=false,sizeScene='',sizeLen=0,cScene='';
+function sceneOf(f,clockMode){
+  if(clockMode==null)clockMode=f.idle||f.preCall||f.ready;
+  return [f.idle?'idle':f.perf.key,clockMode?'clock':'run',f.pos,f.idx,f.done?1:0,f.paused?1:0,f.label||''].join('|');
+}
+// Which show this screen is about, always in the same spot: top left on the
+// full-screen display, above the clock on the corner layout.
+function paintIdent(f,now,clockMode){
+  var name='',when='',pre='',rt=false,kind='';
+  if(f.idle){if(f.next){pre='Next show';name=f.next.show;when=whenLabel(f.next,now)}}
+  else{
+    name=f.perf.show;
+    kind=(S.adhoc&&f.perf===S.adhoc)?(S.adhoc.kind||'rehearsal'):'';
+    rt=!!kind;
+    when=rt?clockOf(f.perf.curtain):pretty(f.perf.time);
+  }
+  // Once a run-through is actually running, its "started at" time reads the
+  // same as the wall clock in the opposite corner for a while, so it's
+  // dropped from the corner to stop the two clocks from repeating each
+  // other. A scheduled show's date/time stays put; that one's never a dupe.
+  var showWhen=when&&!(rt&&!clockMode);
+  $('ident').hidden=!name;
+  $('idpre').hidden=!pre;$('idpre').textContent=pre;
+  var key=name+'|'+when+'|'+kind+'|'+pre+'|'+showWhen+'|'+innerWidth;
+  if(key!==identKey){
+    identKey=key;$('idname').textContent=name;$('idwhen').textContent=when;$('idwhen').hidden=!showWhen;
+    $('idtag').hidden=!rt;$('idtag').textContent=kind==='performance'?'PERFORMANCE':'RUN-THROUGH';
+    var el=$('ident');el.style.fontSize='';
+    if(document.body.classList.contains('full')&&name){
+      var base=parseFloat(getComputedStyle(el).fontSize),sz=base;
+      while(el.scrollWidth>el.clientWidth+1&&sz>base*0.6){sz*=0.92;el.style.fontSize=sz+'px'}
+    }
+  }
+}
+var identKey='';
+function paintStage(f,now,clockMode,wingsOn,heldNow,ink,scene){
+  paintIdent(f,now,clockMode);
+  if(clockMode){
+    var d=new Date(now);
+    $('slug').textContent='';
+    $('big').textContent=(d.getHours()%12||12)+':'+pad(d.getMinutes());$('big').className='';$('big').style.color='';
+    $('sub').textContent=f.idle?'':f.preCall?f.cue+' AT '+clockOf(f.when):'READY TO START';
+  }else{
+    $('slug').textContent=f.paused?'HOLDING':f.label;
+    $('big').textContent=f.up?fmt(f.el):countdown(f.ms);
+    $('big').style.color=wingsOn?'':ink;
+    $('sub').textContent=f.done?endLabel()+' '+clockOf(f.when):f.paused?f.label+'  HELD '+fmt(f.heldNow):f.up?'PLANNED '+fmt(f.planned):f.auto?(f.ms<0?f.cue+' WAS '+clockOf(f.when):'AT '+clockOf(f.when)):(f.ms<0?'OVER':'ENDS '+clockOf(f.when));
+    if(f.done)$('big').textContent=fmt(f.ms);
+  }
+  $('big').classList.toggle('held',heldNow);
+  // Every cue is sized for five characters ("35:00"), so the clock, the
+  // countdowns and the acts all match. It only gets smaller if the time really
+  // needs more room (an act past the hour, 1:00:00), and never shrinks back
+  // within a cue, so 10:00 -> 9:59 doesn't jump. Size changes glide.
+  var want=Math.max(5,$('big').textContent.length);
+  if(scene===sizeScene)sizeLen=Math.max(sizeLen,want);else{sizeScene=scene;sizeLen=want}
+}
+function tick(){
+  var now=NOW(),f=frame(now),m=msgNow(now);
+  var clockMode=f.idle||f.preCall||f.ready;
+  var colorKey=clockMode||f.done?'white':colorAt(f.L[f.pos],f);
+  var wallText=clockOf(now);
+  $('wall').textContent=wallText;$('wall').hidden=clockMode;
+  if(!isDisplay)$('hclock').textContent=wallText;
+  var wingsOn=document.body.classList.contains('wings');
+  var heldNow=!clockMode&&!f.done&&!!f.paused;
+  if(!isDisplay)$('cface').classList.toggle('held',heldNow);
+  var ink=colorKey==='white'?'':hexOf(colorKey);
+
+  // display layer: a new cue fades out and in; within a cue only the numbers change
+  var scene=sceneOf(f,clockMode);
+  if(shownScene===null)shownScene=scene;
+  if(isDisplay&&scene!==shownScene&&!fading){
+    chime('cue');
+    fading=true;$('stage').classList.add('fade');
+    setTimeout(function(){shownScene=sceneOf(frame(NOW()),null);fading=false;fitKey='';tick();fit();$('stage').classList.remove('fade')},240);
+  }
+  if(!fading){
+    shownScene=isDisplay?shownScene:scene;
+    paintStage(f,now,clockMode,wingsOn,heldNow,ink,scene);
+  }
+  // deck calls fade on their own, without touching the layout; the text stays
+  // put while it fades out so it doesn't vanish mid-fade
+  if(m&&m!==lastCall)chime('call');
+  lastCall=m||null;
+  if(m)$('msgtext').textContent=m;
+  $('msg').classList.toggle('on',!!m);$('topline').classList.toggle('calling',!!m);
+  if(isDisplay)return;
+
+  // control face: a new cue fades in
+  if(scene!==cScene){
+    cScene=scene;var nw=document.querySelector('#run .now');
+    if(nw){nw.classList.remove('swapin');void nw.offsetWidth;nw.classList.add('swapin')}
+  }
+  if(f.idle){
+    var d2=new Date(now);$('iclock').textContent=clockOf(now).replace(/ (AM|PM)$/,'');
+  }else if(f.preCall||f.ready){
+    $('cslug').textContent=f.preCall?'BEFORE CALL':'READY';
+    $('cface').textContent=clockOf(now).replace(/ (AM|PM)$/,'');$('cface').style.color='';
+    $('cends').textContent=f.preCall?cap(f.cue)+' at '+clockOf(f.when)+'. Countdowns start then.':(S.adhoc&&f.perf===S.adhoc?'Press GO to begin.':'Show time was '+clockOf(f.when)+'. Press GO to begin.');
+    $('cmsg').textContent=m||'';$('cmsg').classList.toggle('on',!!m);
+  }else{
+    $('cslug').textContent=f.paused?'HOLDING':f.label;
+    $('cface').textContent=f.done?fmt(f.ms):f.up?fmt(f.el):countdown(f.ms);
+    $('cface').style.color=wingsOn?'':ink;
+    $('cends').textContent=f.done?cap(endLabel())+' at '+clockOf(f.when)
+      :f.paused?cap(f.label)+' is held ('+fmt(f.heldNow)+'). Press Resume to restart the clock.'
+      :f.up?'Planned '+fmt(f.planned)+(f.el>f.planned&&f.planned>0?', over by '+fmt(f.el-f.planned):'')
+      :f.auto?(f.ms<0?'Late start. '+cap(f.cue)+' was '+clockOf(f.when)+'. Press GO to begin.':'At '+clockOf(f.when))
+      :(f.ms<0?'Over since '+clockOf(f.when):'Ends '+clockOf(f.when));
+    $('cmsg').textContent=m||'';$('cmsg').classList.toggle('on',!!m);
+  }
+
+  // structure only when something actually changed
+  var pj=projection(f,now),pr=$('cproj');
+  if(!pj){pr.textContent='';pr.classList.remove('long')}
+  else{
+    var late=Math.round((pj.down-pj.base)/6e4),downAt=clockOf(Math.round(pj.down/6e4)*6e4);
+    pr.textContent=pj.done?'Show ended '+downAt+', '+(Math.abs(late)<=1?'on time':late>0?late+' min later than planned':(-late)+' min earlier than planned')
+      :(late>1?'Show ends around '+downAt+', running '+offPlan(pj):late<-1?'Show ends around '+downAt+', '+offPlan(pj):'Show ends around '+downAt);
+    pr.classList.toggle('long',!pj.done&&late>=5);
+  }
+  var s=[f.idle?'idle':f.perf.key,f.pos,f.idx,f.paused,m,S.n,syncState,S.adhoc?1:0,f.preCall?1:0,f.ready?1:0].join('|');
+  if(s===sig)return;sig=s;
+  paintPill();
+  $('toobig').hidden=!cfgTooBig;
+  $('relaylimit').hidden=!relayLimited;
+  $('run').hidden=f.idle;$('idlecard').hidden=!f.idle;
+  var onRun=!!(S.adhoc&&!f.idle&&f.perf===S.adhoc);
+  var runKind=onRun?(S.adhoc.kind||'rehearsal'):'';
+  $('tbadge').hidden=!onRun;$('tbadge').textContent=runKind==='performance'?'PERFORMANCE':'RUN-THROUGH';
+  $('rtend').hidden=!onRun;$('rtend').textContent=runKind==='performance'?'End performance':'End run-through';
+  $('rehearse').textContent=onRun?(runKind==='performance'?'End performance':'End run-through'):'Start now';
+  $('reset').hidden=f.idle||(f.idx==null&&!S.adhoc);
+
+  if(f.idle){
+    $('title').textContent=cfg.stage==='kids'?"Children's Theatre":'Mainstage';
+    $('subtitle').textContent=f.next?'Next show: '+f.next.show+', '+dayLabel(f.next.date)+', '+pretty(f.next.time):'Nothing scheduled';
+    $('idletext').innerHTML='';
+    if(f.next){
+      var a=document.createElement('div');a.style.cssText='font-weight:600;margin-bottom:4px';a.textContent='Next: '+f.next.show;
+      var b=document.createElement('div');b.className='muted';
+      b.textContent=dayLabel(f.next.date,true)+', show '+pretty(f.next.time)+', call '+clockOf(f.next.curtain+leadMin()*6e4);
+      $('idletext').appendChild(a);$('idletext').appendChild(b);
+      var C=cueList(),ul=document.createElement('ul');ul.className='cues';ul.style.marginTop='10px';
+      for(var i=0;i<C.nA;i++){
+        var li=document.createElement('li');li.innerHTML='<span class="dot"></span><span class="nm"></span><span class="wh"></span>';
+        li.querySelector('.nm').textContent=C.list[i].name;
+        li.querySelector('.wh').textContent=clockOf(f.next.curtain+(C.list[i].offset||0)*6e4);
+        ul.appendChild(li);
+      }
+      var note=document.createElement('p');note.className='muted';note.style.marginTop='8px';
+      var tot=0;for(var j=C.nA;j<C.list.length;j++)tot+=(C.list[j].minutes||0)*6e4;
+      var dl=document.createElement('li');dl.innerHTML='<span class="dot"></span><span class="nm"></span><span class="wh"></span>';
+      dl.querySelector('.nm').textContent='PLANNED END';dl.querySelector('.wh').textContent=clockOf(f.next.curtain+tot);
+      dl.style.opacity='.75';ul.appendChild(dl);
+      note.textContent='These run on their own. No need to press anything until the show starts.';
+      $('idletext').appendChild(ul);$('idletext').appendChild(note);
+    }else{
+      $('idletext').innerHTML='<p class="muted">Nothing on the calendar. Tap Settings to add a run, or tap Start now for a run-through or an off-schedule performance.</p>';
+    }
+  }else{
+    $('title').textContent=f.perf.show;
+    $('subtitle').textContent=dayLabel(f.perf.date,true)+', '+clockOf(f.perf.curtain);
+    $('go').disabled=!!f.done;
+    $('go').querySelector('.l').textContent=f.done?endLabel():'GO';
+    $('gonext').textContent=f.done?'':f.goNext;
+    $('hold').textContent=f.paused?'Resume':'Hold';
+    $('hold').classList.toggle('on',!!f.paused);
+    $('hold').disabled=!!(f.auto||f.done);$('plus').disabled=!!(f.auto||f.done||f.up);
+    $('back').disabled=f.idx==null;
+
+    var mw=$('msgs');mw.innerHTML='';
+    cfg.messages.forEach(function(t){
+      var bt=document.createElement('button');bt.textContent=t;bt.classList.toggle('on',m===t);
+      bt.onclick=function(){call(t)};mw.appendChild(bt);
+    });
+
+    var ul=$('cuelist');ul.innerHTML='';
+    f.L.forEach(function(c,i){
+      var li=document.createElement('li');
+      li.className=(i<f.pos?'done':i===f.pos&&!f.done&&!f.ready&&!f.preCall?'live':'')+(i>=f.nA?' tap':'');
+      li.innerHTML='<span class="dot"></span><span class="nm"></span><span class="wh"></span>';
+      li.querySelector('.nm').textContent=c.name;
+      var wh;
+      if(i<f.nA)wh=clockOf(f.perf.curtain+(c.offset||0)*6e4);
+      else{
+        var hit=null;for(var j=S.log.length-1;j>=0;j--)if(S.log[j].i===i){hit=S.log[j];break}
+        wh=(c.minutes||0)+' min'+(isUp(c)?' up':'')+(hit&&S.key===f.perf.key?', went '+clockOf(hit.at):'');
+      }
+      li.querySelector('.wh').textContent=wh;
+      if(i>=f.nA)li.onclick=function(){
+        if(i===f.idx)return;
+        if(confirm('Jump to '+c.name+' and start its clock now?'))jump(i);
+      };
+      ul.appendChild(li);
+    });
+  }
+
+  var rep=report(f);
+  $('reportcard').hidden=!rep;$('report').textContent=rep||'';
+  paintSend(f,rep);
+  drawSMChips();
+}
+
+// ---------- stage managers ----------
+function smById(id){for(var i=0;i<cfg.sms.length;i++)if(cfg.sms[i].id===id)return cfg.sms[i];return null}
+function smNow(){return S.sm?smById(S.sm):null}
+function drawSMChips(){
+  var box=$('smchips');box.innerHTML='';
+  $('smnone').hidden=cfg.sms.length>0;
+  cfg.sms.forEach(function(m){
+    var b=document.createElement('button');b.textContent=m.name||'(no name)';
+    b.classList.toggle('on',S.sm===m.id);
+    b.onclick=function(){commit({sm:S.sm===m.id?null:m.id})};     // tap again to clear
+    box.appendChild(b);
+  });
+}
+function drawSMList(){
+  var box=$('smlist');box.innerHTML='';
+  cfg.sms.forEach(function(m,i){
+    var r=document.createElement('div');r.className='smrow';
+    [['name','Name','text',''],['email','Email','email',''],['phone','Phone','tel','ph']].forEach(function(f){
+      var inp=document.createElement('input');inp.type=f[2];inp.placeholder=f[1];inp.value=m[f[0]]||'';inp.className=f[3];
+      inp.setAttribute('aria-label',f[1]);inp.autocomplete='off';
+      inp.oninput=function(){m[f[0]]=inp.value.trim();persist();sig=''};
+      r.appendChild(inp);
+    });
+    var x=document.createElement('button');x.className='x';x.textContent='\u00d7';x.setAttribute('aria-label','Remove '+(m.name||'stage manager'));
+    x.onclick=function(){if(!confirm('Remove '+(m.name||'this stage manager')+'?'))return;cfg.sms.splice(i,1);persist();drawSMList();sig=''};
+    r.appendChild(x);box.appendChild(r);
+  });
+  $('smcc').value=cfg.reportCc||'';
+}
+// ready-to-send messages: the device's Mail or Messages opens filled in
+// An ad-hoc performance (started off the printed schedule) reads exactly like
+// a normal scheduled show in the report; only a rehearsal gets called out.
+function adhocKindOf(f){return (S.adhoc&&f.perf===S.adhoc)?(S.adhoc.kind||'rehearsal'):null}
+function reportSubject(f){var k=adhocKindOf(f);return 'Show report: '+f.perf.show+(k==='rehearsal'?' run-through, '+dayLabel(f.perf.date):', '+dayLabel(f.perf.date)+' '+pretty(f.perf.time))}
+function mailLink(f,text){
+  var sm=smNow(),to=sm&&sm.email?sm.email:'',cc=cfg.reportCc||'';
+  if(!to&&!cc)return null;
+  if(!to){to=cc;cc=''}
+  var q=[];if(cc&&cc!==to)q.push('cc='+encodeURIComponent(cc));
+  q.push('subject='+encodeURIComponent(reportSubject(f)));
+  q.push('body='+encodeURIComponent(text.replace(/\n/g,'\r\n')));
+  return 'mailto:'+encodeURIComponent(to).replace(/%40/g,'@')+'?'+q.join('&');
+}
+function textLink(text){
+  var sm=smNow();if(!sm||!sm.phone)return null;
+  var num=sm.phone.replace(/[^0-9+]/g,'');if(!num)return null;
+  var apple=/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent||'');
+  return 'sms:'+num+(apple?'&':'?')+'body='+encodeURIComponent(text);   // Apple Messages wants &body
+}
+function paintSend(f,rep){
+  var sm=smNow(),ml=rep?mailLink(f,rep):null,tl=rep?textLink(rep):null;
+  $('mailreport').hidden=!ml;$('textreport').hidden=!tl;
+  var first=sm?(sm.name||'').split(' ')[0]:'';
+  $('mailreport').textContent=sm&&sm.email?'Email report to '+first:'Email report';
+  $('textreport').textContent='Text report to '+first;
+  $('mailreport').onclick=function(){if(ml)location.href=ml};
+  $('textreport').onclick=function(){if(tl)location.href=tl};
+  var h=$('sendhint');
+  h.hidden=!!(ml||tl)||!rep;
+  h.textContent=!cfg.sms.length?'To email or text this report, add stage managers under Settings, SMs.'
+    :!sm?'Pick tonight\'s stage manager above to email or text this report.'
+    :first+' has no email or phone saved. Add one under Settings, SMs.';
+}
+
+function report(f){
+  if(f.idle||S.key!==f.perf.key||!S.log.length)return '';
+  var kind=adhocKindOf(f);
+  var L=f.L,nA=f.nA,lines=[f.perf.show+(kind==='rehearsal'?', run-through, '+dayLabel(f.perf.date)+' '+clockOf(f.perf.curtain):', '+dayLabel(f.perf.date)+' '+pretty(f.perf.time))];
+  var sm=smNow();if(sm&&sm.name)lines.push('Stage manager: '+sm.name);
+  var up=firstUp();
+  if(up&&kind!=='rehearsal'){
+    var late=Math.round((up-f.perf.curtain)/6e4);
+    lines.push('Up at '+clockOf(up)+(late>0?' ('+late+' min late)':late<0?' ('+(-late)+' min early)':' (on time)'));
+  }
+  for(var k=0;k<S.log.length;k++){
+    var e=S.log[k];if(e.i>=L.length)break;
+    var end=S.log[k+1]?S.log[k+1].at:null,c=L[e.i];
+    if(!end){lines.push(c.name+': running');continue}
+    var hd=heldOf(S.held,e.i),ran=end-e.at-hd,plan=(c.minutes||0)*6e4,diff=Math.round((ran-plan)/1000);
+    lines.push(c.name+': '+fmt(ran)+(Math.abs(diff)>=30?(diff>0?' ('+fmt(diff*1000)+' over)':' ('+fmt(-diff*1000)+' under)'):'')+(hd>=5000?', held '+fmt(hd):''));
+  }
+  if(f.done&&up){
+    var pd=Math.round((S.target-(f.perf.curtain+plannedTotal(f)))/6e4);
+    var ht=heldTotal(S.held);
+    lines.push('Down at '+clockOf(S.target)+', running time '+fmt(S.target-up-ht)+(ht>=5000?' (held '+fmt(ht)+' not counted)':'')
+      +(S.adhoc&&f.perf===S.adhoc?'':', '+(Math.abs(pd)<=1?'on time':pd>0?pd+' min later than planned':(-pd)+' min earlier than planned')));
+  }
+  return lines.join('\n');
+}
+
+// Full-screen display: size the digits to fill the screen. Digits are all the
+// same width, so this only needs redoing when the character count or the
+// window size changes.
+var fitKey='';
+function fit(){
+  if(!isDisplay||!document.body.classList.contains('full'))return;
+  var big=$('big'),st=$('stage'),t=big.textContent;
+  while(t.length<sizeLen)t='0'+t;                  // e.g. "9:59" measured as "09:59"
+  var k=t.replace(/[0-9]/g,'0')+'|'+$('sub').textContent.length+'|'+innerWidth+'|'+innerHeight;
+  if(k===fitKey)return;fitKey=k;
+  var ms=$('measure');ms.textContent=t;
+  var w=ms.scrollWidth||1,h=ms.offsetHeight||1;
+  var room=0.6;                                    // cue name and bottom line fit in the rest
+  var size=Math.min(innerWidth*0.96/w*100,innerHeight*room/h*100);
+  st.style.setProperty('--digit',size+'px');
+  st.style.setProperty('--label',Math.max(18,size*0.16)+'px');
+  st.style.setProperty('--note',Math.max(14,size*0.1)+'px');
+  // shrink the bottom line only if a long show name would run off the edge
+  // (measured at its target size, so the glide doesn't throw it off)
+  ms.style.fontSize=Math.max(14,size*0.1)+'px';ms.style.fontWeight='400';ms.style.letterSpacing='.1em';
+  ms.textContent=$('sub').textContent;var sw=ms.scrollWidth,room2=innerWidth*0.94;
+  if(sw>room2)st.style.setProperty('--note',Math.max(12,size*0.1*room2/sw)+'px');
+  ms.style.fontSize='';ms.style.fontWeight='';ms.style.letterSpacing='';
+}
+window.addEventListener('resize',function(){fitKey='';fit()});
+setInterval(function(){tick();fit()},250);
+
+// ---------- controls ----------
+$('go').onclick=go;
+$('back').onclick=back;
+$('hold').onclick=hold;
+$('plus').onclick=plusOne;
+$('wings').onclick=toggleWings;
+function toggleWings(){
+  document.body.classList.toggle('wings');
+  sset('mmt-wings',document.body.classList.contains('wings')?'1':'0');
+}
+// its own window (not a tab), sized like a TV, ready to drag to another screen
+$('screen').onclick=function(){
+  var w=window.open(linkFor('full')+'&pop=1','mmt-display','popup,width=1280,height=720');
+  if(!w)window.open(linkFor('full')+'&pop=1','_blank');
+};
+// ---------- run-through setup ----------
+// Pick the show (current and upcoming productions, or Other with a name) and
+// when it starts with one tap. A line underneath says what the screens will do.
+var rtShow=null,rtKind='rehearsal';
+// A run-through never carries the weight of a real show: it's exempt from
+// the on-time/late reporting and gets flagged everywhere ("RUN-THROUGH").
+// A performance started this way (off the printed schedule, or early) is a
+// real show in every other respect, so it reads exactly like a scheduled one
+// except for a plain "PERFORMANCE" tag while it's running.
+function rtKindChips(){
+  var box=$('rtkind');box.innerHTML='';
+  [['rehearsal','Run-through'],['performance','Performance']].forEach(function(o){
+    var b=document.createElement('button');b.textContent=o[1];b.classList.toggle('on',rtKind===o[0]);
+    b.onclick=function(){rtKind=o[0];rtKindChips()};box.appendChild(b);
+  });
+  $('rttitle').textContent=rtKind==='performance'?'Start a performance':'Start a run-through';
+  $('rtstart').textContent=rtKind==='performance'?'Start performance':'Start run-through';
+}
+function rtShows(){
+  var today=ymd(new Date(NOW())),seen={},out=[];
+  cfg.runs.filter(function(r){return r.show&&(!r.end||r.end>=today)})
+    .sort(function(a,b){return (a.start||'').localeCompare(b.start||'')})
+    .forEach(function(r){if(!seen[r.show]){seen[r.show]=1;out.push(r)}});
+  return out;
+}
+function rtName(){return rtShow==='other'?($('rtname').value.trim()||(rtKind==='performance'?'Performance':'Run-through')):rtShow}
+// Starting now always means right now -- no scheduled-start picker to fill in.
+function rtCurtain(){return NOW()}
+function rtPreview(){
+  $('rtpreview').textContent='Screens show the clock and READY TO START until the SM presses GO.';
+}
+function rtChips(){
+  var sb=$('rtshows');sb.innerHTML='';
+  var shows=rtShows();
+  if(rtShow===null){
+    var today=ymd(new Date(NOW())),now=shows.filter(function(r){return r.start<=today})[0];
+    rtShow=now?now.show:shows.length?shows[0].show:'other';
+  }
+  shows.map(function(r){return r.show}).concat(['other']).forEach(function(v){
+    var b=document.createElement('button');b.textContent=v==='other'?'Other':v;b.classList.toggle('on',rtShow===v);
+    b.onclick=function(){rtShow=v;rtChips()};sb.appendChild(b);
+  });
+  $('rtname').hidden=rtShow!=='other';
+  rtPreview();
+}
+function openRT(){rtShow=null;rtKind='rehearsal';$('rtname').value='';rtKindChips();rtChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
+function endRT(){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false,holdAt:0,held:{}})}
+$('rtname').oninput=rtPreview;
+$('rehearse').onclick=function(){
+  var f=frame(NOW());
+  if(S.adhoc&&!f.idle&&f.perf===S.adhoc){endRT();return}
+  openRT();
+};
+$('rtidle').onclick=openRT;
+$('rtend').onclick=function(){
+  var label=(S.adhoc&&S.adhoc.kind==='performance')?'performance':'run-through';
+  if(confirm('End the '+label+'? The screens go back to the schedule.'))endRT();
+};
+$('rtcancel').onclick=function(){$('rtpanel').hidden=true};
+$('rtstart').onclick=function(){
+  var now=NOW(),c=rtCurtain();
+  var d=new Date(c);
+  var p={key:'adhoc-'+now,show:rtName(),date:ymd(d),time:pad(d.getHours())+':'+pad(d.getMinutes()),curtain:c,adhoc:true,kind:rtKind};
+  $('rtpanel').hidden=true;
+  commit({adhoc:p,key:p.key,idx:null,log:[],msg:null,paused:false,holdAt:0,held:{}});
+};
+$('reset').onclick=function(){
+  if(!confirm('Clear the running clock and go back to pre-show? The show report for this performance is lost.'))return;
+  commit({idx:null,log:[],paused:false,msg:null,holdAt:0,held:{}});
+};
+$('copyreport').onclick=function(){copy($('report').textContent,$('copyreport'),'Copy report')};
+$('addsm').onclick=function(){
+  cfg.sms.push({id:'sm'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:'',email:'',phone:''});
+  persist();drawSMList();var ins=$('smlist').querySelectorAll('input');if(ins.length)ins[ins.length-3].focus();sig='';
+};
+$('smcc').oninput=function(){cfg.reportCc=this.value.trim();persist()};
+document.addEventListener('keydown',function(e){
+  var tag=(e.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea'||tag==='select')return;
+  if(isDisplay){
+    if(e.key==='w')toggleWings();
+    if(e.key==='f'){document.body.classList.toggle('full');nameTab();$('stage').removeAttribute('style');fitKey='';fit()}
+    return;
+  }
+  if(!$('settings').hidden)return;
+  if(e.code==='Space'){e.preventDefault();go();return}
+  var k=e.key.toLowerCase();
+  if(k==='b')back();
+  else if(k==='h')hold();
+  else if(k==='+'||k==='=')plusOne();
+  else if(k==='-'||k==='_')adjust(-60);
+  else if(k==='escape'||k==='0'){if(S.msg)commit({msg:null})}
+  else if(/^[1-9]$/.test(k)&&cfg.messages[Number(k)-1])call(cfg.messages[Number(k)-1]);
+});
+
+function copy(text,btn,label){
+  var done=function(){btn.textContent='Copied';setTimeout(function(){btn.textContent=label},1800)};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done,function(){prompt('Copy this:',text)});
+  else prompt('Copy this:',text);
+}
+
+// ---------- schedule editor ----------
+function showTab(t){
+  if(!document.querySelector('#settings .tabpane[data-pane="'+t+'"]'))t='shows';
+  Array.prototype.forEach.call(document.querySelectorAll('#settings .tabs button'),function(b){
+    var on=b.dataset.tab===t;b.classList.toggle('on',on);b.setAttribute('aria-selected',on?'true':'false');
+    if(on&&b.scrollIntoView)b.scrollIntoView({block:'nearest',inline:'nearest'});
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#settings .tabpane'),function(p){p.hidden=p.dataset.pane!==t});
+  sset('mmt-settab',t);window.scrollTo(0,0);tabEdge();
+}
+Array.prototype.forEach.call(document.querySelectorAll('#settings .tabs button'),function(b){b.onclick=function(){showTab(b.dataset.tab)}});
+function tabEdge(){var t=document.querySelector('#settings .tabs');if(t)t.classList.toggle('more',t.scrollWidth-t.clientWidth-t.scrollLeft>4)}
+document.querySelector('#settings .tabs').addEventListener('scroll',tabEdge);window.addEventListener('resize',tabEdge);
+$('setup').onclick=function(){
+  var s=$('settings');s.hidden=!s.hidden;
+  document.body.classList.toggle('setting',!s.hidden);
+  if(!s.hidden){
+    drawTimes();drawRuns();drawTpl();
+    drawSMList();
+    $('msgedit').value=cfg.messages.join('\n');$('stagesel').value=cfg.stage||'main';$('endlabel').value=cfg.endLabel||'';
+    drawPreview();drawLinks();
+    showTab(sget('mmt-settab')||'shows');
+  }
+};
+$('done').onclick=function(){$('settings').hidden=true;document.body.classList.remove('setting');window.scrollTo(0,0);if(cfgPending)sendCfg();draw()};
+
+function linkFor(view){
+  var base=location.href.split('#')[0];
+  return base+'#s='+enc(cfg)+(view==='display'?'&v=display':view==='full'?'&v=display&mode=full':'');
+}
+function deckUrl(cmd){return topicUrl()+'/publish?message='+encodeURIComponent('cmd:'+cmd)}
+function drawDeck(){
+  var box=$('deckkeys');if(!box)return;box.innerHTML='';
+  var keys=[['GO','go'],['Back','back'],['Hold / Resume','hold'],['+1 min','plus'],['\u22121 min','minus']]
+    .concat(cfg.messages.map(function(t){return [t,'call:'+t]}))
+    .concat([['Clear the call','clear']]);
+  keys.forEach(function(k){
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)';
+    var l=document.createElement('span');l.style.cssText='flex:1;font-weight:600;font-size:14px';l.textContent=k[0];
+    var b=document.createElement('button');b.className='small';b.textContent='Copy address';
+    b.onclick=function(){copy(deckUrl(k[1]),b,'Copy address')};
+    row.appendChild(l);row.appendChild(b);box.appendChild(row);
+  });
+}
+function drawLinks(){
+  drawDeck();
+  $('lk-control').textContent=linkFor('');$('lk-display').textContent=linkFor('display');$('lk-full').textContent=linkFor('full');
+}
+Array.prototype.forEach.call(document.querySelectorAll('[data-copy]'),function(b){
+  var label=b.textContent;b.onclick=function(){copy(linkFor(b.dataset.copy),b,label)};
+});
+
+function persist(){
+  cfg.v=NOW();
+  sset('mmt-timer-cfg-dev',enc(cfg));
+  sendCfgSoon();
+  try{history.replaceState(null,'',linkFor(isDisplay?(document.body.classList.contains('full')?'full':'display'):''))}catch(e){}
+  drawPreview();drawLinks();sig='';
+}
+
+$('endlabel').oninput=function(){cfg.endLabel=this.value.trim().toUpperCase();persist();draw()};
+$('stagesel').onchange=function(){
+  cfg.stage=this.value;
+  if(!cfg.runs.length){cfg.times=stageWeekend();drawTimes()}   // a fresh schedule starts from that stage's usual times
+  persist();draw();
+};
+$('msgedit').oninput=function(){cfg.messages=this.value.split('\n').map(function(x){return x.trim().toUpperCase()}).filter(Boolean);persist()};
+
+// Each run is a one-line summary until you tap it; finished runs fold into
+// a "Past runs" group so the list stays short as the season goes on.
+var openRuns=[],showPast=false;
+function shortTime(t){var p=pretty(t);return p.replace(':00 ',' ')}          // 8:00 PM -> 8 PM
+function runDates(run){
+  if(!run.start||!run.end)return 'Dates not set';
+  var a=run.start.split('-').map(Number),b=run.end.split('-').map(Number);
+  var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return a[1]===b[1]&&a[0]===b[0]?M[a[1]-1]+' '+a[2]+'\u2013'+b[2]:M[a[1]-1]+' '+a[2]+' \u2013 '+M[b[1]-1]+' '+b[2];
+}
+function runTimes(run){
+  var parts=[];
+  DAYS.forEach(function(d){
+    var ts=(run.pattern||{})[d[0]]||[];if(!ts.length)return;
+    var shown=ts.map(shortTime),ap=shown.map(function(x){return x.slice(-2)});
+    // "Sat 2 & 8 PM" when both are PM, otherwise spell each out
+    var txt=ap.every(function(x){return x===ap[0]})&&shown.length>1
+      ?shown.map(function(x){return x.slice(0,-3)}).join(' & ')+' '+ap[0]:shown.join(' & ');
+    parts.push(d[1]+' '+txt);
+  });
+  return parts.length?parts.join(', '):'No show times yet';
+}
+function runSummary(run){
+  var x=(run.exceptions||[]).length;
+  return runDates(run)+(run.custom?'. Own times: '+runTimes(run):'')+(x?'. '+x+' cancelled':'');
+}
+// the stage-wide grid; a change goes to every run that uses the standard times
+function applyTimes(){var n=0;cfg.runs.forEach(function(r){if(!r.custom){r.pattern=clone(cfg.times);n++}});return n}
+function drawTimes(){
+  var g=$('timesgrid');if(!g)return;g.innerHTML='';
+  DAYS.forEach(function(d){
+    var l=document.createElement('div');l.className='d';l.textContent=d[1];
+    var i=document.createElement('input');i.value=(cfg.times[d[0]]||[]).map(pretty).join(', ');
+    i.setAttribute('aria-label',d[1]+' show times');
+    i.onchange=function(){
+      var v=parseTimes(i.value);if(v.length)cfg.times[d[0]]=v;else delete cfg.times[d[0]];
+      i.value=v.map(pretty).join(', ');
+      var n=applyTimes();persist();drawRuns();drawTimesNote(n);
+    };
+    g.appendChild(l);g.appendChild(i);
+  });
+  drawTimesNote();
+}
+function drawTimesNote(changed){
+  var std=cfg.runs.filter(function(r){return !r.custom}).length,own=cfg.runs.filter(function(r){return r.custom});
+  var t=(changed!=null?'Updated '+changed+' run'+(changed===1?'':'s')+'. ':'')+
+    (std?std+' run'+(std===1?' uses':'s use')+' these times.':'No runs use these times yet.')+
+    (own.length?' '+(own.length===1?'1 run has':own.length+' runs have')+' its own: '+own.map(function(r){return r.show||'New run'}).join(', ')+'.':'');
+  $('timesnote').textContent=t;
+}
+function drawRuns(){
+  var box=$('runs');box.innerHTML='';
+  var today=ymd(new Date(NOW())),current=[],past=[];
+  cfg.runs.forEach(function(run,ri){(run.end&&run.end<today?past:current).push([run,ri])});
+  function card(run,ri){
+    var el=document.createElement('div');el.className='card run';
+    var open=openRuns.indexOf(run)>=0;el.classList.toggle('open',open);
+    var head=document.createElement('button');head.className='runhead';head.setAttribute('aria-expanded',open?'true':'false');
+    head.innerHTML='<span class="rtxt"><span class="rn"></span><span class="rs"></span></span><span class="chev" aria-hidden="true">\u25be</span>';
+    function paintHead(){
+      var n=head.querySelector('.rn');n.textContent=run.show||'New run';
+      if(run.start&&run.end&&run.start<=today&&today<=run.end){var bd=document.createElement('span');bd.className='badge';bd.textContent='NOW PLAYING';n.appendChild(bd)}
+      head.querySelector('.rs').textContent=runSummary(run);
+    }
+    paintHead();
+    head.onclick=function(){
+      var i=openRuns.indexOf(run);if(i>=0)openRuns.splice(i,1);else openRuns.push(run);
+      drawRuns();
+    };
+    el.appendChild(head);
+    if(!open){box.appendChild(el);return}
+
+    var body=document.createElement('div');body.className='runbody';
+    var f=document.createElement('div');f.className='field';f.style.marginTop='12px';f.innerHTML='<label>Production</label>';
+    var nm=document.createElement('input');nm.value=run.show||'';nm.placeholder='The Cher Show';
+    nm.oninput=function(){run.show=nm.value;persist();paintHead()};f.appendChild(nm);body.appendChild(f);
+
+    var dates=document.createElement('div');dates.className='pair field';
+    [['start','Opens'],['end','Closes']].forEach(function(k){
+      var w=document.createElement('div');w.innerHTML='<label>'+k[1]+'</label>';
+      var i=document.createElement('input');i.type='date';i.value=run[k[0]]||'';
+      i.onchange=function(){run[k[0]]=i.value;persist();paintHead()};w.appendChild(i);dates.appendChild(w);
+    });
+    body.appendChild(dates);
+
+    // standard times unless this run has its own
+    var tog=document.createElement('label');tog.className='check';
+    var cb=document.createElement('input');cb.type='checkbox';cb.checked=!!run.custom;
+    tog.appendChild(cb);tog.appendChild(document.createTextNode('This run has its own show times'));
+    cb.onchange=function(){run.custom=cb.checked;run.pattern=clone(cfg.times);persist();drawRuns();drawTimesNote()};
+    body.appendChild(tog);
+    if(!run.custom){
+      var st=document.createElement('p');st.className='stdtimes';
+      st.textContent='Plays the standard show times: '+runTimes({pattern:cfg.times})+'.';
+      body.appendChild(st);
+    }
+    var g=document.createElement('div');g.className='days';run.pattern=run.pattern||{};
+    if(!run.custom)g.hidden=true;
+    DAYS.forEach(function(d){
+      var l=document.createElement('div');l.className='d';l.textContent=d[1];
+      var i=document.createElement('input');
+      i.value=(run.pattern[d[0]]||[]).map(pretty).join(', ');
+      i.setAttribute('aria-label',d[1]+' show times');
+      i.onchange=function(){run.pattern[d[0]]=parseTimes(i.value);i.value=run.pattern[d[0]].map(pretty).join(', ');persist();paintHead()};
+      g.appendChild(l);g.appendChild(i);
+    });
+    body.appendChild(g);
+
+    var sk=document.createElement('div');sk.className='field';sk.style.marginTop='14px';
+    sk.innerHTML='<label>Cancelled dates</label>';
+    var si=document.createElement('input');si.value=(run.exceptions||[]).join(', ');si.placeholder='2026-10-10, 2026-10-11';
+    si.onchange=function(){run.exceptions=si.value.split(',').map(function(x){return x.trim()}).filter(function(x){return /^\d{4}-\d{2}-\d{2}$/.test(x)});si.value=run.exceptions.join(', ');persist();paintHead()};
+    sk.appendChild(si);body.appendChild(sk);
+
+    var del=document.createElement('button');del.className='quiet';del.style.width='100%';del.textContent='Remove this run';
+    del.onclick=function(){if(confirm('Remove '+(run.show||'this run')+'?')){cfg.runs.splice(ri,1);persist();drawRuns()}};
+    body.appendChild(del);
+    el.appendChild(body);
+    box.appendChild(el);
+  }
+  current.sort(function(a,b){return (a[0].start||'').localeCompare(b[0].start||'')}).forEach(function(x){card(x[0],x[1])});
+  if(!current.length){var e=document.createElement('p');e.className='muted';e.style.margin='6px 0 14px';e.textContent='No upcoming runs. Import from the dashboard or add one.';box.appendChild(e)}
+  if(past.length){
+    var ph=document.createElement('button');ph.className='pasthead';
+    ph.textContent=(showPast?'Hide past runs':'Past runs ('+past.length+')');
+    ph.onclick=function(){showPast=!showPast;drawRuns()};
+    box.appendChild(ph);
+    if(showPast)past.forEach(function(x){card(x[0],x[1])});
+  }
+}
+// Mainstage weekend: Fri 8, Sat 2 and 8, Sun 2
+var WEEKEND={fri:['20:00'],sat:['14:00','20:00'],sun:['14:00']};
+var KIDS_WEEKEND={sat:['11:00','13:00']};
+function stageWeekend(){return clone(cfg.stage==='kids'?KIDS_WEEKEND:WEEKEND)}
+// Snapshot of the dashboard's Mainstage list, used when this device has never
+// opened the dashboard. Same origin on GitHub Pages, so a device that has
+// opened it gets the live list (including any shows you've edited there).
+var DASH_SNAPSHOT_KIDS=[
+  {name:'Lion King Kids',start:'2026-09-12',end:'2026-09-26'},
+  {name:'The Great Pumpkin',start:'2026-10-10',end:'2026-10-24'},
+  {name:'James and the Giant Peach',start:'2026-10-31',end:'2026-11-14'},
+  {name:'Frosty & Rudolph',start:'2026-11-28',end:'2026-12-19'}
+];
+var DASH_SNAPSHOT=[
+  {name:'The Cher Show',start:'2026-09-04',end:'2026-09-27'},
+  {name:'And Then There Were None',start:'2026-10-02',end:'2026-10-18'},
+  {name:"It's a Wonderful Life",start:'2026-10-23',end:'2026-11-15'},
+  {name:'A Christmas Carol',start:'2026-11-20',end:'2026-12-13'},
+  {name:'Big Band Holiday Concert',start:'2026-12-18',end:'2026-12-20'}
+];
+function dashboardShows(){
+  var kids=cfg.stage==='kids';
+  try{
+    var st=JSON.parse(sget('mmt_shows')||'null'),arr=st&&(kids?st.childrens:st.mainstage);
+    if(Array.isArray(arr)&&arr.length)return {list:arr,live:true};
+    var ms=JSON.parse(sget(kids?'mmt_shows_ct':'mmt_shows_ms')||'null');
+    if(Array.isArray(ms)&&ms.length)return {list:ms.map(function(x){return {name:x.name,start:x.start||x.startDate,end:x.end||x.endDate}}),live:true};
+  }catch(e){}
+  return {list:kids?DASH_SNAPSHOT_KIDS:DASH_SNAPSHOT,live:false};
+}
+$('importdash').onclick=function(){
+  var src=dashboardShows(),today=ymd(new Date(NOW())),added=0,updated=0,btn=this;
+  src.list.forEach(function(sh){
+    if(!sh||!sh.name||!sh.start||!sh.end||sh.end<today)return;
+    var hit=cfg.runs.filter(function(r){return (r.show||'').toLowerCase()===sh.name.toLowerCase()})[0];
+    if(hit){if(hit.start!==sh.start||hit.end!==sh.end){hit.start=sh.start;hit.end=sh.end;updated++}return}
+    cfg.runs.push({show:sh.name,start:sh.start,end:sh.end,pattern:clone(cfg.times),custom:false,exceptions:[]});added++;
+  });
+  cfg.runs.sort(function(a,b){return (a.start||'').localeCompare(b.start||'')});
+  persist();drawRuns();
+  btn.textContent=added||updated?('Added '+added+(updated?', updated '+updated:'')):'Already up to date';
+  setTimeout(function(){btn.textContent='Import from dashboard'},2500);
+};
+$('addrun').onclick=function(){
+  var s=new Date(),e=new Date();e.setDate(e.getDate()+21);
+  cfg.runs.push({show:'',start:ymd(s),end:ymd(e),pattern:clone(cfg.times),custom:false,exceptions:[]});
+  openRuns.push(cfg.runs[cfg.runs.length-1]);
+  persist();drawRuns();
+};
+
+function drawTpl(){
+  var box=$('tpl');box.innerHTML='';
+  cfg.template.forEach(function(c,i){
+    var r=document.createElement('div');r.className='cue';
+    var nm=document.createElement('input');nm.value=c.name;
+    nm.oninput=function(){c.name=nm.value.toUpperCase();persist()};
+    var ty=document.createElement('select');
+    ty.innerHTML='<option value="anchor">Clock time</option><option value="down">Count down</option><option value="up">Count up</option>';
+    ty.value=c.type==='anchor'?'anchor':isUp(c)?'up':'down';
+    ty.onchange=function(){
+      var was=c.type;
+      if(ty.value==='anchor'){c.type='anchor';c.offset=-(c.minutes||30);delete c.minutes;delete c.up}
+      else{c.type='duration';if(was==='anchor'){c.minutes=Math.abs(c.offset||10);delete c.offset}c.up=ty.value==='up'}
+      delete c.colors;   // times mean something different once the direction changes
+      persist();drawTpl();
+    };
+    var n=document.createElement('input');n.type='number';n.inputMode='numeric';
+    n.value=c.type==='anchor'?(c.offset||0):(c.minutes||0);
+    n.onchange=function(){var v=Number(n.value)||0;if(c.type==='anchor')c.offset=Math.min(0,v);else c.minutes=Math.max(0,v);n.value=c.type==='anchor'?c.offset:c.minutes;persist()};
+    var x=document.createElement('button');x.className='x';x.textContent='\u00d7';x.setAttribute('aria-label','Remove '+c.name);
+    x.onclick=function(){cfg.template.splice(i,1);openColors={};persist();drawTpl()};
+    r.appendChild(nm);r.appendChild(ty);r.appendChild(n);r.appendChild(x);
+    var wrap=document.createElement('div');wrap.className='cuewrap';wrap.appendChild(r);
+    wrap.appendChild(colorEditor(c,i));
+    box.appendChild(wrap);
+  });
+}
+
+// ---------- per-cue color menu ----------
+var openColors={};
+function sortRules(c){
+  var up=counts(c)==='up';
+  c.colors.sort(function(a,b){return up?a.at-b.at:b.at-a.at});
+}
+function colorEditor(c,i){
+  var box=document.createElement('div');
+  var up=counts(c)==='up';
+  var rules=rulesOf(c).slice().sort(function(a,b){return up?a.at-b.at:b.at-a.at});
+
+  // one-line summary that opens the menu: White > Yellow 2:00 > Red 0:00
+  var btn=document.createElement('button');btn.className='colorbtn';
+  var st=c.start||'white';
+  var html='<span class="sw" style="background:'+hexOf(st)+'"></span><span>'+nameOf(st)+'</span>';
+  rules.forEach(function(r){
+    html+='<span class="ar">\u203a</span><span class="sw" style="background:'+hexOf(r.c)+'"></span><span>'+nameOf(r.c)+' '+(!up&&r.at===0?'when over':fmt(r.at*1000))+'</span>';
+  });
+  btn.innerHTML=html+'<span style="margin-left:auto">'+(openColors[i]?'Close':'Colors')+'</span>';
+  btn.setAttribute('aria-expanded',openColors[i]?'true':'false');
+  btn.onclick=function(){openColors[i]=!openColors[i];drawTpl()};
+  box.appendChild(btn);
+  if(!openColors[i])return box;
+
+  var panel=document.createElement('div');panel.className='colors';
+  var hint=document.createElement('p');hint.className='hint';
+  hint.textContent=(up
+    ?'Counts up from 0:00. Each color takes over once the clock reaches its time.'
+    :c.type==='anchor'
+      ?'Counts down to '+c.name+'. Each color takes over once this much time is left. 0:00 colors the late start (house hold).'
+      :'Counts down. Each color takes over once this much time is left. 0:00 means once it runs over.')
+    +' Red, blue and green are darker than white and can drop out of the ATEM luma key; yellow, amber and orange hold.';
+  panel.appendChild(hint);
+
+  var srow=document.createElement('div');srow.className='crule';
+  var slead=document.createElement('div');slead.className='lead';slead.style.gridColumn='1/-1';
+  slead.textContent='Starts '+nameOf(c.start||'white');
+  srow.appendChild(slead);
+  var ssw=document.createElement('div');ssw.className='swatches';
+  PALETTE.forEach(function(pc){
+    var b=document.createElement('button');b.style.background=pc[2];b.title=pc[1];b.setAttribute('aria-label','Start '+pc[1]);
+    if(pc[0]===(c.start||'white'))b.className='pick';
+    b.onclick=function(){if(pc[0]==='white')delete c.start;else c.start=pc[0];persist();drawTpl()};
+    ssw.appendChild(b);
+  });
+  srow.appendChild(ssw);
+  panel.appendChild(srow);
+
+  if(!Array.isArray(c.colors))c.colors=rulesOf(c).map(function(r){return {at:r.at,c:r.c}});
+  sortRules(c);
+  c.colors.forEach(function(rule,ri){
+    var row=document.createElement('div');row.className='crule';
+    var lead=document.createElement('div');lead.className='lead';
+    lead.textContent=up?'Turn '+nameOf(rule.c)+' at':'Turn '+nameOf(rule.c)+' with';
+    var t=document.createElement('input');t.inputMode='numeric';t.value=fmt(rule.at*1000);
+    t.setAttribute('aria-label',nameOf(rule.c)+' time');
+    t.onchange=function(){var v=parseClock(t.value);if(v==null){t.value=fmt(rule.at*1000);return}rule.at=v;sortRules(c);persist();drawTpl()};
+    var del=document.createElement('button');del.className='x';del.textContent='\u00d7';del.setAttribute('aria-label','Remove '+nameOf(rule.c));
+    del.onclick=function(){c.colors.splice(ri,1);persist();drawTpl()};
+    row.appendChild(lead);row.appendChild(t);row.appendChild(del);
+    var sw=document.createElement('div');sw.className='swatches';
+    PALETTE.forEach(function(pc){
+      var b=document.createElement('button');b.style.background=pc[2];b.title=pc[1];b.setAttribute('aria-label',pc[1]);
+      if(pc[0]===rule.c)b.className='pick';
+      b.onclick=function(){rule.c=pc[0];persist();drawTpl()};
+      sw.appendChild(b);
+    });
+    row.appendChild(sw);
+    if(!up){var tail=document.createElement('div');tail.className='lead';tail.style.gridColumn='1/-1';tail.style.marginTop='-4px';tail.textContent=rule.at===0?'left (when it runs over)':'left';row.appendChild(tail)}
+    panel.appendChild(row);
+  });
+
+  var add=document.createElement('button');add.className='quiet small';add.style.width='100%';add.textContent='Add a color change';
+  add.onclick=function(){
+    var guess=up?Math.max(60,(c.minutes||10)*60):60;
+    c.colors.push({at:guess,c:'red'});sortRules(c);persist();drawTpl();
+  };
+  panel.appendChild(add);
+  var reset=document.createElement('button');reset.className='quiet small';reset.style.width='100%';reset.style.marginTop='8px';reset.textContent='Back to the standard colors';
+  reset.onclick=function(){delete c.colors;delete c.start;persist();drawTpl()};
+  panel.appendChild(reset);
+  box.appendChild(panel);
+  return box;
+}
+$('addcue').onclick=function(){cfg.template.push({name:'NEW CUE',type:'duration',minutes:10});persist();drawTpl()};
+
+function drawPreview(){
+  var box=$('preview');box.innerHTML='';var found=0;
+  for(var i=0;i<14&&found<14;i++){
+    var d=new Date();d.setDate(d.getDate()+i);
+    perfsOn(ymd(d)).forEach(function(p){
+      var row=document.createElement('div');
+      row.style.cssText='padding:7px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px';
+      var l=document.createElement('span');l.textContent=dayLabel(p.date)+', '+pretty(p.time)+(cfg.runs.length>1?'  '+p.show:'');
+      var r=document.createElement('span');r.className='muted';r.textContent='call '+clockOf(p.curtain+leadMin()*6e4);
+      row.appendChild(l);row.appendChild(r);box.appendChild(row);found++;
+    });
+  }
+  if(!found)box.innerHTML='<p class="muted">Nothing in the next two weeks. The display stays on the wall clock.</p>';
+}
+
+// ---------- version ----------
+// Controllers show it at the bottom of the page. A display shows it in the
+// corner for ten seconds after it loads, then fades it out so it's not in
+// the camera feed, which is enough to confirm a screen picked up a new copy.
+function paintClockNote(){
+  var n=SKEW?' · clock adjusted '+(SKEW>0?'+':'−')+(Math.abs(SKEW)/1000).toFixed(1)+' s':'';
+  $('vercontrol').textContent='Show Timer '+VERSION+n;
+  if(isDisplay&&!$('ver').hidden)$('ver').textContent='VERSION '+VERSION+n;
+}
+$('vercontrol').textContent='Show Timer '+VERSION;
+if(isDisplay){
+  $('ver').textContent='VERSION '+VERSION;$('ver').hidden=false;paintClockNote();
+  setTimeout(function(){$('ver').classList.add('gone')},10000);
+  setTimeout(function(){$('ver').hidden=true},11500);
+}
+
+if(isDisplay){
+  $('fsgo').onclick=goFS;
+  document.addEventListener('dblclick',function(){inFS()?exitFS():goFS()});
+  ['fullscreenchange','webkitfullscreenchange'].forEach(function(e){document.addEventListener(e,function(){paintFS();fitKey='';fit()})});
+  paintFS();
+}
+
+// ---------- window launchers ----------
+// Browsers won't let a page hide its own address bar. Chrome and Edge can open
+// a link as an app window with none, and on a Mac the launcher gets the same
+// result from Firefox with a separate profile that hides its toolbars. These tiny launchers do that, with
+// this display's link already inside, zipped so the Mac one keeps permission
+// to run. They're built right here, so there's nothing extra in the repo.
+function macLauncher(link){
+  link=String(link).replace(/'/g,"'\\''");
+  return [
+    "#!/bin/bash",
+    "# MMT Show Timer window launcher (made by timer "+VERSION+").",
+    "# Opens the display in its own small window with no address bar or tabs.",
+    "# Uses Firefox if it is installed, otherwise Google Chrome.",
+    "# Drag the window corner to any size; the timer scales to fit.",
+    "# To open a different timer link: quit the display window, copy the new link,",
+    "# then double-click this.",
+    "",
+    "LINK='"+link+"'",
+    "CLIP=\"$(pbpaste 2>/dev/null)\"",
+    "case \"$CLIP\" in",
+    "  *timer.html*\"#s=\"*) LINK=\"$(printf \"%s\" \"$CLIP\" | tr -d \"\\r\\n\")\" ;;",
+    "esac",
+    "",
+    "FF=\"\"",
+    "for c in \"/Applications/Firefox.app\" \"$HOME/Applications/Firefox.app\" \"/Applications/Firefox ESR.app\"; do",
+    "  if [ -d \"$c\" ]; then FF=\"$c\"; break; fi",
+    "done",
+    "",
+    "if [ -n \"$FF\" ]; then",
+    "  # Firefox: its own profile (~/.mmt-timer-firefox) with the toolbars hidden.",
+    "  # Your everyday Firefox is never touched and can stay open.",
+    "  PROFILE=\"$HOME/.mmt-timer-firefox\"",
+    "",
+    "  if pgrep -f \".mmt-timer-firefox\" >/dev/null 2>&1; then",
+    "    osascript -e 'display dialog \"The timer display window is already open. To load a different link, quit that window (click it, then press Cmd-Q), copy the link, and double-click this again.\" buttons {\"OK\"} default button \"OK\" with title \"MMT Timer Display\"' >/dev/null",
+    "    exit 0",
+    "  fi",
+    "",
+    "  mkdir -p \"$PROFILE/chrome\"",
+    "",
+    "  cat > \"$PROFILE/user.js\" <<'JS'",
+    "user_pref(\"toolkit.legacyUserProfileCustomizations.stylesheets\", true);",
+    "user_pref(\"browser.tabs.drawInTitlebar\", false);",
+    "user_pref(\"browser.shell.checkDefaultBrowser\", false);",
+    "user_pref(\"browser.startup.page\", 0);",
+    "user_pref(\"browser.startup.homepage_override.mstone\", \"ignore\");",
+    "user_pref(\"startup.homepage_welcome_url\", \"\");",
+    "user_pref(\"startup.homepage_welcome_url.additional\", \"\");",
+    "user_pref(\"browser.aboutwelcome.enabled\", false);",
+    "user_pref(\"browser.warnOnQuit\", false);",
+    "user_pref(\"browser.tabs.warnOnClose\", false);",
+    "user_pref(\"browser.sessionstore.resume_from_crash\", false);",
+    "user_pref(\"datareporting.policy.dataSubmissionPolicyBypassNotification\", true);",
+    "user_pref(\"browser.rights.3.shown\", true);",
+    "JS",
+    "",
+    "  cat > \"$PROFILE/chrome/userChrome.css\" <<'CSS'",
+    "@namespace url(\"http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul\");",
+    "/* Hide the tab strip, address bar and bookmarks bar. Only the slim window",
+    "   title bar is left, so the window can still be dragged. */",
+    "#TabsToolbar, #nav-bar, #PersonalToolbar, #toolbar-menubar {",
+    "  visibility: collapse !important;",
+    "}",
+    "#sidebar-box, #sidebar-header, #sidebar-splitter {",
+    "  display: none !important;",
+    "}",
+    "CSS",
+    "",
+    "  # First launch only: a small starting window. After that Firefox remembers",
+    "  # whatever size and spot you leave it in.",
+    "  if [ ! -f \"$PROFILE/xulstore.json\" ]; then",
+    "    cat > \"$PROFILE/xulstore.json\" <<'JSON'",
+    "{\"chrome://browser/content/browser.xhtml\":{\"main-window\":{\"screenX\":\"80\",\"screenY\":\"100\",\"width\":\"720\",\"height\":\"440\",\"sizemode\":\"normal\"}}}",
+    "JSON",
+    "  fi",
+    "",
+    "  open -n -a \"$FF\" --args -no-remote -profile \"$PROFILE\" \"$LINK\"",
+    "  echo \"Opened. You can close this window.\"",
+    "  exit 0",
+    "fi",
+    "",
+    "if open -Ra \"Google Chrome\" 2>/dev/null; then",
+    "  open -na \"Google Chrome\" --args --app=\"$LINK\"",
+    "  echo \"Opened. You can close this window.\"",
+    "  exit 0",
+    "fi",
+    "",
+    "osascript -e 'display dialog \"This needs Firefox or Google Chrome. Install one on this Mac, then double-click this again.\" buttons {\"OK\"} default button \"OK\" with title \"MMT Timer Display\"' >/dev/null",
+    "exit 1"
+  ].join('\n')+'\n';
+}
+function winLauncher(link){
+  link=String(link).replace(/%/g,'%%');
+  // single-line IFs on purpose: "Program Files (x86)" breaks bracketed blocks
+  var CH='\\Google\\Chrome\\Application\\chrome.exe',ED='\\Microsoft\\Edge\\Application\\msedge.exe';
+  return [
+    '@echo off',
+    'rem MMT Show Timer window launcher (made by timer '+VERSION+').',
+    'rem Opens the display in its own Chrome or Edge window with no address bar or tabs.',
+    'rem Drag the window corner to any size; the timer scales to fit.',
+    'set "LINK='+link+'"',
+    'set "B="',
+    'if exist "%ProgramFiles%'+CH+'" set "B=%ProgramFiles%'+CH+'"',
+    'if not defined B if exist "%ProgramFiles(x86)%'+CH+'" set "B=%ProgramFiles(x86)%'+CH+'"',
+    'if not defined B if exist "%LocalAppData%'+CH+'" set "B=%LocalAppData%'+CH+'"',
+    'if not defined B if exist "%ProgramFiles(x86)%'+ED+'" set "B=%ProgramFiles(x86)%'+ED+'"',
+    'if not defined B if exist "%ProgramFiles%'+ED+'" set "B=%ProgramFiles%'+ED+'"',
+    'if not defined B goto nobrowser',
+    'start "" "%B%" --app="%LINK%"',
+    'exit /b 0',
+    ':nobrowser',
+    'echo This needs Google Chrome or Microsoft Edge. Install one, then double-click this again.',
+    'pause',
+    ''
+  ].join('\r\n');
+}
+var CRC=null;
+function crc32(b){
+  if(!CRC){CRC=new Uint32Array(256);for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;CRC[n]=c>>>0}}
+  var x=0xFFFFFFFF;for(var i=0;i<b.length;i++)x=CRC[(x^b[i])&255]^(x>>>8);return (x^0xFFFFFFFF)>>>0;
+}
+function put(dv,fields){fields.forEach(function(f){f[2]===4?dv.setUint32(f[0],f[1]>>>0,true):dv.setUint16(f[0],f[1],true)})}
+// one file, stored uncompressed; on the Mac one, marked runnable (Unix 755)
+function zipOne(name,text,runnable){
+  var te=new TextEncoder(),data=te.encode(text),fn=te.encode(name),crc=crc32(data),d=new Date();
+  var tm=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1))&0xFFFF;
+  var dt=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF;
+  var lh=new DataView(new ArrayBuffer(30)),ch=new DataView(new ArrayBuffer(46)),eo=new DataView(new ArrayBuffer(22));
+  put(lh,[[0,0x04034b50,4],[4,20,2],[6,0,2],[8,0,2],[10,tm,2],[12,dt,2],[14,crc,4],[18,data.length,4],[22,data.length,4],[26,fn.length,2],[28,0,2]]);
+  put(ch,[[0,0x02014b50,4],[4,runnable?(3<<8)|20:20,2],[6,20,2],[8,0,2],[10,0,2],[12,tm,2],[14,dt,2],[16,crc,4],[20,data.length,4],[24,data.length,4],
+    [28,fn.length,2],[30,0,2],[32,0,2],[34,0,2],[36,0,2],[38,runnable?(0x81ED<<16):0,4],[42,0,4]]);
+  put(eo,[[0,0x06054b50,4],[4,0,2],[6,0,2],[8,1,2],[10,1,2],[12,46+fn.length,4],[16,30+fn.length+data.length,4],[20,0,2]]);
+  return new Blob([lh,fn,data,ch,fn,eo],{type:'application/zip'});
+}
+function downloadLauncher(kind,btn){
+  var link=linkFor('full'),stage=cfg.stage==='kids'?" (Children's Theatre)":'';
+  var blob=kind==='mac'
+    ?zipOne('Open Timer Display.command',macLauncher(link),true)
+    :zipOne('Open Timer Display.bat',winLauncher(link),false);
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='Open Timer Display'+stage+(kind==='mac'?' (Mac)':' (Windows)')+'.zip';
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},2000);
+  if(btn){var l=btn.textContent;btn.textContent='Downloaded';setTimeout(function(){btn.textContent=l},2000)}
+}
+$('dl-mac').onclick=function(){downloadLauncher('mac',this)};
+$('dl-win').onclick=function(){downloadLauncher('win',this)};
+
+// ---------- display menu: appears when the mouse moves over a full-screen display ----------
+// Never on the corner layout (that's the Wyse's ATEM feed), never on touch,
+// and it fades after 3 seconds without movement.
+if(isDisplay){
+  var dmTimer=null,dmOver=false;
+  function dmShow(){
+    if(!document.body.classList.contains('full'))return;
+    if(!$('fsbox').hidden)return;                        // the Go full screen box is already up
+    var m=$('dmenu');m.hidden=false;void m.offsetWidth;m.classList.add('on');
+    document.body.classList.add('pointer');
+    $('dm-fs').textContent=inFS()?'Leave full screen':'Full screen';
+    clearTimeout(dmTimer);dmTimer=setTimeout(dmHide,3000);
+  }
+  function dmHide(){
+    if(dmOver){dmTimer=setTimeout(dmHide,1000);return}
+    var m=$('dmenu');m.classList.remove('on');
+    if(!(isPop&&!inFS()))document.body.classList.remove('pointer');
+    setTimeout(function(){if(!m.classList.contains('on'))m.hidden=true},320);
+  }
+  var lastX=null,lastY=null;
+  document.addEventListener('pointermove',function(e){
+    if(e.pointerType!=='mouse')return;
+    if(lastX!==null&&Math.abs(e.clientX-lastX)<4&&Math.abs(e.clientY-lastY)<4)return;
+    lastX=e.clientX;lastY=e.clientY;dmShow();
+  });
+  // iPads and iPhones can't run a launcher (iPadOS says "Macintosh" but has touch points)
+  var ua=navigator.userAgent||'',iOS=/iPad|iPhone|iPod/.test(ua)||(/Macintosh/.test(ua)&&(navigator.maxTouchPoints||0)>1);
+  if(iOS)$('dm-mac').hidden=$('dm-win').hidden=true;
+  if(/Win/i.test((navigator.platform||'')+' '+(navigator.userAgent||'')))$('dm-mac').parentNode.insertBefore($('dm-win'),$('dm-mac'));
+  $('dmenu').addEventListener('pointerenter',function(){dmOver=true});
+  $('dmenu').addEventListener('pointerleave',function(){dmOver=false});
+  $('dmenu').addEventListener('dblclick',function(e){e.stopPropagation()});   // don't toggle full screen from the menu
+  $('dm-fs').onclick=function(){inFS()?exitFS():goFS();dmHide()};
+  $('dm-mac').onclick=function(){downloadLauncher('mac',this)};
+  $('dm-win').onclick=function(){downloadLauncher('win',this)};
+  $('dm-snd').onclick=function(){
+    var off=sget('mmt-chime')!=='0';sset('mmt-chime',off?'0':'1');
+    if(!off){unlockSound();setTimeout(function(){chime('cue',true)},150)}
+    paintSound();
+  };
+  ['pointerdown','keydown','touchend'].forEach(function(e){document.addEventListener(e,unlockSound,true)});
+  // respond on finger/mouse down: turning sound on hides the note, so a
+  // click handler would never land (the note is gone before the click ends)
+  $('sndnote').addEventListener('pointerdown',function(){unlockSound();setTimeout(function(){chime('cue',true)},150)});
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')chimeQuietUntil=Date.now()+3000});
+  paintSound();
+}
+
+// ---------- start ----------
+if(!cfg.runs.length&&!isDisplay&&!hp('s')){setTimeout(function(){$('setup').click()},50)}
+connect();wake();draw();
+})();
+</script>
+</body>
+</html>
