@@ -363,8 +363,6 @@ h2{font-size:16px;font-weight:700}
     <h2 id="rttitle">Start now</h2>
     <label>What is this</label>
     <div class="chips" id="rtkind"></div>
-    <label>Practice the pre-show: pretend show time is</label>
-    <div class="chips" id="rtlead"></div>
     <label>Which show</label>
     <div class="chips" id="rtshows"></div>
     <div class="chips" id="rtstage" hidden></div>
@@ -1503,7 +1501,7 @@ function paintStage(f,now,clockMode,wingsOn,heldNow,ink,scene){
   paintIdent(f,now,clockMode);
   if(clockMode){
     var d=new Date(now);
-    $('slug').textContent='TIME OF DAY';$('slug').className='k-clock';
+    $('slug').textContent='';$('slug').className='k-clock';
     $('big').innerHTML=(d.getHours()%12||12)+':'+pad(d.getMinutes())+'<span class="ampm">'+(d.getHours()<12?'AM':'PM')+'</span>';$('big').className='clocked';$('big').style.color='';
     $('sub').textContent=f.idle?'':f.preCall?f.cue+' AT '+clockOf(f.when):'READY TO START';
   }else{
@@ -1573,7 +1571,7 @@ function tick(){
   if(f.idle){
     var d2=new Date(now);$('iclock').textContent=clockOf(now).replace(/ (AM|PM)$/,'');
   }else if(f.preCall||f.ready){
-    $('cslug').textContent='TIME OF DAY';$('cslug').className='slug k-clock';
+    $('cslug').textContent='';$('cslug').className='slug k-clock';
     var dd=new Date(now);$('cface').innerHTML=(dd.getHours()%12||12)+':'+pad(dd.getMinutes())+'<span class="ampm">'+(dd.getHours()<12?'AM':'PM')+'</span>';$('cface').className='face clocked';$('cface').style.color='';
     $('cends').textContent=f.preCall?cap(f.cue)+' at '+clockOf(f.when)+'. Countdowns start then.':(S.adhoc&&f.perf===S.adhoc?'Press GO to begin.':'Show time was '+clockOf(f.when)+'. Press GO to begin.');
     $('cmsg').textContent=m||'';$('cmsg').classList.toggle('on',!!m);
@@ -1869,15 +1867,9 @@ function rtStageFor(){
 }
 function rtName(){return rtShow==='other'?($('rtname').value.trim()||(rtKind==='performance'?'Performance':'Run-through')):rtShow}
 // Starting now always means right now -- no scheduled-start picker to fill in.
-var rtLead=0;
+var rtLead=0;   // always 0 now (the pretend-show-time test control was removed)
 function rtCurtain(){return NOW()+rtLead*6e4}
-function rtLeadChips(){
-  var box=$('rtlead');box.innerHTML='';
-  [[0,'Now'],[50,'50 min away'],[44,'44 min away'],[38,'38 min away']].forEach(function(o){
-    var b=document.createElement('button');b.textContent=o[1];b.classList.toggle('on',rtLead===o[0]);
-    b.onclick=function(){rtLead=o[0];rtLeadChips();rtPreview()};box.appendChild(b);
-  });
-}
+function rtLeadChips(){}
 function rtPreview(){
   $('rtpreview').textContent=rtLead?'Pretends show time is '+rtLead+' min away, so the pre-show runs live from there: mic check, then Ready to open house, then show start.':'Screens show the clock and READY TO START until the SM presses GO.';
 }
