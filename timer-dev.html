@@ -142,6 +142,32 @@ ul.cues li.live .nm{color:var(--go)}
 ul.cues .dot{width:8px;height:8px;border-radius:50%;background:var(--line);flex:none}
 ul.cues li.live .dot{background:var(--go)}ul.cues li.done .dot{background:var(--dim)}
 
+/* past performances */
+#history{max-width:640px}
+.hs{background:var(--panel);border-radius:14px;margin-bottom:12px;overflow:hidden}
+.hs>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px 16px;min-height:52px}
+.hs>summary::-webkit-details-marker{display:none}
+.hs>summary::after{content:'\25BE';color:var(--dim);margin-left:auto;transition:transform .15s}
+.hs[open]>summary::after{transform:rotate(180deg)}
+.hs-name{font-size:16px;font-weight:700}
+.hs-last{font-size:13px;color:var(--dim);font-variant-numeric:tabular-nums}
+.hs-body{padding:0 16px 14px}
+.hs-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;margin-bottom:6px}
+.hn{padding:11px 0;border-top:1px solid var(--line)}
+.hn-top{display:grid;grid-template-columns:1fr auto auto;column-gap:12px;align-items:baseline}
+.hn-date{font-size:14px;font-weight:600}
+.hn-date i{font-style:normal;font-weight:400;font-size:12px;color:var(--dim);margin-left:6px}
+.hn-tot{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+.hn-d{font-size:12px;min-width:64px;text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
+.hn-d.up{color:var(--amber)}.hn-d.dn{color:var(--clock)}
+.hn-bar{height:6px;border-radius:3px;background:var(--raised);margin:7px 0 6px;overflow:hidden}
+.hn-bar b{display:block;height:100%;border-radius:3px;background:var(--accent)}
+.hn.part .hn-bar b{background:var(--btnline)}
+.hn-acts{font-size:12px;color:var(--dim);line-height:1.5;font-variant-numeric:tabular-nums}
+.hn-acts span{white-space:nowrap;margin-right:14px;display:inline-block}
+.hn-acts em{font-style:normal;text-transform:capitalize;margin-right:5px}
+.hn-acts b{font-weight:600;color:var(--type)}
+.hs-empty{color:var(--dim);font-size:14px;line-height:1.5;padding:6px 2px}
 /* show report */
 .rp{max-width:560px;margin-bottom:14px;color:var(--type)}
 .rp-title{font-size:18px;font-weight:700;line-height:1.25}
@@ -193,6 +219,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber)}
 .swatches button.pick{border-color:var(--type);box-shadow:0 0 0 2px var(--shell) inset}
 /* ---------- Schedule: its own screen, one section at a time ---------- */
 body.setting #panel>:not(#settings){display:none!important}
+body.hist #panel>:not(#history){display:none!important}
 .setbar{position:sticky;top:0;z-index:10;background:var(--shell);margin:0 -16px 16px;padding:max(10px,env(safe-area-inset-top,0px)) 16px 0;border-bottom:1px solid var(--line)}
 .settop{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:6px}
 .settop h1{font-size:20px;font-weight:700}
@@ -463,12 +490,18 @@ h2{font-size:16px;font-weight:700}
   </div>
 
 
+  <div id="history" hidden>
+    <div class="setbar"><div class="settop"><h1>Past performances</h1><button id="histdone">Done</button></div></div>
+    <div id="histbody"></div>
+  </div>
+
   <div class="foot">
     <button class="quiet" id="setup">Settings</button>
     <button class="quiet" id="rehearse">Start now</button>
     <button class="quiet" id="reset">Reset show</button>
     <button class="quiet" id="screen">Open display</button>
     <button class="quiet" id="checkbtn">Check</button>
+    <button class="quiet" id="histbtn">History</button>
     <button class="quiet" id="viewtoggle">Show more</button>
   </div>
 
@@ -629,7 +662,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='2.32-dev5';
+var VERSION='2.32-dev6';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2095,6 +2128,84 @@ function showTab(t){
 Array.prototype.forEach.call(document.querySelectorAll('#settings .tabs button'),function(b){b.onclick=function(){showTab(b.dataset.tab)}});
 function tabEdge(){var t=document.querySelector('#settings .tabs');if(t)t.classList.toggle('more',t.scrollWidth-t.clientWidth-t.scrollLeft>4)}
 document.querySelector('#settings .tabs').addEventListener('scroll',tabEdge);window.addEventListener('resize',tabEdge);
+// ---------- past performances screen ----------
+// Built only from the saved act times (HIST). A "night" is one performance; its
+// total is the acts' own running time (intermission isn't an act, so it's left out).
+function histShows(){
+  var by={};
+  HIST.forEach(function(r){
+    var sh=by[r[1]]||(by[r[1]]={name:r[1],nights:{}}),n=sh.nights[r[0]]||(sh.nights[r[0]]={at:0,acts:{},seq:[]});
+    n.acts[r[2]]=r[3];n.seq.push([r[2],r[4]]);if(r[4]>n.at)n.at=r[4];
+  });
+  var out=[];
+  Object.keys(by).forEach(function(k){
+    var sh=by[k],list=Object.keys(sh.nights).map(function(id){return sh.nights[id]});
+    list.sort(function(a,b){return b.at-a.at});
+    // act order: follow the fullest night, then anything extra
+    var best=list.slice().sort(function(a,b){return b.seq.length-a.seq.length})[0],names=[];
+    best.seq.slice().sort(function(a,b){return a[1]-b[1]}).forEach(function(x){if(names.indexOf(x[0])<0)names.push(x[0])});
+    list.forEach(function(n){n.seq.forEach(function(x){if(names.indexOf(x[0])<0)names.push(x[0])})});
+    list.forEach(function(n){
+      n.total=0;n.complete=true;
+      names.forEach(function(nm){if(n.acts[nm]==null)n.complete=false;else n.total+=n.acts[nm]});
+    });
+    var done=list.filter(function(n){return n.complete});
+    for(var i=0;i<list.length;i++){
+      list[i].delta=null;
+      if(!list[i].complete)continue;
+      for(var j=i+1;j<list.length;j++)if(list[j].complete){list[i].delta=list[i].total-list[j].total;break}
+    }
+    out.push({name:sh.name,names:names,nights:list,done:done,last:list[0].at});
+  });
+  out.sort(function(a,b){return b.last-a.last});
+  return out;
+}
+function mk(tag,cls,txt,par){var n=document.createElement(tag);if(cls)n.className=cls;if(txt!=null)n.textContent=txt;if(par)par.appendChild(n);return n}
+function drawHistory(){
+  var box=$('histbody');box.textContent='';
+  var shows=histShows();
+  if(!shows.length){
+    mk('div','hs-empty','Nothing logged yet. After a performance, each act\u2019s time shows up here, night by night, so you can see how a show is running over time.',box);
+    return;
+  }
+  shows.forEach(function(sh,si){
+    var d=mk('details','hs',null,box);if(si===0)d.open=true;
+    var sm=mk('summary',null,null,d);
+    mk('span','hs-name',sh.name,sm);
+    mk('span','hs-last',sh.nights.length+(sh.nights.length===1?' night':' nights')+' \u00b7 last '+new Date(sh.last).toLocaleDateString(undefined,{month:'short',day:'numeric'}),sm);
+    var body=mk('div','hs-body',null,d);
+    var done=sh.done;
+    if(done.length){
+      var g=mk('div','rp-tiles hs-tiles',null,body);
+      function tile(k,v,n,tone){var t=mk('div','rp-tile '+(tone||''),null,g);mk('div','rp-k',k,t);mk('div','rp-v',v,t);if(n)mk('div','rp-n',n,t)}
+      var last3=done.slice(0,3),avg=last3.reduce(function(a,n){return a+n.total},0)/last3.length;
+      tile('Latest',fmt(done[0].total),'');
+      tile('Average',fmt(Math.round(avg/1000)*1000),'last '+last3.length);
+      if(done.length>=2){
+        var tr=done[0].total-done[done.length-1].total,small=Math.abs(tr)<60000;
+        tile('Trend',small?'Steady':(tr>0?'+':'\u2212')+fmt(Math.abs(tr)),small?'vs first night':(tr>0?'longer than first':'shorter than first'),small?'ok':(tr>0?'warn':''));
+      }else tile('Trend','\u2014','needs 2 nights');
+    }
+    // bars start a little below the shortest full night, so a few minutes' difference is visible
+    var tots=sh.done.map(function(n){return n.total}),mx=tots.length?Math.max.apply(null,tots):1,mn=tots.length?Math.min.apply(null,tots):0,base=mn*0.9;
+    sh.nights.forEach(function(n){
+      var r=mk('div','hn'+(n.complete?'':' part'),null,body),top=mk('div','hn-top',null,r);
+      var dt=mk('div','hn-date',new Date(n.at).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}),top);
+      if(!n.complete)mk('i',null,'partial',dt);
+      mk('div','hn-tot',fmt(n.total),top);
+      mk('div','hn-d'+(n.delta==null?'':n.delta>0?' up':' dn'),n.delta==null||Math.abs(n.delta)<5000?'':(n.delta>0?'+':'\u2212')+fmt(Math.abs(n.delta)),top);
+      var bar=mk('div','hn-bar',null,r),fill=mk('b',null,null,bar);fill.style.width=(n.complete?(mx>base?Math.max(12,Math.round((n.total-base)/(mx-base)*100)):100):Math.max(4,Math.round(n.total/(mx||1)*100)))+'%';
+      var ac=mk('div','hn-acts',null,r);
+      sh.names.forEach(function(nm){
+        var sp=mk('span',null,null,ac);mk('em',null,nm.toLowerCase(),sp);mk('b',null,n.acts[nm]!=null?fmt(n.acts[nm]):'\u2014',sp);
+      });
+    });
+  });
+  mk('p','muted','Totals are the acts only (intermission not included). The timer keeps the last 4 nights of each act, up to 120 days. Held time and run-throughs aren\u2019t counted.',box).style.marginTop='6px';
+}
+$('histbtn').onclick=function(){drawHistory();$('history').hidden=false;document.body.classList.add('hist');window.scrollTo(0,0)};
+$('histdone').onclick=function(){$('history').hidden=true;document.body.classList.remove('hist');window.scrollTo(0,0);draw()};
+
 $('setup').onclick=function(){
   var s=$('settings');s.hidden=!s.hidden;
   document.body.classList.toggle('setting',!s.hidden);
