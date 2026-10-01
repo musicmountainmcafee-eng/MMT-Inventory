@@ -142,7 +142,31 @@ ul.cues li.live .nm{color:var(--go)}
 ul.cues .dot{width:8px;height:8px;border-radius:50%;background:var(--line);flex:none}
 ul.cues li.live .dot{background:var(--go)}ul.cues li.done .dot{background:var(--dim)}
 
-pre.report{font-family:inherit;font-size:13px;line-height:1.55;white-space:pre-wrap;color:var(--type);margin-bottom:12px}
+/* show report */
+.rp{max-width:560px;margin-bottom:14px;color:var(--type)}
+.rp-title{font-size:18px;font-weight:700;line-height:1.25}
+.rp-title small{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid var(--btnline);border-radius:99px;padding:2px 8px;margin-left:8px;vertical-align:3px}
+.rp-sub{color:var(--dim);font-size:13px;margin-top:3px}
+.rp-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin:14px 0}
+.rp-tile{background:var(--raised);border-radius:12px;padding:10px}
+.rp-k{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
+.rp-v{font-size:15px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rp-n{font-size:12px;margin-top:2px;color:var(--dim)}
+.rp-tile.warn .rp-n,.rp-tile.warn .rp-v.flag{color:var(--amber)}
+.rp-tile.ok .rp-n{color:var(--go)}
+.rp-acts{border-top:1px solid var(--line)}
+.rp-row{display:grid;grid-template-columns:1fr auto auto;column-gap:14px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--line)}
+.rp-name{font-size:14px;font-weight:600}
+.rp-held{display:block;font-size:12px;font-weight:400;color:var(--dim);margin-top:2px}
+.rp-ran{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.rp-vs{font-size:12px;min-width:92px;text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
+.rp-vs.over{color:var(--amber)}
+.rp-vs.under{color:var(--clock)}
+.rp-vs.ok{color:var(--go)}
+.rp-live{color:var(--accent);font-weight:600}
+.rp-foot{margin-top:12px;font-size:14px;line-height:1.5}
+.rp-foot b{font-variant-numeric:tabular-nums}
+.rp-foot span{display:block;font-size:12px;color:var(--dim)}
 label{display:block;font-size:12px;color:var(--dim);margin-bottom:5px}
 input,select,textarea{font:inherit;width:100%;color:var(--type);background:var(--shell);border:1px solid var(--line);border-radius:8px;padding:11px 10px;min-height:44px}
 textarea{min-height:88px;resize:vertical}
@@ -429,7 +453,7 @@ h2{font-size:16px;font-weight:700}
 
   <div class="card" id="reportcard" hidden>
     <h2>Show report</h2>
-    <pre class="report" id="report"></pre>
+    <div class="rp" id="report"></div>
     <div class="row" style="flex-wrap:wrap">
       <button class="small" id="copyreport">Copy report</button>
       <button class="small" id="mailreport" hidden>Email report</button>
@@ -605,7 +629,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='2.32-dev4';
+var VERSION='2.32-dev5';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1732,8 +1756,8 @@ function tick(){
     });
   }
 
-  var rep=report(f);
-  $('reportcard').hidden=!rep;$('report').textContent=rep||'';
+  var rm=reportModel(f),rep=rm?rm.lines.join('\n'):'';
+  $('reportcard').hidden=!rep;paintReport(rm);
   paintSend(f,rep);
   drawSMChips();
 }
@@ -1810,36 +1834,84 @@ function paintSend(f,rep){
     :first+' has no email or phone saved. Add one under Settings, SMs.';
 }
 
-function report(f){
-  if(f.idle||S.key!==f.perf.key||!S.log.length)return '';
+function reportModel(f){
+  if(f.idle||S.key!==f.perf.key||!S.log.length)return null;
   var kind=adhocKindOf(f);
-  var L=f.L,nA=f.nA,lines=[f.perf.show+(kind==='rehearsal'?', run-through, '+dayLabel(f.perf.date)+' '+clockOf(f.perf.curtain):', '+dayLabel(f.perf.date)+' '+pretty(f.perf.time))];
-  var sm=smNow();if(sm&&sm.name)lines.push('Stage manager: '+sm.name);
+  var L=f.L,nA=f.nA;
+  var when=dayLabel(f.perf.date)+' '+(kind==='rehearsal'?clockOf(f.perf.curtain):pretty(f.perf.time));
+  var m={title:f.perf.show,run:kind==='rehearsal',when:when,sm:'',tiles:[],acts:[],foot:null,lines:[]};
+  m.lines.push(f.perf.show+(kind==='rehearsal'?', run-through, ':', ')+when);
+  var sm=smNow();if(sm&&sm.name){m.sm=sm.name;m.lines.push('Stage manager: '+sm.name)}
   var Cr=cueList(stageOf(f.perf));
   if(houseFlow(Cr)){
     var ha=houseAtFor(f.perf),hi=anchorIdx(Cr,/^HOUSE OPEN/i),hp0=f.perf.curtain+(Cr.list[hi].offset||0)*6e4;
-    if(ha){var hd=Math.round((ha-hp0)/6e4);lines.push('Ready to open house at '+clockOf(ha)+(hd>0?' ('+hd+' min after '+clockOf(hp0)+')':hd<0?' ('+(-hd)+' min before '+clockOf(hp0)+')':' (on time)'))}
-    else lines.push('Ready to open house: never tapped');
+    if(ha){
+      var hd=Math.round((ha-hp0)/6e4);
+      m.lines.push('Ready to open house at '+clockOf(ha)+(hd>0?' ('+hd+' min after '+clockOf(hp0)+')':hd<0?' ('+(-hd)+' min before '+clockOf(hp0)+')':' (on time)'));
+      m.tiles.push({k:'House',v:clockOf(ha),n:hd>0?hd+' min late':hd<0?(-hd)+' min early':'on time',tone:hd>0?'warn':'ok'});
+    }else{
+      m.lines.push('Ready to open house: never tapped');
+      m.tiles.push({k:'House',v:'Not tapped',n:'',tone:'warn',flag:true});
+    }
   }
   var up=firstUp();
   if(up&&kind!=='rehearsal'){
     var late=Math.round((up-f.perf.curtain)/6e4);
-    lines.push('Up at '+clockOf(up)+(late>0?' ('+late+' min late)':late<0?' ('+(-late)+' min early)':' (on time)'));
+    m.lines.push('Up at '+clockOf(up)+(late>0?' ('+late+' min late)':late<0?' ('+(-late)+' min early)':' (on time)'));
+    m.tiles.push({k:'Up',v:clockOf(up),n:late>0?late+' min late':late<0?(-late)+' min early':'on time',tone:late>0?'warn':'ok'});
   }
   for(var k=0;k<S.log.length;k++){
     var e=S.log[k];if(e.i>=L.length)break;
     var end=S.log[k+1]?S.log[k+1].at:null,c=L[e.i];
-    if(!end){lines.push(c.name+': running');continue}
-    var hd=heldOf(S.held,e.i),ran=end-e.at-hd,plan=(c.minutes||0)*6e4,diff=Math.round((ran-plan)/1000);
-    lines.push(c.name+': '+fmt(ran)+(Math.abs(diff)>=30?(diff>0?' ('+fmt(diff*1000)+' over)':' ('+fmt(-diff*1000)+' under)'):'')+(hd>=5000?', held '+fmt(hd):''));
+    if(!end){m.lines.push(c.name+': running');m.acts.push({name:c.name,live:true});continue}
+    var hd2=heldOf(S.held,e.i),ran=end-e.at-hd2,plan=(c.minutes||0)*6e4,diff=Math.round((ran-plan)/1000);
+    var off=Math.abs(diff)>=30;
+    m.lines.push(c.name+': '+fmt(ran)+(off?(diff>0?' ('+fmt(diff*1000)+' over)':' ('+fmt(-diff*1000)+' under)'):'')+(hd2>=5000?', held '+fmt(hd2):''));
+    m.acts.push({name:c.name,ran:fmt(ran),vs:off?(diff>0?fmt(diff*1000)+' over':fmt(-diff*1000)+' under'):'on plan',tone:off?(diff>0?'over':'under'):'ok',held:hd2>=5000?fmt(hd2):''});
   }
   if(f.done&&up){
     var pd=Math.round((S.target-(f.perf.curtain+plannedTotal(f)))/6e4);
-    var ht=heldTotal(S.held);
-    lines.push('Down at '+clockOf(S.target)+', running time '+fmt(S.target-up-ht)+(ht>=5000?' (held '+fmt(ht)+' not counted)':'')
-      +(S.adhoc&&f.perf===S.adhoc?'':', '+(Math.abs(pd)<=1?'on time':pd>0?pd+' min later than planned':(-pd)+' min earlier than planned')));
+    var ht=heldTotal(S.held),own=S.adhoc&&f.perf===S.adhoc;
+    var vs=own?'':(Math.abs(pd)<=1?'on time':pd>0?pd+' min later than planned':(-pd)+' min earlier than planned');
+    m.lines.push('Down at '+clockOf(S.target)+', running time '+fmt(S.target-up-ht)+(ht>=5000?' (held '+fmt(ht)+' not counted)':'')+(own?'':', '+vs));
+    m.tiles.push({k:'Down',v:clockOf(S.target),n:own?'':(Math.abs(pd)<=1?'on time':pd>0?pd+' min late':(-pd)+' min early'),tone:own?'':(pd>1?'warn':'ok')});
+    m.foot={run:fmt(S.target-up-ht),held:ht>=5000?fmt(ht):'',vs:vs};
   }
-  return lines.join('\n');
+  return m;
+}
+function report(f){var m=reportModel(f);return m?m.lines.join('\n'):''}
+
+var repTextNow='',repLast=null;
+function paintReport(m){
+  var el=$('report');
+  repTextNow=m?m.lines.join('\n'):'';
+  if(repTextNow===repLast)return;   // only rebuild when something changed
+  repLast=repTextNow;
+  el.textContent='';
+  if(!m)return;
+  function h(tag,cls,txt,par){var n=document.createElement(tag);if(cls)n.className=cls;if(txt!=null)n.textContent=txt;(par||el).appendChild(n);return n}
+  var t=h('div','rp-title',m.title);if(m.run)h('small',null,'Run-through',t);
+  h('div','rp-sub',m.when+(m.sm?'  \u00b7  SM: '+m.sm:''));
+  if(m.tiles.length){
+    var g=h('div','rp-tiles');
+    m.tiles.forEach(function(x){
+      var tl=h('div','rp-tile '+(x.tone||''),null,g);
+      h('div','rp-k',x.k,tl);h('div','rp-v'+(x.flag?' flag':''),x.v,tl);if(x.n)h('div','rp-n',x.n,tl);
+    });
+  }
+  var ac=h('div','rp-acts');
+  m.acts.forEach(function(x){
+    var r=h('div','rp-row',null,ac),nm=h('div','rp-name',x.name,r);
+    if(x.live){h('div','rp-ran rp-live','running',r);h('div','rp-vs','',r);return}
+    if(x.held)h('span','rp-held','held '+x.held,nm);
+    h('div','rp-ran',x.ran,r);h('div','rp-vs '+x.tone,x.vs,r);
+  });
+  if(m.foot){
+    var ft=h('div','rp-foot');
+    ft.appendChild(document.createTextNode('Running time '));h('b',null,m.foot.run,ft);
+    if(m.foot.vs)ft.appendChild(document.createTextNode(', '+m.foot.vs));
+    if(m.foot.held)h('span',null,'Held time ('+m.foot.held+') isn\u2019t counted.',ft);
+  }
 }
 
 // Full-screen display: size the digits to fill the screen. Digits are all the
@@ -1980,7 +2052,7 @@ $('reset').onclick=function(){
   if(!confirm('Clear the running clock and go back to pre-show? The show report for this performance is lost.'))return;
   commit({idx:null,log:[],paused:false,msg:null,holdAt:0,held:{}});
 };
-$('copyreport').onclick=function(){copy($('report').textContent,$('copyreport'),'Copy report')};
+$('copyreport').onclick=function(){copy(repTextNow,$('copyreport'),'Copy report')};
 $('addsm').onclick=function(){
   cfg.sms.push({id:'sm'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:'',email:'',phone:''});
   persist();drawSMList();var ins=$('smlist').querySelectorAll('input');if(ins.length)ins[ins.length-3].focus();sig='';
