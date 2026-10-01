@@ -5918,9 +5918,9 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
     <div class="settings-section">
       <h3>Import from Website</h3>
-      <p style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">Paste a link to your theater's season page and we'll try to extract the show schedule automatically.</p>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">Paste one or more season page links (one per line). New shows are <strong>added</strong> to the list. Existing and past shows are never removed.</p>
       <div class="import-section">
-        <input type="text" id="import-url" placeholder="https://musicmountaintheatre.org/season" style="width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:6px; font-size:14px; font-family:'DM Sans',sans-serif; margin-bottom:10px;" />
+        <textarea id="import-url" rows="3" placeholder="https://www.musicmountaintheatre.org/mainstage-schedule-2027&#10;https://www.musicmountaintheatre.org/young-audience-schedule-2027" style="width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:6px; font-size:14px; font-family:'DM Sans',sans-serif; margin-bottom:10px; resize:vertical; background:var(--bg); color:var(--text);"></textarea>
         <button class="btn-confirm" onclick="importFromUrl()" id="import-btn" style="width:100%;">Import Shows</button>
         <button type="button" id="api-key-btn" onclick="promptAnthropicKey()" style="width:100%; margin-top:8px; padding:8px 10px; background:none; border:1px solid var(--border); border-radius:6px; font-size:12px; color:var(--text-muted); cursor:pointer;">API key: not set</button>
         <div class="import-status" id="import-status"></div>
@@ -5941,7 +5941,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">9.29 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.01 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -6151,6 +6151,7 @@ function initApp() {
   // Open the correct tab (honors #inventory, #lists, etc.)
   initTabFromHash();
   updateApiKeyLabel();
+  setTimeout(() => { try { loadRemoteShows(); } catch(e) {} }, 300);
   // A dedicated screen can be pointed at app.html#tv and come straight up,
   // including after a power cut, without anyone driving the menu.
   try { if (location.hash === '#tv') setTimeout(openTvMode, 400); } catch(e) {}
@@ -10567,6 +10568,7 @@ try { const z = parseFloat(localStorage.getItem('mmt_doc_zoom')); if (z) docZoom
 // ── SETTINGS PANEL ──────────────────────────────────────────────────────────
 function openSettings() {
   renderShowMgmt();
+  loadRemoteShows();
   loadTeamConfig();
   loadNotesTemplate();
   document.getElementById('settings-overlay').classList.add('open');
@@ -10685,6 +10687,65 @@ function saveStoredShows() {
     }));
   } catch(e) {}
   syncShowMirrors();
+  pushShowsToServer();
+}
+
+// ── SHOW LIST SYNC (Google Sheet, KV key 'showlist') ────────────────────────
+// localStorage is only a fast cache. The sheet is the source of truth, so every
+// device (iPad, phone, TV, laptop) sees the same shows, same as other synced data.
+function pushShowsToServer() {
+  const value = { mainstage: MAINSTAGE, childrens: CHILDRENS, updated: new Date().toISOString() };
+  fetch(SCRIPT_URL, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'saveKV', key: 'showlist', value })
+  }).catch(() => {
+    jsonp(SCRIPT_URL + '?action=saveKV&key=showlist&value=' + encodeURIComponent(JSON.stringify(value)) + '&_=' + Date.now(), () => {}, () => {});
+  });
+}
+
+function seed2027Shows() {
+  const M = 'Mainstage', C = "Children's";
+  return mergeShowsIn([
+    ["A Midsummer Night's Dream",'2027-01-08','2027-01-24',M],['The Wizard of Oz','2027-01-29','2027-02-21',M],
+    ['Camelot','2027-02-26','2027-03-21',M],['Godspell','2027-03-26','2027-04-11',M],
+    ['Something Rotten!','2027-04-16','2027-05-09',M],['Curtains','2027-05-14','2027-06-06',M],
+    ['Bye Bye Birdie','2027-06-11','2027-07-04',M],['Newsies','2027-07-09','2027-08-01',M],
+    ['Mean Girls','2027-08-06','2027-08-29',M],['Dear Evan Hansen','2027-09-03','2027-09-26',M],
+    ['Dial M for Murder','2027-10-01','2027-10-17',M],['TBA Holiday Show','2027-10-22','2027-11-14',M],
+    ['A Christmas Carol','2027-11-19','2027-12-12',M],['Holiday Concert','2027-12-17','2027-12-19',M],
+    ['Frozen Kids','2027-01-16','2027-02-06',C],['The Princess & the Peabrains','2027-02-20','2027-03-06',C],
+    ['Madagascar Kids','2027-03-20','2027-04-10',C],['Moana Jr.','2027-04-24','2027-05-15',C],
+    ['Jack and the Giant','2027-05-29','2027-06-12',C],['Finding Nemo Kids','2027-06-25','2027-07-03',C],
+    ['Cinderella','2027-07-09','2027-07-17',C],['High School Musical Jr.','2027-07-23','2027-08-07',C],
+    ['Pinocchio','2027-08-13','2027-08-21',C],['The Lion King Kids','2027-09-11','2027-09-25',C],
+    ['The Great Pumpkin','2027-10-09','2027-10-30',C],['Babes in Toyland','2027-11-13','2027-11-27',C],
+    ['Frosty and Rudolph','2027-12-04','2027-12-18',C],
+  ].map(a => ({ name: a[0], start: a[1], end: a[2], type: a[3] })));
+}
+
+function loadRemoteShows(cb) {
+  jsonp(SCRIPT_URL + '?action=getKV&key=showlist&_=' + Date.now(), d => {
+    try {
+      let v = d && d.value;
+      if (typeof v === 'string' && v) { try { v = JSON.parse(v); } catch(e) { v = null; } }
+      if (v && Array.isArray(v.mainstage) && Array.isArray(v.childrens) && (v.mainstage.length || v.childrens.length)) {
+        // Sheet wins. Adopt it on this device.
+        MAINSTAGE = v.mainstage; CHILDRENS = v.childrens;
+        MAINSTAGE.sort((a, b) => a.start.localeCompare(b.start));
+        CHILDRENS.sort((a, b) => a.start.localeCompare(b.start));
+        try { localStorage.setItem('mmt_shows', JSON.stringify({ mainstage: MAINSTAGE, childrens: CHILDRENS })); } catch(e) {}
+        syncShowMirrors();
+      } else {
+        // Nothing in the sheet yet: first device up publishes the current list
+        // plus the announced 2027 season. Everything already here is kept.
+        seed2027Shows();
+        saveStoredShows();
+      }
+      try { renderShowMgmt(); } catch(e) {}
+      try { renderWidgets(); } catch(e) {}
+    } catch(e) { console.warn('showlist sync:', e); }
+    if (cb) cb();
+  }, () => { if (cb) cb(); });
 }
 
 // The Archive tab and the standalone next-notes.html page both read shows from
@@ -10841,11 +10902,11 @@ function deleteShow(type, idx) {
 }
 
 function resetToDefaults() {
-  if (!confirm('Reset all shows to the built-in defaults? Custom shows will be lost.')) return;
+  if (!confirm('Reset ALL shows (every device) to the built-in 2026 defaults? Added and archived shows will be lost.')) return;
   MAINSTAGE = [...DEFAULT_MAINSTAGE];
   CHILDRENS = [...DEFAULT_CHILDRENS];
   try { localStorage.removeItem('mmt_shows'); } catch(e) {}
-  syncShowMirrors();
+  saveStoredShows();
   renderShowMgmt();
   renderWidgets();
   toast('Shows reset to defaults');
@@ -10879,83 +10940,116 @@ function updateApiKeyLabel() {
   if (el) el.textContent = getAnthropicKey() ? 'API key: saved (change)' : 'API key: not set';
 }
 
+// ── ADD-ONLY MERGE ──────────────────────────────────────────────────────────
+// Imports never delete or replace anything. Old seasons stay in the list as the
+// archive. Show identity (notes key, slug, Show Hub, Archive) is name-based, so
+// when a title repeats in a new year with different dates ("A Christmas Carol"
+// 2026 vs 2027), the newer one is saved as "A Christmas Carol (2027)" instead of
+// colliding with the old show's notes and archive.
+function normShowName(n) {
+  return String(n || '').replace(/\s*\(\d{4}\)\s*$/, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function mergeShowsIn(list) {
+  const added = [], skipped = [];
+  (list || []).forEach(s => {
+    if (!s || !s.name || !/^\d{4}-\d{2}-\d{2}$/.test(s.start || '') || !/^\d{4}-\d{2}-\d{2}$/.test(s.end || '')) return;
+    const isMain = s.type === 'Mainstage';
+    const all = [...MAINSTAGE, ...CHILDRENS];
+    const base = String(s.name).trim().replace(/\s*\(\d{4}\)\s*$/, '');
+    const same = all.filter(x => normShowName(x.name) === normShowName(base));
+    if (same.some(x => x.start === s.start)) { skipped.push(base); return; }
+    const name = same.length ? base + ' (' + s.start.slice(0, 4) + ')' : base;
+    (isMain ? MAINSTAGE : CHILDRENS).push({ name, start: s.start, end: s.end });
+    added.push({ name, type: isMain ? 'Mainstage' : "Children's", start: s.start, end: s.end });
+  });
+  MAINSTAGE.sort((a, b) => a.start.localeCompare(b.start));
+  CHILDRENS.sort((a, b) => a.start.localeCompare(b.start));
+  return { added, skipped };
+}
+
 async function importFromUrl() {
-  const url = document.getElementById('import-url').value.trim();
-  if (!url) { toast('Paste a URL first'); return; }
+  const urls = document.getElementById('import-url').value.split(/\s+/).map(u => u.trim()).filter(Boolean);
+  if (!urls.length) { toast('Paste a URL first'); return; }
   const btn = document.getElementById('import-btn');
   const status = document.getElementById('import-status');
   btn.disabled = true;
   btn.textContent = 'Importing...';
-  status.textContent = 'Fetching page...';
 
   try {
-    // Fetch via CORS proxy
-    const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-    const res = await fetch(proxyUrl);
-    if (!res.ok) throw new Error('Could not fetch page (HTTP ' + res.status + ')');
-    const html = await res.text();
-
-    status.textContent = 'Analyzing page with AI...';
-
-    // Use Anthropic API to extract show data
     const apiKey = getAnthropicKey();
     if (!apiKey) throw new Error('No API key saved yet. Click "API key" below the Import button and paste one in.');
 
-    const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
-        messages: [{
-          role: 'user',
-          content: 'Extract all theater show/production names and their date ranges from this webpage HTML. Return ONLY a JSON array, no other text. Each item should have: name (string), start (YYYY-MM-DD), end (YYYY-MM-DD), type ("Mainstage" or "Children\'s" — guess based on context, kids/junior versions are Children\'s). If dates only show month or are vague, estimate. Here is the HTML:\n\n' + html.substring(0, 30000)
-        }]
-      })
-    });
+    const found = [];
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      status.textContent = 'Page ' + (i + 1) + ' of ' + urls.length + ': fetching...';
+      const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url));
+      if (!res.ok) throw new Error('Could not fetch ' + url + ' (HTTP ' + res.status + ')');
+      let html = await res.text();
+      // Strip scripts/styles so the page content fits in the AI window.
+      html = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
+                 .replace(/<!--[\s\S]*?-->/g, '').replace(/\s+/g, ' ');
 
-    if (!apiRes.ok) {
-      if (apiRes.status === 401) throw new Error('API key was rejected (401). Click "API key" and paste a current one.');
-      if (apiRes.status === 429) throw new Error('Rate limited (429). Wait a minute and try again.');
-      throw new Error('AI analysis failed (HTTP ' + apiRes.status + ')');
+      status.textContent = 'Page ' + (i + 1) + ' of ' + urls.length + ': analyzing with AI...';
+      const hint = /young|child|kids/i.test(url) ? 'This page is the Children\'s / Young Audience season, so every show on it is type "Children\'s". ' :
+                   /mainstage/i.test(url) ? 'This page is the Mainstage season, so every show on it is type "Mainstage". ' : '';
+      const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 3000,
+          messages: [{
+            role: 'user',
+            content: 'Extract all theater show/production names and their date ranges from this webpage HTML. Return ONLY a JSON array, no other text. Each item: name (string), start (YYYY-MM-DD), end (YYYY-MM-DD), type ("Mainstage" or "Children\'s"). ' + hint +
+              'Show titles may appear only in image file names or alt text (for example "08_Newsies_Final.png" is the show Newsies); strip numbering and words like Final. ' +
+              'Dates usually have no year: use the year in the page title or URL (' + url + '), otherwise the next upcoming season. If a show is a placeholder or TBA, name it "TBA Show". Here is the HTML:\n\n' + html.substring(0, 60000)
+          }]
+        })
+      });
+      if (!apiRes.ok) {
+        if (apiRes.status === 401) throw new Error('API key was rejected (401). Click "API key" and paste a current one.');
+        if (apiRes.status === 429) throw new Error('Rate limited (429). Wait a minute and try again.');
+        throw new Error('AI analysis failed (HTTP ' + apiRes.status + ')');
+      }
+      const apiData = await apiRes.json();
+      const text = apiData.content.map(c => c.text || '').join('');
+      const arr = JSON.parse(text.replace(/```json|```/g, '').trim());
+      if (Array.isArray(arr)) found.push(...arr);
     }
-    const apiData = await apiRes.json();
-    const text = apiData.content.map(c => c.text || '').join('');
-    const clean = text.replace(/```json|```/g, '').trim();
-    const shows = JSON.parse(clean);
 
-    if (!Array.isArray(shows) || !shows.length) throw new Error('No shows found on that page');
+    if (!found.length) throw new Error('No shows found on those pages');
 
-    // Preview the imported shows
-    const mainShows = shows.filter(s => s.type === 'Mainstage');
-    const kidsShows = shows.filter(s => s.type !== 'Mainstage');
+    // Dry run against a copy so the preview shows exactly what would be added.
+    const msBak = MAINSTAGE.map(x => ({ ...x })), ctBak = CHILDRENS.map(x => ({ ...x }));
+    const preview = mergeShowsIn(found);
+    MAINSTAGE = msBak; CHILDRENS = ctBak;
 
-    status.innerHTML = '<strong>Found ' + shows.length + ' shows:</strong><br>' +
-      shows.map(s => esc(s.name) + ' (' + s.start + ' → ' + s.end + ') [' + s.type + ']').join('<br>') +
-      '<br><br>';
+    status.innerHTML = '<strong>' + preview.added.length + ' new show' + (preview.added.length === 1 ? '' : 's') + ' to add</strong>' +
+      (preview.skipped.length ? ' (' + preview.skipped.length + ' already in the dashboard, skipped)' : '') + ':<br>' +
+      preview.added.map(s => esc(s.name) + ' (' + s.start + ' → ' + s.end + ') [' + s.type + ']').join('<br>') + '<br><br>';
 
-    const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'btn-confirm';
-    confirmBtn.style.width = '100%';
-    confirmBtn.textContent = 'Replace All Shows With These';
-    confirmBtn.onclick = function() {
-      MAINSTAGE = mainShows.map(s => ({ name: s.name, start: s.start, end: s.end }));
-      CHILDRENS = kidsShows.map(s => ({ name: s.name, start: s.start, end: s.end }));
-      MAINSTAGE.sort((a, b) => a.start.localeCompare(b.start));
-      CHILDRENS.sort((a, b) => a.start.localeCompare(b.start));
-      saveStoredShows();
-      renderShowMgmt();
-      renderWidgets();
-      status.textContent = 'Shows imported successfully!';
-      toast('Shows imported');
-    };
-    status.appendChild(confirmBtn);
-
+    if (preview.added.length) {
+      const confirmBtn = document.createElement('button');
+      confirmBtn.className = 'btn-confirm';
+      confirmBtn.style.width = '100%';
+      confirmBtn.textContent = 'Add ' + preview.added.length + ' Shows (keeps all existing)';
+      confirmBtn.onclick = function() {
+        const r = mergeShowsIn(found);
+        saveStoredShows();
+        renderShowMgmt();
+        renderWidgets();
+        status.textContent = r.added.length + ' shows added. Nothing was removed.';
+        toast(r.added.length + ' shows added');
+      };
+      status.appendChild(confirmBtn);
+    }
   } catch(e) {
     status.textContent = 'Error: ' + e.message;
     console.error('Import error:', e);
