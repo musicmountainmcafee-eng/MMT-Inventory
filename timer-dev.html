@@ -75,8 +75,8 @@ body.display.full #wall{position:fixed;top:max(2vh,env(safe-area-inset-top,0px))
 #slug{transition:opacity .35s ease}
 #topline.calling #slug{opacity:0}
 #msg{position:absolute;right:0;bottom:0;white-space:nowrap;font-size:var(--label);font-weight:700;letter-spacing:.18em;color:#fff;
-  opacity:0;transition:opacity .35s ease;transform:scale(1.25);transform-origin:right bottom;pointer-events:none}
-body.display.full #msg{right:auto;left:50%;transform:translateX(-50%) scale(1.45);transform-origin:center bottom}
+  opacity:0;transition:opacity .35s ease;transform:scale(calc(1.25*var(--mf,1)));transform-origin:right bottom;pointer-events:none}
+body.display.full #msg{right:auto;left:50%;transform:translateX(-50%) scale(calc(1.45*var(--mf,1)));transform-origin:center bottom}
 #msg.on{opacity:1}
 #msg.on #msgtext{display:inline-block;animation:callpulse 1.6s ease-in-out infinite}
 @keyframes callpulse{0%,50%{opacity:1}75%{opacity:.25}100%{opacity:1}}
@@ -129,6 +129,11 @@ button.small{min-height:36px;padding:8px 12px;font-size:13px}
 button.on{background:var(--amber);border-color:var(--amber);color:#140C00}
 .row{display:flex;gap:8px}.row>*{flex:1}
 .msgs{display:flex;flex-wrap:wrap;gap:8px}
+.msgs button.wide{flex:1 1 100%;border-radius:999px;line-height:1.25;padding:10px 18px}
+.custom{display:flex;gap:8px;margin-top:10px}
+.custom input{flex:1;min-width:0;text-transform:uppercase;letter-spacing:.06em}
+.custom input::placeholder{text-transform:none;letter-spacing:0}
+.custom button{flex:none;min-width:84px}
 .msgs button{flex:1 1 40%;min-height:52px;font-size:15px;letter-spacing:.12em}
 
 ul.cues{list-style:none}
@@ -468,6 +473,10 @@ h2{font-size:16px;font-weight:700}
     <div class="card" id="callcard" style="margin-top:14px">
       <label>Call the deck</label>
       <div class="msgs" id="msgs"></div>
+      <div class="custom">
+        <input id="custommsg" maxlength="48" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="send" placeholder="Or type your own call">
+        <button id="customsend" disabled>Send</button>
+      </div>
     </div>
     <div class="card" id="cuecard"><ul class="cues" id="cuelist"></ul></div>
   </div>
@@ -662,7 +671,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='2.32-dev6';
+var VERSION='2.32-dev7';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1214,6 +1223,12 @@ function adjust(sec){
   if(f.up){p.extra=Math.max(-(f.L[f.idx].minutes||0)*6e4,(S.extra||0)+ms);p.aimAuto=false}
   commit(p);
 }
+function customCall(raw){
+  var t=String(raw||'').replace(/\s+/g,' ').trim().toUpperCase().slice(0,48);
+  if(!t)return false;
+  commit({msg:{text:t,at:nowMs()}});   // always sends; tapping the chip clears it
+  return true;
+}
 function call(text){
   var now=nowMs(),cur=msgNow(now);
   commit({msg:cur===text?null:{text:text,at:now}});
@@ -1658,7 +1673,7 @@ function tick(){
   // put while it fades out so it doesn't vanish mid-fade
   if(m&&m!==lastCall)chime('call');
   lastCall=m||null;
-  if(m)$('msgtext').textContent=m;
+  if(m){$('msgtext').textContent=m;fitCall(m)}
   $('msg').classList.toggle('on',!!m);$('topline').classList.toggle('calling',!!m);
   if(isDisplay)return;
 
@@ -1759,8 +1774,11 @@ function tick(){
     $('back').disabled=f.idx==null;
 
     var mw=$('msgs');mw.innerHTML='';
-    cfg.messages.forEach(function(t){
+    var calls=cfg.messages.slice();
+    if(m&&calls.indexOf(m)<0)calls.unshift(m);   // a typed call that is up right now
+    calls.forEach(function(t){
       var bt=document.createElement('button');bt.textContent=t;bt.classList.toggle('on',m===t);
+      bt.classList.toggle('wide',cfg.messages.indexOf(t)<0);
       bt.onclick=function(){call(t)};mw.appendChild(bt);
     });
 
@@ -1951,6 +1969,15 @@ function paintReport(m){
 // same width, so this only needs redoing when the character count or the
 // window size changes.
 var fitKey='';
+var callFitKey='';
+function fitCall(m){
+  var k=m+'|'+innerWidth+'|'+(document.body.classList.contains('full')?1:0);
+  if(k===callFitKey)return;callFitKey=k;
+  var box=$('msg'),full=document.body.classList.contains('full');
+  box.style.setProperty('--mf','1');
+  var w=$('msgtext').offsetWidth||1,base=full?1.45:1.25,avail=innerWidth*(full?0.94:0.9);
+  box.style.setProperty('--mf',String(Math.max(0.35,Math.min(1,avail/(w*base)))));
+}
 function fit(){
   if(!isDisplay||!document.body.classList.contains('full'))return;
   var big=$('big'),st=$('stage'),t=big.textContent;
@@ -1977,6 +2004,13 @@ setInterval(function(){tick();fit()},250);
 // ---------- controls ----------
 $('go').onclick=function(){var f=frame(NOW());if(!f.idle&&f.done){openRT();return}go()};
 $('back').onclick=back;
+(function(){
+  var inp=$('custommsg'),btn=$('customsend');
+  function sync(){btn.disabled=!inp.value.trim()}
+  function send(){if(customCall(inp.value)){inp.value='';sync();inp.blur()}}
+  inp.oninput=sync;btn.onclick=send;
+  inp.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();send()}e.stopPropagation()};   // typing here must not trigger the GO / number-key shortcuts
+})();
 $('hold').onclick=hold;
 $('ready').onclick=houseToggle;
 $('checkbtn').onclick=function(){$('checkcard').hidden=false;runCheck();window.scrollTo({top:0,behavior:'smooth'})};
