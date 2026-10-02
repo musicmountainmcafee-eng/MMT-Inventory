@@ -5887,6 +5887,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
     <div class="settings-section">
       <h3>Manage Shows</h3>
+      <div id="show-sync-status" style="font-size:12px; color:var(--text-muted); margin-bottom:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;"><span id="show-sync-msg">Show sync: not checked yet</span><button type="button" onclick="loadRemoteShows()" style="font-size:12px; padding:3px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text); cursor:pointer;">Sync now</button></div>
       <div class="show-mgmt-list" id="show-mgmt-list"></div>
       <div class="show-form" id="show-form" style="display:none;">
         <label>Show Name</label>
@@ -5941,7 +5942,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.01 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.01 v3</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -10693,13 +10694,22 @@ function saveStoredShows() {
 // ── SHOW LIST SYNC (Google Sheet, KV key 'showlist') ────────────────────────
 // localStorage is only a fast cache. The sheet is the source of truth, so every
 // device (iPad, phone, TV, laptop) sees the same shows, same as other synced data.
+function setShowSyncMsg(msg) {
+  window._showSyncMsg = msg;
+  const el = document.getElementById('show-sync-msg');
+  if (el) el.textContent = 'Show sync: ' + msg;
+}
+
 function pushShowsToServer() {
-  const value = { mainstage: MAINSTAGE, childrens: CHILDRENS, updated: new Date().toISOString() };
+  const value = { mainstage: MAINSTAGE, childrens: CHILDRENS, seeded: window._showsSeeded || [], updated: new Date().toISOString() };
+  const payload = JSON.stringify(value);
   fetch(SCRIPT_URL, {
     method: 'POST', headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ action: 'saveKV', key: 'showlist', value })
-  }).catch(() => {
-    jsonp(SCRIPT_URL + '?action=saveKV&key=showlist&value=' + encodeURIComponent(JSON.stringify(value)) + '&_=' + Date.now(), () => {}, () => {});
+  }).then(() => setShowSyncMsg('saved to sheet (' + (MAINSTAGE.length + CHILDRENS.length) + ' shows)')).catch(() => {
+    jsonp(SCRIPT_URL + '?action=saveKV&key=showlist&value=' + encodeURIComponent(payload) + '&_=' + Date.now(),
+          () => setShowSyncMsg('saved to sheet (' + (MAINSTAGE.length + CHILDRENS.length) + ' shows)'),
+          () => setShowSyncMsg('COULD NOT SAVE to sheet. Changes are on this device only'));
   });
 }
 
@@ -10724,28 +10734,53 @@ function seed2027Shows() {
 }
 
 function loadRemoteShows(cb) {
+  setShowSyncMsg('checking sheet...');
   jsonp(SCRIPT_URL + '?action=getKV&key=showlist&_=' + Date.now(), d => {
     try {
       let v = d && d.value;
       if (typeof v === 'string' && v) { try { v = JSON.parse(v); } catch(e) { v = null; } }
-      if (v && Array.isArray(v.mainstage) && Array.isArray(v.childrens) && (v.mainstage.length || v.childrens.length)) {
+      const hasList = v && Array.isArray(v.mainstage) && Array.isArray(v.childrens) && (v.mainstage.length || v.childrens.length);
+      if (hasList) {
         // Sheet wins. Adopt it on this device.
         MAINSTAGE = v.mainstage; CHILDRENS = v.childrens;
-        MAINSTAGE.sort((a, b) => a.start.localeCompare(b.start));
-        CHILDRENS.sort((a, b) => a.start.localeCompare(b.start));
+        window._showsSeeded = Array.isArray(v.seeded) ? v.seeded.slice() : [];
+      }
+      // The announced 2027 season is added once per sheet (tracked by the 'seeded'
+      // flag), so a stale device can't skip it and a deleted show stays deleted.
+      window._showsSeeded = window._showsSeeded || [];
+      let pushed = false;
+      if (!window._showsSeeded.includes('2027')) {
+        const r = seed2027Shows();
+        window._showsSeeded.push('2027');
+        pushed = true;
+      }
+      MAINSTAGE.sort((a, b) => a.start.localeCompare(b.start));
+      CHILDRENS.sort((a, b) => a.start.localeCompare(b.start));
+      if (pushed || !hasList) saveStoredShows();
+      else {
         try { localStorage.setItem('mmt_shows', JSON.stringify({ mainstage: MAINSTAGE, childrens: CHILDRENS })); } catch(e) {}
         syncShowMirrors();
-      } else {
-        // Nothing in the sheet yet: first device up publishes the current list
-        // plus the announced 2027 season. Everything already here is kept.
-        seed2027Shows();
-        saveStoredShows();
+        setShowSyncMsg('in sync (' + (MAINSTAGE.length + CHILDRENS.length) + ' shows)');
       }
       try { renderShowMgmt(); } catch(e) {}
       try { renderWidgets(); } catch(e) {}
-    } catch(e) { console.warn('showlist sync:', e); }
+    } catch(e) {
+      console.warn('showlist sync:', e);
+      setShowSyncMsg('ERROR ' + (e && e.message ? e.message : e));
+    }
     if (cb) cb();
-  }, () => { if (cb) cb(); });
+  }, () => {
+    // Sheet unreachable: still show 2027 on this device so the season is usable.
+    try {
+      window._showsSeeded = window._showsSeeded || [];
+      if (!window._showsSeeded.includes('2027')) { seed2027Shows(); }
+      try { localStorage.setItem('mmt_shows', JSON.stringify({ mainstage: MAINSTAGE, childrens: CHILDRENS })); } catch(e) {}
+      syncShowMirrors();
+      renderShowMgmt(); renderWidgets();
+    } catch(e) {}
+    setShowSyncMsg('COULD NOT REACH SHEET. Showing this device\'s list only');
+    if (cb) cb();
+  });
 }
 
 // The Archive tab and the standalone next-notes.html page both read shows from
