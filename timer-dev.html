@@ -671,7 +671,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='2.32-dev7';
+var VERSION='2.32-dev8';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -958,6 +958,13 @@ function scheduledPerf(now){
 // After call, mic check counts down its own length (5 min). Then the screens
 // count down to show start, with a line for front of house: NOT READY TO OPEN
 // HOUSE until the SM taps Ready to open house, READY TO OPEN HOUSE after.
+// THE "READY TO OPEN HOUSE" BUTTON IS SWITCHED OFF. To bring it back, change
+// false to true on the next line. Everything that belongs to it (the button, the
+// READY / NOT READY line for front of house, the cue list note, the report tile,
+// the Settings choice and the Stream Deck key) switches back on together. With
+// it off, mic check still counts down its own length, then the screens follow
+// the clock cues (house open, then show start) as they did before the button.
+var HOUSE_BUTTON=false;
 function anchorIdx(C,re){for(var i=0;i<C.nA;i++)if(re.test(C.list[i].name||''))return i;return -1}
 function micLen(){var v=cfg.micLen;return v==null||v===''||isNaN(v)?5:Math.max(0,+v)}
 function houseFlow(C){return cfg.houseGate!=='off'&&anchorIdx(C,/^MIC CHECK/i)>=0&&anchorIdx(C,/^HOUSE OPEN/i)>=0}
@@ -997,9 +1004,9 @@ function frame(now){
     if(!f.preCall&&!f.ready&&houseFlow(C)){
       var mi=anchorIdx(C,/^MIC CHECK/i),last=C.nA-1;
       var m0=p.curtain+(L[mi].offset||0)*6e4,m1=m0+micLen()*6e4,show=p.curtain+(L[last].offset||0)*6e4;
-      f.hs=houseAtFor(p)?'open':'wait';f.openAt=houseAtFor(p);
+      if(HOUSE_BUTTON){f.hs=houseAtFor(p)?'open':'wait';f.openAt=houseAtFor(p)}
       if(now>=m0&&now<m1&&m1<=show){f.pos=mi;f.cue=L[mi].name;f.label=L[mi].name;f.ms=m1-now;f.when=m1;f.micLive=true}
-      else if(now>=m1&&now<show){f.pos=last;f.cue=L[last].name;f.label=L[last].name;f.ms=show-now;f.when=show}
+      else if(HOUSE_BUTTON&&now>=m1&&now<show){f.pos=last;f.cue=L[last].name;f.label=L[last].name;f.ms=show-now;f.when=show}
     }
   }else if(idx>=L.length){
     var up=firstUp();
@@ -1704,7 +1711,7 @@ function tick(){
     $('cends').textContent=f.done?cap(endLabel())+' at '+clockOf(f.when)
       :f.paused?cap(f.label)+' is held ('+fmt(f.heldNow)+'). Press Resume to restart the clock.'
       :f.up?'Planned '+fmt(f.planned)+(S.aimAuto?' (from past shows)':'')+(f.el>f.planned&&f.planned>0?', over by '+fmt(f.el-f.planned):'')
-      :f.hs?hsLine(f):f.auto?(f.ms<0?'Late start. '+cap(f.cue)+' was '+clockOf(f.when)+'. Press GO to begin.':'At '+clockOf(f.when))
+      :f.hs?hsLine(f):f.micLive?'Mic check ends '+clockOf(f.when)+'. Show at '+clockOf(f.perf.curtain)+'.':f.auto?(f.ms<0?'Late start. '+cap(f.cue)+' was '+clockOf(f.when)+'. Press GO to begin.':'At '+clockOf(f.when))
       :(f.ms<0?'Over since '+clockOf(f.when):'Ends '+clockOf(f.when));
     $('cmsg').textContent=m||'';$('cmsg').classList.toggle('on',!!m);
   }
@@ -1791,7 +1798,7 @@ function tick(){
       var wh;
       if(i<f.nA){
         wh=clockOf(f.perf.curtain+(c.offset||0)*6e4);
-        if(houseFlow({list:f.L,nA:f.nA})&&i===anchorIdx({list:f.L,nA:f.nA},/^HOUSE OPEN/i)){
+        if(HOUSE_BUTTON&&houseFlow({list:f.L,nA:f.nA})&&i===anchorIdx({list:f.L,nA:f.nA},/^HOUSE OPEN/i)){
           var ha=houseAtFor(f.perf);wh=ha?'ready '+clockOf(ha):'waits for SM';
         }
       }else{
@@ -1894,7 +1901,7 @@ function reportModel(f){
   m.lines.push(f.perf.show+(kind==='rehearsal'?', run-through, ':', ')+when);
   var sm=smNow();if(sm&&sm.name){m.sm=sm.name;m.lines.push('Stage manager: '+sm.name)}
   var Cr=cueList(stageOf(f.perf));
-  if(houseFlow(Cr)){
+  if(HOUSE_BUTTON&&houseFlow(Cr)){
     var ha=houseAtFor(f.perf),hi=anchorIdx(Cr,/^HOUSE OPEN/i),hp0=f.perf.curtain+(Cr.list[hi].offset||0)*6e4;
     if(ha){
       var hd=Math.round((ha-hp0)/6e4);
@@ -2068,7 +2075,7 @@ var rtLead=0;   // always 0 now (the pretend-show-time test control was removed)
 function rtCurtain(){return NOW()+rtLead*6e4}
 function rtLeadChips(){}
 function rtPreview(){
-  $('rtpreview').textContent=rtLead?'Pretends show time is '+rtLead+' min away, so the pre-show runs live from there: mic check, then Ready to open house, then show start.':'Screens show the clock and READY TO START until the SM presses GO.';
+  $('rtpreview').textContent=rtLead?'Pretends show time is '+rtLead+' min away, so the pre-show runs live from there: mic check'+(HOUSE_BUTTON?', then Ready to open house':'')+', then show start.':'Screens show the clock and READY TO START until the SM presses GO.';
 }
 function rtChips(){
   var sb=$('rtshows');sb.innerHTML='';
@@ -2260,7 +2267,7 @@ function linkFor(view){
 function deckUrl(cmd){return topicUrl()+'/publish?message='+encodeURIComponent('cmd:'+cmd)}
 function drawDeck(){
   var box=$('deckkeys');if(!box)return;box.innerHTML='';
-  var keys=[['GO','go'],['Back','back'],['Hold / Resume','hold'],['Ready to open house','ready'],['+1 min','plus'],['\u22121 min','minus']]
+  var keys=[['GO','go'],['Back','back'],['Hold / Resume','hold']].concat(HOUSE_BUTTON?[['Ready to open house','ready']]:[]).concat([['+1 min','plus'],['\u22121 min','minus']])
     .concat(cfg.messages.map(function(t){return [t,'call:'+t]}))
     .concat([['Clear the call','clear']]);
   keys.forEach(function(k){
@@ -2289,6 +2296,7 @@ function persist(){
 }
 
 $('miclen').onchange=function(){var v=Number(this.value);cfg.micLen=isFinite(v)&&this.value!==''?Math.max(0,Math.min(30,v)):5;this.value=cfg.micLen;persist();draw()};
+$('housegate').closest('.field').hidden=!HOUSE_BUTTON;
 $('housegate').onchange=function(){cfg.houseGate=this.value==='off'?'off':'on';persist();draw()};
 $('testhist').value=TESTHIST?'1':'0';
 $('testhist').onchange=function(){TESTHIST=this.value==='1';try{localStorage.setItem('mmt-timer-testhist-dev',TESTHIST?'1':'0')}catch(e){}};
