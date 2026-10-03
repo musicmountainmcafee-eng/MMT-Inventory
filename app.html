@@ -4323,6 +4323,50 @@ table td { font-size: 14px !important; }
   .sm-det .sm-li .sm-lt { flex:1; min-width:0; }
   .sm-det .sm-li small { display:block; color:var(--text-muted); font-size:11px; }
   .sm-det .sm-note { font-size:13px; color:var(--text); white-space:pre-wrap; background:var(--bg); border-radius:8px; padding:8px; margin-top:4px; }
+
+/* ── SHOW CALENDAR ─────────────────────────────────────────────── */
+.cal-wrap { padding: 0 14px 24px; }
+.cal-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:6px 0 12px; }
+.cal-title { font-size:20px; font-weight:700; flex:1; min-width:150px; }
+.cal-btn { background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm,8px); padding:8px 12px; font-size:14px; cursor:pointer; min-height:40px; }
+.cal-btn:hover { border-color:var(--purple); }
+.cal-filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+.cal-chip { border:1px solid var(--border); background:var(--surface); color:var(--text-muted); border-radius:999px; padding:6px 12px; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px; }
+.cal-chip .dot { width:10px; height:10px; border-radius:50%; }
+.cal-chip.on { color:var(--text); border-color:var(--text-faint); font-weight:600; }
+.cal-chip:not(.on) { opacity:.55; }
+.cal-grid { border:1px solid var(--border); border-radius:var(--radius,12px); overflow:hidden; background:var(--surface); }
+.cal-dow, .cal-week { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); }
+.cal-dow div { padding:6px 4px; text-align:center; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; background:var(--surface-2,var(--bg)); border-bottom:1px solid var(--border); }
+.cal-week { position:relative; border-bottom:1px solid var(--border); grid-auto-rows:min-content; }
+.cal-week:last-child { border-bottom:0; }
+.cal-bg { position:absolute; inset:0; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); pointer-events:none; }
+.cal-bg div { border-left:1px solid var(--border); }
+.cal-bg div:first-child { border-left:0; }
+.cal-bg .out { background:rgba(128,128,128,.07); }
+.cal-bg .today { background:rgba(245,166,35,.14); box-shadow:inset 0 0 0 2px var(--accent2,#f5a623); }
+.cal-num { grid-row:1; padding:4px 6px 2px; font-size:12px; color:var(--text-muted); position:relative; }
+.cal-num.out { color:var(--text-faint); }
+.cal-num.today span { background:var(--accent2,#f5a623); color:#fff; border-radius:999px; padding:1px 6px; font-weight:700; }
+.cal-bar-ev { position:relative; margin:2px 3px; padding:3px 7px; font-size:12px; line-height:1.25; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; border:0; text-align:left; min-height:22px; }
+.cal-bar-ev.main { background:var(--purple-light); color:var(--purple-dark); border-left:3px solid var(--purple); }
+.cal-bar-ev.kids { background:var(--blue-light); color:var(--blue-dark); border-left:3px solid var(--blue); }
+.cal-bar-ev.cont-l { border-top-left-radius:0; border-bottom-left-radius:0; margin-left:0; }
+.cal-bar-ev.cont-r { border-top-right-radius:0; border-bottom-right-radius:0; margin-right:0; }
+.cal-bar-ev:not(.cont-l) { border-top-left-radius:6px; border-bottom-left-radius:6px; }
+.cal-bar-ev:not(.cont-r) { border-top-right-radius:6px; border-bottom-right-radius:6px; }
+.cal-bar-ev:hover { filter:brightness(.96); outline:1px solid var(--text-faint); }
+.cal-list { margin-top:16px; }
+.cal-list h3 { font-size:14px; margin:0 0 8px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; }
+.cal-li { display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm,8px); margin-bottom:6px; cursor:pointer; }
+.cal-li .sw { width:10px; align-self:stretch; border-radius:3px; }
+.cal-li .nm { font-weight:600; font-size:14px; }
+.cal-li .dt { font-size:12px; color:var(--text-muted); }
+.cal-note { font-size:12px; color:var(--text-faint); margin-top:10px; }
+@media (max-width:600px) {
+  .cal-bar-ev { font-size:10.5px; padding:2px 4px; min-height:18px; }
+  .cal-num { font-size:11px; padding:3px 4px 1px; }
+}
 </style>
   <!-- PERF: pdf.js and jsPDF used to load here as blocking script tags on every
        launch. They're only needed on the Scripts tab and for PDF exports, so they
@@ -4478,6 +4522,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
       <a class="sidebar-link" href="#todo" data-tab="todo" onclick="switchTab('todo');closeSidebarMobile();return false;" data-label="To Do"><span class="sl-icon">📋</span><span class="sl-label">To Do</span></a>
       <a class="sidebar-link parked-daytracker" style="display:none;" href="#daytracker" data-tab="daytracker" onclick="switchTab('daytracker');closeSidebarMobile();return false;" data-label="Day Tracker"><span class="sl-icon">🗓️</span><span class="sl-label">Day Tracker</span></a>
       <a class="sidebar-link" href="#notes" data-tab="notes" onclick="switchTab('notes');closeSidebarMobile();return false;" data-label="Notes"><span class="sl-icon">📝</span><span class="sl-label">Notes</span></a>
+      <a class="sidebar-link" href="#calendar" data-tab="calendar" onclick="switchTab('calendar');closeSidebarMobile();return false;" data-label="Show Calendar"><span class="sl-icon">📅</span><span class="sl-label">Show Calendar</span></a>
       <a class="sidebar-link" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');closeSidebarMobile();return false;" data-label="Set Piece Catalogue"><span class="sl-icon">📦</span><span class="sl-label">Set Piece Catalogue</span></a>
       <a class="sidebar-link" href="#storagemap" data-tab="storagemap" onclick="switchTab('storagemap');closeSidebarMobile();return false;" data-label="Storage Map"><span class="sl-icon">🗺️</span><span class="sl-label">Storage Map</span></a>
       <!-- PARKED: Drops sidebar link -->
@@ -4618,6 +4663,12 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
       <!-- SHOW HUB — one page per show, rendered by renderShowHub() -->
       <div id="show-hub" style="display:none;"></div>
     </div>
+  </div>
+
+  <!-- ===== TAB: SHOW CALENDAR ===== -->
+  <div class="tab-panel" id="tab-calendar" data-tab="calendar">
+    <div class="tabs"><div class="tab-title-row" style="padding:0 14px;"><span style="font-size:18px;font-weight:700;">Show Calendar</span></div></div>
+    <div class="cal-wrap" id="cal-root"></div>
   </div>
 
   <!-- ===== TAB: TO DO (was Lists → Tasks sub-view) ===== -->
@@ -6282,7 +6333,7 @@ function applyRoleVisibility() {
 //             and the "Today" card in the left column of Home. Diagnose the
 //             fault before restoring — see MMT_TODO.md.
 // Note: Archive reads from Drops and Paint, so bring those back first.
-const TABS = ['home','todo','notes','inventory','storagemap','scripts','checklists','reference','shopping','cleaning','sidework','todo2'];
+const TABS = ['home','todo','notes','calendar','inventory','storagemap','scripts','checklists','reference','shopping','cleaning','sidework','todo2'];
 let currentTab = 'home';
 
 function switchTab(tab) {
@@ -6320,6 +6371,7 @@ function switchTab(tab) {
   // Per-tab lazy render hooks
   if (tab === 'todo' && typeof renderTasksTab === 'function') renderTasksTab();
   if (tab === 'notes' && typeof renderNotesTab === 'function') { _hubSlug = ''; renderNotesTab(); }
+  if (tab === 'calendar' && typeof renderCalendar === 'function') renderCalendar(true);
   if (tab === 'inventory' && typeof renderInventoryTab === 'function') renderInventoryTab();
   if (tab === 'storagemap' && typeof ensureStorageMapLoaded === 'function') ensureStorageMapLoaded();
   if (tab === 'scripts' && typeof ensureScriptsLoaded === 'function') ensureScriptsLoaded();
@@ -10806,6 +10858,115 @@ function fix2027KidsDates() {
   return true;
 }
 
+// ── SHOW CALENDAR ─────────────────────────────────────────────────────────────
+// Month grid. Shows are drawn as bars across their run (opening → closing),
+// because the dashboard stores start/end dates, not individual performances.
+let _calY = null, _calM = null;
+let _calShow = { main: true, kids: true };
+
+function calKey(y, m, d) { return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
+function calKeyOf(dt) { return calKey(dt.getFullYear(), dt.getMonth(), dt.getDate()); }
+
+function calNav(delta) {
+  if (delta === 0) { _calY = null; _calM = null; }
+  else {
+    let m = _calM + delta, y = _calY;
+    while (m < 0) { m += 12; y--; }
+    while (m > 11) { m -= 12; y++; }
+    _calY = y; _calM = m;
+  }
+  renderCalendar();
+}
+function calToggle(k) { _calShow[k] = !_calShow[k]; renderCalendar(); }
+function calOpen(slug) { openShowHub(slug); }
+
+function renderCalendar(reset) {
+  const root = document.getElementById('cal-root');
+  if (!root) return;
+  const now = new Date();
+  const todayKey = calKeyOf(now);
+  if (reset || _calY === null) { _calY = now.getFullYear(); _calM = now.getMonth(); }
+  const Y = _calY, M = _calM;
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  const shows = [
+    ...MAINSTAGE.map(s => ({ ...s, kind: 'main' })),
+    ...CHILDRENS.map(s => ({ ...s, kind: 'kids' })),
+  ].filter(s => _calShow[s.kind] && s.start && s.end);
+
+  const first = new Date(Y, M, 1);
+  const gridStart = new Date(Y, M, 1 - first.getDay());
+  const lastOfMonth = new Date(Y, M + 1, 0);
+  const weeks = Math.ceil((first.getDay() + lastOfMonth.getDate()) / 7);
+
+  let html = '<div class="cal-bar">'
+    + '<div class="cal-title">' + MONTHS[M] + ' ' + Y + '</div>'
+    + '<button class="cal-btn" onclick="calNav(-1)" aria-label="Previous month">‹</button>'
+    + '<button class="cal-btn" onclick="calNav(0)">Today</button>'
+    + '<button class="cal-btn" onclick="calNav(1)" aria-label="Next month">›</button>'
+    + '</div>'
+    + '<div class="cal-filters">'
+    + '<button class="cal-chip ' + (_calShow.main ? 'on' : '') + '" onclick="calToggle(\'main\')"><span class="dot" style="background:var(--purple)"></span>Mainstage</button>'
+    + '<button class="cal-chip ' + (_calShow.kids ? 'on' : '') + '" onclick="calToggle(\'kids\')"><span class="dot" style="background:var(--blue)"></span>Children\'s</button>'
+    + '</div>';
+
+  html += '<div class="cal-grid"><div class="cal-dow">'
+    + ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => '<div>' + d + '</div>').join('') + '</div>';
+
+  for (let w = 0; w < weeks; w++) {
+    const days = [];
+    for (let i = 0; i < 7; i++) days.push(new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + w * 7 + i));
+    const wkStart = calKeyOf(days[0]), wkEnd = calKeyOf(days[6]);
+
+    // Shows touching this week, packed into lanes so bars never overlap
+    const inWeek = shows.filter(s => s.start <= wkEnd && s.end >= wkStart)
+      .sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
+    const laneEnds = [];
+    const placed = inWeek.map(s => {
+      const cs = s.start < wkStart ? wkStart : s.start;
+      const ce = s.end > wkEnd ? wkEnd : s.end;
+      const c0 = days.findIndex(d => calKeyOf(d) === cs);
+      const c1 = days.findIndex(d => calKeyOf(d) === ce);
+      let lane = laneEnds.findIndex(e => e < c0);
+      if (lane < 0) { lane = laneEnds.length; laneEnds.push(c1); } else laneEnds[lane] = c1;
+      return { s, c0, c1, lane, contL: s.start < wkStart, contR: s.end > wkEnd };
+    });
+
+    html += '<div class="cal-week"><div class="cal-bg">'
+      + days.map(d => {
+          const k = calKeyOf(d);
+          return '<div class="' + (d.getMonth() !== M ? 'out ' : '') + (k === todayKey ? 'today' : '') + '"></div>';
+        }).join('') + '</div>';
+    days.forEach((d, i) => {
+      const k = calKeyOf(d);
+      html += '<div class="cal-num ' + (d.getMonth() !== M ? 'out ' : '') + (k === todayKey ? 'today' : '')
+        + '" style="grid-column:' + (i + 1) + ';"><span>' + d.getDate() + '</span></div>';
+    });
+    placed.forEach(p => {
+      const label = (p.contL ? '◂ ' : '') + p.s.name + (p.contR ? ' ▸' : '');
+      html += '<button type="button" class="cal-bar-ev ' + p.s.kind + (p.contL ? ' cont-l' : '') + (p.contR ? ' cont-r' : '')
+        + '" style="grid-column:' + (p.c0 + 1) + ' / ' + (p.c1 + 2) + ';grid-row:' + (p.lane + 2) + ';"'
+        + ' title="' + esc(p.s.name) + ' · ' + esc(formatDates(p.s.start, p.s.end)) + '"'
+        + ' onclick="calOpen(\'' + esc(showSlug(p.s.name)) + '\')">' + esc(label) + '</button>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // List of everything running this month (easier to tap on a phone)
+  const mStart = calKey(Y, M, 1), mEnd = calKey(Y, M, lastOfMonth.getDate());
+  const inMonth = shows.filter(s => s.start <= mEnd && s.end >= mStart).sort((a, b) => a.start.localeCompare(b.start));
+  html += '<div class="cal-list"><h3>Running in ' + MONTHS[M] + '</h3>';
+  if (!inMonth.length) html += '<div style="color:var(--text-faint);font-size:14px;">Nothing scheduled.</div>';
+  inMonth.forEach(s => {
+    html += '<div class="cal-li" onclick="calOpen(\'' + esc(showSlug(s.name)) + '\')">'
+      + '<div class="sw" style="background:' + (s.kind === 'main' ? 'var(--purple)' : 'var(--blue)') + '"></div>'
+      + '<div><div class="nm">' + esc(s.name) + '</div><div class="dt">' + (s.kind === 'main' ? 'Mainstage' : "Children's") + ' · ' + esc(formatDates(s.start, s.end)) + '</div></div></div>';
+  });
+  html += '</div><div class="cal-note">Bars show each show\'s run (opening to closing). Tap a show to open its Show Hub.</div>';
+  root.innerHTML = html;
+}
+
 function loadRemoteShows(cb) {
   setShowSyncMsg('checking sheet...');
   jsonp(SCRIPT_URL + '?action=getKV&key=showlist&_=' + Date.now(), d => {
@@ -10838,6 +10999,7 @@ function loadRemoteShows(cb) {
       }
       try { renderShowMgmt(); } catch(e) {}
       try { renderWidgets(); } catch(e) {}
+      try { if (currentTab === 'calendar') renderCalendar(); } catch(e) {}
     } catch(e) {
       console.warn('showlist sync:', e);
       setShowSyncMsg('ERROR ' + (e && e.message ? e.message : e));
