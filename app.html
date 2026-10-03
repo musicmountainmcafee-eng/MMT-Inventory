@@ -10773,12 +10773,37 @@ function seed2027Shows() {
     ['A Christmas Carol','2027-11-19','2027-12-12',M],['Holiday Concert','2027-12-17','2027-12-19',M],
     ['Frozen Kids','2027-01-16','2027-02-06',C],['The Princess & the Peabrains','2027-02-20','2027-03-06',C],
     ['Madagascar Kids','2027-03-20','2027-04-10',C],['Moana Jr.','2027-04-24','2027-05-15',C],
-    ['Jack and the Giant','2027-05-29','2027-06-12',C],['Finding Nemo Kids','2027-06-25','2027-07-03',C],
-    ['Cinderella','2027-07-09','2027-07-17',C],['High School Musical Jr.','2027-07-23','2027-08-07',C],
-    ['Pinocchio','2027-08-13','2027-08-21',C],['The Lion King Kids','2027-09-11','2027-09-25',C],
+    ['Jack and the Giant','2027-05-29','2027-06-12',C],['Finding Nemo Kids','2027-06-25','2027-07-10',C],
+    ['Cinderella','2027-07-16','2027-07-24',C],['High School Musical Jr.','2027-07-30','2027-08-14',C],
+    ['Pinocchio','2027-08-20','2027-08-28',C],['The Lion King Kids','2027-09-11','2027-09-25',C],
     ['The Great Pumpkin','2027-10-09','2027-10-30',C],['Babes in Toyland','2027-11-13','2027-11-27',C],
     ['Frosty and Rudolph','2027-12-04','2027-12-18',C],
   ].map(a => ({ name: a[0], start: a[1], end: a[2], type: a[3] })));
+}
+
+function fix2027KidsDates() {
+  // One-time correction (flag '2027-kids-v2'): updates dates IN PLACE so the
+  // already-seeded sheet doesn't end up with duplicate shows.
+  window._showsSeeded = window._showsSeeded || [];
+  if (window._showsSeeded.includes('2027-kids-v2')) return false;
+  const FIX = [
+    ['Frozen Kids','2027-01-16','2027-02-06'],['The Princess & the Peabrains','2027-02-20','2027-03-06'],
+    ['Madagascar Kids','2027-03-20','2027-04-10'],['Moana Jr.','2027-04-24','2027-05-15'],
+    ['Jack and the Giant','2027-05-29','2027-06-12'],['Finding Nemo Kids','2027-06-25','2027-07-10'],
+    ['Cinderella','2027-07-16','2027-07-24'],['High School Musical Jr.','2027-07-30','2027-08-14'],
+    ['Pinocchio','2027-08-20','2027-08-28'],['The Lion King Kids','2027-09-11','2027-09-25'],
+    ['The Great Pumpkin','2027-10-09','2027-10-30'],['Babes in Toyland','2027-11-13','2027-11-27'],
+    ['Frosty and Rudolph','2027-12-04','2027-12-18'],
+  ];
+  FIX.forEach(f => {
+    const key = normShowName(f[0]);
+    const hit = CHILDRENS.find(x => normShowName(x.name) === key && String(x.start).startsWith('2027'));
+    if (hit) { hit.start = f[1]; hit.end = f[2]; }
+    else if (!CHILDRENS.some(x => normShowName(x.name) === key && x.start === f[1])) CHILDRENS.push({ name: f[0], start: f[1], end: f[2] });
+  });
+  CHILDRENS.sort((a, b) => a.start.localeCompare(b.start));
+  window._showsSeeded.push('2027-kids-v2');
+  return true;
 }
 
 function loadRemoteShows(cb) {
@@ -10802,6 +10827,7 @@ function loadRemoteShows(cb) {
         window._showsSeeded.push('2027');
         pushed = true;
       }
+      if (fix2027KidsDates()) pushed = true;
       MAINSTAGE.sort((a, b) => a.start.localeCompare(b.start));
       CHILDRENS.sort((a, b) => a.start.localeCompare(b.start));
       if (pushed || !hasList) saveStoredShows();
@@ -10821,7 +10847,7 @@ function loadRemoteShows(cb) {
     // Sheet unreachable: still show 2027 on this device so the season is usable.
     try {
       window._showsSeeded = window._showsSeeded || [];
-      if (!window._showsSeeded.includes('2027')) { seed2027Shows(); }
+      if (!window._showsSeeded.includes('2027')) { seed2027Shows(); } fix2027KidsDates();
       try { localStorage.setItem('mmt_shows', JSON.stringify({ mainstage: MAINSTAGE, childrens: CHILDRENS })); } catch(e) {}
       syncShowMirrors();
       renderShowMgmt(); renderWidgets();
