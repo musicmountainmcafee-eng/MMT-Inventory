@@ -4381,7 +4381,7 @@ table td { font-size: 14px !important; }
 .t2-tab{border:1px solid var(--border);background:var(--surface);color:var(--text);padding:8px 14px;border-radius:99px;font-size:13px;cursor:pointer;font-family:inherit}
 .t2-tab.on{background:var(--purple);border-color:var(--purple);color:#fff}
 .t2-tab .t2-n{background:var(--red);color:#fff;border-radius:99px;font-size:11px;padding:1px 6px;margin-left:5px}
-.t2-menu{position:relative}
+.t2-menu{position:relative;margin-left:auto}
 .t2-menu summary{list-style:none;cursor:pointer;border:1px solid var(--border);background:var(--surface);border-radius:99px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:18px}
 .t2-menu summary::-webkit-details-marker{display:none}
 .t2-menu .t2-pop{position:absolute;right:0;top:42px;z-index:20;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:6px;min-width:230px;box-shadow:0 6px 24px rgba(0,0,0,.15)}
@@ -4436,6 +4436,11 @@ table td { font-size: 14px !important; }
 .t2-seg{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:99px;padding:3px;gap:2px}
 .t2-seg button{flex:1;border:0;background:none;color:var(--text-muted);padding:7px 4px;border-radius:99px;font-size:13px;cursor:pointer;font-family:inherit}
 .t2-seg button.on{background:var(--surface);color:var(--text);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.t2-nt{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--border);margin:0 0 14px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.t2-nt::-webkit-scrollbar{display:none}
+.t2-nt button{flex:none;background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:10px 12px;font-size:15px;color:var(--text-muted);cursor:pointer;font-family:inherit;white-space:nowrap}
+.t2-nt button.on{color:var(--text);font-weight:600;border-bottom-color:var(--text)}
+.t2-nt .t2-n{background:var(--red);color:#fff;border-radius:99px;font-size:11px;padding:1px 6px;margin-left:5px}
 .t2-vrow{display:flex;flex-wrap:wrap;align-items:center;gap:2px 16px;font-size:13px;color:var(--text-muted);margin:0 2px 2px}
 .t2-vrow .t2-vsum{min-width:0}
 .t2-link{background:none;border:0;color:var(--purple-dark);padding:6px 0;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
@@ -6062,7 +6067,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.04 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.05 v1</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -18995,16 +19000,15 @@ const T2_KEY = 'todo2', T2_LS = 'mmt_todo2';
 let T2 = { v: 1, tasks: [], rec: [], log: [], cats: [], views: [], imp: {} };
 let t2Loaded = false, t2Sub = 'tasks', t2Draft = { show: '', due: '', est: 0, cat: '' }, t2OpenChip = '';
 let t2Triage = false, t2AddOpen = false, t2Open = {};
-// A view = which categories, how to group, how much to show. Built-ins are fixed;
-// custom ones are saved in T2.views ({id,name,cats,group,scope,rec,c,u,d}).
+// Four fixed views (tabs). t2W holds the active view's settings.
 const T2_BUILTIN = [
-  { id: 'b_today', name: 'Today', cats: [], group: 'when', scope: 'focus', rec: true },
-  { id: 'b_all', name: 'Everything', cats: [], group: 'when', scope: 'all', rec: true },
-  { id: 'b_cat', name: 'By category', cats: [], group: 'cat', scope: 'all', rec: false },
-  { id: 'b_show', name: 'By show', cats: [], group: 'show', scope: 'all', rec: false }
+  { id: 'b_today', name: 'Today', group: 'when', scope: 'focus', rec: true },
+  { id: 'b_all', name: 'All', group: 'when', scope: 'all', rec: true },
+  { id: 'b_cat', name: 'Categories', group: 'cat', scope: 'all', rec: false },
+  { id: 'b_show', name: 'Shows', group: 'show', scope: 'all', rec: false }
 ];
 let t2Cur = 'b_today', t2W = { cats: [], group: 'when', scope: 'focus', rec: true };
-try { const u = JSON.parse(localStorage.getItem('mmt_todo2_ui') || 'null'); if (u && u.w && Array.isArray(u.w.cats)) { t2Cur = u.cur || 'b_today'; t2W = u.w; } } catch (e) {}
+try { const u = JSON.parse(localStorage.getItem('mmt_todo2_ui') || 'null'); if (u && u.w && Array.isArray(u.w.cats)) { t2Cur = T2_BUILTIN.some(v => v.id === u.cur) ? u.cur : 'b_today'; t2W = { cats: [], group: u.w.group || 'when', scope: u.w.scope || 'focus', rec: !!u.w.rec }; } } catch (e) {}
 function t2Ui() { try { localStorage.setItem('mmt_todo2_ui', JSON.stringify({ cur: t2Cur, w: t2W })); } catch (e) {} }
 let t2Timer = null, t2Busy = false, t2TooBig = false, t2Msg = '';
 
@@ -19260,9 +19264,7 @@ function t2Render() {
   const oldIn = document.getElementById('t2-in'), keep = oldIn ? oldIn.value : '', hadFocus = oldIn && document.activeElement === oldIn;
   const n = t2Badge();
   let h = '<div class="t2-top"><span class="t2-h">To Do</span><span class="t2-beta">beta</span>' +
-    '<div class="t2-tabs"><button class="t2-tab' + (t2Sub === 'tasks' ? ' on' : '') + '" onclick="t2Tab(\'tasks\')">Tasks</button>' +
-    '<button class="t2-tab' + (t2Sub === 'rec' ? ' on' : '') + '" onclick="t2Tab(\'rec\')">Recurring' + (T2.rec.filter(r => !r.d && t2Stat(r).days < 0).length ? '<span class="t2-n">' + T2.rec.filter(r => !r.d && t2Stat(r).days < 0).length + '</span>' : '') + '</button></div>' +
-    '<details class="t2-menu"><summary aria-label="More">⋯</summary><div class="t2-pop"><button onclick="this.closest(\'details\').open=false;t2CatSheet()">Manage categories</button><button onclick="t2BackupNow()">Download backup</button><button onclick="t2Import()">Import from old To Do + Cleaning</button></div></details></div>';
+    '<details class="t2-menu"><summary aria-label="More">⋯</summary><div class="t2-pop"><button onclick="this.closest(\'details\').open=false;t2CatSheet()">Manage categories</button><button onclick="t2BackupNow()">Download backup</button><button onclick="t2Import()">Import from old To Do + Cleaning</button></div></details></div>' + t2TabsHtml();
   if (t2TooBig) h += '<div class="t2-banner warn">This list is nearly at the storage limit, so new changes are saved on this device only. Download a backup and tell Claude, and we\'ll split the storage.</div>';
   if (t2Msg) h += '<div class="t2-banner ok">' + t2e(t2Msg) + '</div>';
   if (!T2.imp || !T2.imp.done) h += '<div class="t2-banner"><b>Bring over your old data.</b> This copies your existing To Do tasks and Cleaning items into this tab. The old tabs are never changed or deleted, and a backup file downloads first.<div class="t2-btns"><button class="t2-btn pri" onclick="t2Import()">Back up and import</button><button class="t2-btn" onclick="t2BackupNow()">Just download backup</button></div></div>';
@@ -19272,70 +19274,17 @@ function t2Render() {
 }
 function t2Tab(k) { t2Sub = k; t2Render(); }
 
-// ── views: switch, customize, save ───────────────────────────────────────────
-function t2ViewList() { return T2_BUILTIN.concat((T2.views || []).filter(v => !v.d).sort((a, b) => (a.c || 0) - (b.c || 0))); }
-function t2ViewDef(id) { return t2ViewList().find(v => v.id === id); }
-function t2Norm(w) { return JSON.stringify({ c: (w.cats || []).slice().sort(), g: w.group, s: w.scope, r: !!w.rec }); }
-function t2Mod() { const d = t2ViewDef(t2Cur); return !d || t2Norm(d) !== t2Norm(t2W); }
+// ── tabs (Notion-style): four views + recurring ─────────────────────────────
+function t2ViewList() { return T2_BUILTIN; }
 function t2UseView(id) {
-  const d = t2ViewDef(id) || T2_BUILTIN[0];
-  t2Cur = d.id; t2W = { cats: (d.cats || []).slice(), group: d.group, scope: d.scope, rec: !!d.rec };
+  const d = T2_BUILTIN.find(v => v.id === id) || T2_BUILTIN[0];
+  t2Sub = 'tasks'; t2Cur = d.id; t2W = { cats: [], group: d.group, scope: d.scope, rec: !!d.rec };
   t2Ui(); t2Render();
 }
-function t2ResetView() { t2UseView(t2Cur); }
-function t2Summary() {
-  const c = t2W.cats.map(x => x === '__none' ? 'No category' : x);
-  const parts = [c.length ? (c.length > 2 ? c.slice(0, 2).join(', ') + ' +' + (c.length - 2) : c.join(', ')) : 'All categories'];
-  parts.push(t2W.scope === 'focus' ? 'today and slipped' : 'everything');
-  if (t2W.group !== 'when') parts.push('by ' + (t2W.group === 'cat' ? 'category' : 'show'));
-  return parts.join(' · ');
-}
-function t2SaveView(mode) {
-  const d = t2ViewDef(t2Cur), now = Date.now();
-  if (mode === 'update' && d && !d.b && T2.views.find(v => v.id === d.id)) {
-    const v = T2.views.find(x => x.id === d.id);
-    v.cats = t2W.cats.slice(); v.group = t2W.group; v.scope = t2W.scope; v.rec = !!t2W.rec; v.u = now;
-    t2Save(); t2Render(); toast('View updated'); return;
-  }
-  const name = (prompt('Name this view', '') || '').trim(); if (!name) return;
-  const v = { id: t2id('v'), name, cats: t2W.cats.slice(), group: t2W.group, scope: t2W.scope, rec: !!t2W.rec, c: now, u: now, d: 0 };
-  T2.views = (T2.views || []).concat(v); t2Cur = v.id; t2Ui(); t2Save(); t2Render(); toast('View saved');
-}
-function t2ViewRename() {
-  const v = (T2.views || []).find(x => x.id === t2Cur); if (!v) return;
-  const n = (prompt('Rename view', v.name) || '').trim(); if (!n) return;
-  v.name = n; v.u = Date.now(); t2Save(); t2Render();
-}
-function t2ViewDelete() {
-  const v = (T2.views || []).find(x => x.id === t2Cur); if (!v) return;
-  if (!confirm('Delete the view "' + v.name + '"? Your tasks are not affected.')) return;
-  v.d = 1; v.u = Date.now(); t2Save(); t2UseView('b_today');
-}
-function t2Customize() {
-  const el = t2SheetEl(), cats = t2CatList();
-  const opt = (v, l, cur) => '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + l + '</option>';
-  const tog = (c, label) => '<button class="t2-chip' + (t2W.cats.includes(c) ? ' set' : '') + '" data-c="' + encodeURIComponent(c) + '" onclick="this.classList.toggle(\'set\')">' + t2e(label) + '</button>';
-  el.innerHTML = '<div class="t2-sh"><div style="font-weight:700;font-size:16px">Customize view</div>' +
-    '<label>Show</label><select id="t2v-scope">' + opt('focus', 'Today and slipped only', t2W.scope) + opt('all', 'Everything', t2W.scope) + '</select>' +
-    '<label>Group by</label><select id="t2v-group">' + opt('when', 'When it\'s due', t2W.group) + opt('cat', 'Category', t2W.group) + opt('show', 'Show', t2W.group) + '</select>' +
-    '<label>Categories (none selected means all)</label><div class="t2-panel" id="t2v-cats">' + cats.map(c => tog(c, c)).join('') + tog('__none', 'No category') + '</div>' +
-    '<label class="t2-chkline"><input type="checkbox" id="t2v-rec"' + (t2W.rec ? ' checked' : '') + '> Include recurring tasks</label>' +
-    '<div class="t2-note">Apply changes what you see now. Tap Save view afterward to keep it.</div>' +
-    '<div class="t2-foot"><button class="t2-btn" onclick="t2Close()">Cancel</button><button class="t2-btn pri" onclick="t2ApplyCustom()">Apply</button></div></div>';
-  el.classList.add('on');
-}
-function t2ApplyCustom() {
-  const cats = [...document.querySelectorAll('#t2v-cats .t2-chip.set')].map(b => decodeURIComponent(b.dataset.c));
-  t2W = { cats, group: document.getElementById('t2v-group').value, scope: document.getElementById('t2v-scope').value, rec: document.getElementById('t2v-rec').checked };
-  t2Close(); t2Ui(); t2Render();
-}
-function t2BarHtml() {
-  const mod = t2Mod(), d = t2ViewDef(t2Cur), custom = d && !d.b && !T2_BUILTIN.some(b => b.id === d.id);
-  let h = '<div class="t2-bar"><div class="t2-cats">' + t2ViewList().map(v => '<button class="t2-chip' + (v.id === t2Cur ? ' set' : '') + '" onclick="t2UseView(\'' + v.id + '\')">' + t2e(v.name) + (v.id === t2Cur && mod ? ' •' : '') + '</button>').join('') + '</div>' +
-    '<div class="t2-vrow"><button class="t2-link" onclick="t2Customize()">Customize</button><span class="t2-vsum">' + t2e(t2Summary()) + '</span></div>';
-  if (mod) h += '<div class="t2-vrow"><button class="t2-link" onclick="t2SaveView(\'new\')">Save as new view</button>' + (custom ? '<button class="t2-link" onclick="t2SaveView(\'update\')">Update “' + t2e(d.name) + '”</button>' : '') + '<button class="t2-link" onclick="t2ResetView()">Reset</button></div>';
-  else if (custom) h += '<div class="t2-vrow"><button class="t2-link" onclick="t2ViewRename()">Rename view</button><button class="t2-link" onclick="t2ViewDelete()" style="color:var(--red)">Delete view</button></div>';
-  return h + '</div>';
+function t2TabsHtml() {
+  const od = T2.rec.filter(r => !r.d && t2Stat(r).days < 0 && !t2Stat(r).never).length;
+  return '<div class="t2-nt">' + T2_BUILTIN.map(v => '<button class="' + (t2Sub === 'tasks' && v.id === t2Cur ? 'on' : '') + '" onclick="t2UseView(\'' + v.id + '\')">' + t2e(v.name) + '</button>').join('') +
+    '<button class="' + (t2Sub === 'rec' ? 'on' : '') + '" onclick="t2Tab(\'rec\')">Recurring' + (od ? '<span class="t2-n">' + od + '</span>' : '') + '</button></div>';
 }
 function t2Group(title, sub, items, sortChips) { return '<div class="t2-sec"><div class="t2-sech">' + t2e(title) + (sub ? ' <span class="t2-sub">' + sub + '</span>' : '') + '</div>' + t2Card(items, sortChips) + '</div>'; }
 function t2Fold(key, title, inner, open) { return '<details class="t2-fold t2-sec"' + ((t2Open[key] == null ? open : t2Open[key]) ? ' open' : '') + ' ontoggle="t2Open[\'' + key + '\']=this.open"><summary>' + title + '</summary>' + inner + '</details>'; }
@@ -19343,7 +19292,7 @@ function t2ByDue(a, b) { return (a.t.due || '9999').localeCompare(b.t.due || '99
 
 function t2TasksHtml() {
   const S = t2Sections(), focus = t2W.scope === 'focus';
-  let h = '<div class="t2-add' + (t2AddOpen || t2Draft.show || t2Draft.due || t2Draft.est || t2Draft.cat ? ' open' : '') + '" id="t2-add"></div>' + t2BarHtml();
+  let h = '<div class="t2-add' + (t2AddOpen || t2Draft.show || t2Draft.due || t2Draft.est || t2Draft.cat ? ' open' : '') + '" id="t2-add"></div>';
   if (t2W.group === 'cat' || t2W.group === 'show') {
     const all = (focus ? S.today.concat(S.slip).filter(i => i.t) : T2.tasks.filter(t => !t.d && !t.done).map(t => ({ t })).filter(t2Pass)).sort(t2ByDue), g = {};
     const f = t2W.group === 'cat' ? (t => t.list || '') : (t => t.show || '');
@@ -19356,7 +19305,7 @@ function t2TasksHtml() {
     names.forEach(nm => {
       let sub = String(g[nm].length);
       if (t2W.group === 'show' && nm) { const sh = t2ShowByName(nm); if (sh) { const dd = t2diff(todayISO(), sh.start); sub += ' · ' + (dd > 0 ? 'opens in ' + dd + 'd' : t2diff(todayISO(), sh.end) >= 0 ? 'running' : 'closed'); } }
-      h += t2Group(nm || (t2W.group === 'cat' ? 'No category' : 'No show'), sub, g[nm]);
+      h += t2Fold('g_' + t2W.group + '_' + nm, t2e(nm || (t2W.group === 'cat' ? 'No category' : 'No show')) + ' <span class="t2-sub" style="font-weight:400;text-transform:none;letter-spacing:0">' + sub + '</span>', t2Card(g[nm]), true);
     });
   } else {
     if (S.sort.length) h += '<button class="t2-tri" onclick="t2Triage=!t2Triage;t2Render()"><span><b>' + S.sort.length + '</b> to sort</span><span>' + (t2Triage ? 'Hide' : 'Sort them') + '</span></button>';
