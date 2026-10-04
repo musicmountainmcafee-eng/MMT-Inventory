@@ -4411,8 +4411,8 @@ table td { font-size: 14px !important; }
 .t2-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
 .t2-row{display:flex;align-items:flex-start;gap:6px;padding:4px 8px 4px 2px;border-bottom:1px solid var(--border)}
 .t2-row:last-child{border-bottom:0}
-.t2-chk{flex:none;width:44px;height:44px;background:none;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
-.t2-chk::before{content:"";width:22px;height:22px;border:2px solid var(--text-faint);border-radius:50%;box-sizing:border-box}
+.t2-chk{flex:none;width:44px;min-width:44px;height:44px;background:none;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.t2-chk::before{content:"";flex:none;width:22px;min-width:22px;height:22px;border:2px solid var(--text-faint);border-radius:50%;box-sizing:border-box}
 .t2-chk:active::before{background:var(--green);border-color:var(--green)}
 .t2-row.rec .t2-chk::before{border-radius:6px}
 .t2-row.done .t2-title{text-decoration:line-through;color:var(--text-faint)}
@@ -4444,6 +4444,10 @@ table td { font-size: 14px !important; }
 .t2-crow{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)}
 .t2-crow .t2-cn{flex:1;min-width:0}
 .t2-crow .t2-btn{padding:6px 10px;font-size:13px}
+#t2-undo{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999;display:none;align-items:center;gap:14px;background:#1a1a1a;color:#fff;padding:8px 8px 8px 18px;border-radius:99px;font-size:14px;max-width:calc(100vw - 24px);box-sizing:border-box}
+#t2-undo.on{display:flex}
+#t2-undo span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#t2-undo button{flex:none;border:0;background:#fff;color:#1a1a1a;font-weight:600;font-size:14px;padding:8px 16px;border-radius:99px;cursor:pointer;font-family:inherit}
 .t2-empty{padding:14px;color:var(--text-muted);font-size:13px}
 .t2-grp{font-size:13px;font-weight:600;padding:10px 12px 2px}
 .t2-grp span{font-weight:400;color:var(--text-muted);font-size:12px;margin-left:6px}
@@ -6055,7 +6059,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.03 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.03 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -6560,6 +6564,20 @@ function chkPosList() {
 }
 function chkPosById(id) { return chkStore().positions.find(p => p.id === id) || null; }
 function chkPosShort(p) { return p.short || p.name || p.id; }
+
+// ── undo bar ─────────────────────────────────────────────────────────────────
+let t2UndoFn = null, t2UndoTimer = null;
+function t2UndoBar(msg, fn) {
+  let el = document.getElementById('t2-undo');
+  if (!el) { el = document.createElement('div'); el.id = 't2-undo'; document.body.appendChild(el); }
+  t2UndoFn = fn; el.innerHTML = '<span>' + t2e(msg) + '</span><button onclick="t2UndoGo()">Undo</button>'; el.classList.add('on');
+  clearTimeout(t2UndoTimer); t2UndoTimer = setTimeout(() => el.classList.remove('on'), 8000);
+}
+function t2UndoGo() {
+  const f = t2UndoFn; t2UndoFn = null; clearTimeout(t2UndoTimer);
+  const el = document.getElementById('t2-undo'); if (el) el.classList.remove('on');
+  if (f) f();
+}
 
 // ── sections ─────────────────────────────────────────────────────────────────
 // A position with no entry yet gets everything ticked: a new position almost
@@ -19070,12 +19088,16 @@ function t2Stat(r) {
 }
 function t2RecDone(id) {
   const r = T2.rec.find(x => x.id === id); if (!r) return;
-  const n = t2Next(r);
+  const n = t2Next(r), prev = { last: r.last, doneShows: (r.doneShows || []).slice() }, logId = t2id('l');
   if (r.kind === 'show' && n && n.show) r.doneShows = (r.doneShows || []).concat(n.show);
   r.last = todayISO(); r.u = Date.now();
-  T2.log.push({ id: t2id('l'), item: r.name, area: r.area || '', who: '', notes: (n && n.show) || '', date: todayISO(), u: Date.now() });
+  T2.log.push({ id: logId, item: r.name, area: r.area || '', who: '', notes: (n && n.show) || '', date: todayISO(), u: Date.now() });
   t2Save(); t2Render();
-  toast(r.name + ' done · next: ' + t2Stat(r).label.toLowerCase());
+  t2UndoBar(r.name + ' done · next: ' + t2Stat(r).label.toLowerCase(), () => {
+    r.last = prev.last; r.doneShows = prev.doneShows; r.u = Date.now();
+    const l = T2.log.find(x => x.id === logId); if (l) { l.d = 1; l.u = Date.now(); }
+    t2Save(); t2Render();
+  });
 }
 
 // ── categories ───────────────────────────────────────────────────────────────
@@ -19319,6 +19341,7 @@ function t2Toggle(id) {
   const t = T2.tasks.find(x => x.id === id); if (!t) return;
   t.done = !t.done; t.doneAt = t.done ? Date.now() : 0; t.u = Date.now();
   t2Save(); t2Render();
+  if (t.done) t2UndoBar('Done: ' + t.text, () => { t.done = false; t.doneAt = 0; t.u = Date.now(); t2Save(); t2Render(); });
 }
 function t2Bucket(id, b) { const t = T2.tasks.find(x => x.id === id); if (!t) return; t.bucket = b; t.u = Date.now(); t2Save(); t2Render(); }
 
