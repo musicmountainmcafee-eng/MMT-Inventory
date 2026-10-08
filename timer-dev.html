@@ -223,7 +223,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber)}
 .swatches button{width:34px;height:34px;min-height:34px;padding:0;border-radius:8px;border:2px solid transparent}
 .swatches button.pick{border-color:var(--type);box-shadow:0 0 0 2px var(--shell) inset}
 /* ---------- Schedule: its own screen, one section at a time ---------- */
-body.setting #panel>:not(#settings){display:none!important}
+body.setting #panel>:not(#settings):not(#ctcard){display:none!important}
 body.hist #panel>:not(#history){display:none!important}
 .setbar{position:sticky;top:0;z-index:10;background:var(--shell);margin:0 -16px 16px;padding:max(10px,env(safe-area-inset-top,0px)) 16px 0;border-bottom:1px solid var(--line)}
 .settop{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:6px}
@@ -357,8 +357,11 @@ ul.cues li:first-child::before{top:50%}ul.cues li:last-child::before{bottom:50%}
 ul.cues .dot{position:absolute;left:0;top:50%;transform:translateY(-50%);width:10px;height:10px;box-shadow:0 0 0 3px var(--panel)}
 ul.cues .nm{font-size:14px;letter-spacing:.05em}
 ul.cues li.done .nm{color:var(--dim)}
-#checklist li{padding:10px 0 10px 0}#checklist li::before{display:none}
-#checklist .dot{position:static;transform:none;box-shadow:none;margin-top:5px}
+#checklist li,#ctlist li{padding:10px 0 10px 0}#checklist li::before,#ctlist li::before{display:none}
+#checklist .dot,#ctlist .dot{position:static;transform:none;box-shadow:none;margin-top:5px}
+#ctlist li{align-items:flex-start}#ctlist .nm small{display:block;font-size:12px;letter-spacing:0;font-weight:400;opacity:.75;margin-top:2px;text-transform:none}
+#ctcard{border:1px solid var(--line)}#ctcard.bad{border-color:#E2513F}#ctcard.good{border-color:#2FBF5C}
+#ctupdate{background:#2FBF5C;color:#0b1a10}
 .foot{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:6px}
 .foot button{background:transparent;color:var(--type);font-weight:500;min-height:48px;border:1.5px solid var(--btnline);border-radius:14px;flex:none}
 #smcard{padding:12px 14px}
@@ -440,6 +443,14 @@ h2{font-size:16px;font-weight:700}
     <input id="rtname" placeholder="Name it, like Tech rehearsal" autocomplete="off" hidden style="margin:-4px 0 12px">
     <p id="rtpreview"></p>
     <div class="row"><button class="quiet" id="rtcancel">Cancel</button><button id="rtstart">Start run-through</button></div>
+  </div>
+
+  <div class="card" id="ctcard" hidden>
+    <h2>Connection test</h2>
+    <p class="muted" id="ctsum" style="margin-bottom:8px"></p>
+    <ul class="cues" id="ctlist"></ul>
+    <div class="row" style="margin-top:10px"><button class="small" id="ctupdate" hidden>Update now</button><button class="small quiet" id="ctagain">Test again</button><button class="quiet small" id="ctclose">Close</button></div>
+    <p class="hint" style="margin-top:8px">Runs on its own the first time this device opens the timer and after 2 hours away. Tap the version number at the bottom to run it any time.</p>
   </div>
 
   <div class="card" id="checkcard" hidden>
@@ -671,7 +682,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='2.32-dev8';
+var VERSION='2.32-dev10';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1506,6 +1517,98 @@ function paintCheck(){
   });
   $('checksum').textContent=!CHK.done?'Checking...':bad?bad+' problem'+(bad>1?'s':'')+' to look at.':warn?'Working, with '+warn+' thing'+(warn>1?'s':'')+' to look at.':'Everything answered and looks good.';
 }
+// ---------- connection test ----------
+// Phones and iPads run this by themselves the first time they open the timer
+// and whenever they come back after 2 hours away. It checks the relay, the
+// settings backup, that this device has the newest copy of the file (home-screen
+// apps can hold on to an old one), and that it's on the same version as the Wyse.
+var CT_GAP=2*3600e3,CT={run:0,ver:'',verErr:false,start:0,timer:null},ctLastKey='mmt-timer-lastseen-dev';
+function ctSeen(){if(document.visibilityState!=='hidden')sset(ctLastKey,String(Date.now()))}
+function ctDue(){var t=parseInt(sget(ctLastKey)||'0',10);return !t||Date.now()-t>CT_GAP}
+function ctFetchVer(run){
+  if(typeof fetch==='undefined'||location.protocol==='file:'){CT.verErr=true;return}
+  var ctl=typeof AbortController!=='undefined'?new AbortController():null;
+  var to=setTimeout(function(){if(ctl)ctl.abort()},8000);
+  fetch(location.pathname+'?ct='+Date.now(),{cache:'no-store',signal:ctl?ctl.signal:undefined})
+    .then(function(r){if(!r.ok)throw 0;return r.text()})
+    .then(function(t){clearTimeout(to);if(CT.run!==run)return;var m=t.match(/var VERSION='([^']+)'/);if(m)CT.ver=m[1];else CT.verErr=true;paintCT()})
+    .catch(function(){clearTimeout(to);if(CT.run!==run)return;CT.verErr=true;paintCT()});
+}
+function ctWyse(){
+  // The Wyse answers as a display running on Linux; fall back to any display.
+  var best=null;if(!CT.chk||CHK.id!==CT.chk)return null;
+  Object.keys(CHK.pongs).forEach(function(d){
+    var q=CHK.pongs[d],l=q.label||'';
+    if(!/display/i.test(l))return;
+    if(!best||(/Linux/.test(l)&&!/Linux/.test(best.label)))best=q;
+  });
+  return best;
+}
+function runCT(){
+  var run=++CT.run;CT.ver='';CT.verErr=false;CT.start=Date.now();CT.chk=null;
+  $('ctcard').hidden=false;$('ctcard').className='card';$('ctupdate').hidden=true;
+  ctFetchVer(run);
+  // give the relay a few seconds to come up after opening before pinging over it
+  (function go(){
+    if(CT.run!==run)return;
+    if(syncState==='live'||Date.now()-CT.start>6000){runCheck();CT.chk=CHK.id;paintCT()}else{setTimeout(go,300);return}
+  })();
+  clearInterval(CT.timer);
+  CT.timer=setInterval(function(){if(CT.run!==run){return}paintCT();if(ctFinished())clearInterval(CT.timer)},400);
+  paintCT();
+}
+function ctFinished(){return !!CT.chk&&CHK.id===CT.chk&&CHK.done&&CHK.backend!=='wait'&&(CT.ver||CT.verErr)&&Date.now()-CT.start>1500}
+function paintCT(){
+  var box=$('ctlist');if(!box||$('ctcard').hidden)return;
+  var GREEN='#2FBF5C',AMBER='#FFD24A',RED='#E2513F',rows=[],fin=ctFinished(),update=false;
+  function add(c,label,detail){rows.push({c:c,label:label,detail:detail})}
+  // 1. connection
+  if(relayLimited)add(RED,'Connection','Relay hit its daily limit. Presses won\'t reach other screens until it resets.');
+  else if(syncState==='live'&&CHK.rtt!=null)add(CHK.rtt>2500?AMBER:GREEN,'Connection',CHK.rtt>2500?'Connected, but slow ('+(CHK.rtt/1000).toFixed(1)+' s round trip). Calls may lag.':'Connected. Round trip '+(CHK.rtt/1000).toFixed(1)+' s.');
+  else if(syncState==='live'&&fin)add(AMBER,'Connection','Connected, but the test message never came back.');
+  else if(syncState==='down'||(syncState!=='live'&&fin))add(RED,'Connection','Can\'t reach the relay. Check Wi-Fi or cell signal.');
+  else add(AMBER,'Connection','Testing...');
+  // 2. settings backup
+  add(CHK.backend==='ok'?GREEN:CHK.backend==='no'?RED:AMBER,'Settings backup',CHK.backend==='ok'?'Reachable.':CHK.backend==='no'?'Not reachable. This device will use its own saved copy.':'Testing...');
+  // 3. newest copy of the file
+  if(CT.ver){
+    if(CT.ver===VERSION)add(GREEN,'Up to date','This device has the newest version, v'+VERSION+'.');
+    else{update=true;add(RED,'Out of date','This device is on v'+VERSION+', but v'+CT.ver+' is out. Tap Update now.')}
+  }else if(CT.verErr)add(AMBER,'Up to date','Couldn\'t check for a newer version right now.');
+  else add(AMBER,'Up to date','Checking for a newer version...');
+  // 4. same version as the Wyse
+  var w=ctWyse();
+  if(w){
+    var wv=w.ver||'';
+    if(!wv)add(AMBER,'Matches the Wyse','The Wyse answered but didn\'t say its version.');
+    else if(wv===VERSION)add(GREEN,'Matches the Wyse','Both on v'+VERSION+'.');
+    else if(CT.ver&&wv!==CT.ver&&VERSION===CT.ver)add(RED,'Matches the Wyse','The Wyse is behind (v'+wv+'). Refresh the timer on the Wyse.');
+    else{update=true;add(RED,'Matches the Wyse','The Wyse is on v'+wv+', this device is on v'+VERSION+'. Tap Update now.')}
+  }else if(CHK.done)add(AMBER,'Matches the Wyse','The Wyse didn\'t answer. Make sure it\'s on and the timer is open.');
+  else add(AMBER,'Matches the Wyse','Waiting for the Wyse to answer...');
+  box.innerHTML='';
+  var bad=0,warn=0;
+  rows.forEach(function(r){
+    if(r.c===RED)bad++;else if(r.c===AMBER)warn++;
+    var li=document.createElement('li');li.innerHTML='<span class="dot"></span><span class="nm"></span>';
+    li.querySelector('.dot').style.background=r.c;
+    var nm=li.querySelector('.nm');nm.textContent=r.label;
+    var sm=document.createElement('small');sm.textContent=r.detail;nm.appendChild(sm);
+    box.appendChild(li);
+  });
+  $('ctupdate').hidden=!update;
+  $('ctcard').className='card'+(fin?(bad?' bad':!warn?' good':''):'');
+  $('ctsum').textContent=!fin?'Testing your connection...':bad?bad+' problem'+(bad>1?'s':'')+' found.':warn?'Working, with '+warn+' thing'+(warn>1?'s':'')+' to look at.':'All good. You\'re connected and up to date.';
+  // a clean pass tidies itself away
+  if(fin&&!bad&&!warn&&!CT.closing){CT.closing=setTimeout(function(){CT.closing=null;if(!$('ctcard').className.match(/bad/))$('ctcard').hidden=true},4000)}
+}
+function ctUpdate(){
+  // Reload past every cache: a fresh address forces the browser and home-screen
+  // apps to fetch the file again. The test runs once more after the reload.
+  try{sessionStorage.setItem('mmt-ct-after','1')}catch(e){}
+  if(typeof caches!=='undefined'&&caches.keys)caches.keys().then(function(k){k.forEach(function(n){caches.delete(n)})}).catch(function(){});
+  location.replace(location.pathname+'?u='+Date.now()+location.hash);
+}
 // A sync problem that lasts more than 10 seconds puts a banner on the controller and the displays.
 var netBadSince=0;
 function paintNetBanner(){
@@ -1632,7 +1735,7 @@ function paintStage(f,now,clockMode,wingsOn,heldNow,ink,scene){
     var d=new Date(now);
     $('slug').textContent='';$('slug').className='k-clock';
     $('big').innerHTML=(d.getHours()%12||12)+':'+pad(d.getMinutes())+'<span class="ampm">'+(d.getHours()<12?'AM':'PM')+'</span>';$('big').className='clocked';$('big').style.color='';
-    $('sub').textContent=f.idle?'':f.preCall?f.cue+' AT '+clockOf(f.when):'READY TO START';
+    $('sub').textContent=f.idle?d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}).toUpperCase():f.preCall?f.cue+' AT '+clockOf(f.when):'READY TO START';
   }else{
     $('slug').textContent=f.paused?'HOLDING':f.label;$('slug').className=(f.done||f.paused)?'':f.up?'k-up':'k-down';
     $('big').className='';$('big').textContent=f.up?fmt(f.el):countdown(f.ms);
@@ -2023,6 +2126,10 @@ $('ready').onclick=houseToggle;
 $('checkbtn').onclick=function(){$('checkcard').hidden=false;runCheck();window.scrollTo({top:0,behavior:'smooth'})};
 $('checkagain').onclick=runCheck;
 $('checkclose').onclick=function(){$('checkcard').hidden=true};
+$('ctagain').onclick=function(){clearTimeout(CT.closing);CT.closing=null;runCT()};
+$('ctclose').onclick=function(){clearTimeout(CT.closing);CT.closing=null;CT.run++;$('ctcard').hidden=true};
+$('ctupdate').onclick=ctUpdate;
+$('vercontrol').onclick=function(){clearTimeout(CT.closing);CT.closing=null;runCT();window.scrollTo({top:0,behavior:'smooth'})};$('vercontrol').style.cursor='pointer';
 (function(){   // simple view: GO, Hold, Back, +/-. Everything else is one tap away under Show more.
   var b=$('viewtoggle');if(!b)return;
   if(isDisplay){b.hidden=true;return}
@@ -2845,6 +2952,17 @@ if(isDisplay){
 // ---------- start ----------
 if(!cfg.runs.length&&!kidsCfg().runs.length&&!isDisplay&&!hp('s')){setTimeout(function(){$('setup').click()},50)}
 connect();wake();draw();
+// connection test: phones and iPads only, never the displays (the Wyse would pop it up on every restart)
+if(!isDisplay){
+  var ctAfter=false;try{ctAfter=sessionStorage.getItem('mmt-ct-after')==='1';sessionStorage.removeItem('mmt-ct-after')}catch(e){}
+  if(ctAfter||ctDue())setTimeout(runCT,500);
+  if(/[?&]u=\d/.test(location.search))try{history.replaceState(null,'',location.pathname+location.hash)}catch(e){}
+  ctSeen();setInterval(ctSeen,60000);
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='visible'){if(ctDue())runCT();ctSeen()}
+    else sset(ctLastKey,String(Date.now()));
+  });
+}
 })();
 </script>
 </body>
