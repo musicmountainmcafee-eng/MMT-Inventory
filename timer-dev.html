@@ -205,13 +205,14 @@ ul.cues li.live .dot{background:var(--go)}ul.cues li.done .dot{background:var(--
 .rp-tile.warn .rp-n,.rp-tile.warn .rp-v.flag{color:var(--amber)}
 .rp-tile.ok .rp-n{color:var(--go)}
 .rp-acts{border-top:1px solid var(--line)}
-.rp-row{display:grid;grid-template-columns:1fr auto auto;column-gap:14px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--line)}
+.rp-at{font-size:14px;font-weight:600;color:var(--clock);white-space:nowrap;font-variant-numeric:tabular-nums}
+.rp-row{display:grid;grid-template-columns:auto 1fr auto auto;column-gap:12px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--line)}
 .rp-name{font-size:14px;font-weight:600}
 .rp-held{display:block;font-size:12px;font-weight:400;color:var(--dim);margin-top:2px}
 .rp-ran{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
 .rp-vs{font-size:12px;min-width:92px;text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
 .rp-vs.over{color:var(--amber)}
-.rp-vs.under{color:var(--clock)}
+.rp-vs.under{color:var(--go)}
 .rp-vs.ok{color:var(--go)}
 .rp-live{color:var(--accent);font-weight:600}
 .rp-foot{margin-top:12px;font-size:14px;line-height:1.5}
@@ -309,7 +310,7 @@ body.display:not(.full) #idwhen{display:none}
 h2{font-size:15px;font-weight:600;margin-bottom:4px}
 .hint{font-size:13px;color:var(--dim);margin-bottom:14px;line-height:1.45}
 .link{word-break:break-all;font-size:12px;color:var(--dim);background:var(--shell);border:1px solid var(--line);border-radius:8px;padding:10px;margin:6px 0 8px;max-height:64px;overflow:hidden}
-body.simple.showdone #reportcard:not([hidden]){display:block!important}
+body.simple.showdone #reportcard:not([hidden]),body.simple.lastrep #reportcard:not([hidden]){display:block!important}
 #smtagrow{display:none;margin:-4px 0 10px}
 body.simple #smtagrow:not([hidden]){display:block}
 #smtag{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:6px 14px;border-radius:999px;font-size:14px;letter-spacing:.04em;background:transparent;border:1px solid var(--accent);color:var(--type)}
@@ -701,7 +702,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.0-dev6';
+var VERSION='3.0-dev8';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -976,6 +977,10 @@ function scheduledPerf(now){
     // 3 hours after its curtain or 30 min before this one's, whichever comes first.
     var holdUntil=prev?Math.min(prev.curtain+3*36e5,p.curtain-30*6e4):0;
     if(prev&&S.key===prev.key&&S.idx!=null&&S.idx<len&&now<holdUntil)continue;
+    // Just after an earlier show's final GO its show-down screen and report stay
+    // up for 20 min (as they do after the last show of the day), but the next
+    // show's call always wins, so a four-show Saturday never misses a call.
+    if(prev&&isDone(prev)&&now-S.target<20*6e4&&now<p.curtain+leadMin(stageOf(p))*6e4)continue;
     if(isDone(p))return now-S.target<20*6e4?p:null;
     var running=S.key===p.key&&S.idx!=null&&now-p.curtain<8*36e5;
     if(running||now<p.curtain+4*36e5)return p;
@@ -1955,9 +1960,12 @@ function tick(){
     });
   }
 
-  var rm=reportModel(f),rep=rm?rm.lines.join('\n'):'';
+  var rf=f,rm=reportModel(f);
+  if(!rm){var lf=lastShowFrame(NOW());if(lf){rf=lf;rm=reportModel(lf);if(rm)rm.earlier=true}}
+  var rep=rm?rm.lines.join('\n'):'';
+  document.body.classList.toggle('lastrep',!!(rm&&rm.earlier));
   $('reportcard').hidden=!rep;paintReport(rm);
-  paintSend(f,rep);
+  paintSend(rf,rep);
   drawSMChips();
 }
 
@@ -2033,6 +2041,16 @@ function paintSend(f,rep){
     :first+' has no email or phone saved. Add one under Settings, SMs.';
 }
 
+// The show that just came down, once the next show has taken the screens.
+// Its log stays in the shared state until the next show's first GO.
+function lastShowFrame(now){
+  if(!S.key||S.idx==null||!S.log.length||now-S.target>6*36e5)return null;
+  var pp=S.adhoc&&S.adhoc.key===S.key?S.adhoc:null;
+  if(!pp){var d=new Date(now);[ymd(d),ymd(new Date(now-864e5))].forEach(function(day){perfsOn(day).forEach(function(q){if(q.key===S.key)pp=q})})}
+  if(!pp||!isDone(pp))return null;
+  var C=cueList(stageOf(pp));
+  return {idle:false,perf:pp,L:C.list,nA:C.nA,idx:S.idx,done:true};
+}
 function reportModel(f){
   if(f.idle||S.key!==f.perf.key||!S.log.length)return null;
   var kind=adhocKindOf(f);
@@ -2062,11 +2080,11 @@ function reportModel(f){
   for(var k=0;k<S.log.length;k++){
     var e=S.log[k];if(e.i>=L.length)break;
     var end=S.log[k+1]?S.log[k+1].at:null,c=L[e.i];
-    if(!end){m.lines.push(c.name+': running');m.acts.push({name:c.name,live:true});continue}
+    if(!end){m.lines.push(clockOf(e.at)+'  '+c.name+': running');m.acts.push({name:c.name,at:clockOf(e.at),live:true});continue}
     var hd2=heldOf(S.held,e.i),ran=end-e.at-hd2,plan=(c.minutes||0)*6e4,diff=Math.round((ran-plan)/1000);
     var off=Math.abs(diff)>=30;
-    m.lines.push(c.name+': '+fmt(ran)+(off?(diff>0?' ('+fmt(diff*1000)+' over)':' ('+fmt(-diff*1000)+' under)'):'')+(hd2>=5000?', held '+fmt(hd2):''));
-    m.acts.push({name:c.name,ran:fmt(ran),vs:off?(diff>0?fmt(diff*1000)+' over':fmt(-diff*1000)+' under'):'on plan',tone:off?(diff>0?'over':'under'):'ok',held:hd2>=5000?fmt(hd2):''});
+    m.lines.push(clockOf(e.at)+'  '+c.name+': '+fmt(ran)+(off?(diff>0?' ('+fmt(diff*1000)+' over)':' ('+fmt(-diff*1000)+' under)'):'')+(hd2>=5000?', held '+fmt(hd2):''));
+    m.acts.push({name:c.name,at:clockOf(e.at),ran:fmt(ran),vs:off?(diff>0?fmt(diff*1000)+' over':fmt(-diff*1000)+' under'):'on plan',tone:off?(diff>0?'over':'under'):'ok',held:hd2>=5000?fmt(hd2):''});
   }
   if(f.done&&up){
     var pd=Math.round((S.target-(f.perf.curtain+plannedTotal(f)))/6e4);
@@ -2089,7 +2107,7 @@ function paintReport(m){
   el.textContent='';
   if(!m)return;
   function h(tag,cls,txt,par){var n=document.createElement(tag);if(cls)n.className=cls;if(txt!=null)n.textContent=txt;(par||el).appendChild(n);return n}
-  var t=h('div','rp-title',m.title);if(m.run)h('small',null,'Run-through',t);
+  var t=h('div','rp-title',m.title);if(m.run)h('small',null,'Run-through',t);if(m.earlier)h('small',null,'Last show',t);
   h('div','rp-sub',m.when+(m.sm?'  \u00b7  SM: '+m.sm:''));
   if(m.tiles.length){
     var g=h('div','rp-tiles');
@@ -2100,7 +2118,7 @@ function paintReport(m){
   }
   var ac=h('div','rp-acts');
   m.acts.forEach(function(x){
-    var r=h('div','rp-row',null,ac),nm=h('div','rp-name',x.name,r);
+    var r=h('div','rp-row',null,ac);h('div','rp-at',x.at||'',r);var nm=h('div','rp-name',x.name,r);
     if(x.live){h('div','rp-ran rp-live','running',r);h('div','rp-vs','',r);return}
     if(x.held)h('span','rp-held','held '+x.held,nm);
     h('div','rp-ran',x.ran,r);h('div','rp-vs '+x.tone,x.vs,r);
