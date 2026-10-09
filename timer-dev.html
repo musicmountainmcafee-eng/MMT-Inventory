@@ -161,19 +161,30 @@ ul.cues li.live .dot{background:var(--go)}ul.cues li.done .dot{background:var(--
 .hs-note{font-size:13px;color:var(--dim);line-height:1.45;margin:0 2px 12px}
 .hs-trend{font-size:14px;line-height:1.4;margin:2px 0 12px;color:var(--type)}
 .hs-trend b{font-weight:700}.hs-trend .up{color:var(--amber)}.hs-trend .dn{color:var(--go)}
-.ht-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -2px}
-.ht{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
-.ht th{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);text-align:right;padding:6px 4px 8px;white-space:nowrap;border-bottom:1px solid var(--line)}
-.ht th:first-child,.ht td:first-child{text-align:left}
-.ht td{font-size:14px;text-align:right;padding:10px 3px;border-bottom:1px solid var(--line);vertical-align:top;white-space:nowrap}
-.ht tr:last-child td{border-bottom:0}
-.ht tr:not(.tl) td{border-bottom:0;padding-bottom:4px}
-.ht tr.tl td{text-align:left;white-space:normal;padding:0 3px 12px;font-size:12px;line-height:1.7;color:var(--dim)}
-.ht .tl-s{display:inline-block;margin-right:14px;white-space:nowrap}
-.ht .tl-s em{font-style:normal;margin-right:5px}
-.ht .tl-s b{font-weight:600;color:var(--clock)}
-.ht .tl-s i{font-style:normal;margin-left:5px}
-.ht tr.tl.part .tl-s b{color:var(--dim)}
+.hs-usual{background:var(--raised);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+.hu-v{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.hu-n{font-size:12px;color:var(--dim)}
+.hu-parts{display:flex;flex-wrap:wrap;gap:4px 18px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;font-variant-numeric:tabular-nums}
+.hu-parts em{font-style:normal;color:var(--dim);margin-right:6px}.hu-parts b{font-weight:600}
+.nt{border-top:1px solid var(--line)}
+.nt>summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:1fr auto 14px;column-gap:12px;align-items:center;padding:12px 0;min-height:48px}
+.nt>summary::-webkit-details-marker{display:none}
+.nt>summary::after{content:'\25BE';color:var(--dim);font-size:12px;transition:transform .15s}
+.nt[open]>summary::after{transform:rotate(180deg)}
+.nt-date{font-size:15px;font-weight:600}
+.nt-date small,.nt-tot small{display:block;font-size:12px;font-weight:400;color:var(--dim);margin-top:2px}
+.nt-tot{font-size:16px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.nt-tot small.up{color:var(--amber)}.nt-tot small.dn{color:var(--go)}
+.nt.part .nt-date,.nt.part .nt-tot{color:var(--dim)}
+.tlr{display:grid;grid-template-columns:76px 1fr auto;column-gap:12px;align-items:baseline;padding:7px 0 7px 12px;margin-left:2px;border-left:2px solid var(--line);font-variant-numeric:tabular-nums}
+.tlr:last-child{margin-bottom:12px}
+.tlr .tm{font-size:14px;font-weight:600;color:var(--clock);white-space:nowrap}
+.tlr .what{font-size:14px}
+.tlr .len{font-size:14px;font-weight:600;text-align:right;white-space:nowrap}
+.tlr .len small{display:block;font-size:11px;font-weight:400;color:var(--amber);margin-top:1px}
+.tlr.gap .what,.tlr.gap .len{color:var(--dim);font-weight:400}
+.tlr.end .what{font-weight:700}
+.tlr.miss .what{color:var(--dim)}
 .ht .nd{font-weight:600}.ht .nd small{display:block;font-size:11px;font-weight:400;color:var(--dim);margin-top:2px}
 .ht .tot{font-weight:700}
 .ht .tot small{display:block;font-size:11px;font-weight:400;margin-top:2px;color:var(--dim)}
@@ -690,7 +701,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.0-dev3';
+var VERSION='3.0-dev4';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2326,7 +2337,6 @@ function drawHistory(){
     mk('div','hs-empty','Nothing logged yet. After a performance, each act’s running time shows up here, night by night.',box);
     return;
   }
-  mk('p','hs-note','Act lengths don’t include intermission or holds. Blue times are the clock time of each GO. Run-throughs aren’t saved.',box);
   function day(t,wk){return new Date(t).toLocaleDateString(undefined,wk?{weekday:'short',month:'short',day:'numeric'}:{month:'short',day:'numeric'})}
   function cap(nm){return nm.toLowerCase().replace(/\b\w/g,function(c){return c.toUpperCase()})}
   shows.forEach(function(sh,si){
@@ -2335,47 +2345,51 @@ function drawHistory(){
     mk('span','hs-name',sh.name,sm);
     mk('span','hs-last',sh.nights.length+(sh.nights.length===1?' performance':' performances')+' · last '+day(sh.last,false),sm);
     var body=mk('div','hs-body',null,d),done=sh.done;
+    // the show at a glance: usual lengths (the same last-3 average the timer aims with)
     if(done.length){
-      // "usual" = the same average of the last 3 full nights the timer uses for its aim and end-time estimate
-      var last3=done.slice(0,3),g=mk('div','rp-tiles hs-tiles',null,body);
-      function tile(k,v,n){var t=mk('div','rp-tile',null,g);mk('div','rp-k',k,t);mk('div','rp-v',v,t);if(n)mk('div','rp-n',n,t)}
+      var last3=done.slice(0,3),u=mk('div','hs-usual',null,body);
       function avg(fn){return Math.round(last3.reduce(function(a,n){return a+fn(n)},0)/last3.length/1000)*1000}
-      tile('Usual total',fmt(avg(function(n){return n.total})),last3.length===1?'from 1 night':'avg of last '+last3.length);
-      sh.names.forEach(function(nm){tile(cap(nm),fmt(avg(function(n){return n.acts[nm]})),'usual')});
+      var top=mk('div','hu-top',null,u);mk('div','rp-k','Usual length',top);
+      mk('div','hu-v',fmt(avg(function(n){return n.total})),top);
+      mk('div','hu-n',last3.length===1?'from 1 night so far':'average of the last '+last3.length+' nights',top);
+      var parts=mk('div','hu-parts',null,u);
+      sh.names.forEach(function(nm){var sp=mk('span',null,null,parts);mk('em',null,cap(nm),sp);mk('b',null,fmt(avg(function(n){return n.acts[nm]})),sp)});
       if(done.length>=2){
         var first=done[done.length-1],tr=done[0].total-first.total,t=mk('p','hs-trend',null,body);
-        if(Math.abs(tr)<60000){t.appendChild(document.createTextNode('Holding steady since '+day(first.at,false)+' (within a minute).'))}
-        else{
-          var w=mk('b',tr>0?'up':'dn',(tr>0?'Running longer: ':'Running shorter: ')+fmt(Math.abs(tr))+(tr>0?' more':' less'),t);
-          t.appendChild(document.createTextNode(' than '+day(first.at,false)+'.'));
-        }
-      }else mk('p','hs-trend','One full performance so far. Comparisons start after the next one.',body).style.color='var(--dim)';
-    }else mk('p','hs-trend','No full performance logged yet, so there’s no usual length.',body).style.color='var(--dim)';
-    // the nights, newest first
-    var wrap=mk('div','ht-wrap',null,body),tb=mk('table','ht',null,wrap),hr=mk('tr',null,null,mk('thead',null,null,tb));
-    mk('th',null,'Night',hr);sh.names.forEach(function(nm){mk('th',null,cap(nm),hr)});mk('th',null,'Total',hr);
-    var bd=mk('tbody',null,null,tb);
-    sh.nights.forEach(function(n,i){
-      var r=mk('tr',n.complete?null:'part',null,bd),c=mk('td','nd',day(n.at,true),r);
-      if(!n.complete)mk('small',null,'incomplete',c);
-      sh.names.forEach(function(nm){var td=mk('td',null,null,r);if(n.acts[nm]!=null)td.textContent=fmt(n.acts[nm]);else mk('span','miss','not logged',td)});
-      var tt=mk('td','tot',n.complete?fmt(n.total):'—',r);
-      // the clock times: each act's start, the intermission between acts, and show down
-      var tl=mk('td',null,null,mk('tr','tl'+(n.complete?'':' part'),null,bd)),acts=sh.names.filter(function(nm){return n.st[nm]!=null});
-      tl.colSpan=sh.names.length+2;
-      function stop(k,t,est,note){var sp=mk('span','tl-s',null,tl);mk('em',null,k,sp);mk('b',null,(est?'≈':'')+clockOf(t),sp);if(note)mk('i',null,note,sp)}
-      acts.forEach(function(nm,ai){
-        if(ai>0){var pe=n.en[acts[ai-1]],gap=n.st[nm]-pe;stop('Intermission',pe,false,gap>0?Math.round(gap/6e4)+' min':'')}
-        stop(cap(nm),n.st[nm],n.est[nm]);
-      });
-      if(acts.length)stop(n.complete?'Down':'Last GO',n.en[acts[acts.length-1]],false);
-      if(n.complete&&n.delta!=null){
-        var dl=n.delta,same=Math.abs(dl)<5000;
-        mk('small',same?'':dl>0?'up':'dn',same?'same':fmt(Math.abs(dl))+(dl>0?' longer':' shorter'),tt);
+        if(Math.abs(tr)<60000)t.textContent='Holding steady since '+day(first.at,false)+'.';
+        else{mk('b',tr>0?'up':'dn',(tr>0?'Running ':'Running ')+fmt(Math.abs(tr))+(tr>0?' longer':' shorter'),t);t.appendChild(document.createTextNode(' than '+day(first.at,false)+'.'))}
       }
+    }
+    // one line per night; open one to read it like a show report, top to bottom
+    var firstOpen=false;
+    sh.nights.forEach(function(n,i){
+      var nd=mk('details','nt'+(n.complete?'':' part'),null,body);
+      if(!firstOpen&&n.complete){nd.open=true;firstOpen=true}
+      var su=mk('summary',null,null,nd),dt=mk('div','nt-date',day(n.at,true),su);
+      var acts=sh.names.filter(function(nm){return n.st[nm]!=null}).sort(function(a,b){return n.st[a]-n.st[b]});
+      if(acts.length)mk('small',null,'Started '+(n.est[acts[0]]?'about ':'')+clockOf(n.st[acts[0]])+(n.complete?'':' · didn’t finish'),dt);
+      var tt=mk('div','nt-tot',n.complete?fmt(n.total):'',su);
+      if(n.complete&&n.delta!=null){var dl=n.delta,same=Math.abs(dl)<5000;mk('small',same?'':dl>0?'up':'dn',same?'same as before':fmt(Math.abs(dl))+(dl>0?' longer':' shorter'),tt)}
+      else if(!n.complete)mk('small',null,'incomplete',tt).style.marginTop='0';
+      // timeline: clock time | what | how long
+      function row(cls,tm,est,what,len,note){
+        var r=mk('div','tlr'+(cls?' '+cls:''),null,nd);
+        mk('div','tm',tm==null?'':(est?'≈':'')+clockOf(tm),r);mk('div','what',what,r);
+        var l=mk('div','len',len||'',r);if(note)mk('small',null,note,l);
+      }
+      acts.forEach(function(nm,ai){
+        if(ai>0){
+          var pe=n.en[acts[ai-1]],gap=n.st[nm]-pe;
+          if(gap>=60000)row('gap',pe,false,'Intermission',fmt(Math.round(gap/1000)*1000));
+        }
+        var span=n.en[nm]-n.st[nm],held=n.est[nm]?0:span-n.acts[nm];
+        row('',n.st[nm],n.est[nm],cap(nm),fmt(n.acts[nm]),held>=30000?'+'+fmt(Math.round(held/1000)*1000)+' held':'');
+      });
+      sh.names.forEach(function(nm){if(n.acts[nm]==null)row('miss',null,false,cap(nm)+' — not logged','')});
+      if(acts.length)row('end',n.en[acts[acts.length-1]],false,n.complete?'Show down':'Last GO','');
     });
   });
-  mk('p','muted','Longer and shorter under a total compare it with the full performance below it. A ≈ start time was worked out from the act’s length (nights saved before start times were kept), so a hold in that act would make it read a little late. Keeps the last 4 nights of each act, up to 120 days.',box).style.marginTop='6px';
+  mk('p','muted','Lengths don’t count intermission or holds. ≈ means the time was worked out from the act’s length, for nights saved before start times were kept.',box).style.marginTop='6px';
 }
 $('histbtn').onclick=function(){drawHistory();$('history').hidden=false;document.body.classList.add('hist');window.scrollTo(0,0)};
 $('histdone').onclick=function(){$('history').hidden=true;document.body.classList.remove('hist');window.scrollTo(0,0);draw()};
