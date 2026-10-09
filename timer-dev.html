@@ -247,6 +247,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber)}
 /* ---------- Schedule: its own screen, one section at a time ---------- */
 body.setting #panel>:not(#settings):not(#ctcard){display:none!important}
 body.hist #panel>:not(#history){display:none!important}
+body.picking #panel>:not(.bar):not(#rtpanel):not(#ctcard){display:none!important}
+body.picking #rtend{display:none!important}
 .setbar{position:sticky;top:0;z-index:10;background:var(--shell);margin:0 -16px 16px;padding:max(10px,env(safe-area-inset-top,0px)) 16px 0;border-bottom:1px solid var(--line)}
 .settop{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:6px}
 .settop h1{font-size:20px;font-weight:700}
@@ -469,7 +471,7 @@ h2{font-size:16px;font-weight:700}
     <input id="rttime" type="time" hidden style="margin:-4px 0 12px;max-width:180px">
     </div>
     <p id="rtpreview"></p>
-    <div class="row"><button class="quiet" id="rtcancel">Cancel</button><button id="rtstart">Start run-through</button></div>
+    <div class="row"><button class="quiet" id="rtcancel" style="border:1px solid var(--btnline);color:var(--type)">Cancel</button><button id="rtstart">Start run-through</button></div>
   </div>
 
   <div class="card" id="ctcard" hidden>
@@ -709,7 +711,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.2-dev6';
+var VERSION='3.2-dev7';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -981,7 +983,7 @@ function activePerf(now){
     // Whatever is happening, the real show takes over at its call time.
     var len=cuesFor(a).list.length;
     var running=S.key===a.key&&S.idx!=null&&S.idx<len;
-    if(!sched)return a;
+    if(!sched||sched.key===a.key)return a;   // tonight's show started early from the picker stays itself
     var call=sched.curtain+leadMin(stageOf(sched))*6e4;
     if(now>=call)return sched;
     if(running)return a;
@@ -2355,7 +2357,17 @@ function rtChips(){
   $('rtname').hidden=rtShow!=='other';
   rtPreview();
 }
-function openRT(){rtShow=null;rtStage=CURST;rtKind='rehearsal';rtWhen='now';rtLead=0;$('rttime').value='';$('rtname').value='';rtChips();rtKindChips();rtLeadChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
+// Opening the controller with nothing under way lands here, so the first
+// thing the SM sees is the choice of run-through or performance. "Go to the
+// 7:30 show" (or Cancel when nothing is scheduled) leaves it for the schedule.
+function rtFirst(){
+  if(isDisplay||document.body.classList.contains('setting')||document.body.classList.contains('hist'))return;
+  var f=frame(NOW());
+  if(!f.idle&&(f.idx!=null||(S.adhoc&&f.perf===S.adhoc)))return;   // a show or a run is already under way
+  openRT();
+}
+function rtClose(){$('rtpanel').hidden=true;document.body.classList.remove('picking');window.scrollTo(0,0)}
+function openRT(){document.body.classList.add('picking');var f0=frame(NOW());$('rtcancel').textContent=f0.idle?'Cancel':'Go to the '+pretty(f0.perf.time)+' show';rtShow=null;rtStage=CURST;rtKind='rehearsal';rtWhen='now';rtLead=0;$('rttime').value='';$('rtname').value='';rtChips();rtKindChips();rtLeadChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
 function endRT(){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false,holdAt:0,held:{}})}
 $('rtname').oninput=rtPreview;
 $('rehearse').onclick=function(){
@@ -2372,12 +2384,18 @@ $('rtend').onclick=function(){
   var label=(S.adhoc&&S.adhoc.kind==='performance')?'performance':'run-through';
   if(confirm('End the '+label+'? The screens go back to the schedule.'))endRT();
 };
-$('rtcancel').onclick=function(){$('rtpanel').hidden=true};
+$('rtcancel').onclick=rtClose;
 $('rtstart').onclick=function(){
   var now=NOW(),c=rtCurtain();
   var d=new Date(c);
   var p={key:'adhoc-'+now,show:rtName(),date:ymd(d),time:pad(d.getHours())+':'+pad(d.getMinutes()),curtain:c,adhoc:true,kind:rtKind,stage:rtStageFor(),rt:1,made:now};
-  $('rtpanel').hidden=true;
+  // A performance of a show that's still to come today takes that slot (same
+  // key), so the scheduled one doesn't take over at its call or run again later.
+  if(rtKind==='performance'){
+    var slot=perfsOn(ymd(d)).filter(function(q){return q.show===p.show&&stageOf(q)===p.stage&&q.curtain>now-2*36e5&&!isDone(q)})[0];
+    if(slot)p.key=slot.key;
+  }
+  rtClose();
   commit({adhoc:p,key:p.key,idx:null,log:[],msg:null,paused:false,holdAt:0,held:{}});
 };
 $('reset').onclick=function(){
@@ -3133,9 +3151,10 @@ connect();wake();draw();
 if(!isDisplay){
   var ctAfter=false;try{ctAfter=sessionStorage.getItem('mmt-ct-after')==='1';sessionStorage.removeItem('mmt-ct-after')}catch(e){}
   if(ctAfter||ctDue())setTimeout(runCT,500);
+  setTimeout(rtFirst,300);
   ctSeen();setInterval(ctSeen,60000);
   document.addEventListener('visibilitychange',function(){
-    if(document.visibilityState==='visible'){if(ctDue())runCT();ctSeen()}
+    if(document.visibilityState==='visible'){if(ctDue()){runCT();rtFirst()}ctSeen()}
     else sset(ctLastKey,String(Date.now()));
   });
 }
