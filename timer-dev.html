@@ -247,7 +247,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber)}
 /* ---------- Schedule: its own screen, one section at a time ---------- */
 body.setting #panel>:not(#settings):not(#ctcard){display:none!important}
 body.hist #panel>:not(#history){display:none!important}
-body.picking #panel>:not(.bar):not(#rtpanel):not(#ctcard):not(.foot):not(.version){display:none!important}
+body.picking #panel>:not(.bar):not(#rtpanel):not(#ctcard):not(#checkcard):not(.foot):not(.version){display:none!important}
 body.picking #rehearse,body.picking #reset,body.picking #rtcancel{display:none!important}
 body.picking #rtend{display:none!important}
 .setbar{position:sticky;top:0;z-index:10;background:var(--shell);margin:0 -16px 16px;padding:max(10px,env(safe-area-inset-top,0px)) 16px 0;border-bottom:1px solid var(--line)}
@@ -712,7 +712,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.2-dev9';
+var VERSION='3.2-dev10';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2556,11 +2556,12 @@ function drawHistory(){
   });
   mk('p','muted','Every performance and run-through is kept. Run time and longer/shorter compare performances only. Lengths don’t count intermission or holds. ≈ means the time was worked out from the act’s length, for nights saved before start times were kept.',box).style.marginTop='6px';
 }
-$('histbtn').onclick=function(){drawHistory();$('history').hidden=false;document.body.classList.add('hist');window.scrollTo(0,0)};
-$('histdone').onclick=function(){$('history').hidden=true;document.body.classList.remove('hist');window.scrollTo(0,0);draw()};
+$('histbtn').onclick=function(){if(document.body.classList.contains('picking'))rtClose();drawHistory();$('history').hidden=false;document.body.classList.add('hist');window.scrollTo(0,0)};
+$('histdone').onclick=function(){$('history').hidden=true;document.body.classList.remove('hist');window.scrollTo(0,0);draw();rtFirst()};
 
 $('setup').onclick=function(){
   var s=$('settings');s.hidden=!s.hidden;
+  if(!s.hidden&&document.body.classList.contains('picking'))rtClose();
   document.body.classList.toggle('setting',!s.hidden);
   if(!s.hidden){
     drawTimes();drawRuns();drawTpl();
@@ -2570,7 +2571,7 @@ $('setup').onclick=function(){
     showTab(sget('mmt-settab')||'shows');
   }
 };
-$('done').onclick=function(){$('settings').hidden=true;document.body.classList.remove('setting');window.scrollTo(0,0);if(cfgPending)sendCfg();draw()};
+$('done').onclick=function(){$('settings').hidden=true;document.body.classList.remove('setting');window.scrollTo(0,0);if(cfgPending)sendCfg();draw();rtFirst()};
 
 function linkFor(view){
   var base=location.href.split('#')[0];
