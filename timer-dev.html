@@ -247,7 +247,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber)}
 /* ---------- Schedule: its own screen, one section at a time ---------- */
 body.setting #panel>:not(#settings):not(#ctcard){display:none!important}
 body.hist #panel>:not(#history){display:none!important}
-body.picking #panel>:not(.bar):not(#rtpanel):not(#ctcard){display:none!important}
+body.picking #panel>:not(.bar):not(#rtpanel):not(#ctcard):not(.foot):not(.version){display:none!important}
+body.picking #rehearse,body.picking #reset,body.picking #rtcancel{display:none!important}
 body.picking #rtend{display:none!important}
 .setbar{position:sticky;top:0;z-index:10;background:var(--shell);margin:0 -16px 16px;padding:max(10px,env(safe-area-inset-top,0px)) 16px 0;border-bottom:1px solid var(--line)}
 .settop{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:6px}
@@ -711,7 +712,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.2-dev7';
+var VERSION='3.2-dev8';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2284,6 +2285,7 @@ function rtKindChips(){
   rtPreview();
   $('rttitle').textContent=rtKind==='performance'?'Start a performance':'Start a run-through';
   $('rtstart').textContent=rtKind==='performance'?'Start performance':'Start run-through';
+  $('rtstart').style.width='100%';
   $('rtwhenbox').hidden=rtKind==='performance';
 }
 function rtShows(){
@@ -2304,6 +2306,11 @@ function rtName(){return rtShow==='other'?($('rtname').value.trim()||(rtKind==='
 // When it starts: now, in a few minutes, or at a time. A later start gives
 // every screen a countdown to it; at zero they wait for GO.
 var rtWhen='now',rtLead=0;
+// Today's scheduled slot for a show, if it hasn't been played yet (or is under way).
+function rtSlot(show,stage){
+  var now=NOW();
+  return perfsOn(ymd(new Date(now))).filter(function(q){return q.show===show&&stageOf(q)===stage&&q.curtain>now-2*36e5&&!isDone(q)})[0]||null;
+}
 function rtCurtain(){
   var now=NOW();
   if(rtKind==='performance')return now;
@@ -2334,6 +2341,10 @@ function rtPreview(){
   var acts=run?cuesFor({adhoc:true,rt:1,kind:'rehearsal',stage:rtStageFor()}).list.slice(1).map(function(x){return x.name.charAt(0)+x.name.slice(1).toLowerCase()}).join(', '):'';
   var t=later?'Screens count down to '+clockOf(c)+', then show READY TO START until the SM presses GO.':'Screens show the clock and READY TO START until the SM presses GO.';
   if(rtWhen==='at'&&!later)t='That time has passed, so it starts now. '+t;
+  if(!run){
+    var sl=rtSlot(rtName(),rtStageFor());
+    if(sl)t='Today\u2019s '+pretty(sl.time)+' show. The pre-show runs at its usual times (call at '+clockOf(sl.curtain+leadMin(stageOf(sl))*6e4)+'), and GO starts it whenever you\u2019re ready.';
+  }
   $('rtpreview').textContent=t+(run?' No curtain speech: '+acts+'.':'');
 }
 $('rttime').oninput=rtPreview;
@@ -2358,8 +2369,8 @@ function rtChips(){
   rtPreview();
 }
 // Opening the controller with nothing under way lands here, so the first
-// thing the SM sees is the choice of run-through or performance. "Go to the
-// 7:30 show" (or Cancel when nothing is scheduled) leaves it for the schedule.
+// thing the SM sees is the choice of run-through or performance. Tonight's
+// scheduled show is reached the same way: Performance, then the show.
 function rtFirst(){
   if(isDisplay||document.body.classList.contains('setting')||document.body.classList.contains('hist'))return;
   var f=frame(NOW());
@@ -2367,7 +2378,7 @@ function rtFirst(){
   openRT();
 }
 function rtClose(){$('rtpanel').hidden=true;document.body.classList.remove('picking');window.scrollTo(0,0)}
-function openRT(){document.body.classList.add('picking');var f0=frame(NOW());$('rtcancel').textContent=f0.idle?'Cancel':'Go to the '+pretty(f0.perf.time)+' show';rtShow=null;rtStage=CURST;rtKind='rehearsal';rtWhen='now';rtLead=0;$('rttime').value='';$('rtname').value='';rtChips();rtKindChips();rtLeadChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
+function openRT(){document.body.classList.add('picking');rtShow=null;rtStage=CURST;rtKind='rehearsal';rtWhen='now';rtLead=0;$('rttime').value='';$('rtname').value='';rtChips();rtKindChips();rtLeadChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
 function endRT(){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false,holdAt:0,held:{}})}
 $('rtname').oninput=rtPreview;
 $('rehearse').onclick=function(){
@@ -2392,8 +2403,8 @@ $('rtstart').onclick=function(){
   // A performance of a show that's still to come today takes that slot (same
   // key), so the scheduled one doesn't take over at its call or run again later.
   if(rtKind==='performance'){
-    var slot=perfsOn(ymd(d)).filter(function(q){return q.show===p.show&&stageOf(q)===p.stage&&q.curtain>now-2*36e5&&!isDone(q)})[0];
-    if(slot)p.key=slot.key;
+    var slot=rtSlot(p.show,p.stage);
+    if(slot){p.key=slot.key;p.curtain=slot.curtain;p.date=slot.date;p.time=slot.time}
   }
   rtClose();
   commit({adhoc:p,key:p.key,idx:null,log:[],msg:null,paused:false,holdAt:0,held:{}});
