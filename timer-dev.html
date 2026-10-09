@@ -365,8 +365,8 @@ button.go .l{font-size:46px;font-weight:700;letter-spacing:.12em}
 button.go .n{font-size:14px;font-weight:600;letter-spacing:.08em;opacity:.78}
 button.go.newshow .l{font-size:28px;letter-spacing:.05em}
 #run>.row button{min-height:62px;font-size:17px;border:0}
-#ready{background:transparent;border:2px solid var(--amber);color:var(--amber);min-height:68px;border-radius:18px}
-#ready.on{background:var(--amber);color:#1B1300}
+#ready{background:transparent;border:2px solid var(--hot);color:var(--hot);min-height:68px;border-radius:18px}
+#ready.on{background:var(--go);border-color:var(--go);color:#05130A}
 .msgs button{flex:1 1 30%;min-height:50px;font-size:14px;letter-spacing:.05em;border-radius:999px;border:0}
 .chips button,#smchips button{border-radius:999px;border:0}
 .chips button.on,#smchips button.on{background:var(--accent);color:#17123F}
@@ -380,7 +380,7 @@ ul.cues li.done .nm{color:var(--dim)}
 #checklist .dot,#ctlist .dot{position:static;transform:none;box-shadow:none;margin-top:5px}
 #ctlist li{align-items:flex-start}#ctlist .nm small{display:block;font-size:12px;letter-spacing:0;font-weight:400;opacity:.75;margin-top:2px;text-transform:none}
 #ctcard{border:1px solid var(--line)}#ctcard.bad{border-color:#E2513F}#ctcard.good{border-color:#2FBF5C}
-#ctupdate{background:#2FBF5C;color:#0b1a10}
+#ctupdate,#ctwyse{background:#2FBF5C;color:#0b1a10}
 .foot{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:6px}
 .foot button{background:transparent;color:var(--type);font-weight:500;min-height:48px;border:1.5px solid var(--btnline);border-radius:14px;flex:none}
 #smcard{padding:12px 14px}
@@ -468,7 +468,7 @@ h2{font-size:16px;font-weight:700}
     <h2>Connection test</h2>
     <p class="muted" id="ctsum" style="margin-bottom:8px"></p>
     <ul class="cues" id="ctlist"></ul>
-    <div class="row" style="margin-top:10px"><button class="small" id="ctupdate" hidden>Update now</button><button class="small quiet" id="ctagain">Test again</button><button class="quiet small" id="ctclose">Close</button></div>
+    <div class="row" style="margin-top:10px"><button class="small" id="ctupdate" hidden>Update now</button><button class="small" id="ctwyse" hidden>Refresh the Wyse</button><button class="small quiet" id="ctagain">Test again</button><button class="quiet small" id="ctclose">Close</button></div>
     <p class="hint" style="margin-top:8px">Runs on its own the first time this device opens the timer and after 2 hours away. Tap the version number at the bottom to run it any time.</p>
   </div>
 
@@ -701,7 +701,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.0-dev4';
+var VERSION='3.0-dev6';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1296,6 +1296,7 @@ function handle(txt,live){
   if(typeof m.message==='string'){
     if(m.message.slice(0,5)==='ping:'){if(fresh)replyPong(m.message.slice(5));return}
     if(m.message.slice(0,5)==='pong:'){if(fresh)notePong(m.message.slice(5));return}
+    if(m.message.slice(0,7)==='reload:'){if(fresh)remoteReload(m.message.slice(7),m.time*1000);return}
   }
   if(typeof m.message==='string'&&m.message.slice(0,4)==='cfg:'){noteRelayCfg(m.message.slice(4));receiveCfg(m.message.slice(4));return}
   if(applyCommand(m.message,m.id,m.time?m.time*1000:null))return;
@@ -1559,7 +1560,7 @@ function ctWyse(){
   Object.keys(CHK.pongs).forEach(function(d){
     var q=CHK.pongs[d],l=q.label||'';
     if(!/display/i.test(l))return;
-    if(!best||(/Linux/.test(l)&&!/Linux/.test(best.label)))best=q;
+    if(!best||(/Linux/.test(l)&&!/Linux/.test(best.label)))best=Object.assign({id:d},q);
   });
   return best;
 }
@@ -1579,7 +1580,7 @@ function runCT(){
 function ctFinished(){return !!CT.chk&&CHK.id===CT.chk&&CHK.done&&CHK.backend!=='wait'&&(CT.ver||CT.verErr)&&Date.now()-CT.start>1500}
 function paintCT(){
   var box=$('ctlist');if(!box||$('ctcard').hidden)return;
-  var GREEN='#2FBF5C',AMBER='#FFD24A',RED='#E2513F',rows=[],fin=ctFinished(),update=false;
+  var GREEN='#2FBF5C',AMBER='#FFD24A',RED='#E2513F',rows=[],fin=ctFinished(),update=false,wyseBehind=false;
   function add(c,label,detail){rows.push({c:c,label:label,detail:detail})}
   // 1. connection
   if(relayLimited)add(RED,'Connection','Relay hit its daily limit. Presses won\'t reach other screens until it resets.');
@@ -1600,8 +1601,8 @@ function paintCT(){
   if(w){
     var wv=w.ver||'';
     if(!wv)add(AMBER,'Matches the Wyse','The Wyse answered but didn\'t say its version.');
-    else if(wv===VERSION)add(GREEN,'Matches the Wyse','Both on v'+VERSION+'.');
-    else if(CT.ver&&wv!==CT.ver&&VERSION===CT.ver)add(RED,'Matches the Wyse','The Wyse is behind (v'+wv+'). Refresh the timer on the Wyse.');
+    else if(wv===VERSION)add(w.sound==='needs a tap'?AMBER:GREEN,'Matches the Wyse','Both on v'+VERSION+'.'+(w.sound==='needs a tap'?' Its sound needs one tap on the Wyse before chimes will play.':''));
+    else if(CT.ver&&wv!==CT.ver&&VERSION===CT.ver){wyseBehind=true;add(RED,'Matches the Wyse','The Wyse is behind (v'+wv+'). Tap Refresh the Wyse.')}
     else{update=true;add(RED,'Matches the Wyse','The Wyse is on v'+wv+', this device is on v'+VERSION+'. Tap Update now.')}
   }else if(CT.chk&&CHK.id===CT.chk&&CHK.done)add(AMBER,'Matches the Wyse','The Wyse didn\'t answer. Make sure it\'s on and the timer is open.');
   else add(AMBER,'Matches the Wyse','Waiting for the Wyse to answer...');
@@ -1615,11 +1616,28 @@ function paintCT(){
     var sm=document.createElement('small');sm.textContent=r.detail;nm.appendChild(sm);
     box.appendChild(li);
   });
-  $('ctupdate').hidden=!update;
+  $('ctupdate').hidden=!update;if($('ctwyse').textContent==='Refresh the Wyse')$('ctwyse').hidden=!wyseBehind;
   $('ctcard').className='card'+(fin?(bad?' bad':!warn?' good':''):'');
   $('ctsum').textContent=!fin?'Testing your connection...':bad?bad+' problem'+(bad>1?'s':'')+' found.':warn?'Working, with '+warn+' thing'+(warn>1?'s':'')+' to look at.':'All good. You\'re connected and up to date.';
   // a clean pass tidies itself away
   if(fin&&!bad&&!warn&&!CT.closing){CT.closing=setTimeout(function(){CT.closing=null;if(!$('ctcard').className.match(/bad/))$('ctcard').hidden=true},4000)}
+}
+// Only the screen whose id is in the message reloads, only for a message sent
+// since this connection opened, within the last minute, and only once per
+// message, so a reload can never repeat itself after the page comes back.
+function remoteReload(t,sent){
+  var a=t.split('|');if(a[0]!==DEVID||!a[1])return;
+  if(sent&&Math.abs(nowMs()-sent)>60000)return;
+  try{if(sessionStorage.getItem('mmt-reload-done')===a[1])return;sessionStorage.setItem('mmt-reload-done',a[1])}catch(e){}
+  ctUpdate();
+}
+function ctRefreshWyse(){
+  var w=ctWyse();if(!w||!w.id)return;
+  var f=frame(NOW());
+  if(!f.idle&&!f.done&&f.idx!=null&&!confirm('A show is running. Refreshing blanks the Wyse for a few seconds. Refresh it anyway?'))return;
+  sendMsg('reload:'+w.id+'|'+DEVID+'.'+Date.now());
+  var b=$('ctwyse');b.disabled=true;b.textContent='Refreshing the Wyse...';
+  setTimeout(function(){b.disabled=false;b.textContent='Refresh the Wyse';runCT()},9000);
 }
 function ctUpdate(){
   // Reload past every cache: a fresh address forces the browser and home-screen
@@ -1732,8 +1750,9 @@ function paintIdent(f,now,clockMode){
   // Once a run-through is actually running, its "started at" time reads the
   // same as the wall clock in the opposite corner for a while, so it's
   // dropped from the corner to stop the two clocks from repeating each
-  // other. A scheduled show's date/time stays put; that one's never a dupe.
-  var showWhen=when&&!(rt&&!clockMode);
+  // other. A scheduled show's time goes too: three times on screen during a
+  // show was confusing. Idle and pre-show clock screens still show it.
+  var showWhen=when&&clockMode;
   $('ident').hidden=!name;
   $('idpre').hidden=!pre;$('idpre').textContent=pre;
   var key=name+'|'+when+'|'+kind+'|'+pre+'|'+showWhen+'|'+innerWidth;
@@ -1759,11 +1778,11 @@ function paintStage(f,now,clockMode,wingsOn,heldNow,ink,scene){
     $('slug').textContent=f.paused?'HOLDING':f.label;$('slug').className=(f.done||f.paused)?'':f.up?'k-up':'k-down';
     $('big').className='';$('big').textContent=f.up?fmt(f.el):countdown(f.ms);
     $('big').style.color=wingsOn?'':ink;
-    $('sub').textContent=f.done?endLabel()+' '+clockOf(f.when):f.paused?f.label+'  HELD '+fmt(f.heldNow):f.up?'PLANNED '+fmt(f.planned):f.hs?hsText(f):f.auto?(f.ms<0?f.cue+' WAS '+clockOf(f.when):'AT '+clockOf(f.when)):(f.ms<0?'OVER':'ENDS '+clockOf(f.when));
+    $('sub').textContent=f.done?endLabel()+' '+clockOf(f.when):f.paused?f.label+'  HELD '+fmt(f.heldNow):f.up?(f.planned>0?'PLANNED '+fmt(f.planned):''):f.hs?hsText(f):f.auto?(f.ms<0?f.cue+' WAS '+clockOf(f.when):'AT '+clockOf(f.when)):(f.ms<0?'OVER':'ENDS '+clockOf(f.when));
     if(f.done)$('big').textContent=fmt(f.ms);
   }
   var hsOn=clockMode?'':(f.hs||'');
-  $('sub').style.color=(hsOn==='wait'&&!wingsOn)?'var(--standby)':'';$('sub').style.fontWeight=hsOn==='open'?'700':'';
+  $('sub').style.color=wingsOn?'':hsOn==='wait'?'var(--hot)':hsOn==='open'?'var(--go)':'';$('sub').style.fontWeight=hsOn==='open'?'700':'';
   $('big').classList.toggle('held',heldNow);
   // Every cue is sized for five characters ("35:00"), so the clock, the
   // countdowns and the acts all match. It only gets smaller if the time really
@@ -1832,7 +1851,7 @@ function tick(){
     $('cface').style.color=wingsOn?'':ink;
     $('cends').textContent=f.done?cap(endLabel())+' at '+clockOf(f.when)
       :f.paused?cap(f.label)+' is held ('+fmt(f.heldNow)+'). Press Resume to restart the clock.'
-      :f.up?'Planned '+fmt(f.planned)+(S.aimAuto?' (from past shows)':'')+(f.el>f.planned&&f.planned>0?', over by '+fmt(f.el-f.planned):'')
+      :f.up?(f.planned>0?'Planned '+fmt(f.planned)+(S.aimAuto?' (from past shows)':'')+(f.el>f.planned?', over by '+fmt(f.el-f.planned):''):'Estimate not calculated yet. It needs past performances of this show.')
       :f.hs?hsLine(f):f.micLive?'Mic check ends '+clockOf(f.when)+'. Show at '+clockOf(f.perf.curtain)+'.':f.auto?(f.ms<0?'Late start. '+cap(f.cue)+' was '+clockOf(f.when)+'. Press GO to begin.':'At '+clockOf(f.when))
       :(f.ms<0?'Over since '+clockOf(f.when):'Ends '+clockOf(f.when));
     $('cmsg').textContent=m||'';$('cmsg').classList.toggle('on',!!m);
@@ -1880,7 +1899,7 @@ function tick(){
       var note=document.createElement('p');note.className='muted';note.style.marginTop='8px';
       var tot=0;for(var j=C.nA;j<C.list.length;j++)tot+=(C.list[j].minutes||0)*6e4;
       var dl=document.createElement('li');dl.innerHTML='<span class="dot"></span><span class="nm"></span><span class="wh"></span>';
-      dl.querySelector('.nm').textContent='PLANNED END';dl.querySelector('.wh').textContent=clockOf(f.next.curtain+tot);
+      dl.querySelector('.nm').textContent='PLANNED END';dl.querySelector('.wh').textContent=tot>0?clockOf(f.next.curtain+tot):'not calculated yet';
       dl.style.opacity='.75';ul.appendChild(dl);
       note.textContent='These run on their own. No need to press anything until the show starts.';
       $('idletext').appendChild(ul);$('idletext').appendChild(note);
@@ -2147,7 +2166,7 @@ $('checkagain').onclick=runCheck;
 $('checkclose').onclick=function(){$('checkcard').hidden=true};
 $('ctagain').onclick=function(){clearTimeout(CT.closing);CT.closing=null;runCT()};
 $('ctclose').onclick=function(){clearTimeout(CT.closing);CT.closing=null;CT.run++;$('ctcard').hidden=true};
-$('ctupdate').onclick=ctUpdate;
+$('ctupdate').onclick=ctUpdate;$('ctwyse').onclick=ctRefreshWyse;
 $('vercontrol').onclick=function(){clearTimeout(CT.closing);CT.closing=null;runCT();window.scrollTo({top:0,behavior:'smooth'})};$('vercontrol').style.cursor='pointer';
 (function(){   // simple view: GO, Hold, Back, +/-. Everything else is one tap away under Show more.
   var b=$('viewtoggle');if(!b)return;
@@ -2349,7 +2368,7 @@ function drawHistory(){
     if(done.length){
       var last3=done.slice(0,3),u=mk('div','hs-usual',null,body);
       function avg(fn){return Math.round(last3.reduce(function(a,n){return a+fn(n)},0)/last3.length/1000)*1000}
-      var top=mk('div','hu-top',null,u);mk('div','rp-k','Usual length',top);
+      var top=mk('div','hu-top',null,u);mk('div','rp-k','Run time',top);
       mk('div','hu-v',fmt(avg(function(n){return n.total})),top);
       mk('div','hu-n',last3.length===1?'from 1 night so far':'average of the last '+last3.length+' nights',top);
       var parts=mk('div','hu-parts',null,u);
@@ -2991,12 +3010,12 @@ if(isDisplay){
 
 // ---------- start ----------
 if(!cfg.runs.length&&!kidsCfg().runs.length&&!isDisplay&&!hp('s')){setTimeout(function(){$('setup').click()},50)}
+if(/[?&]u=\d/.test(location.search))try{history.replaceState(null,'',location.pathname+location.hash)}catch(e){}
 connect();wake();draw();
 // connection test: phones and iPads only, never the displays (the Wyse would pop it up on every restart)
 if(!isDisplay){
   var ctAfter=false;try{ctAfter=sessionStorage.getItem('mmt-ct-after')==='1';sessionStorage.removeItem('mmt-ct-after')}catch(e){}
   if(ctAfter||ctDue())setTimeout(runCT,500);
-  if(/[?&]u=\d/.test(location.search))try{history.replaceState(null,'',location.pathname+location.hash)}catch(e){}
   ctSeen();setInterval(ctSeen,60000);
   document.addEventListener('visibilitychange',function(){
     if(document.visibilityState==='visible'){if(ctDue())runCT();ctSeen()}
