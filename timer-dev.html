@@ -326,9 +326,6 @@ body.simple #smcard,body.simple #cuecard,body.simple #reportcard,body.simple #re
 body.netbad:not(.display) #panel{padding-top:46px}
 body.display #netban{right:auto;left:1.2vw;top:1.2vw;padding:.5vw 1.2vw;font-size:1.6vw;border-radius:.6vw}
 #checklist li{align-items:flex-start}#checklist .nm small{display:block;font-size:12px;letter-spacing:0;font-weight:400;opacity:.75;margin-top:2px;text-transform:none}
-.idle-k{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
-.idle-show{font-size:20px;font-weight:700;margin-top:4px;line-height:1.25}
-.idle-when{font-size:14px;color:var(--dim);margin-top:2px}
 .foot{display:flex;flex-wrap:wrap;gap:8px}.foot button{flex:1 1 30%;font-size:14px}
 
 /* ---------- MMT skin ---------- */
@@ -525,7 +522,7 @@ h2{font-size:16px;font-weight:700}
   <div class="card" id="idlecard" hidden>
     <div class="now" hidden style="padding:10px 0 14px"><div class="face" id="iclock"></div></div>
     <div id="idletext"></div>
-    <button id="rtidle" style="width:100%">Start run-through / performance</button>
+    <button id="rtidle" style="width:100%;margin-top:14px">Start now</button>
   </div>
 
   <div class="card" id="reportcard" hidden>
@@ -712,7 +709,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.2-dev4';
+var VERSION='3.2-dev5';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1949,10 +1946,30 @@ function tick(){
 
   if(f.idle){
     $('title').textContent=f.next?stageName(stageOf(f.next)):'Show timer';
-    // Between shows: just the button. The show's pre-show takes over the screen
-    // by itself when its window opens.
-    $('subtitle').textContent='';
+    $('subtitle').textContent=f.next?'Next show: '+f.next.show+', '+dayLabel(f.next.date)+', '+pretty(f.next.time):'Nothing scheduled';
     $('idletext').innerHTML='';
+    if(f.next){
+      var a=document.createElement('div');a.style.cssText='font-weight:600;margin-bottom:4px';a.textContent='Next: '+f.next.show;
+      var b=document.createElement('div');b.className='muted';
+      b.textContent=dayLabel(f.next.date,true)+', show '+pretty(f.next.time)+', call '+clockOf(f.next.curtain+leadMin(stageOf(f.next))*6e4);
+      $('idletext').appendChild(a);$('idletext').appendChild(b);
+      var C=cueList(stageOf(f.next)),ul=document.createElement('ul');ul.className='cues';ul.style.marginTop='10px';
+      for(var i=0;i<C.nA;i++){
+        var li=document.createElement('li');li.innerHTML='<span class="dot"></span><span class="nm"></span><span class="wh"></span>';
+        li.querySelector('.nm').textContent=C.list[i].name;
+        li.querySelector('.wh').textContent=clockOf(f.next.curtain+(C.list[i].offset||0)*6e4);
+        ul.appendChild(li);
+      }
+      var note=document.createElement('p');note.className='muted';note.style.marginTop='8px';
+      var tot=0;for(var j=C.nA;j<C.list.length;j++)tot+=(C.list[j].minutes||0)*6e4;
+      var dl=document.createElement('li');dl.innerHTML='<span class="dot"></span><span class="nm"></span><span class="wh"></span>';
+      dl.querySelector('.nm').textContent='PLANNED END';dl.querySelector('.wh').textContent=tot>0?clockOf(f.next.curtain+tot):'not calculated yet';
+      dl.style.opacity='.75';ul.appendChild(dl);
+      note.textContent='These run on their own. No need to press anything until the show starts.';
+      $('idletext').appendChild(ul);$('idletext').appendChild(note);
+    }else{
+      $('idletext').innerHTML='<p class="muted">Nothing on the calendar. Tap Settings to add a run, or tap Start now for a run-through or an off-schedule performance.</p>';
+    }
   }else{
     $('title').textContent=f.perf.show;
     $('subtitle').textContent=dayLabel(f.perf.date,true)+', '+clockOf(f.perf.curtain);
