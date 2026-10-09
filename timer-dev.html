@@ -709,7 +709,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.2-dev5';
+var VERSION='3.2-dev6';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -973,15 +973,20 @@ function activePerf(now){
   var sched=scheduledPerf(now);
   var a=S.adhoc;
   if(a&&now-a.curtain<6*36e5&&!(isDone(a)&&now-S.target>20*6e4)){
-    // A run-through never blocks a real performance. If the SM hasn't pressed
-    // GO on it (or it's finished), the scheduled show takes the screens as
-    // soon as its window opens. A run-through that's mid-act keeps going
-    // until the real show's call time, then the real show takes over.
+    // A run-through never blocks a real performance, but one the SM starts on
+    // purpose isn't swept aside either. Started after the scheduled show's
+    // window opened, it keeps the screens (waiting for GO, running, or on its
+    // show-down screen) until that show's call. One left over from earlier in
+    // the day that never got a GO steps aside as soon as the window opens.
+    // Whatever is happening, the real show takes over at its call time.
     var len=cuesFor(a).list.length;
     var running=S.key===a.key&&S.idx!=null&&S.idx<len;
     if(!sched)return a;
-    if(!running)return sched;
-    return now>=sched.curtain+leadMin(stageOf(sched))*6e4?sched:a;
+    var call=sched.curtain+leadMin(stageOf(sched))*6e4;
+    if(now>=call)return sched;
+    if(running)return a;
+    var made=a.made||parseInt(String(a.key).replace('adhoc-',''),10)||0;
+    return made>=call-90*6e4?a:sched;
   }
   return sched;
 }
@@ -2371,7 +2376,7 @@ $('rtcancel').onclick=function(){$('rtpanel').hidden=true};
 $('rtstart').onclick=function(){
   var now=NOW(),c=rtCurtain();
   var d=new Date(c);
-  var p={key:'adhoc-'+now,show:rtName(),date:ymd(d),time:pad(d.getHours())+':'+pad(d.getMinutes()),curtain:c,adhoc:true,kind:rtKind,stage:rtStageFor(),rt:1};
+  var p={key:'adhoc-'+now,show:rtName(),date:ymd(d),time:pad(d.getHours())+':'+pad(d.getMinutes()),curtain:c,adhoc:true,kind:rtKind,stage:rtStageFor(),rt:1,made:now};
   $('rtpanel').hidden=true;
   commit({adhoc:p,key:p.key,idx:null,log:[],msg:null,paused:false,holdAt:0,held:{}});
 };
