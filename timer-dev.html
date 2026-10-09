@@ -463,6 +463,9 @@ h2{font-size:16px;font-weight:700}
     <div class="chips" id="rtshows"></div>
     <div class="chips" id="rtstage" hidden></div>
     <input id="rtname" placeholder="Name it, like Tech rehearsal" autocomplete="off" hidden style="margin:-4px 0 12px">
+    <label>Starts</label>
+    <div class="chips" id="rtwhen"></div>
+    <input id="rttime" type="time" hidden style="margin:-4px 0 12px;max-width:180px">
     <p id="rtpreview"></p>
     <div class="row"><button class="quiet" id="rtcancel">Cancel</button><button id="rtstart">Start run-through</button></div>
   </div>
@@ -704,7 +707,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.1-dev1';
+var VERSION='3.1-dev2';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -882,6 +885,24 @@ function cueList(stage){
   if(!a.length)a=[{name:'SHOW START',type:'anchor',offset:0}];
   return {list:a.concat(d),nA:a.length};
 }
+// A run-through skips the pre-show and the curtain speech: it counts down to
+// its start time, then runs the acts (and any intermission between them).
+// A one-act Children's Theatre show reads PERFORMANCE. The renamed cue still
+// files its time under the act's real name, so history lines up.
+// (p.rt marks run-throughs started on this version; an older one in progress
+// keeps the full list so its place in the show isn't lost.)
+function rtSkip(name){return /^CURTAIN SPEECH\b/i.test(name||'')}
+function isRunThrough(p){return !!(p&&p.adhoc&&p.rt&&(p.kind||'rehearsal')==='rehearsal')}
+function cuesFor(p){
+  var C=cueList(stageOf(p));
+  if(!isRunThrough(p))return C;
+  var st=C.list.slice(0,C.nA).filter(function(c){return (c.offset||0)===0})[0];
+  var d=C.list.slice(C.nA).filter(function(c){return !rtSkip(c.name)});
+  var acts=d.filter(isUp);
+  if(stageOf(p)==='kids'&&acts.length===1)d=d.map(function(c){return c===acts[0]?Object.assign({},c,{name:'PERFORMANCE',up:true,hist:c.name}):c});
+  return {list:[{name:st?st.name:'SHOW START',type:'anchor',offset:0}].concat(d),nA:1,run:true};
+}
+function histName(c){return c.hist||c.name}
 // Acts count up; breaks and speeches count down. Older links without the
 // setting treat anything named ACT as count-up.
 function isUp(c){return c.type!=='anchor'&&(c.up!=null?!!c.up:/^(ACT|SHOW|CURTAIN SPEECH)\b/i.test(c.name||''))}
@@ -945,7 +966,7 @@ function receive(s){
   draw();
 }
 
-function isDone(p){return S.key===p.key&&S.idx!=null&&S.idx>=cueList(stageOf(p)).list.length}
+function isDone(p){return S.key===p.key&&S.idx!=null&&S.idx>=cuesFor(p).list.length}
 function activePerf(now){
   var sched=scheduledPerf(now);
   var a=S.adhoc;
@@ -954,7 +975,7 @@ function activePerf(now){
     // GO on it (or it's finished), the scheduled show takes the screens as
     // soon as its window opens. A run-through that's mid-act keeps going
     // until the real show's call time, then the real show takes over.
-    var len=cueList(stageOf(a)).list.length;
+    var len=cuesFor(a).list.length;
     var running=S.key===a.key&&S.idx!=null&&S.idx<len;
     if(!sched)return a;
     if(!running)return sched;
@@ -1021,7 +1042,7 @@ function frame(now){
   var p=activePerf(now);
   if(!p)return {idle:true,next:nextPerf(now)};
   CURST=stageOf(p);
-  var C=cueList(CURST),L=C.list,idx=S.key===p.key?S.idx:null;
+  var C=cuesFor(p),L=C.list,idx=S.key===p.key?S.idx:null;
   var f={idle:false,perf:p,L:L,nA:C.nA,idx:idx};
   if(idx==null){
     // Pre-show runs off the wall clock: count toward the next clock cue,
@@ -1036,7 +1057,7 @@ function frame(now){
     // Before the first clock cue (call) nothing counts: the screens show the
     // wall clock with the call time underneath. A run-through that has passed
     // its show time waits on the clock for GO instead of a house hold.
-    if(k===0&&f.ms>0){f.preCall=true;f.pos=-1}
+    if(k===0&&f.ms>0&&!C.run){f.preCall=true;f.pos=-1}   // a run-through counts down to its start instead
     else if(f.ms<=0&&(p.adhoc||p===S.adhoc)){f.ready=true;f.pos=C.nA}
     if(!f.preCall&&!f.ready&&houseFlow(C)){
       var mi=anchorIdx(C,/^MIC CHECK/i),last=C.nA-1;
@@ -1161,7 +1182,7 @@ histLoad();
 function histFor(show,c){
   var plan=(c.minutes||0)*6e4;
   return HIST.filter(function(r){
-    if(r[1]!==show||r[2]!==c.name)return false;
+    if(r[1]!==show||r[2]!==histName(c))return false;
     if(histIsRun(r)&&!TESTHIST)return false;
     return TESTHIST||(r[3]>=6e4&&!(plan>0&&r[3]<plan*0.4));
   }).sort(function(a,b){return b[4]-a[4]});
@@ -1189,8 +1210,8 @@ function recordAct(f,now){   // called as GO leaves an act
   if(!ent)return;
   var ran=now-ent.at-heldOf(heldWith(now),f.idx),plan=(c.minutes||0)*6e4;
   if(ran<(TESTHIST?2e3:3e4))return;   // a mis-tap, not a real length
-  for(var i=0;i<HIST.length;i++)if(HIST[i][0]===f.perf.key&&HIST[i][2]===c.name)return;
-  HIST.push([f.perf.key,f.perf.show,c.name,Math.round(ran),now,ent.at].concat(run?['r']:[]));histSort();histStore();
+  for(var i=0;i<HIST.length;i++)if(HIST[i][0]===f.perf.key&&HIST[i][2]===histName(c))return;
+  HIST.push([f.perf.key,f.perf.show,histName(c),Math.round(ran),now,ent.at].concat(run?['r']:[]));histSort();histStore();
 }
 // Held time: the act clock already freezes on Hold, but the wall-clock times in
 // the log don't. S.held remembers, per cue, how long the clock sat held, and
@@ -1202,7 +1223,7 @@ function heldWith(now){   // the held map with any hold in progress folded in
   if(S.paused&&S.idx!=null&&S.holdAt)h[S.idx]=(h[S.idx]||0)+Math.max(0,now-S.holdAt);
   return h;
 }
-function firstUp(){var nA=cueList().nA;for(var i=0;i<S.log.length;i++)if(S.log[i].i>=nA)return S.log[i].at;return null}
+function firstUp(){var pa=S.adhoc&&S.adhoc.key===S.key?S.adhoc:null,nA=(pa?cuesFor(pa):cueList()).nA;for(var i=0;i<S.log.length;i++)if(S.log[i].i>=nA)return S.log[i].at;return null}
 // ---------- timer colors ----------
 // Each cue carries color changes: [{at:seconds,c:'red'}]. On a countdown
 // a change applies once that much time or less is left (0:00 means when it
@@ -2084,7 +2105,7 @@ function lastShowFrame(now){
   var pp=S.adhoc&&S.adhoc.key===S.key?S.adhoc:null;
   if(!pp){var d=new Date(now);[ymd(d),ymd(new Date(now-864e5))].forEach(function(day){perfsOn(day).forEach(function(q){if(q.key===S.key)pp=q})})}
   if(!pp||!isDone(pp))return null;
-  var C=cueList(stageOf(pp));
+  var C=cuesFor(pp);
   return {idle:false,perf:pp,L:C.list,nA:C.nA,idx:S.idx,done:true};
 }
 function reportModel(f){
@@ -2095,7 +2116,7 @@ function reportModel(f){
   var m={title:f.perf.show,run:kind==='rehearsal',when:when,sm:'',tiles:[],acts:[],foot:null,lines:[]};
   m.lines.push(f.perf.show+(kind==='rehearsal'?', run-through, ':', ')+when);
   var sm=smNow();if(sm&&sm.name){m.sm=sm.name;m.lines.push('Stage manager: '+sm.name)}
-  var Cr=cueList(stageOf(f.perf));
+  var Cr=cuesFor(f.perf);
   if(HOUSE_BUTTON&&houseFlow(Cr)){
     var ha=houseAtFor(f.perf),hi=anchorIdx(Cr,/^HOUSE OPEN/i),hp0=f.perf.curtain+(Cr.list[hi].offset||0)*6e4;
     if(ha){
@@ -2251,6 +2272,7 @@ function rtKindChips(){
     var b=document.createElement('button');b.textContent=o[1];b.classList.toggle('on',rtKind===o[0]);
     b.onclick=function(){rtKind=o[0];rtKindChips()};box.appendChild(b);
   });
+  rtPreview();
   $('rttitle').textContent=rtKind==='performance'?'Start a performance':'Start a run-through';
   $('rtstart').textContent=rtKind==='performance'?'Start performance':'Start run-through';
 }
@@ -2269,13 +2291,42 @@ function rtStageFor(){
   return hit?hit.stage:rtStage;
 }
 function rtName(){return rtShow==='other'?($('rtname').value.trim()||(rtKind==='performance'?'Performance':'Run-through')):rtShow}
-// Starting now always means right now -- no scheduled-start picker to fill in.
-var rtLead=0;   // always 0 now (the pretend-show-time test control was removed)
-function rtCurtain(){return NOW()+rtLead*6e4}
-function rtLeadChips(){}
-function rtPreview(){
-  $('rtpreview').textContent=rtLead?'Pretends show time is '+rtLead+' min away, so the pre-show runs live from there: mic check'+(HOUSE_BUTTON?', then Ready to open house':'')+', then show start.':'Screens show the clock and READY TO START until the SM presses GO.';
+// When it starts: now, in a few minutes, or at a time. A later start gives
+// every screen a countdown to it; at zero they wait for GO.
+var rtWhen='now',rtLead=0;
+function rtCurtain(){
+  var now=NOW();
+  if(rtWhen==='in')return Math.round((now+rtLead*6e4)/6e4)*6e4;
+  if(rtWhen==='at'&&$('rttime').value){
+    var t=$('rttime').value.split(':'),d=new Date(now);d.setHours(+t[0],+t[1],0,0);
+    if(d.getTime()>now)return d.getTime();
+  }
+  return now;
 }
+function rtLeadChips(){
+  var box=$('rtwhen');box.innerHTML='';
+  [['now',0,'Now'],['in',15,'In 15 min'],['in',30,'In 30 min'],['in',60,'In 1 hour'],['at',0,'Pick a time']].forEach(function(o){
+    var b=document.createElement('button');b.textContent=o[2];
+    b.classList.toggle('on',rtWhen===o[0]&&(o[0]!=='in'||rtLead===o[1]));
+    b.onclick=function(){
+      rtWhen=o[0];rtLead=o[1];
+      if(rtWhen==='at'&&!$('rttime').value){var d=new Date(NOW()+30*6e4);$('rttime').value=pad(d.getHours())+':'+pad(Math.ceil(d.getMinutes()/5)*5%60)}
+      rtLeadChips();if(rtWhen==='at')$('rttime').focus();
+    };
+    box.appendChild(b);
+  });
+  $('rttime').hidden=rtWhen!=='at';
+  rtPreview();
+}
+function rtPreview(){
+  var c=rtCurtain(),later=c-NOW()>3e4,run=rtKind!=='performance';
+  var acts=run?cuesFor({adhoc:true,rt:1,kind:'rehearsal',stage:rtStageFor()}).list.slice(1).map(function(x){return x.name.charAt(0)+x.name.slice(1).toLowerCase()}).join(', '):'';
+  var t=later?'Screens count down to '+clockOf(c)+', then show READY TO START until the SM presses GO.':'Screens show the clock and READY TO START until the SM presses GO.';
+  if(!run&&later)t='The pre-show runs from '+clockOf(c)+' (call, mic check and the rest), then waits for GO.';
+  if(rtWhen==='at'&&!later)t='That time has passed, so it starts now. '+t;
+  $('rtpreview').textContent=t+(run?' No curtain speech: '+acts+'.':'');
+}
+$('rttime').oninput=rtPreview;
 function rtChips(){
   var sb=$('rtshows');sb.innerHTML='';
   var shows=rtShows();
@@ -2296,7 +2347,7 @@ function rtChips(){
   $('rtname').hidden=rtShow!=='other';
   rtPreview();
 }
-function openRT(){rtShow=null;rtStage=CURST;rtKind='rehearsal';rtLead=0;rtLeadChips();$('rtname').value='';rtKindChips();rtChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
+function openRT(){rtShow=null;rtStage=CURST;rtKind='rehearsal';rtWhen='now';rtLead=0;$('rttime').value='';$('rtname').value='';rtChips();rtKindChips();rtLeadChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
 function endRT(){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false,holdAt:0,held:{}})}
 $('rtname').oninput=rtPreview;
 $('rehearse').onclick=function(){
@@ -2317,7 +2368,7 @@ $('rtcancel').onclick=function(){$('rtpanel').hidden=true};
 $('rtstart').onclick=function(){
   var now=NOW(),c=rtCurtain();
   var d=new Date(c);
-  var p={key:'adhoc-'+now,show:rtName(),date:ymd(d),time:pad(d.getHours())+':'+pad(d.getMinutes()),curtain:c,adhoc:true,kind:rtKind,stage:rtStageFor()};
+  var p={key:'adhoc-'+now,show:rtName(),date:ymd(d),time:pad(d.getHours())+':'+pad(d.getMinutes()),curtain:c,adhoc:true,kind:rtKind,stage:rtStageFor(),rt:1};
   $('rtpanel').hidden=true;
   commit({adhoc:p,key:p.key,idx:null,log:[],msg:null,paused:false,holdAt:0,held:{}});
 };
@@ -2390,7 +2441,7 @@ function histShows(){
     list.forEach(function(n){n.seq.forEach(function(x){if(names.indexOf(x[0])<0)names.push(x[0])})});
     list.forEach(function(n){
       n.total=0;n.complete=true;
-      names.forEach(function(nm){if(n.acts[nm]==null)n.complete=false;else n.total+=n.acts[nm]});
+      names.forEach(function(nm){if(n.acts[nm]==null){if(!(n.run&&rtSkip(nm)))n.complete=false}else n.total+=n.acts[nm]});
     });
     var done=list.filter(function(n){return n.complete&&!n.run});
     for(var i=0;i<list.length;i++){
