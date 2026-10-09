@@ -463,9 +463,11 @@ h2{font-size:16px;font-weight:700}
     <div class="chips" id="rtshows"></div>
     <div class="chips" id="rtstage" hidden></div>
     <input id="rtname" placeholder="Name it, like Tech rehearsal" autocomplete="off" hidden style="margin:-4px 0 12px">
+    <div id="rtwhenbox">
     <label>Starts</label>
     <div class="chips" id="rtwhen"></div>
     <input id="rttime" type="time" hidden style="margin:-4px 0 12px;max-width:180px">
+    </div>
     <p id="rtpreview"></p>
     <div class="row"><button class="quiet" id="rtcancel">Cancel</button><button id="rtstart">Start run-through</button></div>
   </div>
@@ -707,7 +709,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.1-dev2';
+var VERSION='3.1-dev3';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2275,6 +2277,7 @@ function rtKindChips(){
   rtPreview();
   $('rttitle').textContent=rtKind==='performance'?'Start a performance':'Start a run-through';
   $('rtstart').textContent=rtKind==='performance'?'Start performance':'Start run-through';
+  $('rtwhenbox').hidden=rtKind==='performance';
 }
 function rtShows(){
   var today=ymd(new Date(NOW())),seen={},out=[];
@@ -2296,6 +2299,7 @@ function rtName(){return rtShow==='other'?($('rtname').value.trim()||(rtKind==='
 var rtWhen='now',rtLead=0;
 function rtCurtain(){
   var now=NOW();
+  if(rtKind==='performance')return now;
   if(rtWhen==='in')return Math.round((now+rtLead*6e4)/6e4)*6e4;
   if(rtWhen==='at'&&$('rttime').value){
     var t=$('rttime').value.split(':'),d=new Date(now);d.setHours(+t[0],+t[1],0,0);
@@ -2322,7 +2326,6 @@ function rtPreview(){
   var c=rtCurtain(),later=c-NOW()>3e4,run=rtKind!=='performance';
   var acts=run?cuesFor({adhoc:true,rt:1,kind:'rehearsal',stage:rtStageFor()}).list.slice(1).map(function(x){return x.name.charAt(0)+x.name.slice(1).toLowerCase()}).join(', '):'';
   var t=later?'Screens count down to '+clockOf(c)+', then show READY TO START until the SM presses GO.':'Screens show the clock and READY TO START until the SM presses GO.';
-  if(!run&&later)t='The pre-show runs from '+clockOf(c)+' (call, mic check and the rest), then waits for GO.';
   if(rtWhen==='at'&&!later)t='That time has passed, so it starts now. '+t;
   $('rtpreview').textContent=t+(run?' No curtain speech: '+acts+'.':'');
 }
