@@ -525,7 +525,8 @@ h2{font-size:16px;font-weight:700}
   <div class="card" id="idlecard" hidden>
     <div class="now" hidden style="padding:10px 0 14px"><div class="face" id="iclock"></div></div>
     <div id="idletext"></div>
-    <button id="rtidle" style="width:100%;margin-top:14px">Start now</button>
+    <button id="startnext" style="width:100%;margin-top:14px">Start now</button>
+    <button id="rtidle" class="quiet" style="width:100%;margin-top:8px;border:1px solid var(--btnline);color:var(--type)">Start run-through / performance</button>
   </div>
 
   <div class="card" id="reportcard" hidden>
@@ -712,7 +713,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.2-dev2';
+var VERSION='3.2-dev3';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -982,7 +983,7 @@ function activePerf(now){
     // until the real show's call time, then the real show takes over.
     var len=cuesFor(a).list.length;
     var running=S.key===a.key&&S.idx!=null&&S.idx<len;
-    if(!sched)return a;
+    if(!sched||sched.key===a.key)return a;   // a scheduled show started early with Start now stays itself
     if(!running)return sched;
     return now>=sched.curtain+leadMin(stageOf(sched))*6e4?sched:a;
   }
@@ -1954,8 +1955,9 @@ function tick(){
     // never looks like the next thing when you've opened the timer for a run-through.
     $('subtitle').textContent='';
     $('idletext').innerHTML='';
+    $('startnext').hidden=!f.next;
     if(f.next){
-      var a=document.createElement('div');a.className='idle-k';a.textContent='Next performance';
+      var a=document.createElement('div');a.className='idle-k';a.textContent='Next scheduled show';
       var b=document.createElement('div');b.className='idle-show';b.textContent=f.next.show;
       var c2=document.createElement('div');c2.className='idle-when';c2.textContent=dayLabel(f.next.date,true)+' at '+pretty(f.next.time);
       $('idletext').appendChild(a);$('idletext').appendChild(b);$('idletext').appendChild(c2);
@@ -2355,6 +2357,15 @@ $('rehearse').onclick=function(){
   openRT();
 };
 $('rtidle').onclick=openRT;
+// Start now: the next scheduled show, as a performance, right now. If that show
+// is tonight it takes tonight's slot (same key), so it isn't run a second time
+// at its scheduled hour and its times file under tonight in History.
+$('startnext').onclick=function(){
+  var now=NOW(),f=frame(now);if(!f.idle||!f.next)return;
+  var n=f.next,d=new Date(now),today=ymd(d)===n.date;
+  var p={key:today?n.key:'adhoc-'+now,show:n.show,date:ymd(d),time:pad(d.getHours())+':'+pad(d.getMinutes()),curtain:now,adhoc:true,kind:'performance',stage:stageOf(n),rt:1};
+  commit({adhoc:p,key:p.key,idx:null,log:[],msg:null,paused:false,holdAt:0,held:{}});
+};
 $('rtend').onclick=function(){
   var label=(S.adhoc&&S.adhoc.kind==='performance')?'performance':'run-through';
   if(confirm('End the '+label+'? The screens go back to the schedule.'))endRT();
