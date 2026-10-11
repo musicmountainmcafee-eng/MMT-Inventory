@@ -712,7 +712,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.3-dev2';
+var VERSION='3.3-dev3';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -987,14 +987,18 @@ function activePerf(now){
     // window opened, it keeps the screens (waiting for GO, running, or on its
     // show-down screen) until that show's call. One left over from earlier in
     // the day that never got a GO steps aside as soon as the window opens.
-    // Whatever is happening, the real show takes over at its call time.
+    // The real show takes over at its call time, unless this one was started
+    // after that call (then the SM picked it over the scheduled show).
     var len=cuesFor(a).list.length;
     var running=S.key===a.key&&S.idx!=null&&S.idx<len;
     if(!sched||sched.key===a.key)return a;   // tonight's show started early from the picker stays itself
     var call=sched.curtain+leadMin(stageOf(sched))*6e4;
+    var made=a.made||parseInt(String(a.key).replace('adhoc-',''),10)||0;
+    // Started from the picker after the scheduled show's call: the SM chose it
+    // over that show on purpose, so it keeps the screens until it's ended.
+    if(made>=call)return a;
     if(now>=call)return sched;
     if(running)return a;
-    var made=a.made||parseInt(String(a.key).replace('adhoc-',''),10)||0;
     return made>=call-90*6e4?a:sched;
   }
   return sched;
