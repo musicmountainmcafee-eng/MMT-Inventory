@@ -895,7 +895,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev2';
+var VERSION='3.4-dev3';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2632,13 +2632,17 @@ function rtKindChips(){
   $('rtstart').style.width='100%';
   $('rtwhenbox').hidden=rtKind==='performance';
 }
+// One show per stage: the run playing now, or else the next one to open.
+// Anything else is under Other.
 function rtShows(){
-  var today=ymd(new Date(NOW())),seen={},out=[];
+  var today=ymd(new Date(NOW())),out=[];
   [['main',cfg.runs],['kids',kidsCfg().runs]].forEach(function(sr){
-    sr[1].filter(function(r){return r.show&&(!r.end||r.end>=today)}).forEach(function(r){out.push(Object.assign({},r,{stage:sr[0]}))});
+    var rs=sr[1].filter(function(r){return r.show&&(!r.end||r.end>=today)});
+    var now=rs.filter(function(r){return !r.start||r.start<=today})[0];
+    var next=rs.filter(function(r){return r.start&&r.start>today}).sort(function(a,b){return a.start.localeCompare(b.start)})[0];
+    var pick=now||next;if(pick)out.push(Object.assign({},pick,{stage:sr[0]}));
   });
-  out.sort(function(a,b){return (a.start||'').localeCompare(b.start||'')});
-  return out.filter(function(r){if(seen[r.show])return false;seen[r.show]=1;return true});
+  return out;
 }
 var rtStage='main';
 function rtStageFor(){
