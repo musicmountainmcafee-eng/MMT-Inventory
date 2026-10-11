@@ -1044,7 +1044,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev10';
+var VERSION='3.4-dev11';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1314,9 +1314,9 @@ function activePerf(now){
   var sched=scheduledPerf(now);
   var a=S.adhoc;
   // A finished run-through: the displays show the end of show for 2 minutes,
-  // then the clock; the controller keeps its end screen and report for 20.
+  // then the clock; a performance, 5. The controller keeps its report for 20.
   var rtDone=a&&isDone(a)&&(a.kind||'rehearsal')==='rehearsal';
-  if(a&&now-a.curtain<6*36e5&&!(isDone(a)&&now-S.target>20*6e4)&&!(rtDone&&isDisplay&&now-S.target>2*6e4)){
+  if(a&&now-a.curtain<6*36e5&&!(isDone(a)&&now-S.target>endHold()*6e4)&&!(rtDone&&isDisplay&&now-S.target>2*6e4)){
     // A run-through never blocks a real performance, but one the SM starts on
     // purpose isn't swept aside either. Started after the scheduled show's
     // window opened, it keeps the screens (waiting for GO, running, or on its
@@ -1338,6 +1338,9 @@ function activePerf(now){
   }
   return sched;
 }
+// How long the end of show stays up: 5 minutes on the displays, 20 on the
+// controller (it keeps the report). Run-throughs leave the displays after 2.
+function endHold(){return isDisplay?5:20}
 function scheduledPerf(now){
   var ps=perfsOn(ymd(new Date(now)));
   // Walk backwards: on a two-show Saturday the evening's window takes over
@@ -1358,8 +1361,8 @@ function scheduledPerf(now){
     // Just after an earlier show's final GO its show-down screen and report stay
     // up for 20 min (as they do after the last show of the day), but the next
     // show's call always wins, so a four-show Saturday never misses a call.
-    if(prev&&isDone(prev)&&now-S.target<20*6e4&&now<p.curtain+leadMin(stageOf(p))*6e4)continue;
-    if(isDone(p))return now-S.target<20*6e4?p:null;
+    if(prev&&isDone(prev)&&now-S.target<endHold()*6e4&&now<p.curtain+leadMin(stageOf(p))*6e4)continue;
+    if(isDone(p))return now-S.target<endHold()*6e4?p:null;
     var running=S.key===p.key&&S.idx!=null&&now-p.curtain<8*36e5;
     if(running)return p;
     // A show that never got a GO lets go 90 minutes after its time: the screens
