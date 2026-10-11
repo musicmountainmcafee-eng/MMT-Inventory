@@ -931,7 +931,7 @@ body:not(.display) #toast{font-family:'Barlow Condensed',sans-serif;font-size:17
       <div id="tpl"></div>
       <h2 class="sec" style="margin-top:18px">Both stages</h2>
       <div class="field" style="margin-top:8px"><label>End of show label (shown under the running time after the last GO)</label>
-        <input id="endlabel" autocomplete="off" spellcheck="false" placeholder="SHOW DOWN"></div>
+        <input id="endlabel" autocomplete="off" spellcheck="false" placeholder="END OF SHOW"></div>
       <div class="field" style="margin-top:12px"><label>Act length aim</label>
         <select id="autoaim"><option value="on">Auto: average of the last 3 performances of the same show</option><option value="off">Off: use the planned length</option></select>
         <p class="hint" style="margin-top:6px">Needs at least 2 past performances of the show. Held time and run-throughs don't count.</p></div>
@@ -1044,7 +1044,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev9';
+var VERSION='3.4-dev10';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1097,7 +1097,7 @@ cfg.runs=cfg.runs||[];
 // mismatch, or hand out, and no separate channel per stage to keep straight.
 // Anyone who opens the link joins automatically.
 function syncTopic(){return 'mmt-timer-dev'}
-function endLabel(){return (cfg.endLabel||'SHOW DOWN').toUpperCase()}
+function endLabel(){return (cfg.endLabel||'END OF SHOW').toUpperCase()}
 // Two stages live in one timer. Mainstage's cues, show times and runs sit at the
 // top of the settings as they always have; Children's Theatre's sit under
 // cfg.kids. cfg.stage now only says which of the two the Settings screen is editing.
@@ -1313,10 +1313,10 @@ function isDone(p){return S.key===p.key&&S.idx!=null&&S.idx>=cuesFor(p).list.len
 function activePerf(now){
   var sched=scheduledPerf(now);
   var a=S.adhoc;
-  // A finished run-through: the displays go straight back to the clock; the
-  // controller keeps its show-down screen and report for 20 minutes.
+  // A finished run-through: the displays show the end of show for 2 minutes,
+  // then the clock; the controller keeps its end screen and report for 20.
   var rtDone=a&&isDone(a)&&(a.kind||'rehearsal')==='rehearsal';
-  if(a&&now-a.curtain<6*36e5&&!(isDone(a)&&now-S.target>20*6e4)&&!(rtDone&&isDisplay)){
+  if(a&&now-a.curtain<6*36e5&&!(isDone(a)&&now-S.target>20*6e4)&&!(rtDone&&isDisplay&&now-S.target>2*6e4)){
     // A run-through never blocks a real performance, but one the SM starts on
     // purpose isn't swept aside either. Started after the scheduled show's
     // window opened, it keeps the screens (waiting for GO, running, or on its
@@ -2785,7 +2785,7 @@ function paintTechDisplay(T,now,m,v){
 
 // ---------- 3.4 controller: things that change every second ----------
 // Previous / now / next: the cue just gone, the one running, and what GO does
-// next. Before call the first cues are listed. Show down is the last row.
+// next. Before call the first cues are listed. End of show is the last row.
 var UNDO_MS=15000;
 function pnnRow(cls,k,name,w,extra){
   return '<div class="r '+cls+'"><span class="k">'+k+'</span><span>'+esc(name)+(extra||'')+'</span><span class="w">'+esc(w||'')+'</span></div>';
@@ -3051,8 +3051,8 @@ function reportModel(f){
     var pd=Math.round((S.target-(f.perf.curtain+plannedTotal(f)))/6e4);
     var ht=heldTotal(S.held),own=S.adhoc&&f.perf===S.adhoc;
     var vs=own?'':(Math.abs(pd)<=1?'on time':pd>0?pd+' min later than planned':(-pd)+' min earlier than planned');
-    m.lines.push('Down at '+clockOf(S.target)+', running time '+fmt(S.target-up-ht)+(ht>=5000?' (held '+fmt(ht)+' not counted)':'')+(own?'':', '+vs));
-    m.tiles.push({k:'Down',v:clockOf(S.target),n:own?'':(Math.abs(pd)<=1?'on time':pd>0?pd+' min late':(-pd)+' min early'),tone:own?'':(pd>1?'warn':'ok')});
+    m.lines.push('Ended at '+clockOf(S.target)+', running time '+fmt(S.target-up-ht)+(ht>=5000?' (held '+fmt(ht)+' not counted)':'')+(own?'':', '+vs));
+    m.tiles.push({k:'Ended',v:clockOf(S.target),n:own?'':(Math.abs(pd)<=1?'on time':pd>0?pd+' min late':(-pd)+' min early'),tone:own?'':(pd>1?'warn':'ok')});
     m.foot={run:fmt(S.target-up-ht),held:ht>=5000?fmt(ht):'',vs:vs};
   }
   return m;
@@ -3507,7 +3507,7 @@ function drawHistory(){
         row('',n.st[nm],n.est[nm],cap(nm),fmt(n.acts[nm]),held>=30000?'+'+fmt(Math.round(held/1000)*1000)+' held':'');
       });
       sh.names.forEach(function(nm){if(n.acts[nm]==null)row('miss',null,false,cap(nm)+' — not logged','')});
-      if(acts.length)row('end',n.en[acts[acts.length-1]],false,n.complete?'Show down':'Last GO','');
+      if(acts.length)row('end',n.en[acts[acts.length-1]],false,n.complete?'End of show':'Last GO','');
     });
   });
   mk('p','muted','Every performance and run-through is kept. Run time and longer/shorter compare performances only. Lengths don’t count intermission or holds. ≈ means the time was worked out from the act’s length, for nights saved before start times were kept.',box).style.marginTop='6px';
