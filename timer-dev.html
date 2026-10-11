@@ -712,7 +712,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.3-dev1';
+var VERSION='3.3-dev2';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -851,7 +851,7 @@ function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate
 function at(date,time){var a=date.split('-').map(Number),b=time.split(':').map(Number);return new Date(a[0],a[1]-1,a[2],b[0],b[1],0,0).getTime()}
 function dow(date){var a=date.split('-').map(Number);return ['sun','mon','tue','wed','thu','fri','sat'][new Date(a[0],a[1]-1,a[2]).getDay()]}
 function clockOf(ms){var d=new Date(ms),h=d.getHours();return (h%12||12)+':'+pad(d.getMinutes())+' '+(h>=12?'PM':'AM')}
-function pretty(t){var p=t.split(':'),h=Number(p[0]);return (h%12||12)+':'+p[1]+' '+(h>=12?'PM':'AM')}
+function pretty(t){if(!t)return '';var p=t.split(':'),h=Number(p[0]);return (h%12||12)+':'+p[1]+' '+(h>=12?'PM':'AM')}
 function dayLabel(date,long){var a=date.split('-').map(Number);return new Date(a[0],a[1]-1,a[2]).toLocaleDateString(undefined,{weekday:long?'long':'short',month:'short',day:'numeric'})}
 function parseTimes(str){return String(str).split(',').map(function(t){return t.trim()}).filter(Boolean).map(function(t){
   var m=t.match(/^(\d{1,2}):?(\d{2})?\s*(a|p)?/i);if(!m)return null;
@@ -865,7 +865,7 @@ function fmt(ms){
   var t=Math.max(0,Math.floor(ms/1000)),h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;
   return h>0?h+':'+pad(m)+':'+pad(s):m+':'+pad(s);
 }
-function countdown(ms){return ms>=0?fmt(Math.ceil(ms/1000)*1000):'+'+fmt(-ms)}
+function countdown(ms){return ms>=0?fmt(Math.ceil(ms/1000)*1000):fmt(-ms)}   // past zero it counts up (the arrow flips), no + sign
 
 // ---------- schedule ----------
 function perfsOn(date){
@@ -900,12 +900,18 @@ function rtSkip(name){return /^CURTAIN SPEECH\b/i.test(name||'')}
 function isRunThrough(p){return !!(p&&p.adhoc&&p.rt&&(p.kind||'rehearsal')==='rehearsal')}
 function cuesFor(p){
   var C=cueList(stageOf(p));
-  if(!isRunThrough(p))return C;
+  if(!isRunThrough(p))return kidsOneAct(p,C);
   var st=C.list.slice(0,C.nA).filter(function(c){return (c.offset||0)===0})[0];
   var d=C.list.slice(C.nA).filter(function(c){return !rtSkip(c.name)});
   var acts=d.filter(isUp);
   if(stageOf(p)==='kids'&&acts.length===1)d=d.map(function(c){return c===acts[0]?Object.assign({},c,{name:'PERFORMANCE',up:true,hist:c.name}):c});
   return {list:[{name:st?st.name:'SHOW START',type:'anchor',offset:0}].concat(d),nA:1,run:true};
+}
+function kidsOneAct(p,C){
+  if(stageOf(p)!=='kids')return C;
+  var acts=C.list.slice(C.nA).filter(isUp);
+  if(acts.length!==1)return C;
+  return {list:C.list.map(function(c){return c===acts[0]?Object.assign({},c,{name:'PERFORMANCE',up:true,hist:c.name}):c}),nA:C.nA};
 }
 function histName(c){return c.hist||c.name}
 // Acts count up; breaks and speeches count down. Older links without the
@@ -1062,11 +1068,11 @@ function frame(now){
     if(k<0)k=C.nA-1;
     var when=p.curtain+(L[k].offset||0)*6e4;
     f.pos=k;f.cue=L[k].name;f.ms=when-now;f.when=when;f.auto=true;
-    f.label=f.ms<0?'HOUSE HOLD':L[k].name;       // "MIC CHECK 10:00" counts down to mic check
+    f.label=L[k].name;f.over=f.ms<0;       // "MIC CHECK 10:00" counts down; past show time it just counts up until GO
     f.goNext=L[C.nA]?L[C.nA].name:endLabel();
     // Before the first clock cue (call) nothing counts: the screens show the
     // wall clock with the call time underneath. A run-through that has passed
-    // its show time waits on the clock for GO instead of a house hold.
+    // its show time waits on the clock for GO instead of counting up.
     if(k===0&&f.ms>0&&!C.run){f.preCall=true;f.pos=-1}   // a run-through counts down to its start instead
     else if(f.ms<=0&&(p.adhoc||p===S.adhoc)){f.ready=true;f.pos=C.nA}
     if(!f.preCall&&!f.ready&&houseFlow(C)){
@@ -1817,7 +1823,7 @@ function paintIdent(f,now,clockMode){
     name=f.perf.show;
     kind=(S.adhoc&&f.perf===S.adhoc)?(S.adhoc.kind||'rehearsal'):'';
     rt=!!kind;
-    when=rt?clockOf(f.perf.curtain):pretty(f.perf.time);
+    when=perfWhen(f.perf);
   }
   // Once a run-through is actually running, its "started at" time reads the
   // same as the wall clock in the opposite corner for a while, so it's
@@ -1847,7 +1853,7 @@ function paintStage(f,now,clockMode,wingsOn,heldNow,ink,scene){
     $('big').innerHTML=(d.getHours()%12||12)+':'+pad(d.getMinutes())+'<span class="ampm">'+(d.getHours()<12?'AM':'PM')+'</span>';$('big').className='clocked';$('big').style.color='';
     $('sub').textContent=f.idle?d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}).toUpperCase():f.preCall?f.cue+' AT '+clockOf(f.when):'READY TO START';
   }else{
-    $('slug').textContent=f.paused?'HOLDING':f.label;$('slug').className=(f.done||f.paused)?'':f.up?'k-up':'k-down';
+    $('slug').textContent=f.paused?'HOLDING':f.label;$('slug').className=(f.done||f.paused)?'':(f.up||f.over)?'k-up':'k-down';
     $('big').className='';$('big').textContent=f.up?fmt(f.el):countdown(f.ms);
     $('big').style.color=wingsOn?'':ink;
     $('sub').textContent=f.done?endLabel()+' '+clockOf(f.when):f.paused?f.label+'  HELD '+fmt(f.heldNow):f.up?(f.planned>0?'PLANNED '+fmt(f.planned):''):f.hs?hsText(f):f.auto?(f.ms<0?f.cue+' WAS '+clockOf(f.when):'AT '+clockOf(f.when)):(f.ms<0?'OVER':'ENDS '+clockOf(f.when));
@@ -1918,7 +1924,7 @@ function tick(){
     $('cends').textContent=f.preCall?cap(f.cue)+' at '+clockOf(f.when)+'. Countdowns start then.':(S.adhoc&&f.perf===S.adhoc?'Press GO to begin.':'Show time was '+clockOf(f.when)+'. Press GO to begin.');
     $('cmsg').textContent=m||'';$('cmsg').classList.toggle('on',!!m);
   }else{
-    $('cslug').textContent=f.paused?'HOLDING':f.label;$('cslug').className='slug '+((f.done||f.paused)?'':f.up?'k-up':'k-down');
+    $('cslug').textContent=f.paused?'HOLDING':f.label;$('cslug').className='slug '+((f.done||f.paused)?'':(f.up||f.over)?'k-up':'k-down');
     $('cface').className='face';$('cface').textContent=f.done?fmt(f.ms):f.up?fmt(f.el):countdown(f.ms);
     $('cface').style.color=wingsOn?'':ink;
     $('cends').textContent=f.done?cap(endLabel())+' at '+clockOf(f.when)
@@ -1980,7 +1986,7 @@ function tick(){
     }
   }else{
     $('title').textContent=f.perf.show;
-    $('subtitle').textContent=dayLabel(f.perf.date,true)+', '+clockOf(f.perf.curtain);
+    $('subtitle').textContent=dayLabel(f.perf.date,true)+(perfWhen(f.perf)?', '+perfWhen(f.perf):'');
     $('go').disabled=false;$('go').classList.toggle('newshow',!!f.done);
     $('go').querySelector('.l').textContent=f.done?'START NEW SHOW':'GO';
     document.body.classList.toggle('showdone',!!f.done);
@@ -2311,6 +2317,28 @@ function rtSlot(show,stage){
   var now=NOW();
   return perfsOn(ymd(new Date(now))).filter(function(q){return q.show===show&&stageOf(q)===stage&&q.curtain>now-2*36e5&&!isDone(q)})[0]||null;
 }
+// The show time from Settings for a performance started off the picker: the one
+// today closest to now, or (not on today) the same show's nearest date. None at all: blank.
+function schedTime(show,stage,now){
+  var best=null,bd=1/0;
+  for(var i=0;i<=7&&!best;i++){   // today first, then a day either side, and so on
+    [i,-i].forEach(function(o){
+      var d=new Date(now);d.setDate(d.getDate()+o);
+      perfsOn(ymd(d)).forEach(function(q){
+        if(q.show!==show||stageOf(q)!==stage)return;
+        var dist=Math.abs(q.curtain-now);if(dist<bd){bd=dist;best=q}
+      });
+    });
+  }
+  return best;
+}
+function perfWhen(p){   // what a show's time reads as on the screens
+  var kind=(S.adhoc&&p===S.adhoc)?(S.adhoc.kind||'rehearsal'):'';
+  if(kind==='rehearsal')return clockOf(p.curtain);
+  // a performance started off the schedule on 3.3 or earlier only knows when Start was pressed
+  if(kind==='performance'&&!p.sched&&/^adhoc-/.test(String(p.key)))return '';
+  return p.time?pretty(p.time):'';
+}
 function rtCurtain(){
   var now=NOW();
   if(rtKind==='performance')return now;
@@ -2405,6 +2433,7 @@ $('rtstart').onclick=function(){
   if(rtKind==='performance'){
     var slot=rtSlot(p.show,p.stage);
     if(slot){p.key=slot.key;p.curtain=slot.curtain;p.date=slot.date;p.time=slot.time}
+    else{var sch=schedTime(p.show,p.stage,now);p.time=sch?sch.time:'';p.sched=!!sch}
   }
   rtClose();
   commit({adhoc:p,key:p.key,idx:null,log:[],msg:null,paused:false,holdAt:0,held:{}});
