@@ -576,6 +576,24 @@ body.techbuild #panel>:not(.bar):not(#techpanel):not(#updban){display:none!impor
 #techtitle{font-size:28px;margin:0}
 #techchips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px}
 #techchips button{min-height:42px;padding:0 12px;font-size:16px;font-weight:600;text-transform:uppercase;background:transparent;border:1px solid var(--btnline)}
+#techchips button small{font-size:13px;color:var(--dim);font-weight:500;letter-spacing:.04em;margin-left:2px}
+#techchips button.run small{color:var(--amber)}
+.tclabel{display:flex;justify-content:space-between;align-items:center}
+.tclabel label{margin:0}
+.tclabel .linkbtn{min-height:36px;padding:0;font-size:14px}
+#techchipbox{border:1px solid var(--line);border-radius:6px;padding:10px;margin:6px 0 14px}
+.tcrow{display:grid;grid-template-columns:1fr 96px auto 40px;gap:6px;align-items:center;margin-bottom:6px}
+.tcrow input{min-height:42px;padding:6px 8px}
+.tcrow .tcn{font-weight:700;text-transform:uppercase;letter-spacing:.03em;min-width:0}
+.tcrow .tcm{display:flex;align-items:center;gap:4px;margin:0;font-size:14px;letter-spacing:.04em}
+.tcrow .tcl{width:62px;font-family:var(--mono);-moz-appearance:textfield;appearance:textfield}
+.tcrow .tcl::-webkit-inner-spin-button,.tcrow .tcl::-webkit-outer-spin-button,.titem .tl::-webkit-inner-spin-button,.titem .tl::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.titem .tl{-moz-appearance:textfield;appearance:textfield}
+.tcrow .tr{display:flex;align-items:center;gap:4px;margin:0;font-size:13px;color:var(--dim);white-space:nowrap}
+.tcrow .tr input{width:18px;height:18px;min-height:0;accent-color:var(--amber)}
+.tcrow .tcx{min-height:40px;width:40px;padding:0;background:var(--panel);border:1px solid var(--btnline);font-size:18px}
+.tcfoot{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+#techchipadd{min-height:42px;padding:0 14px;font-size:16px;font-weight:600;text-transform:uppercase;background:transparent;border:1px dashed var(--btnline);color:var(--type)}
 #techchips button.run{border:2px solid var(--amber);color:var(--amber);background:#1E1708}
 #techchips button.own{border-style:dashed;color:var(--dim)}
 #techlist{border:1px solid var(--line);border-radius:6px;overflow:hidden}
@@ -764,8 +782,13 @@ body:not(.display) #toast{font-family:'Barlow Condensed',sans-serif;font-size:17
 
   <div class="card" id="techpanel" hidden>
     <div class="tbhead"><div><h2 id="techtitle">Today's schedule</h2><div class="muted" id="techshow"></div></div><button class="small" id="techload" hidden>Load template</button></div>
-    <label>Tap to add</label>
+    <div class="tclabel"><label id="techchiplbl">Tap to add</label><button class="linkbtn" id="techchipedit">Edit buttons</button></div>
     <div id="techchips"></div>
+    <div id="techchipbox" hidden>
+      <p class="hint" style="margin:0 0 8px">These buttons are the same for everyone. Name, length in minutes, and whether it's a full run.</p>
+      <div id="techchiprows"></div>
+      <div class="tcfoot"><button id="techchipadd">+ Add a button</button><button class="linkbtn" id="techchipreset">Reset to standard</button></div>
+    </div>
     <div id="techlist"></div>
     <div class="tbfoot"><button class="linkbtn" id="techsavetpl">Save as template</button><button class="linkbtn" id="techcancel">Cancel</button></div>
     <button id="techgo">Start tech day</button>
@@ -1021,7 +1044,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev7';
+var VERSION='3.4-dev8';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2437,6 +2460,10 @@ function tick(){
 // It all lives in the shared state (S.tech), so every screen follows along.
 var TECH_CHIPS=[['Cue-to-cue',60],['Fight call',15],['Lift call',15],['Notes on stage',20],['Break',10],['Dinner',60],['Full run',150,1]];
 var TECH_CALLS=['HOLD','BACK IN 10','5 MINUTES','PLACES'];
+// The quick-add buttons: one shared list (Settings travel to every device),
+// editable from the builder with Edit buttons. Standard set until someone edits it.
+function techChipList(){return (cfg.techChips&&cfg.techChips.length?cfg.techChips:TECH_CHIPS.map(function(c){return {name:c[0],min:c[1],run:!!c[2]}}))}
+var techChipEditing=false;
 var TECHLOG_LS='mmt-timer-techlog-dev',TECHLOG_KV='timer_techlog_dev',TECHLOG=[];
 try{TECHLOG=JSON.parse(sget(TECHLOG_LS)||'[]');if(!Array.isArray(TECHLOG))TECHLOG=[]}catch(e){TECHLOG=[]}
 function techCalls(){return (cfg.techMessages&&cfg.techMessages.length)?cfg.techMessages:TECH_CALLS}
@@ -2547,7 +2574,7 @@ function openTechBuilder(show,stage,edit){
     var tpl=(cfg.techTpl&&cfg.techTpl[stage])||[];
     techDraft={show:show,stage:stage,items:tpl.map(function(t){return Object.assign({},t,{id:tid()})}),edit:false,lock:0};
   }
-  rtClose();document.body.classList.add('techbuild');$('techpanel').hidden=false;drawTechBuilder();window.scrollTo(0,0);
+  techChipEditing=false;rtClose();document.body.classList.add('techbuild');$('techpanel').hidden=false;drawTechBuilder();window.scrollTo(0,0);
 }
 function closeTechBuilder(){document.body.classList.remove('techbuild');$('techpanel').hidden=true;techDraft=null;sig=''}
 function techAddItem(name,min,run){
@@ -2565,10 +2592,12 @@ function drawTechBuilder(){
   $('techsavetpl').textContent='Save as '+(techDraft.stage==='kids'?"Children's":'Mainstage')+' template';
   $('techgo').textContent=techDraft.edit?'Save changes':'Start tech day';
   $('techgo').disabled=!techDraft.items.length;
-  var chips=$('techchips');if(!chips.childNodes.length){
-    TECH_CHIPS.forEach(function(c){var b=document.createElement('button');b.textContent='+ '+c[0];if(c[2])b.className='run';b.onclick=function(){techAddItem(c[0],c[1],c[2])};chips.appendChild(b)});
-    var o=document.createElement('button');o.textContent='+ Type your own';o.className='own';o.onclick=function(){techAddItem('',30,false)};chips.appendChild(o);
-  }
+  var chips=$('techchips');chips.innerHTML='';
+  techChipList().forEach(function(c){var b=document.createElement('button');b.innerHTML='+ <span></span> <small></small>';b.querySelector('span').textContent=c.name;b.querySelector('small').textContent=lenTxt(c.min||0);if(c.run)b.className='run';b.onclick=function(){techAddItem(c.name,c.min,c.run)};chips.appendChild(b)});
+  var o=document.createElement('button');o.textContent='+ Type your own';o.className='own';o.onclick=function(){techAddItem('',30,false)};chips.appendChild(o);
+  chips.hidden=techChipEditing;$('techchipbox').hidden=!techChipEditing;
+  $('techchipedit').textContent=techChipEditing?'Done editing':'Edit buttons';$('techchiplbl').textContent=techChipEditing?'Edit the buttons':'Tap to add';
+  if(techChipEditing)drawChipEditor();
   var box=$('techlist');box.innerHTML='';
   if(!techDraft.items.length){box.innerHTML='<p class="muted" style="padding:14px 4px">Tap the buttons above to add the day’s schedule, in order. Each item starts when the one before it is planned to end; change any time or length.</p>'}
   techDraft.items.forEach(function(it,i){
@@ -2590,6 +2619,25 @@ function drawTechBuilder(){
     box.appendChild(r);
   });
 }
+function drawChipEditor(){
+  var box=$('techchiprows');box.innerHTML='';
+  var list=techChipList().map(function(c){return Object.assign({},c)});
+  function save(){cfg.techChips=list.filter(function(c){return (c.name||'').trim()}).map(function(c){return {name:c.name.trim(),min:Math.max(1,c.min||1),run:!!c.run}});persist()}
+  list.forEach(function(c,i){
+    var r=document.createElement('div');r.className='tcrow';
+    r.innerHTML='<input class="tcn" placeholder="Button name" aria-label="Button name" autocomplete="off"><label class="tcm"><input class="tcl" type="number" inputmode="numeric" min="1" aria-label="Minutes"> min</label><label class="tr"><input type="checkbox" class="tcr"> Full run</label><button class="tcx" aria-label="Remove button">\u00d7</button>';
+    var q=function(x){return r.querySelector(x)};
+    q('.tcn').value=c.name;q('.tcl').value=c.min;q('.tcr').checked=!!c.run;
+    q('.tcn').oninput=function(){c.name=this.value;save()};
+    q('.tcl').oninput=function(){var v=parseInt(this.value,10);if(v>0){c.min=v;save()}};
+    q('.tcr').onchange=function(){c.run=this.checked;save()};
+    q('.tcx').onclick=function(){list.splice(i,1);save();if(!cfg.techChips.length)cfg.techChips=[{name:'Work session',min:30,run:false}];drawChipEditor()};
+    box.appendChild(r);
+  });
+  $('techchipadd').onclick=function(){list.push({name:'',min:30,run:false});cfg.techChips=list.map(function(c){return {name:c.name,min:c.min,run:c.run}});drawChipEditor();var ins=box.querySelectorAll('.tcn');if(ins.length)ins[ins.length-1].focus()};
+}
+$('techchipedit').onclick=function(){techChipEditing=!techChipEditing;if(!techChipEditing)cfg.techChips=techChipList().filter(function(c){return (c.name||'').trim()});drawTechBuilder()};
+$('techchipreset').onclick=function(){if(!confirm('Put the standard buttons back?'))return;delete cfg.techChips;persist();drawTechBuilder()};
 function techClean(items){return items.filter(function(it){return (it.name||'').trim()}).map(function(it){return {id:it.id||tid(),name:it.name.trim(),at:it.at,min:Math.max(1,it.min||1),run:!!it.run}})}
 $('techcancel').onclick=function(){var ed=techDraft&&techDraft.edit;closeTechBuilder();if(!ed)rtFirst()};
 $('techload').onclick=function(){var tpl=cfg.techTpl[techDraft.stage]||[];if(techDraft.items.length&&!confirm('Replace this list with the saved template?'))return;techDraft.items=tpl.map(function(t){return Object.assign({},t,{id:tid()})});drawTechBuilder()};
