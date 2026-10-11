@@ -648,6 +648,21 @@ body.display.techfull #techfull:not([hidden]){--u:min(1vw,1.778vh);display:flex;
 #updnow{background:var(--go);color:#06210F;border:0}
 #updwyse{background:transparent;border:1px solid #2F5A3C;color:#BFEBCB}
 #refreshdisp{background:var(--panel);border:1px solid var(--btnline)}
+body:not(.display) #checkcard{position:fixed;left:50%;top:max(12px,env(safe-area-inset-top));transform:translateX(-50%);width:min(560px,calc(100vw - 24px));max-height:78vh;overflow:auto;z-index:99990;background:#141417;border:1px solid var(--btnline)!important;border-radius:10px;padding:14px 14px 12px;box-shadow:0 14px 40px rgba(0,0,0,.6);margin:0;animation:popin .2s ease}
+@keyframes popin{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translateX(-50%)}}
+#checkcard.good{border-color:#2F5A3C!important}#checkcard.bad{border-color:var(--hot)!important}#checkcard.warn{border-color:var(--hold)!important}
+.chead{display:grid;grid-template-columns:40px 1fr 44px;gap:10px;align-items:center}
+.cstat{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;background:var(--raised);color:var(--dim)}
+#checkcard.good .cstat{background:var(--go);color:#06210F}#checkcard.bad .cstat{background:var(--hot);color:#1A0503}#checkcard.warn .cstat{background:var(--hold);color:#1A1204}
+#checktitle{font-size:20px;margin:0}
+body:not(.display) #checksum{font-size:15px;font-weight:500;color:var(--dim);margin:2px 0 0}
+#checkcard.good #checksum{color:#BFEBCB}
+#checkfix{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 4px}#checkfix:empty{display:none}
+#checkfix button{flex:1 1 140px;min-height:46px;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--amber);color:#0B0B0C;border:0}
+#checkfix button.q{background:transparent;border:1px solid var(--btnline);color:var(--type)}
+#checkcard #checklist{margin-top:8px}
+.cfoot{display:flex;gap:6px;margin-top:10px}.cfoot button{flex:1}
+#checkcard.good .cfoot,#checkcard.bad .cfoot,#checkcard.warn .cfoot{display:none}
 #pinlock{position:fixed;inset:0;z-index:99996;background:#0B0B0C;display:flex;align-items:center;justify-content:center;padding:24px 16px}
 .pinbox{width:100%;max-width:340px;text-align:center}
 .pinbrand{font-size:14px;letter-spacing:.2em;color:#8A8A90}
@@ -773,12 +788,12 @@ body:not(.display) #toast{font-family:'Barlow Condensed',sans-serif;font-size:17
     <p class="hint" style="margin-top:8px">Runs on its own the first time this device opens the timer and after 2 hours away. Tap the version number at the bottom to run it any time.</p>
   </div>
 
-  <div class="card" id="checkcard" hidden>
-    <h2>Show-day check</h2>
-    <p class="muted" id="checksum" style="margin-bottom:8px"></p>
+  <div class="card" id="checkcard" hidden role="dialog" aria-labelledby="checktitle">
+    <div class="chead"><div class="cstat" id="checkstat"></div><div><h2 id="checktitle">Show-day check</h2><p id="checksum"></p></div>
+      <button class="icobtn" id="checkclose" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div id="checkfix"></div>
     <ul class="cues" id="checklist"></ul>
-    <div class="row" style="margin-top:10px"><button class="small" id="checkagain">Check again</button><button class="small" id="refreshdisp">Refresh displays</button><button class="quiet small" id="checkclose">Close</button></div>
-    <p class="hint" style="margin-top:8px">Each check sends one small message over the relay, and every other screen answers with one.</p>
+    <div class="cfoot"><button class="small" id="checkagain">Check again</button><button class="small" id="refreshdisp">Refresh displays</button></div>
   </div>
 
   <div class="card" id="smcard">
@@ -1006,7 +1021,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev6';
+var VERSION='3.4-dev7';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1834,7 +1849,8 @@ function soundState(){return !isDisplay?'-':!soundWanted()?'off':soundReady?'rea
 function sendMsg(t){if(typeof fetch==='undefined')return;fetch(topicUrl(),{method:'POST',body:t}).catch(function(){})}
 function replyPong(pid){
   if(pid.indexOf(DEVID+'.')===0){if(pid===CHK.id&&CHK.rtt==null){CHK.rtt=Date.now()-CHK.at;paintCheck()}return}   // our own ping coming back
-  if(Date.now()-lastPongAt<3000)return;lastPongAt=Date.now();
+  // one answer per check (a check right after the connection test still gets its own)
+  replyPong.seen=replyPong.seen||[];if(replyPong.seen.indexOf(pid)>=0)return;replyPong.seen=replyPong.seen.concat([pid]).slice(-20);lastPongAt=Date.now();
   sendMsg('pong:'+pid+'|'+DEVID+'|'+encodeURIComponent(devLabel())+'|'+SKEW+'|'+encodeURIComponent(soundState())+'|'+VERSION);
 }
 function notePong(t){
@@ -1890,7 +1906,7 @@ function paintCheck(){
     bits.push(q.ver?'v'+q.ver:'');
     if(q.ver&&q.ver!==VERSION){c=AMBER;bits[0]+=' (this one is v'+VERSION+')'}
     bits.push('clock '+(q.skew?(q.skew>0?'+':'\u2212')+(Math.abs(q.skew)/1000).toFixed(1)+' s adjusted':'in step'));
-    if(q.sound&&q.sound!=='-'){bits.push('sound '+q.sound);if(q.sound==='needs a tap'){c=AMBER}}
+    if(q.sound&&q.sound!=='-'){bits.push('sound '+q.sound)}   // a note, not a warning, until the chimes are fixed
     add(c,q.label||'Screen',bits.filter(Boolean).join(' · '));
   });
   if(CHK.done){
@@ -1905,8 +1921,18 @@ function paintCheck(){
   add(CHK.backend==='ok'?GREEN:CHK.backend==='no'?RED:AMBER,'Settings backup',CHK.backend==='ok'?'Reachable.':CHK.backend==='no'?'Not reachable. Settings still work from each device\'s own copy.':'Checking...');
   var st=false;try{localStorage.setItem('mmt-timer-t','1');st=localStorage.getItem('mmt-timer-t')==='1';localStorage.removeItem('mmt-timer-t')}catch(e){}
   add(st?GREEN:RED,'This device\'s storage',st?'Working.':'Blocked. Settings and show state won\'t survive a reload.');
+  if(updVer)rows.unshift({c:RED,label:'This device',detail:'Out of date: v'+VERSION+', but v'+updVer+' is out.',fix:['upd']});
+  rows.forEach(function(r){
+    if(r.c===GREEN||r.fix)return;
+    if(r.label==='Relay'&&!relayLimited&&syncState!=='live')r.fix=['relay'];
+    else if(r.label==='Settings backup')r.fix=['again'];
+    else if(/this one is/.test(r.detail))r.fix=['disp'];
+    else if(/^No answer/.test(r.detail)||/^None answered/.test(r.detail))r.fix=['disp'];
+  });
+  rows.sort(function(a,b){var o={};o[RED]=0;o[AMBER]=1;o[GREEN]=2;return o[a.c]-o[b.c]});
   box.innerHTML='';
-  var bad=0,warn=0;
+  var bad=0,warn=0,fixes={};
+  rows.forEach(function(r){(r.fix||[]).forEach(function(x){fixes[x]=1})});
   rows.forEach(function(r){
     if(r.c===RED)bad++;else if(r.c===AMBER)warn++;
     var li=document.createElement('li');li.innerHTML='<span class="dot"></span><span class="nm"></span>';
@@ -1915,7 +1941,25 @@ function paintCheck(){
     var sm=document.createElement('small');sm.textContent=r.detail;nm.appendChild(sm);
     box.appendChild(li);
   });
-  $('checksum').textContent=!CHK.done?'Checking...':bad?bad+' problem'+(bad>1?'s':'')+' to look at.':warn?'Working, with '+warn+' thing'+(warn>1?'s':'')+' to look at.':'Everything answered and looks good.';
+  var good=CHK.done&&!bad&&!warn;
+  $('checkcard').className='card '+(!CHK.done?'busy':good?'good':bad?'bad':'warn');
+  $('checkstat').textContent=!CHK.done?'\u2026':good?'\u2713':'!';
+  var fx=$('checkfix'),fh='';
+  if(CHK.done&&!good){
+    if(fixes.upd)fh+='<button data-f="upd">Update this device</button>';
+    if(fixes.disp)fh+='<button data-f="disp">Refresh displays</button>';
+    if(fixes.relay)fh+='<button data-f="relay">Reconnect</button>';
+    fh+='<button data-f="again" class="q">Check again</button>';
+  }
+  if(fx.innerHTML!==fh){fx.innerHTML=fh;fx.querySelectorAll('button').forEach(function(b){b.onclick=function(){var f=b.getAttribute('data-f');
+    if(f==='upd')ctUpdate();else if(f==='disp'){refreshDisplays();setTimeout(runCheck,9000)}else if(f==='relay'){try{connect()}catch(e){}setTimeout(runCheck,3000)}else runCheck()}})}
+  if(good){
+    if(CHK.closeAt==null)CHK.closeAt=Date.now()+15000;
+    var sec=Math.max(0,Math.ceil((CHK.closeAt-Date.now())/1000));
+    $('checksum').textContent='Everything answered and looks good. Closing in '+sec+' s.';
+    clearTimeout(CHK.tm);CHK.tm=setTimeout(function(){if(CHK.closeAt!=null&&Date.now()>=CHK.closeAt){$('checkcard').hidden=true}else paintCheck()},1000);
+  }else $('checksum').textContent=!CHK.done?'Checking every screen\u2026':bad?bad+' problem'+(bad>1?'s':'')+'. Fix below.':warn+' thing'+(warn>1?'s':'')+' to look at.';
+  $('checklist').hidden=good;
 }
 // ---------- connection test ----------
 // Phones and iPads run this by themselves the first time they open the timer
@@ -3040,9 +3084,9 @@ $('back').onclick=back;
 })();
 $('hold').onclick=hold;
 $('ready').onclick=houseToggle;
-$('checkbtn').onclick=function(){$('checkcard').hidden=false;runCheck();window.scrollTo({top:0,behavior:'smooth'})};
+$('checkbtn').onclick=function(){$('checkcard').hidden=false;runCheck()};
 $('checkagain').onclick=runCheck;
-$('checkclose').onclick=function(){$('checkcard').hidden=true};
+$('checkclose').onclick=function(){clearTimeout(CHK.tm);$('checkcard').hidden=true};
 $('ctagain').onclick=function(){clearTimeout(CT.closing);CT.closing=null;runCT()};
 $('ctclose').onclick=function(){clearTimeout(CT.closing);CT.closing=null;CT.run++;$('ctcard').hidden=true};
 $('ctupdate').onclick=ctUpdate;$('ctwyse').onclick=ctRefreshWyse;
