@@ -1044,7 +1044,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev8';
+var VERSION='3.4-dev9';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1313,7 +1313,10 @@ function isDone(p){return S.key===p.key&&S.idx!=null&&S.idx>=cuesFor(p).list.len
 function activePerf(now){
   var sched=scheduledPerf(now);
   var a=S.adhoc;
-  if(a&&now-a.curtain<6*36e5&&!(isDone(a)&&now-S.target>20*6e4)){
+  // A finished run-through: the displays go straight back to the clock; the
+  // controller keeps its show-down screen and report for 20 minutes.
+  var rtDone=a&&isDone(a)&&(a.kind||'rehearsal')==='rehearsal';
+  if(a&&now-a.curtain<6*36e5&&!(isDone(a)&&now-S.target>20*6e4)&&!(rtDone&&isDisplay)){
     // A run-through never blocks a real performance, but one the SM starts on
     // purpose isn't swept aside either. Started after the scheduled show's
     // window opened, it keeps the screens (waiting for GO, running, or on its
@@ -1358,7 +1361,12 @@ function scheduledPerf(now){
     if(prev&&isDone(prev)&&now-S.target<20*6e4&&now<p.curtain+leadMin(stageOf(p))*6e4)continue;
     if(isDone(p))return now-S.target<20*6e4?p:null;
     var running=S.key===p.key&&S.idx!=null&&now-p.curtain<8*36e5;
-    if(running||now<p.curtain+4*36e5)return p;
+    if(running)return p;
+    // A show that never got a GO lets go 90 minutes after its time: the screens
+    // go back to the clock instead of counting up for hours.
+    var begun=S.key===p.key&&S.idx!=null;
+    if(!begun&&now>p.curtain+90*6e4)return null;
+    if(now<p.curtain+4*36e5)return p;
     return null;
   }
   return null;
