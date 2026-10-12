@@ -1068,7 +1068,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev15';
+var VERSION='3.4-dev16';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1670,12 +1670,21 @@ function go(){
   var lastGo=S.key===f.perf.key&&S.log.length?S.log[S.log.length-1].at:0;
   if(lastGo&&Math.abs(now-lastGo)<GO_GUARD_MS){if(!remoteAt)toast('GO ignored: it was just pressed');return}
   var L=f.L,next=f.idx==null?f.nA:f.idx+1;
+  // A run-through set for later ("In 30 min") that gets its first GO early just
+  // starts now: its start time moves to this GO, so nothing reads "30 min ahead".
+  var moved=null;
+  if(f.idx==null&&S.adhoc&&f.perf.key===S.adhoc.key&&S.adhoc.kind!=='performance'&&S.adhoc.curtain-now>6e4){
+    var dn=new Date(now);
+    moved=Object.assign({},S.adhoc,{curtain:now,date:ymd(dn),time:pad(dn.getHours())+':'+pad(dn.getMinutes())});
+    S.adhoc=moved;f=frame(now);L=f.L;next=f.nA;
+  }
   var log=S.key===f.perf.key?S.log.slice():[];
   log.push({i:next,at:now});
   recordAct(f,now);
   var hw=S.key===f.perf.key?heldWith(now):{};
-  if(next>=L.length)commit({key:f.perf.key,idx:L.length,target:now,paused:false,holdAt:0,held:hw,extra:0,aimAuto:false,log:log,msg:null});
-  else{var en=enterCue(f,next,now);commit({key:f.perf.key,idx:next,target:en.target,paused:false,holdAt:0,held:hw,left:0,extra:en.extra,aimAuto:en.aimAuto,log:log,msg:null})}
+  var up=moved?{adhoc:moved}:{};
+  if(next>=L.length)commit(Object.assign(up,{key:f.perf.key,idx:L.length,target:now,paused:false,holdAt:0,held:hw,extra:0,aimAuto:false,log:log,msg:null}));
+  else{var en=enterCue(f,next,now);commit(Object.assign(up,{key:f.perf.key,idx:next,target:en.target,paused:false,holdAt:0,held:hw,left:0,extra:en.extra,aimAuto:en.aimAuto,log:log,msg:null}))}
 }
 function back(){
   if(techActive(nowMs()))return techUndo();
