@@ -294,6 +294,99 @@ function jsonp(url, ok, fail, ms){
 }
 
 // Same as the cue sheet's, so a show reads the same on both pages.
+// ── SCRIPT ↔ SHOW ────────────────────────────────────────────────────────────
+// Which show a script is for. The link is the Show Hub's "script" pin (KV
+// 'showhub': shows[<slug>].scriptId). With no pin, a show is guessed from the
+// file name ("IAWL script 2026.pdf" → It's a Wonderful Life) but nothing is
+// saved until someone picks it. Shows come from the Settings list (KV
+// 'showlist'). The same block sits in app.html, cue-list.html and
+// spike-map.html — keep them in step.
+let _ssHub = null, _ssShows = null;
+function ssSlug(name) { return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+function ssNorm(s) { return String(s || '').toLowerCase().replace(/\s*\(\d{4}\)\s*$/, '').replace(/[^a-z0-9]/g, ''); }
+function ssShows() {
+  if (typeof MAINSTAGE !== 'undefined' && typeof CHILDRENS !== 'undefined')
+    return [...MAINSTAGE.map(s => ({ ...s, type: 'Mainstage' })), ...CHILDRENS.map(s => ({ ...s, type: "Children's" }))];
+  if (_ssShows) return _ssShows;
+  try {
+    const v = JSON.parse(localStorage.getItem('mmt_ss_showlist') || localStorage.getItem('mmt_shows') || 'null');
+    if (v && (v.mainstage || v.childrens)) return [...(v.mainstage || []).map(s => ({ ...s, type: 'Mainstage' })), ...(v.childrens || []).map(s => ({ ...s, type: "Children's" }))];
+  } catch (e) {}
+  return [];
+}
+function ssHub() {
+  if (typeof _hub !== 'undefined' && _hub && _hub.shows) return _hub;
+  if (_ssHub) return _ssHub;
+  try { const h = JSON.parse(localStorage.getItem('mmt_showhub') || 'null'); if (h && h.shows) return h; } catch (e) {}
+  return { shows: {} };
+}
+// Pages other than the dashboard read the two lists themselves (read only).
+function ssLoad(cb) {
+  let left = 2;
+  const done = () => { if (--left === 0 && cb) cb(); };
+  jsonp(SCRIPT_URL + '?action=getKV&key=showhub&_=' + Date.now(), d => {
+    if (d && d.value && typeof d.value === 'object' && d.value.shows) { _ssHub = d.value; try { localStorage.setItem('mmt_showhub', JSON.stringify(_ssHub)); } catch (e) {} }
+    done();
+  }, done);
+  jsonp(SCRIPT_URL + '?action=getKV&key=showlist&_=' + Date.now(), d => {
+    let v = d && d.value;
+    if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
+    if (v && (Array.isArray(v.mainstage) || Array.isArray(v.childrens))) {
+      _ssShows = [...(v.mainstage || []).map(s => ({ ...s, type: 'Mainstage' })), ...(v.childrens || []).map(s => ({ ...s, type: "Children's" }))];
+      try { localStorage.setItem('mmt_ss_showlist', JSON.stringify(v)); } catch (e) {}
+    }
+    done();
+  }, done);
+}
+// The pinned show, if any.
+function ssPinned(scriptId) {
+  if (!scriptId) return null;
+  const shows = ssHub().shows || {};
+  const slug = Object.keys(shows).find(k => shows[k] && shows[k].scriptId === scriptId);
+  if (!slug) return null;
+  const r = shows[slug];
+  return ssShows().find(s => ssSlug(s.name) === slug) || { name: r.showName || slug.replace(/-/g, ' '), start: r.showStart || '', end: r.showEnd || '', slug };
+}
+// Best guess from the file name: the same title, one inside the other, or the
+// show's initials ("IAWL"). When a title repeats across seasons, the run
+// closest to the file's date wins.
+function ssGuess(fileName, fileDate) {
+  const raw = String(fileName || '').replace(/\.pdf$/i, '');
+  const f = ssNorm(raw.replace(/\b(script|libretto|pdf|final|draft|copy|rev\.?\s*\d*|v\d+)\b/gi, ' ').replace(/\b(19|20)\d{2}\b/g, ' '));
+  const tokens = raw.toUpperCase().split(/[^A-Z0-9]+/).filter(t => t.length >= 3);
+  const cands = ssShows().filter(s => {
+    const n = ssNorm(s.name);
+    if (!n || n.length < 3) return false;
+    if (n === f || (f.length > 3 && (f.includes(n) || n.includes(f)))) return true;
+    const ini = String(s.name).replace(/\s*\(\d{4}\)\s*$/, '').split(/[^A-Za-z0-9']+/).filter(Boolean).map(w => w[0].toUpperCase()).join('');
+    return ini.length >= 3 && tokens.includes(ini);
+  });
+  if (!cands.length) return null;
+  const when = fileDate ? new Date(fileDate) : new Date();
+  const t = isNaN(when) ? Date.now() : when.getTime();
+  cands.sort((a, b) => Math.abs(new Date(a.start) - t) - Math.abs(new Date(b.start) - t));
+  return cands[0];
+}
+// { show, pinned } or null.
+function ssShowFor(scriptId, fileName, fileDate) {
+  const p = ssPinned(scriptId);
+  if (p) return { show: p, pinned: true };
+  const g = ssGuess(fileName, fileDate);
+  return g ? { show: g, pinned: false } : null;
+}
+function ssDates(s) {
+  if (!s || !s.start) return '';
+  const f = d => { const x = new Date(d + 'T12:00:00'); return isNaN(x) ? '' : x.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+  const y = String(s.end || s.start).slice(0, 4);
+  return f(s.start) + (s.end ? ' – ' + f(s.end) : '') + (y ? ', ' + y : '');
+}
+// What to call a script on screen and in exports: the linked show's name, or
+// the tidied file name. A guess is never printed, only offered.
+function ssTitle(scriptId, fileName) {
+  const p = ssPinned(scriptId);
+  return p ? String(p.name).replace(/\s*\(\d{4}\)\s*$/, '') : cleanShowName(fileName || '');
+}
+
 function cleanShowName(raw){
   let s = String(raw || '').replace(/\.[a-z0-9]{2,4}$/i, '');
   for (let i = 0; i < 4; i++){
@@ -518,11 +611,11 @@ function rowHTML(e, clickArg){
 }
 
 function render(){
-  document.getElementById('show-btn-name').textContent = scriptName ? cleanShowName(scriptName) : (scriptId ? 'Show' : 'Pick a show');
+  document.getElementById('show-btn-name').textContent = scriptName ? ssTitle(scriptId, scriptName) : (scriptId ? 'Show' : 'Pick a show');
   const cl = document.getElementById('link-cues');
   if (cl) cl.href = 'cue-list.html' + (scriptId ? '?script=' + encodeURIComponent(scriptId) : '');
   const el = document.getElementById('list');
-  const title = `<div class="print-title">Spike Map<small>${esc(tab === 'house' ? 'House defaults' : cleanShowName(scriptName))}</small></div>`;
+  const title = `<div class="print-title">Spike Map<small>${esc(tab === 'house' ? 'House defaults' : ssTitle(scriptId, scriptName))}</small></div>`;
   const cols = '<div class="cols"><div>Tape</div><div>Means</div><div>Marks</div></div>';
 
   if (!loaded && !(data.house || []).length){
@@ -603,7 +696,7 @@ function renderEditor(){
 
   // The tab decides what a change touches: This show changes this show only,
   // House defaults changes every show. No separate choice to get wrong.
-  const scopeNote = tab === 'house' ? 'Changes here apply to every show.' : 'Changes here apply to ' + esc(cleanShowName(scriptName)) + ' only.';
+  const scopeNote = tab === 'house' ? 'Changes here apply to every show.' : 'Changes here apply to ' + esc(ssTitle(scriptId, scriptName)) + ' only.';
 
   let extra = '';
   if (ed.kind === 'over'){
@@ -792,7 +885,7 @@ function renderShows(){
   if (!scripts.length){ body.innerHTML = '<div class="sh-sub">Loading shows…</div>'; return; }
   const sorted = scripts.slice().sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
   body.innerHTML = sorted.map(s => `<button class="script-row${s.id === scriptId ? ' on' : ''}" onclick="pickShow('${esc(s.id)}')">
-      <span>${esc(cleanShowName(s.name))}</span><small>${s.date ? esc(new Date(s.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })) : ''}</small></button>`).join('');
+      <span>${esc(ssTitle(s.id, s.name))}</span><small>${s.date ? esc(new Date(s.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })) : ''}</small></button>`).join('');
 }
 function loadScripts(){
   jsonp(SCRIPT_URL + '?action=listScripts&_=' + Date.now(), d => {
@@ -841,6 +934,7 @@ function start(){
   pending.forEach(op => applyOp(data, op));
   render();
   loadScripts();
+  ssLoad(() => { render(); if (document.getElementById('shows').classList.contains('open')) renderShows(); });
   if (pending.length) flush(); else fetchMap();
   pollTimer = setInterval(() => { if (pending.length) flush(); else fetchMap(); }, POLL_MS);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible'){ if (pending.length) flush(); else fetchMap(); } });

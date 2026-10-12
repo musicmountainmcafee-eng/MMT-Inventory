@@ -2647,6 +2647,15 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #tab-scripts .saved-script:hover { background: var(--bg); border-color: var(--border); }
   #tab-scripts .saved-script .ss-name { font-weight: 500; font-size:14px; }
   #tab-scripts .saved-script .ss-meta { font-size:12px; color: var(--text-faint); }
+  #tab-scripts .saved-script { align-items: flex-start; }
+  #tab-scripts .ss-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  #tab-scripts .ss-file { font-size: 12px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #tab-scripts .ss-show { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; font-size: 13px; color: var(--text-muted); }
+  #tab-scripts .ss-show .ss-dot { width: 8px; height: 8px; border-radius: 4px; background: var(--green); flex-shrink: 0; }
+  #tab-scripts .ss-show.guess { color: var(--text); }
+  #tab-scripts .ss-pick { width: auto !important; max-width: 220px; height: 34px !important; min-height: 34px !important; padding: 0 8px !important; border: 1px solid var(--border-strong, var(--border)) !important; border-radius: 8px !important; background: var(--surface) !important; color: var(--purple) !important; font: 600 13px 'DM Sans', sans-serif !important; }
+  #tab-scripts .ss-show.none .ss-pick { color: var(--text-muted); }
+  #tab-scripts .ss-yes { height: 36px !important; min-height: 36px !important; padding: 0 14px !important; border: none !important; border-radius: 8px !important; background: var(--purple) !important; color: #fff !important; font-size: 13px !important; font-weight: 600 !important; }
 
   /* FULL-SCREEN EDITOR (escapes the app shell) */
   #scripts-editor {
@@ -5880,7 +5889,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
       <button class="top-btn se-back" onclick="goHome()" aria-label="Back to scripts"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
       <div class="se-title">
         <div class="se-name" id="se-name"></div>
-        <div class="se-sub"><span id="se-count"></span><span class="cue-save-status" id="cue-save-status"></span></div>
+        <div class="se-sub"><span id="se-dates"></span><span id="se-count"></span><span class="cue-save-status" id="cue-save-status"></span></div>
       </div>
       <!-- Raw script filename; exports read it. The tidy name shows in se-name. -->
       <span class="show-name" id="show-name" hidden></span>
@@ -6171,7 +6180,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.12 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.12 v4</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -10114,13 +10123,10 @@ function hubSetNotes(val) {
 function hubPickScript(val) {
   if (!_hubSlug) return;
   const rec = hubRec(_hubSlug, true);
-  if (!val) { rec.scriptId = ''; rec.scriptName = ''; }
-  else {
-    const m = (_savedScripts || []).find(sc => sc.id === val);
-    rec.scriptId = val;
-    rec.scriptName = m ? m.name : '';
-  }
-  saveHub();
+  if (!val) { const old = rec.scriptId; rec.scriptId = ''; rec.scriptName = ''; saveHub(); renderShowHub(); return; }
+  const m = (_savedScripts || []).find(sc => sc.id === val);
+  // One show per script: ssLink takes it off any other show it was on.
+  ssLink(val, m ? m.name : '', _hubSlug, () => renderShowHub());
   renderShowHub();
 }
 
@@ -14589,9 +14595,9 @@ function loadScriptList() {
       _savedScripts = d.scripts;
       const el = document.getElementById('script-list');
       if (!d.scripts.length) { el.innerHTML = '<div style="padding:8px;color:var(--text-faint);">No saved scripts yet. Search your Drive above to open one.</div>'; return; }
-      el.innerHTML = d.scripts.map(s =>
-        `<div class="saved-script" onclick="loadFromDrive('${s.id}','${s.name.replace(/'/g,"\\'")}')"><span class="ss-name">${s.name}</span><span class="ss-meta">${s.date}</span></div>`
-      ).join('');
+      renderSavedScripts();
+      // The Show Hub pins load with Notes; make sure they're here for the links.
+      if (typeof _hubLoaded !== 'undefined' && !_hubLoaded && typeof loadHub === 'function') loadHub(renderSavedScripts);
     }
   }, () => { document.getElementById('script-list').innerHTML = '<div style="color:var(--text-faint);">Could not load scripts.</div>'; });
 }
@@ -16488,7 +16494,9 @@ function seShortNum(number, typeName) {
 function seSyncName() {
   const raw = (document.getElementById('show-name') || {}).textContent || '';
   const el = document.getElementById('se-name');
-  if (el) el.textContent = raw ? cleanShowName(raw) : 'Script';
+  if (el) el.textContent = raw ? ssTitle(showId, raw) : 'Script';
+  const p = ssPinned(showId), dt = document.getElementById('se-dates');
+  if (dt) dt.textContent = p && p.start ? ssDates(p) + ' · ' : '';
 }
 
 // The spike tape key for the script that's open, in its own tab.
@@ -17540,7 +17548,7 @@ async function exportSetChangePlot() {
   // extension, any trailing "(2)", and the words that describe the file rather
   // than the production. Looped because they stack — "…Script (1).pdf".
   const rawName = document.getElementById('show-name').textContent || 'Untitled';
-  const showName = cleanShowName(rawName);   // shared helper, see above
+  const showName = ssTitle(showId, rawName);   // the linked show, else the tidied file name
   const now = new Date();
   const exportedStr = now.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
     + ' at ' + now.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
@@ -17922,6 +17930,152 @@ async function exportSetChangePlot() {
 // Script (1)" is a Drive de-duplication artifact, not a show title. Strip the
 // extension, any trailing "(2)", and the words that describe the file rather
 // than the production. Looped because they stack — "…Script (1).pdf".
+// ── SCRIPT ↔ SHOW ────────────────────────────────────────────────────────────
+// Which show a script is for. The link is the Show Hub's "script" pin (KV
+// 'showhub': shows[<slug>].scriptId). With no pin, a show is guessed from the
+// file name ("IAWL script 2026.pdf" → It's a Wonderful Life) but nothing is
+// saved until someone picks it. Shows come from the Settings list (KV
+// 'showlist'). The same block sits in app.html, cue-list.html and
+// spike-map.html — keep them in step.
+let _ssHub = null, _ssShows = null;
+function ssSlug(name) { return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+function ssNorm(s) { return String(s || '').toLowerCase().replace(/\s*\(\d{4}\)\s*$/, '').replace(/[^a-z0-9]/g, ''); }
+function ssShows() {
+  if (typeof MAINSTAGE !== 'undefined' && typeof CHILDRENS !== 'undefined')
+    return [...MAINSTAGE.map(s => ({ ...s, type: 'Mainstage' })), ...CHILDRENS.map(s => ({ ...s, type: "Children's" }))];
+  if (_ssShows) return _ssShows;
+  try {
+    const v = JSON.parse(localStorage.getItem('mmt_ss_showlist') || localStorage.getItem('mmt_shows') || 'null');
+    if (v && (v.mainstage || v.childrens)) return [...(v.mainstage || []).map(s => ({ ...s, type: 'Mainstage' })), ...(v.childrens || []).map(s => ({ ...s, type: "Children's" }))];
+  } catch (e) {}
+  return [];
+}
+function ssHub() {
+  if (typeof _hub !== 'undefined' && _hub && _hub.shows) return _hub;
+  if (_ssHub) return _ssHub;
+  try { const h = JSON.parse(localStorage.getItem('mmt_showhub') || 'null'); if (h && h.shows) return h; } catch (e) {}
+  return { shows: {} };
+}
+// Pages other than the dashboard read the two lists themselves (read only).
+function ssLoad(cb) {
+  let left = 2;
+  const done = () => { if (--left === 0 && cb) cb(); };
+  jsonp(SCRIPT_URL + '?action=getKV&key=showhub&_=' + Date.now(), d => {
+    if (d && d.value && typeof d.value === 'object' && d.value.shows) { _ssHub = d.value; try { localStorage.setItem('mmt_showhub', JSON.stringify(_ssHub)); } catch (e) {} }
+    done();
+  }, done);
+  jsonp(SCRIPT_URL + '?action=getKV&key=showlist&_=' + Date.now(), d => {
+    let v = d && d.value;
+    if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
+    if (v && (Array.isArray(v.mainstage) || Array.isArray(v.childrens))) {
+      _ssShows = [...(v.mainstage || []).map(s => ({ ...s, type: 'Mainstage' })), ...(v.childrens || []).map(s => ({ ...s, type: "Children's" }))];
+      try { localStorage.setItem('mmt_ss_showlist', JSON.stringify(v)); } catch (e) {}
+    }
+    done();
+  }, done);
+}
+// The pinned show, if any.
+function ssPinned(scriptId) {
+  if (!scriptId) return null;
+  const shows = ssHub().shows || {};
+  const slug = Object.keys(shows).find(k => shows[k] && shows[k].scriptId === scriptId);
+  if (!slug) return null;
+  const r = shows[slug];
+  return ssShows().find(s => ssSlug(s.name) === slug) || { name: r.showName || slug.replace(/-/g, ' '), start: r.showStart || '', end: r.showEnd || '', slug };
+}
+// Best guess from the file name: the same title, one inside the other, or the
+// show's initials ("IAWL"). When a title repeats across seasons, the run
+// closest to the file's date wins.
+function ssGuess(fileName, fileDate) {
+  const raw = String(fileName || '').replace(/\.pdf$/i, '');
+  const f = ssNorm(raw.replace(/\b(script|libretto|pdf|final|draft|copy|rev\.?\s*\d*|v\d+)\b/gi, ' ').replace(/\b(19|20)\d{2}\b/g, ' '));
+  const tokens = raw.toUpperCase().split(/[^A-Z0-9]+/).filter(t => t.length >= 3);
+  const cands = ssShows().filter(s => {
+    const n = ssNorm(s.name);
+    if (!n || n.length < 3) return false;
+    if (n === f || (f.length > 3 && (f.includes(n) || n.includes(f)))) return true;
+    const ini = String(s.name).replace(/\s*\(\d{4}\)\s*$/, '').split(/[^A-Za-z0-9']+/).filter(Boolean).map(w => w[0].toUpperCase()).join('');
+    return ini.length >= 3 && tokens.includes(ini);
+  });
+  if (!cands.length) return null;
+  const when = fileDate ? new Date(fileDate) : new Date();
+  const t = isNaN(when) ? Date.now() : when.getTime();
+  cands.sort((a, b) => Math.abs(new Date(a.start) - t) - Math.abs(new Date(b.start) - t));
+  return cands[0];
+}
+// { show, pinned } or null.
+function ssShowFor(scriptId, fileName, fileDate) {
+  const p = ssPinned(scriptId);
+  if (p) return { show: p, pinned: true };
+  const g = ssGuess(fileName, fileDate);
+  return g ? { show: g, pinned: false } : null;
+}
+function ssDates(s) {
+  if (!s || !s.start) return '';
+  const f = d => { const x = new Date(d + 'T12:00:00'); return isNaN(x) ? '' : x.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+  const y = String(s.end || s.start).slice(0, 4);
+  return f(s.start) + (s.end ? ' – ' + f(s.end) : '') + (y ? ', ' + y : '');
+}
+// What to call a script on screen and in exports: the linked show's name, or
+// the tidied file name. A guess is never printed, only offered.
+function ssTitle(scriptId, fileName) {
+  const p = ssPinned(scriptId);
+  return p ? String(p.name).replace(/\s*\(\d{4}\)\s*$/, '') : cleanShowName(fileName || '');
+}
+
+// Link (or unlink) a script to a show. Re-reads the Show Hub first so a pin
+// made on another device isn't lost, and a script belongs to one show at a time.
+function ssLink(scriptId, fileName, slug, cb) {
+  const apply = h => {
+    h = (h && typeof h === 'object') ? h : {};
+    if (!h.shows || typeof h.shows !== 'object') h.shows = {};
+    Object.keys(h.shows).forEach(k => { const r = h.shows[k]; if (r && r.scriptId === scriptId && k !== slug) { r.scriptId = ''; r.scriptName = ''; } });
+    // The show's name and dates ride along so pages without the show list can still title it.
+    const sh = slug && showBySlug(slug);
+    if (slug) h.shows[slug] = Object.assign({ tech: '', strike: '', scriptId: '', scriptName: '', notes: '' }, h.shows[slug] || {}, { scriptId, scriptName: fileName || '' }, sh ? { showName: sh.name, showStart: sh.start, showEnd: sh.end } : {});
+    return h;
+  };
+  _hub = apply(hubStore());
+  try { localStorage.setItem('mmt_showhub', JSON.stringify(_hub)); } catch (e) {}
+  jsonp(SCRIPT_URL + '?action=getKV&key=showhub&_=' + Date.now(), d => {
+    const fresh = apply(d && d.value && typeof d.value === 'object' && d.value.shows ? d.value : _hub);
+    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveKV', key: 'showhub', value: fresh }) })
+      .then(() => { _hub = fresh; try { localStorage.setItem('mmt_showhub', JSON.stringify(_hub)); } catch (e) {} if (cb) cb(true); })
+      .catch(() => { toast('Could not save the link, try again'); if (cb) cb(false); });
+  }, () => { toast('Could not reach the Sheet, the link is only on this device'); if (cb) cb(false); });
+}
+
+// The show line under each saved script.
+function ssRowHTML(sc) {
+  const m = ssShowFor(sc.id, sc.name, sc.date);
+  const id = esc(JSON.stringify(sc.id)), nm = esc(JSON.stringify(sc.name));
+  const pinned = !!(m && m.pinned);
+  const pick = `<select class="ss-pick" aria-label="Which show is this script for?" onclick="event.stopPropagation()" onchange="if(this.value!=='__keep')ssPickChange(${id}, ${nm}, this.value)">
+      <option value="__keep" selected>${pinned ? 'Change…' : m ? 'Another show…' : 'Link to a show…'}</option>
+      ${pinned ? '<option value="">Not linked to a show</option>' : ''}
+      ${allShows().slice().reverse().map(sh => `<option value="${esc(showSlug(sh.name))}">${esc(sh.name)} · ${esc(ssDates(sh))}</option>`).join('')}
+    </select>`;
+  if (m && m.pinned) return `<div class="ss-show"><span class="ss-dot"></span><span>${esc(ssDates(m.show))}</span>${pick}</div>`;
+  if (m) return `<div class="ss-show guess" onclick="event.stopPropagation()"><span>Is this <b>${esc(m.show.name)}</b>?</span>
+      <button class="ss-yes" onclick="event.stopPropagation();ssPickChange(${id}, ${nm}, ${esc(JSON.stringify(showSlug(m.show.name)))})">Yes</button>${pick}</div>`;
+  return `<div class="ss-show none" onclick="event.stopPropagation()">${pick}</div>`;
+}
+function ssPickChange(scriptId, fileName, slug) {
+  ssLink(scriptId, fileName, slug, ok => { if (ok) toast(slug ? 'Linked to ' + ((showBySlug(slug) || {}).name || 'show') : 'Unlinked'); renderSavedScripts(); seSyncName(); });
+  renderSavedScripts();
+}
+function renderSavedScripts() {
+  const el = document.getElementById('script-list');
+  if (!el || !_savedScripts.length) return;
+  el.innerHTML = _savedScripts.map(s => {
+    const pinned = ssPinned(s.id);
+    const title = pinned ? ssTitle(s.id, s.name) : cleanShowName(s.name);
+    return `<div class="saved-script" onclick="loadFromDrive(${esc(JSON.stringify(s.id))}, ${esc(JSON.stringify(s.name))})">
+      <div class="ss-main"><span class="ss-name">${esc(title)}</span><span class="ss-file">${esc(s.name)}</span>${ssRowHTML(s)}</div>
+      <span class="ss-meta">${esc(s.date || '')}</span></div>`;
+  }).join('');
+}
+
 function cleanShowName(raw) {
   let n = String(raw).trim();
   for (let i = 0; i < 6; i++) {
@@ -18122,7 +18276,7 @@ async function exportSetChangeXLSX() {
   const hasChanges = sections.some(s => s.blocks.length);
   if (!hasChanges) { toast('No set changes to export'); return; }
 
-  const showName = cleanShowName(document.getElementById('show-name').textContent || 'Untitled');
+  const showName = ssTitle(showId, document.getElementById('show-name').textContent || 'Untitled');
   const safe = showName.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') || 'Show';
   const now = new Date();
   const exportedStr = now.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
