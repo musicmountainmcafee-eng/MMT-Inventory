@@ -4075,10 +4075,6 @@ table td { font-size: 14px !important; }
     #scripts-editor .cue-topbar h1 { font-size: 15px !important; }
     #scripts-editor .show-name { font-size: 13px; }
 
-    /* Exports are a desk job; keep one tap to History and the way out. */
-    #scripts-editor .sv-tools { display: none; }
-    #scripts-editor.sv-tools-open .sv-tools { display: inline-flex; }
-    .sv-more { display: inline-flex !important; }
 
     /* Script / Cues switcher */
     .sv-switch {
@@ -4177,6 +4173,129 @@ table td { font-size: 14px !important; }
     #scripts-editor .cue-add select,
     #scripts-editor .cue-add button { font-size: 16px !important; min-height: 44px !important; }
   }
+
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SCRIPTS ON A TOUCHSCREEN (any width — see seUpdateLayout)
+     .compact  = touchscreen OR narrow window: one-row topbar, ⋯ menu, card rows
+     body.se-touch = touchscreen: Mark mode, no text selection, bottom sheets
+     ══════════════════════════════════════════════════════════════════════════ */
+  #scripts-editor .se-back,
+  #scripts-editor .se-mode-btn,
+  .se-touch-only,
+  #scripts-editor .place-banner { display: none; }
+  #scripts-editor .sv-menu { display: contents; }
+  #scripts-editor:not(.compact) .sv-more { display: none; }
+  #ce-line-crop { display: none; width: 100%; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; margin: 0 0 10px; background: #fff; }
+
+  /* ── compact chrome ── */
+  #scripts-editor.compact .cue-topbar {
+    position: relative; flex-wrap: nowrap !important; gap: 6px !important;
+    padding: calc(6px + env(safe-area-inset-top, 0px)) 8px 6px !important;
+  }
+  #scripts-editor.compact .cue-topbar-left { width: auto !important; flex: 1 1 auto; min-width: 0; gap: 6px !important; }
+  #scripts-editor.compact .cue-topbar-left h1,
+  #scripts-editor.compact .se-back-desk { display: none !important; }
+  #scripts-editor.compact .se-back { display: inline-flex; }
+  #scripts-editor.compact .show-name {
+    min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: 14px !important; color: var(--cue-text);
+  }
+  #scripts-editor.compact .cue-topbar-actions { flex-wrap: nowrap; flex-shrink: 0; gap: 6px; }
+  #scripts-editor.compact .top-btn { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; }
+  #scripts-editor.compact .cue-save-status { font-size: 11px; padding: 0 2px; max-width: 72px; overflow: hidden; text-overflow: ellipsis; }
+  #scripts-editor.compact .sv-more { display: inline-flex !important; font-size: 20px; }
+  #scripts-editor.compact .sv-menu {
+    display: none; position: absolute; right: 8px; top: calc(100% + 4px); z-index: 80;
+    flex-direction: column; gap: 4px; padding: 6px; min-width: 240px;
+    background: var(--cue-surface2); border: 1px solid var(--cue-border); border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  }
+  #scripts-editor.compact.sv-tools-open .sv-menu { display: flex; }
+  #scripts-editor.compact .sv-menu .top-btn { justify-content: flex-start; width: 100%; text-align: left; border-color: transparent; color: var(--cue-text); padding: 10px 14px; }
+  #scripts-editor.compact .sv-switch { order: 0; flex-shrink: 0; }
+  #scripts-editor.compact .sv-btn { padding: 9px 14px !important; }
+
+  #scripts-editor.compact .page-nav { flex-wrap: nowrap !important; gap: 6px !important; padding: 6px 8px !important; justify-content: space-between; }
+  #scripts-editor.compact .page-nav button { min-height: 44px; min-width: 44px; padding: 6px 10px; font-size: 16px; }
+  #scripts-editor.compact .pn-word { display: none; }
+  #scripts-editor.compact .page-jump select { min-height: 40px; font-size: 16px; }
+  #scripts-editor.compact .zoom-group { margin-left: 0; padding-left: 0; border-left: none; gap: 4px; }
+  #scripts-editor.compact .canvas-wrap { padding: 8px 6px; }
+
+  /* Cue rows as cards — six table columns can't share a phone or a 300px rail. */
+  #scripts-editor.compact .cue-table,
+  #scripts-editor.compact .cue-table tbody { display: block; }
+  #scripts-editor.compact .cue-table thead { display: none; }
+  #scripts-editor.compact .cue-table tr {
+    display: grid; grid-template-columns: auto 1fr auto;
+    grid-template-areas: "type num pg" "act act act" "line line line" "notes notes notes";
+    column-gap: 8px; row-gap: 4px; align-items: center;
+    padding: 11px 10px; border-bottom: 1px solid var(--cue-border2); cursor: pointer;
+  }
+  #scripts-editor.compact .cue-table td { display: block; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; font-size: 14px !important; }
+  #scripts-editor.compact .cue-table td:empty { display: none; }
+  #scripts-editor.compact .cue-table td:nth-child(1) { grid-area: type; }
+  #scripts-editor.compact .cue-table td:nth-child(2) { grid-area: num; }
+  #scripts-editor.compact .cue-table td:nth-child(3) { grid-area: act; }
+  #scripts-editor.compact .cue-table td:nth-child(4) { grid-area: line; }
+  #scripts-editor.compact .cue-table td:nth-child(5) { grid-area: notes; }
+  #scripts-editor.compact .cue-table td:nth-child(6) { grid-area: pg; color: var(--cue-text-faint); font-size: 12px !important; }
+  #scripts-editor.compact .cue-table td:nth-child(6)::before { content: 'p. '; }
+  #scripts-editor.compact .cue-table tr.cue-selected { background: rgba(83,74,183,0.35); box-shadow: inset 3px 0 0 var(--purple); }
+  #scripts-editor.compact .type-del { min-width: 40px; min-height: 40px; font-size: 18px; }
+  #scripts-editor.compact .type-row { padding: 2px 0; font-size: 14px; }
+  #scripts-editor.compact .type-color { width: 22px; height: 22px; }
+
+  /* ── touchscreen only ── */
+  body.se-touch #scripts-editor { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  body.se-touch #scripts-editor input,
+  body.se-touch #scripts-editor textarea,
+  body.se-touch #scripts-editor select { -webkit-user-select: text; user-select: text; }
+  body.se-touch #scripts-editor #draw-canvas { touch-action: pan-x pan-y; }
+  body.se-touch #scripts-editor .canvas-wrap { touch-action: pan-x pan-y; -webkit-overflow-scrolling: touch; }
+  body.se-touch #scripts-editor.place-mode #draw-canvas { touch-action: none; }
+  body.se-touch #scripts-editor #tool-cue { display: none; }
+  body.se-touch #scripts-editor .se-mode-btn { display: flex; width: 44px; height: 44px; flex-shrink: 0; }
+  body.se-touch #scripts-editor .se-mode-btn.active { background: var(--purple); }
+  body.se-touch #scripts-editor .tool-btn { min-width: 44px; min-height: 44px; }
+  body.se-touch #scripts-editor .cue-type-quick-btn { min-height: 44px; }
+  /* Floats over the page rather than sitting above it: if it took layout
+     space, the script would jump under your finger the moment it closed. */
+  body.se-touch #scripts-editor.place-mode .place-banner {
+    display: flex; align-items: center; gap: 10px;
+    position: absolute; left: 8px; right: 8px; z-index: 45;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    padding: 8px 10px 8px 14px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+    color: #fff; font-size: 14px; font-weight: 600; line-height: 1.3;
+  }
+  body.se-touch #scripts-editor .place-banner span { flex: 1; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+  body.se-touch #scripts-editor .place-banner button {
+    min-height: 40px; padding: 6px 16px; border-radius: 8px; flex-shrink: 0;
+    background: rgba(0,0,0,0.25); color: #fff; border: 1px solid rgba(255,255,255,0.6);
+    font: 600 15px 'DM Sans', sans-serif;
+  }
+  body.se-touch #scripts-editor.place-mode .canvas-container { outline: 3px solid var(--purple); outline-offset: 2px; }
+
+  /* Edit / type / preset dialogs become bottom sheets with thumb-sized controls. */
+  body.se-touch .se-touch-only { display: inline-flex; }
+  body.se-touch .cue-edit-overlay { align-items: flex-end; }
+  body.se-touch .cue-edit {
+    width: 100%; max-width: 620px; border-radius: 16px 16px 0 0;
+    padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px)); max-height: 88vh;
+  }
+  body.se-touch .cue-edit input,
+  body.se-touch .cue-edit textarea,
+  body.se-touch .cue-edit select {
+    font-size: 16px; min-height: 44px;
+    /* Pinned: the app's light-theme input styles otherwise win on phones. */
+    background: #2a2a4a !important; color: #e4e4ec !important; border-color: rgba(255,255,255,0.14) !important;
+  }
+  /* --cue-red only exists inside the editor; the sheet lives outside it. */
+  .cue-edit { --cue-red: #e74c3c; }
+  body.se-touch .cue-edit-btns { flex-wrap: wrap; }
+  body.se-touch .cue-edit-btns .top-btn,
+  body.se-touch .cue-edit-btns .ce-btn { min-height: 46px; font-size: 15px; padding: 10px 16px; flex: 1 1 auto; justify-content: center; }
 
   /* Scan to carry on with it in your hand. Baked in rather than fetched, so it
      works on a screen with no connection. */
@@ -5600,6 +5719,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 <div id="scripts-editor">
   <div class="cue-topbar">
     <div class="cue-topbar-left">
+      <button class="top-btn se-back" onclick="goHome()" aria-label="Back to scripts">←</button>
       <h1>Scripts</h1>
       <span class="show-name" id="show-name"></span>
     </div>
@@ -5610,20 +5730,25 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
     </div>
     <div class="cue-topbar-actions">
       <span class="cue-save-status" id="cue-save-status"></span>
-      <button class="top-btn" onclick="openCueHistory()">History</button>
-      <button class="top-btn sv-tools" onclick="exportCueSheet()">Export Cues</button>
-      <button class="top-btn sv-tools" onclick="openPresets()">Presets</button>
-      <button class="top-btn sv-tools" onclick="exportSetChangePlot()">Export Scene Change Plot</button>
-      <button class="top-btn sv-tools" onclick="exportSetChangeXLSX()">Scene Changes → Excel</button>
-      <button class="top-btn sv-tools" onclick="exportAnnotatedPDF()">Export PDF</button>
-      <button class="top-btn sv-more" onclick="toggleScriptTools()" aria-label="More tools">⋯</button>
-      <button class="top-btn primary" onclick="goHome()">← Scripts</button>
+      <!-- Inline on a desk; folds into the ⋯ dropdown on a touchscreen. -->
+      <div class="sv-menu" id="sv-menu" onclick="closeScriptTools()">
+        <button class="top-btn" onclick="openCueHistory()">History</button>
+        <button class="top-btn" onclick="openPresets()">Presets</button>
+        <button class="top-btn" onclick="exportCueSheet()">Export Cues</button>
+        <button class="top-btn" onclick="exportSetChangePlot()">Export Scene Change Plot</button>
+        <button class="top-btn" onclick="exportSetChangeXLSX()">Scene Changes → Excel</button>
+        <button class="top-btn" onclick="exportAnnotatedPDF()">Export PDF</button>
+      </div>
+      <button class="top-btn sv-more" onclick="toggleScriptTools(event)" aria-label="More tools">⋯</button>
+      <button class="top-btn primary se-back-desk" onclick="goHome()">← Scripts</button>
     </div>
   </div>
   <div class="cue-main">
     <!-- TOOL SIDEBAR -->
     <div class="tool-sidebar">
       <button class="tool-btn active" id="tool-cue" onclick="setTool('cue')" title="Place Cue" aria-label="Place Cue">🔵</button>
+      <!-- Touch only: a finger scrolls the script unless this is armed. -->
+      <button class="tool-btn se-mode-btn" id="se-mode-btn" onclick="setPlaceMode(!sePlaceMode)" title="Mark cues" aria-label="Mark cues">✏️</button>
       <div class="tool-divider"></div>
       <button class="tool-btn" onclick="undo()" title="Undo" aria-label="Undo">↩</button>
       <div class="tool-divider"></div>
@@ -5632,18 +5757,22 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
     <!-- PDF VIEWER -->
     <div class="viewer">
       <div class="page-nav">
-        <button onclick="prevPage()">◀ Prev</button>
+        <button onclick="prevPage()" aria-label="Previous page">◀<span class="pn-word"> Prev</span></button>
         <span class="page-jump">Page
           <select id="page-sel" onchange="goToPage(parseInt(this.value, 10))" title="Jump to page"></select>
           / <span id="page-total">1</span>
         </span>
-        <button onclick="nextPage()">Next ▶</button>
+        <button onclick="nextPage()" aria-label="Next page"><span class="pn-word">Next </span>▶</button>
         <span class="zoom-group">
           <button onclick="zoomOut()" title="Zoom out (−)" aria-label="Zoom out (−)">−</button>
           <span id="zoom-info" onclick="zoomReset()" title="Click to reset to 100%">100%</span>
           <button onclick="zoomIn()" title="Zoom in (+)" aria-label="Zoom in (+)">+</button>
           <button onclick="zoomFit()" title="Fit page to window" aria-label="Fit page to window">Fit</button>
         </span>
+      </div>
+      <div class="place-banner" id="place-banner">
+        <span id="place-banner-txt"></span>
+        <button onclick="setPlaceMode(false)">Done</button>
       </div>
       <div class="canvas-wrap" id="canvas-wrap">
         <div class="canvas-container" id="canvas-container">
@@ -5716,6 +5845,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
       <label>Action (what the cue does)</label>
       <input type="text" id="ce-action" placeholder="e.g. Fade to blue wash" />
     </div>
+    <img id="ce-line-crop" alt="Script line" />
     <label id="ce-line-label">Cue Line (trigger text)</label>
     <input type="text" id="ce-line" placeholder="e.g. SO QUIET THIS MORNING" />
     <label id="ce-notes-label">Notes</label>
@@ -5724,6 +5854,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
     <input type="number" id="ce-page" min="1" />
     <div class="cue-edit-btns">
       <button class="top-btn" style="color:var(--cue-red);border-color:var(--cue-red);" onclick="deleteCue()">Delete</button>
+      <button class="top-btn se-touch-only" onclick="ceShowOnScript()">Show in script</button>
       <button class="top-btn" onclick="closeCueEdit()">Cancel</button>
       <button class="top-btn primary" onclick="saveCueEdit()">Save</button>
     </div>
@@ -6067,7 +6198,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.05 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.11 v1</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -14980,7 +15111,7 @@ function maxFitZoom() {
   const wrap = document.getElementById('canvas-wrap');
   const el = document.getElementById('canvas-container');
   if (!wrap || !el || !el.offsetWidth) return ZOOM_MAX;
-  return Math.max(ZOOM_MIN, (wrap.clientWidth - 40) / el.offsetWidth);
+  return Math.max(ZOOM_MIN, (wrap.clientWidth - seWrapPadX(wrap)) / el.offsetWidth);
 }
 
 function applyScriptZoom(persist) {
@@ -15000,6 +15131,11 @@ function applyScriptZoom(persist) {
   // fit width, since at that point the page physically cannot be seen otherwise.
   const fits = zoomLevel <= maxFitZoom() + 0.001;
   if (wrap) wrap.style.overflowX = fits ? 'hidden' : 'auto';
+  // Centering a box wider than its scroller pushes the overflow off the LEFT
+  // edge, where it can never be scrolled to — that's what cut the start of
+  // every line off. Once the page is wider than the window, pin it left and
+  // let the margins below make room for the scaled width.
+  if (wrap) wrap.style.justifyContent = fits ? 'center' : 'flex-start';
   if (fits) {
     el.style.marginLeft = '';
     el.style.marginRight = '';
@@ -15011,13 +15147,16 @@ function applyScriptZoom(persist) {
 
   const info = document.getElementById('zoom-info');
   if (info) info.textContent = Math.round(zoomLevel * 100) + '%';
-  if (persist !== false) { try { localStorage.setItem('mmt_zoom', String(zoomLevel)); } catch (e) {} }
+  // A phone's pinch level means nothing on the desk, so only the desk remembers.
+  if (persist !== false && !seIsTouch()) { try { localStorage.setItem('mmt_zoom', String(zoomLevel)); } catch (e) {} }
 }
 
 function zoomIn() {
   // The +/- buttons stay within the fit width, so normal zooming never turns on
   // horizontal scroll. Ctrl/Cmd+scroll can still go past it deliberately.
-  const cap = Math.min(ZOOM_MAX, maxFitZoom());
+  // On a touchscreen + goes past the fit width — small type needs it, and a
+  // finger can pan sideways where a mouse wheel can't.
+  const cap = seIsTouch() ? ZOOM_MAX : Math.min(ZOOM_MAX, maxFitZoom());
   const next = ZOOM_STEPS.find(z => z > zoomLevel + 0.001) || ZOOM_MAX;
   zoomLevel = Math.min(next, Math.max(cap, zoomLevel));
   applyScriptZoom();
@@ -15034,7 +15173,7 @@ function zoomFit() {
   const wrap = document.getElementById('canvas-wrap');
   const el = document.getElementById('canvas-container');
   if (!wrap || !el || !el.offsetWidth) return;
-  const padding = 40;
+  const padding = seWrapPadX(wrap);
   const fitW = (wrap.clientWidth - padding) / el.offsetWidth;
   const fitH = (wrap.clientHeight - padding) / el.offsetHeight;
   zoomLevel = Math.min(fitW, fitH);
@@ -15065,11 +15204,19 @@ function initZoom() {
   }
 }
 
+// Page turns can overlap (fast taps, swipes, a view switch re-rendering). Two
+// pdf.js renders into one canvas throw, and a slow older one could paint the
+// wrong page over the new one — so only the latest call is allowed to draw.
+let _renderSeq = 0, _renderTask = null;
 async function renderPage() {
+  const seq = ++_renderSeq;
   const page = await pdfDoc.getPage(currentPage);
-  // Use lower scale on phones to save memory
-  const isMobile = window.innerWidth <= 768;
-  const scale = isMobile ? 1.0 : 1.5;
+  if (seq !== _renderSeq) return;
+  if (_renderTask) { try { _renderTask.cancel(); } catch (e) {} _renderTask = null; }
+  // Always 1.5. Cue boxes are stored in canvas pixels, so a phone that rendered
+  // at a different scale drew every desk-placed cue in the wrong spot (and
+  // phone-placed cues landed short on the desk). Matches the PDF export too.
+  const scale = 1.5;
   const viewport = page.getViewport({ scale });
 
   const pdfCanvas = document.getElementById('pdf-canvas');
@@ -15080,10 +15227,18 @@ async function renderPage() {
   drawCanvas.height = viewport.height;
 
   const ctx = pdfCanvas.getContext('2d');
-  await page.render({ canvasContext: ctx, viewport }).promise;
+  const task = page.render({ canvasContext: ctx, viewport });
+  _renderTask = task;
+  try { await task.promise; }
+  catch (e) { if (e && e.name === 'RenderingCancelledException') return; throw e; }
+  finally { if (_renderTask === task) _renderTask = null; }
+  if (seq !== _renderSeq) return;
 
   // Redraw annotations for this page
   redrawAnnotations();
+  // First page on a touchscreen opens fitted to the width — readable straight
+  // away rather than whatever zoom the desk last used.
+  if (_seFitPending) { _seFitPending = false; zoomLevel = maxFitZoom(); }
   // Canvas dimensions just changed, so the reserved scroll footprint has to be
   // recomputed for the new page size.
   applyScriptZoom(false);
@@ -15139,6 +15294,11 @@ let dragOffset = null;   // offset from grab point to marker origin
 let dragMoved = false;   // did the pointer move enough to count as a drag
 
 drawCanvas.addEventListener('pointerdown', e => {
+  // Touchscreen, not marking: let the browser scroll. Only a clean tap counts.
+  if (seFingerScrolls(e)) {
+    _seTap = { id: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now(), pos: getPos(e) };
+    return;
+  }
   e.preventDefault();
   const pos = getPos(e);
 
@@ -15211,8 +15371,14 @@ drawCanvas.addEventListener('pointerdown', e => {
 });
 
 drawCanvas.addEventListener('pointermove', e => {
+  if (seFingerScrolls(e)) {
+    if (_seTap && Math.hypot(e.clientX - _seTap.x, e.clientY - _seTap.y) > 10) _seTap = null;
+    return;
+  }
   e.preventDefault();
   const pos = getPos(e);
+  // No hover on glass — the floating type label would just sit under the finger.
+  if (e.pointerType === 'touch') { const l = document.getElementById('cue-cursor-label'); if (l) l.style.display = 'none'; }
 
   // Floating cue-type label that follows the cursor in cue mode
   const ccl = document.getElementById('cue-cursor-label');
@@ -15310,6 +15476,11 @@ drawCanvas.addEventListener('pointerleave', () => {
 });
 
 drawCanvas.addEventListener('pointerup', e => {
+  if (seFingerScrolls(e)) {
+    const t = _seTap; _seTap = null;
+    if (t && t.id === e.pointerId && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 10 && Date.now() - t.t < 500) seTapAt(t.pos);
+    return;
+  }
   // Finish dragging a cue (label or marker)
   if (draggingCue !== null) {
     const a = (annotations[currentPage] || [])[draggingCue];
@@ -15333,8 +15504,18 @@ drawCanvas.addEventListener('pointerup', e => {
 
   if (currentTool === 'cue' && isDrawing && cueRect) {
     isDrawing = false;
-    const w = Math.abs(cueRect.x2 - cueRect.x1);
-    const h = Math.abs(cueRect.y2 - cueRect.y1);
+    let w = Math.abs(cueRect.x2 - cueRect.x1);
+    let h = Math.abs(cueRect.y2 - cueRect.y1);
+    // A finger tap in Mark mode drops a line-sized box centred on the tap —
+    // dragging a tidy rectangle with a thumb is the hard part on glass. Drag
+    // the box afterwards if it needs nudging.
+    if (e.pointerType === 'touch' && w <= 10 && h <= 5) {
+      const bw = Math.min(170, drawCanvas.width * 0.3), bh = 30;
+      const x1 = Math.max(0, Math.min(drawCanvas.width - bw, cueRect.x1 - bw / 2));
+      const y1 = Math.max(0, Math.min(drawCanvas.height - bh, cueRect.y1 - bh / 2));
+      cueRect = { x1, y1, x2: x1 + bw, y2: y1 + bh };
+      w = bw; h = bh;
+    }
     if (w > 10 && h > 5) {
       // Auto-place label on right margin
       const typeId = document.getElementById('cue-type-sel').value;
@@ -15409,8 +15590,17 @@ drawCanvas.addEventListener('pointerup', e => {
       // brand-new (blank) cue into the editor so nothing leaks across.
       selectedCueId = null;
       ['cue-num','cue-action','cue-line','cue-desc'].forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
-      selectCue(cueId, true);
-      toast(num + ' placed — add its details on the right');
+      if (seIsTouch()) {
+        // One placement per arming, then straight back to scrolling — on a
+        // phone the next touch is almost always a scroll, not another cue.
+        setPlaceMode(false);
+        selectCue(cueId, false);
+        if (seIsNarrow() && typeId !== SHIFT_TYPE_ID) editCue(cueId);
+        toast(num + ' placed');
+      } else {
+        selectCue(cueId, true);
+        toast(num + ' placed — add its details on the right');
+      }
     }
     cueRect = null;
     return;
@@ -15427,6 +15617,180 @@ drawCanvas.addEventListener('pointerup', e => {
   }
   currentStroke = null;
 });
+
+
+// ── TOUCHSCREENS ─────────────────────────────────────────────────────────────
+// Keyed on "is this a touchscreen", not on width: an unfolded phone is wider
+// than any phone breakpoint and was getting the full desk editor.
+//
+// On glass a finger SCROLLS the script by default — pan, pinch to zoom, swipe
+// for the next page, tap a cue to open it. Placing cues is a mode you arm
+// (✏️, or tap a cue type), place one, and it drops back to scrolling. A
+// mouse or a stylus behaves exactly as before.
+let sePlaceMode = false;
+let _seTap = null;
+let _seFitPending = false;
+
+function seIsTouch() { return document.body.classList.contains('se-touch'); }
+function seIsNarrow() { return window.innerWidth <= 768; }
+function seFingerScrolls(e) { return e.pointerType === 'touch' && seIsTouch() && !sePlaceMode; }
+function seWrapPadX(wrap) {
+  try { const cs = getComputedStyle(wrap); return (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0); }
+  catch (e) { return 40; }
+}
+
+function seUpdateLayout() {
+  let touch = false;
+  try { touch = window.matchMedia('(pointer: coarse)').matches; } catch (e) {}
+  document.body.classList.toggle('se-touch', touch);
+  const ed = document.getElementById('scripts-editor');
+  if (ed) ed.classList.toggle('compact', touch || seIsNarrow());
+}
+
+function setPlaceMode(on) {
+  sePlaceMode = !!on;
+  const ed = document.getElementById('scripts-editor');
+  if (ed) ed.classList.toggle('place-mode', sePlaceMode);
+  if (seIsTouch()) drawCanvas.style.touchAction = sePlaceMode ? 'none' : 'pan-x pan-y';
+  // Abandon anything half-drawn when standing down.
+  if (!sePlaceMode && (isDrawing || cueRect)) { isDrawing = false; cueRect = null; redrawAnnotations(); }
+  const btn = document.getElementById('se-mode-btn');
+  if (btn) btn.classList.toggle('active', sePlaceMode);
+  const banner = document.getElementById('place-banner');
+  const txt = document.getElementById('place-banner-txt');
+  if (banner && txt) {
+    const sel = document.getElementById('cue-type-sel');
+    const t = sel ? cueTypes.find(x => x.id === sel.value) : null;
+    banner.style.background = t ? t.color : 'var(--purple)';
+    txt.textContent = (t ? t.name : 'Cue') + ' — tap the line, or drag a box. Drag a cue to move it.';
+  }
+}
+
+// A fingertip is far blunter than a cursor, so a tap searches a small ring
+// around the touch point rather than demanding a direct hit.
+function seHitTestTouch(pos) {
+  const direct = cueHitTest(pos);
+  if (direct) return direct;
+  const rect = drawCanvas.getBoundingClientRect();
+  const tol = 16 * (drawCanvas.width / (rect.width || drawCanvas.width));
+  for (const r of [tol / 2, tol]) {
+    for (let a = 0; a < 8; a++) {
+      const id = cueHitTest({ x: pos.x + Math.cos(a * Math.PI / 4) * r, y: pos.y + Math.sin(a * Math.PI / 4) * r });
+      if (id) return id;
+    }
+  }
+  return null;
+}
+
+function seTapAt(pos) {
+  const id = seHitTestTouch(pos);
+  if (id) {
+    selectCue(id);
+    const c = cues.find(x => x.id === id);
+    // On a phone the side form isn't on screen, so open the sheet. Set
+    // changes already get their own grid from selectCue.
+    if (seIsNarrow() && c && c.type !== SHIFT_TYPE_ID) editCue(id);
+  } else if (selectedCueId) {
+    clearCueSelection();
+  }
+}
+
+function onCueRowTap(id) {
+  if (seIsNarrow()) {
+    const c = cues.find(x => x.id === id);
+    if (!c) return;
+    if (c.type === SHIFT_TYPE_ID) { selectCue(id); return; }
+    // Stay on the list: mark it and open the sheet. "Show in script" in the
+    // sheet is the way over to the page.
+    selectedCueId = id;
+    document.querySelectorAll('.cue-table tr.cue-selected').forEach(r => r.classList.remove('cue-selected'));
+    const row = document.querySelector('.cue-table tr[data-cue-id="' + id + '"]');
+    if (row) row.classList.add('cue-selected');
+    editCue(id);
+    return;
+  }
+  jumpToCue(id);
+}
+
+function ceShowOnScript() {
+  const id = editingCueId;
+  if (!id) return;
+  closeCueEdit();
+  if (seIsNarrow()) setScriptsView('script');
+  setTimeout(() => jumpToCue(id), 150);
+}
+
+function seInitTouch() {
+  seUpdateLayout();
+  if (seIsTouch()) { _seFitPending = true; setPlaceMode(false); }
+
+  if (drawCanvas.dataset.seWired) return;
+  drawCanvas.dataset.seWired = '1';
+
+  // Long-press would otherwise pop the image/copy menu over the script.
+  drawCanvas.addEventListener('contextmenu', e => { if (seIsTouch()) e.preventDefault(); });
+  // The browser took the gesture (a scroll) — drop any pending tap or draw.
+  drawCanvas.addEventListener('pointercancel', () => {
+    _seTap = null;
+    if (isDrawing || cueRect) { isDrawing = false; cueRect = null; redrawAnnotations(); }
+  });
+
+  window.addEventListener('resize', seUpdateLayout);
+  // Tap anywhere outside the ⋯ menu to put it away.
+  document.addEventListener('pointerdown', e => {
+    const ed = document.getElementById('scripts-editor');
+    if (ed && ed.classList.contains('sv-tools-open') && !e.target.closest('#sv-menu, .sv-more')) closeScriptTools();
+  });
+
+  const wrap = document.getElementById('canvas-wrap');
+  const box = document.getElementById('canvas-container');
+  if (!wrap || !box) return;
+  let pinch = null, swipe = null;
+  const mid = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 });
+  const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+
+  wrap.addEventListener('touchstart', e => {
+    if (!seIsTouch()) return;
+    if (e.touches.length === 2) {
+      const [a, b] = e.touches, m = mid(a, b), r = box.getBoundingClientRect();
+      pinch = { d: dist(a, b) || 1, z: zoomLevel, px: (m.x - r.left) / r.width, py: (m.y - r.top) / r.height };
+      swipe = null;
+      // A second finger means zoom, never a cue.
+      _seTap = null;
+      if (isDrawing || cueRect) { isDrawing = false; cueRect = null; redrawAnnotations(); }
+    } else if (e.touches.length === 1) {
+      const t = e.touches[0];
+      swipe = { x: t.clientX, y: t.clientY, t: Date.now() };
+    }
+  }, { passive: true });
+
+  wrap.addEventListener('touchmove', e => {
+    if (!pinch || e.touches.length !== 2) return;
+    if (e.cancelable) e.preventDefault();
+    const [a, b] = e.touches, m = mid(a, b);
+    zoomLevel = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, pinch.z * dist(a, b) / pinch.d));
+    applyScriptZoom(false);
+    // Keep the spot between your fingers under your fingers.
+    const r = box.getBoundingClientRect();
+    wrap.scrollLeft += (r.left + pinch.px * r.width) - m.x;
+    wrap.scrollTop  += (r.top + pinch.py * r.height) - m.y;
+  }, { passive: false });
+
+  wrap.addEventListener('touchend', e => {
+    if (pinch) { if (e.touches.length < 2) pinch = null; swipe = null; return; }
+    if (!swipe || e.touches.length || !e.changedTouches.length) { swipe = null; return; }
+    const t = e.changedTouches[0];
+    const dx = t.clientX - swipe.x, dy = t.clientY - swipe.y, dt = Date.now() - swipe.t;
+    swipe = null;
+    // Swipe for pages only while the page fits the width — once zoomed in,
+    // a sideways drag is panning.
+    const fits = zoomLevel <= maxFitZoom() + 0.001;
+    if (!sePlaceMode && fits && Math.abs(dx) > 70 && Math.abs(dy) < 50 && dt < 600) {
+      if (dx < 0) nextPage(); else prevPage();
+      wrap.scrollTop = 0;
+    }
+  });
+}
 
 // Find a cue annotation under a click point (label box OR marker shape). Returns cueId or null.
 function cueHitTest(pos) {
@@ -15699,12 +16063,18 @@ function renderColorSwatches() {
 }
 
 function quickSetType(id) {
+  const sel0 = document.getElementById('cue-type-sel');
+  if (seIsTouch()) {
+    // Tap the armed type again to stand down; any type tap arms it.
+    if (sePlaceMode && sel0 && sel0.value === id) { setPlaceMode(false); return; }
+  }
   document.getElementById('cue-type-sel').value = id;
   const type = cueTypes.find(t => t.id === id);
   if (type) penColor = type.color;
   renderColorSwatches();
   setTool('cue');
   updateToolCursor();
+  if (seIsTouch()) setPlaceMode(true);
 }
 
 // ── CUE TYPES ────────────────────────────────────────────────────────────────
@@ -15857,7 +16227,7 @@ function renderCueList() {
       const typeName = t ? t.name : c.type;
       const isShift = c.type === SHIFT_TYPE_ID;
       const nMoves = (c.moves || []).length;
-      const row = `<tr data-cue-id="${c.id}" onclick="jumpToCue('${c.id}')" ondblclick="editCue('${c.id}')">
+      const row = `<tr data-cue-id="${c.id}" onclick="onCueRowTap('${c.id}')" ondblclick="editCue('${c.id}')">
         <td><span class="ct-type" style="background:${color}">${typeName}</span></td>
         <td class="ct-num">${c.number || ''}</td>
         <td class="ct-action">${c.action || ''}${isShift && nMoves ? ` <span class="ct-moves">${nMoves} move${nMoves !== 1 ? 's' : ''}</span>` : ''}</td>
@@ -16121,6 +16491,7 @@ function mvIsLastInput(input) {
 
 
 let mvDrawerCueId = null;
+let _mvReturnView = 'script';
 
 // ── Phone layout ────────────────────────────────────────────────────────────
 // On a phone the script, the cue list and the set-change drawer cannot all be
@@ -16139,9 +16510,14 @@ function setScriptsView(v) {
   }
 }
 
-function toggleScriptTools() {
+function toggleScriptTools(ev) {
+  if (ev) ev.stopPropagation();
   const ed = document.getElementById('scripts-editor');
   if (ed) ed.classList.toggle('sv-tools-open');
+}
+function closeScriptTools() {
+  const ed = document.getElementById('scripts-editor');
+  if (ed) ed.classList.remove('sv-tools-open');
 }
 
 function openMoveDrawer(cueId) {
@@ -16151,16 +16527,26 @@ function openMoveDrawer(cueId) {
   // On a phone the drawer lives over the cue list. Opening it while the script
   // is showing would put it behind the page image and look like nothing
   // happened, so switch views first.
-  try { if (window.matchMedia('(max-width: 768px)').matches) setScriptsView('cues'); } catch(e) {}
+  try {
+    if (window.matchMedia('(max-width: 768px)').matches) {
+      if (!document.getElementById('mv-drawer').classList.contains('open')) _mvReturnView = _scriptsView;
+      setScriptsView('cues');
+    }
+  } catch(e) {}
   document.getElementById('mv-drawer').classList.add('open');
   renderMoveDrawer(true);
 }
 
 function closeMoveDrawer() {
   acClose();
-  try { if (window.matchMedia('(max-width: 768px)').matches) setScriptsView('script'); } catch(e) {}
-  mvDrawerCueId = null;
   const d = document.getElementById('mv-drawer');
+  // Only switch views if the drawer was actually up. This runs on every cue
+  // selection, and used to yank you off the Cues list each time you tapped one.
+  try {
+    if (d && d.classList.contains('open') && window.matchMedia('(max-width: 768px)').matches)
+      setScriptsView(_mvReturnView || 'script');
+  } catch(e) {}
+  mvDrawerCueId = null;
   if (d) d.classList.remove('open');
 }
 
@@ -16307,7 +16693,7 @@ function jumpToCue(id) {
         // Canvas is displayed at its natural size inside the padded wrap; scroll so marker is ~1/3 down
         const container = document.getElementById('canvas-container');
         const offsetTop = container ? container.offsetTop : 0;
-        const targetTop = Math.max(0, offsetTop + my - wrap.clientHeight / 3);
+        const targetTop = Math.max(0, offsetTop + my * zoomLevel - wrap.clientHeight / 3);
         if (typeof wrap.scrollTo === 'function') wrap.scrollTo({ top: targetTop, behavior: 'smooth' });
         else wrap.scrollTop = targetTop;
         // Flash the marker
@@ -16413,6 +16799,8 @@ function editCue(id) {
   document.getElementById('ce-line').value = c.cueLine || '';
   document.getElementById('ce-notes').value = c.notes || c.description || '';
   document.getElementById('ce-page').value = c.page || 1;
+  const crop = document.getElementById('ce-line-crop');
+  if (crop) { if (c.lineCrop) { crop.src = c.lineCrop; crop.style.display = 'block'; } else { crop.removeAttribute('src'); crop.style.display = 'none'; } }
   document.getElementById('cue-edit-overlay').classList.add('open');
 }
 
@@ -18164,6 +18552,7 @@ function openScriptsEditor() {
   renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches();
   initCuePanelResize();
   initCueFormResize();
+  seInitTouch();
   initZoom();
   // Default to the cue tool with the first cue type selected
   setTool('cue');
