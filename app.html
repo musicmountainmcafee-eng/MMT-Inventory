@@ -2647,15 +2647,8 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #tab-scripts .saved-script:hover { background: var(--bg); border-color: var(--border); }
   #tab-scripts .saved-script .ss-name { font-weight: 500; font-size:14px; }
   #tab-scripts .saved-script .ss-meta { font-size:12px; color: var(--text-faint); }
-  #tab-scripts .saved-script { align-items: flex-start; }
-  #tab-scripts .ss-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  #tab-scripts .ss-file { font-size: 12px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #tab-scripts .ss-show { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; font-size: 13px; color: var(--text-muted); }
-  #tab-scripts .ss-show .ss-dot { width: 8px; height: 8px; border-radius: 4px; background: var(--green); flex-shrink: 0; }
-  #tab-scripts .ss-show.guess { color: var(--text); }
-  #tab-scripts .ss-pick { width: auto !important; max-width: 220px; height: 34px !important; min-height: 34px !important; padding: 0 8px !important; border: 1px solid var(--border-strong, var(--border)) !important; border-radius: 8px !important; background: var(--surface) !important; color: var(--purple) !important; font: 600 13px 'DM Sans', sans-serif !important; }
-  #tab-scripts .ss-show.none .ss-pick { color: var(--text-muted); }
-  #tab-scripts .ss-yes { height: 36px !important; min-height: 36px !important; padding: 0 14px !important; border: none !important; border-radius: 8px !important; background: var(--purple) !important; color: #fff !important; font-size: 13px !important; font-weight: 600 !important; }
+  #tab-scripts .ss-pending { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; margin-bottom: 6px; border-radius: var(--radius-sm); background: var(--purple-light); font-size: 14px; }
+  #tab-scripts .ss-pending span { flex: 1 1 200px; }
 
   /* FULL-SCREEN EDITOR (escapes the app shell) */
   #scripts-editor {
@@ -6180,7 +6173,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.12 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.12 v5</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -6480,6 +6473,7 @@ let currentTab = 'home';
 
 function switchTab(tab) {
   if (!TABS.includes(tab)) tab = 'home';
+  if (tab !== 'scripts') window._ssPendingShow = '';   // a show waiting for its script lets go
   currentTab = tab;
   // Leaving Notes must drop the window-filling mode, or every other tab
   // inherits a locked page that can't scroll.
@@ -14623,12 +14617,15 @@ function openScriptForShow(showName) {
       || _savedScripts.find(s => norm(s.name).includes(target) && target.length > 2)
       || _savedScripts.find(s => target.includes(norm(s.name)) && norm(s.name).length > 2);
     if (match) {
+      ssLink(match.id, match.name, showSlug(showName));   // remember it for next time
       loadFromDrive(match.id, match.name);
     } else {
-      // No match — prefill the Drive search box with the show name to help
+      // No match: the next script picked from the list becomes this show's.
+      _ssPendingShow = showSlug(showName);
+      renderSavedScripts();
       const box = document.getElementById('drive-search-input');
       if (box) { box.value = showName; }
-      toast('No saved script named "' + showName + '" — search your Drive');
+      toast('Pick the script for ' + showName);
     }
   };
   // Ensure the script list is loaded first
@@ -14781,6 +14778,8 @@ async function putCachedPdf(fileId, bytes) {
 // Load PDF from Drive by file ID
 async function loadFromDrive(fileId, name, _attempt) {
   _attempt = _attempt || 1;
+  // Came from a show's "Open script" with nothing remembered: this is its script now.
+  if (_attempt === 1 && window._ssPendingShow) { const slug = window._ssPendingShow; window._ssPendingShow = ''; try { ssLink(fileId, name, slug); } catch (e) {} }
 
   // Cache hit → render immediately, skip the slow Drive fetch + base64 decode.
   if (_attempt === 1) {
@@ -18045,36 +18044,17 @@ function ssLink(scriptId, fileName, slug, cb) {
   }, () => { toast('Could not reach the Sheet, the link is only on this device'); if (cb) cb(false); });
 }
 
-// The show line under each saved script.
-function ssRowHTML(sc) {
-  const m = ssShowFor(sc.id, sc.name, sc.date);
-  const id = esc(JSON.stringify(sc.id)), nm = esc(JSON.stringify(sc.name));
-  const pinned = !!(m && m.pinned);
-  const pick = `<select class="ss-pick" aria-label="Which show is this script for?" onclick="event.stopPropagation()" onchange="if(this.value!=='__keep')ssPickChange(${id}, ${nm}, this.value)">
-      <option value="__keep" selected>${pinned ? 'Change…' : m ? 'Another show…' : 'Link to a show…'}</option>
-      ${pinned ? '<option value="">Not linked to a show</option>' : ''}
-      ${allShows().slice().reverse().map(sh => `<option value="${esc(showSlug(sh.name))}">${esc(sh.name)} · ${esc(ssDates(sh))}</option>`).join('')}
-    </select>`;
-  if (m && m.pinned) return `<div class="ss-show"><span class="ss-dot"></span><span>${esc(ssDates(m.show))}</span>${pick}</div>`;
-  if (m) return `<div class="ss-show guess" onclick="event.stopPropagation()"><span>Is this <b>${esc(m.show.name)}</b>?</span>
-      <button class="ss-yes" onclick="event.stopPropagation();ssPickChange(${id}, ${nm}, ${esc(JSON.stringify(showSlug(m.show.name)))})">Yes</button>${pick}</div>`;
-  return `<div class="ss-show none" onclick="event.stopPropagation()">${pick}</div>`;
-}
-function ssPickChange(scriptId, fileName, slug) {
-  ssLink(scriptId, fileName, slug, ok => { if (ok) toast(slug ? 'Linked to ' + ((showBySlug(slug) || {}).name || 'show') : 'Unlinked'); renderSavedScripts(); seSyncName(); });
-  renderSavedScripts();
-}
 function renderSavedScripts() {
   const el = document.getElementById('script-list');
   if (!el || !_savedScripts.length) return;
-  el.innerHTML = _savedScripts.map(s => {
-    const pinned = ssPinned(s.id);
-    const title = pinned ? ssTitle(s.id, s.name) : cleanShowName(s.name);
-    return `<div class="saved-script" onclick="loadFromDrive(${esc(JSON.stringify(s.id))}, ${esc(JSON.stringify(s.name))})">
-      <div class="ss-main"><span class="ss-name">${esc(title)}</span><span class="ss-file">${esc(s.name)}</span>${ssRowHTML(s)}</div>
-      <span class="ss-meta">${esc(s.date || '')}</span></div>`;
-  }).join('');
+  const pend = _ssPendingShow ? showBySlug(_ssPendingShow) : null;
+  el.innerHTML = (pend ? `<div class="ss-pending"><span>Pick the script for <b>${esc(pend.name)}</b>. It'll open straight from the show next time.</span><button onclick="_ssPendingShow='';renderSavedScripts()">Cancel</button></div>` : '')
+    + _savedScripts.map(s => `<div class="saved-script" onclick="ssOpenSaved(${esc(JSON.stringify(s.id))}, ${esc(JSON.stringify(s.name))})"><span class="ss-name">${esc(s.name)}</span><span class="ss-meta">${esc(s.date || '')}</span></div>`).join('');
 }
+// Opening a script from the list. If you came from a show's "Open script",
+// that show remembers this script (its Show Hub pin).
+var _ssPendingShow = '';
+function ssOpenSaved(id, name) { loadFromDrive(id, name); }
 
 function cleanShowName(raw) {
   let n = String(raw).trim();
