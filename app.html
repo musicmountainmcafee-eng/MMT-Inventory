@@ -6228,7 +6228,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.11 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.11 v3</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -15858,6 +15858,10 @@ function openCueInfo(cueId) {
 // Select/highlight a cue: marks it as the active cue (for the Delete key) and
 // persistently highlights its row in the cue sheet.
 function selectCue(cueId, focusNum) {
+  if (seIsTouch() && document.activeElement && document.activeElement.blur) {
+    const ae = document.activeElement;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) ae.blur();
+  }
   selectedCueId = cueId;
   // A SHIFT cue is a set change, so bring its grid up; anything else puts it away.
   const sel = cues.find(x => x.id === cueId);
@@ -16147,7 +16151,7 @@ function addCueType() {
   document.getElementById('ct-delete-btn').style.display = 'none';
   ctRenderSwatches();
   document.getElementById('cue-type-overlay').classList.add('open');
-  setTimeout(() => document.getElementById('ct-name').focus(), 50);
+  if (!seIsTouch()) setTimeout(() => document.getElementById('ct-name').focus(), 50);
 }
 function editCueTypeModal(i) {
   ctEditingIdx = i;
@@ -16628,7 +16632,9 @@ function renderMoveDrawer(focusFirst) {
   // An empty change is the common case right after placing the cue, so give it
   // a row to type into rather than making you click Add first.
   if (!moves.length) { moveAdd(c.id); return; }
-  if (focusFirst) {
+  // On a touchscreen a focused box pops the keyboard over half the screen, so
+  // nothing gets the caret until you tap it yourself.
+  if (focusFirst && !seIsTouch()) {
     const first = body.querySelector('input');
     if (first) { first.focus(); first.select(); }
   }
@@ -16675,7 +16681,7 @@ function moveAdd(cueId) {
   saveShowData();
   // Land the caret in the new row's Piece box so you can keep typing.
   const last = document.querySelector('#mvd-body .mv-grid tbody tr:last-child input');
-  if (last) { last.focus(); acClose(); }
+  if (last && !seIsTouch()) { last.focus(); acClose(); }
 }
 
 function moveDelete(cueId, moveId) {
@@ -16914,7 +16920,7 @@ function loadCueIntoForm(cueId, focusNum) {
   if (edSel) edSel.classList.add('has-sel');
   if (modeEl) modeEl.textContent = 'Editing ' + (c.number || 'cue') + ' — saves automatically';
   if (hint) hint.style.display = 'none';
-  if (focusNum) {
+  if (focusNum && !seIsTouch()) {
     const ai = document.getElementById('cue-action');
     if (ai) { ai.focus(); }   // cue # is auto-set; jump straight to Action for details
   }
