@@ -428,6 +428,82 @@
     background: none; color: var(--muted); cursor: pointer;
   }
   .mv-plus:hover { border-style: solid; color: var(--text); }
+  /* ── Edit mode: plot rows + move sheet ── */
+  /* The big title repeats the show name the toolbar already shows. */
+  .sheet-title { display: none; }
+  @media print { .sheet-title { display: block; } }
+  tr.mv-edit { cursor: pointer; }
+  tr.mv-edit td { padding-top: 10px; padding-bottom: 10px; }
+  tr.mv-edit .mv-piece { font-size: 1.12em; }
+  tr.mv-edit .mv-act { margin-left: 8px; font-size: 0.82em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--purple); }
+  tr.mv-edit .mv-spike { margin: 0; }
+  tr.mv-edit .mv-note { margin: 0; }
+  tr.mv-sel td { background: var(--purple-light) !important; }
+  tr.mv-sel td:first-child { box-shadow: inset 4px 0 0 var(--purple); }
+  .mv-empty { color: var(--purple); font-weight: 500; }
+  tr.mv-addrow td { padding-top: 0; padding-bottom: 6px; }
+  tr.mv-addrow .mv-plus { border: none; color: var(--purple); padding: 6px 2px; font-weight: 500; }
+  body.sheet-open .sheet-wrap { padding-bottom: 62vh; }
+
+  #move-sheet { position: fixed; inset: 0; z-index: 450; display: none; background: rgba(20,20,37,0.22); }
+  #move-sheet.open { display: block; }
+  #move-sheet .ms-panel {
+    position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 760px;
+    background: var(--surface); color: var(--text);
+    border-radius: 20px 20px 0 0; box-shadow: 0 -12px 36px rgba(0,0,0,0.25);
+    padding: 8px 20px calc(18px + var(--safe-b)); max-height: 78vh; overflow-y: auto; box-sizing: border-box;
+    font-size: 16px;
+  }
+  #move-sheet .ms-grip { width: 44px; height: 5px; border-radius: 3px; background: var(--border); margin: 0 auto 10px; }
+  #move-sheet .ms-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  #move-sheet .ms-num { font-size: 20px; font-weight: 700; }
+  #move-sheet .ms-of { font-size: 14px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #move-sheet .ms-icon {
+    width: 44px; height: 44px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); cursor: pointer;
+  }
+  #move-sheet .ms-icon:disabled { opacity: 0.35; cursor: default; }
+  #move-sheet .ms-icon svg { pointer-events: none; }
+  #move-sheet .ms-of { min-width: 0; }
+  /* On a narrow phone the "N changes not saved yet" note used to sit between
+     the buttons and push Done and Script off the screen. It gets its own line
+     under the toolbar instead, only while there's something to say. */
+  .edit-state:empty { display: none; }
+  @media (max-width: 600px) {
+    .bar { flex-wrap: wrap; }
+    .edit-state { order: 10; flex: 1 0 100%; padding: 0 0 2px; font-size: 12px; white-space: normal; }
+  }
+  #move-sheet .ms-grid { display: grid; gap: 10px; margin-bottom: 10px; }
+  #move-sheet .ms-g2 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  #move-sheet .ms-g3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); }
+  #move-sheet .ms-f { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  #move-sheet .ms-f > span { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+  #move-sheet .ms-in {
+    font: inherit; font-size: 16px; height: 46px; padding: 0 12px; box-sizing: border-box; width: 100%;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text);
+  }
+  #move-sheet .ms-in.strong { font-weight: 600; }
+  #move-sheet .ms-in:focus { outline: none; border-color: var(--purple); background: var(--surface); }
+  #move-sheet .ms-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 14px; }
+  #move-sheet .ms-pill {
+    font: inherit; font-size: 14px; font-weight: 600; min-height: 40px; padding: 0 14px;
+    border: 1px solid var(--border); border-radius: 20px; background: var(--surface); color: var(--text); cursor: pointer;
+  }
+  #move-sheet .ms-pill.on { background: var(--purple); border-color: var(--purple); color: #fff; }
+  #move-sheet .ms-btns { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 6px; }
+  #move-sheet .ms-btn {
+    font: inherit; font-size: 15px; font-weight: 500; min-height: 48px; padding: 0 16px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); cursor: pointer;
+  }
+  #move-sheet .ms-btn.danger { color: #b02a20; border-color: rgba(176,42,32,0.35); }
+  #move-sheet .ms-btn.dashed { border-style: dashed; color: var(--purple); }
+  #move-sheet .ms-btn.primary { background: var(--purple); border-color: var(--purple); color: #fff; font-weight: 600; padding: 0 26px; }
+  [data-theme="dark"] #move-sheet .ms-btn.danger, [data-theme="red"] #move-sheet .ms-btn.danger { color: #ff8a80; }
+  @media (max-width: 560px) {
+    #move-sheet .ms-g3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    #move-sheet .ms-g3 .ms-f:last-child { grid-column: 1 / -1; }
+  }
+
 </style>
 </head>
 <body>
@@ -494,6 +570,11 @@
   </header>
 
   <div class="sheet-wrap"><div class="sheet" id="sheet-body"></div></div>
+</div>
+
+<!-- ── MOVE SHEET (edit mode) ───────────────────────────────────────────────── -->
+<div id="move-sheet" onclick="if(event.target===this) closeMoveSheet()">
+  <div class="ms-panel" role="dialog" aria-label="Edit move"><div class="ms-grip"></div><div id="ms-body"></div></div>
 </div>
 
 <!-- ── SETTINGS ───────────────────────────────────────────────────────────── -->
@@ -1013,7 +1094,9 @@ function render(){
         <col style="width:13%"><col style="width:30%"><col style="width:11%">
         <col class="c-line" style="width:20%"><col style="width:26%">
       </colgroup>
-      <thead><tr><th>Cue</th><th>Action</th><th>Who</th><th class="h-line">Cue Line</th><th>Notes</th></tr></thead>
+      <thead><tr>${editMode
+        ? '<th>Cue</th><th>Move</th><th>Who</th><th class="h-line">Spike</th><th>Note</th>'
+        : '<th>Cue</th><th>Action</th><th>Who</th><th class="h-line">Cue Line</th><th>Notes</th>'}</tr></thead>
       <tbody>${body}</tbody>
     </table>
     <div class="sheet-foot"><span>Music Mountain Theatre</span><span>${shown} of ${total} cues</span></div>`;
@@ -1153,22 +1236,24 @@ function cueRow(c, band){
     ].filter(Boolean).join('');
 
     if (editMode) {
-      const f = (field, val, ph) =>
-        `<input class="mv-in" value="${esc(val || '')}" placeholder="${esc(ph)}"
-           oninput="mvField('${esc(c.id)}', ${i}, '${field}', this.value)">`;
-      return `<tr${rowCls('shift-row' + pos)}${accent} data-page="${esc(c.page || '')}">
+      // Reads like the plot; tapping a move opens it in the sheet at the
+      // bottom of the screen. No boxes on the page itself.
+      const sel = moveSheet && moveSheet.cueId === String(c.id) && moveSheet.idx === i ? ' mv-sel' : '';
+      const blank = !m.piece && !m.action && !m.who && !m.spike && !m.notes;
+      return `<tr${rowCls('shift-row mv-edit' + pos.replace(' shift-end', '') + sel)}${accent} data-page="${esc(c.page || '')}"
+              onclick="openMove('${esc(c.id)}', ${i})">
         <td class="shift-cue">${first ? cueCell : ''}</td>
-        <td class="cs-action">${f('piece', m.piece, 'Piece')}${f('action', m.action, 'Action')}</td>
-        <td class="cs-who">${f('who', m.who, 'Who')}</td>
-        <td class="cs-line">${f('spike', m.spike, 'Spike')}</td>
-        <td class="cs-notes">${f('notes', m.notes, 'Note')}
-          <button class="mv-x" title="Delete this move"
-            onclick="mvDelRow('${esc(c.id)}', ${i})">&times;</button></td>
+        <td class="cs-action">${blank
+            ? '<span class="mv-empty">Tap to add a move</span>'
+            : `<span class="mv-piece">${esc(m.piece || '')}</span>${m.action ? `<span class="mv-act">${esc(m.action)}</span>` : ''}`}</td>
+        <td class="cs-who">${esc(m.who || '')}</td>
+        <td class="cs-line"><span class="mv-spike">${esc(m.spike || '')}</span></td>
+        <td class="cs-notes">${m.notes ? `<span class="mv-note">${esc(m.notes)}</span>` : ''}</td>
       </tr>` + (last
-        ? `<tr${rowCls('shift-row shift-end')}${accent}>
+        ? `<tr${rowCls('shift-row shift-end mv-addrow')}${accent}>
              <td class="shift-cue"></td>
              <td class="cs-action" colspan="4">
-               <button class="mv-plus" onclick="mvAddRow('${esc(c.id)}')">+ Add move</button>
+               <button class="mv-plus" onclick="event.stopPropagation(); sheetAddMove('${esc(c.id)}')">+ Add move</button>
              </td>
            </tr>` : '');
     }
@@ -1219,6 +1304,7 @@ function getDraft(){ try { return JSON.parse(lsGet(draftKey(), 'null')); } catch
 
 function setEditMode(on){
   if (on && !scriptId) { alert('Pick a script first.'); return; }
+  if (!on) closeMoveSheet(true);
   editMode = !!on;
   const btn = document.getElementById('edit-btn');
   if (btn){ btn.textContent = editMode ? 'Done' : 'Edit'; btn.classList.toggle('on', editMode); }
@@ -1272,6 +1358,7 @@ function markDirty(){
   const n = Object.keys(editedCues).length;
   el.className = 'edit-state dirty';
   el.textContent = n ? n + ' change' + (n !== 1 ? 's' : '') + ' not saved yet' : '';
+  measureHeader();
 }
 
 // ── The merge ───────────────────────────────────────────────────────────────
@@ -1352,6 +1439,201 @@ function saveMoveEdits(){
     editSaving = false;
     if (el){ el.className = 'edit-state error'; el.textContent = 'Could not reach the Sheet — your edits are kept on this device'; }
   });
+}
+
+
+// ── MOVE SHEET ──────────────────────────────────────────────────────────────
+// One move at a time in a panel at the bottom of the screen, so the plot stays
+// readable above it. Every keystroke goes through mvField like the old inline
+// boxes did, so drafts, the "not saved yet" count and the safe merge on Done
+// all work exactly as before. Nothing takes the cursor until you tap a box.
+const MOVE_ACTIONS = ['In', 'Out', 'Set', 'Strike', 'Preset', 'Roll down', 'Fly in', 'Fly out', 'On', 'Off'];
+let moveSheet = null;   // { cueId, idx, added }
+
+const sheetCue = () => moveSheet && cues.find(x => String(x.id) === moveSheet.cueId);
+const blankMove = m => !m || (!m.piece && !m.action && !m.who && !m.spike && !m.notes);
+
+// Every move in script order, for the ‹ › arrows.
+function allMoveRefs(){
+  const out = [];
+  cuesInScriptOrder().forEach(c => {
+    if (c.type !== SHIFT_TYPE_ID || !matches(c)) return;
+    (c.moves || []).forEach((m, i) => out.push({ cueId: String(c.id), idx: i }));
+  });
+  return out;
+}
+
+// A move the sheet created and nobody typed into isn't a change — drop it, and
+// if that leaves the set change as it started, it isn't edited either.
+function finalizeSheetMove(){
+  if (!moveSheet || !moveSheet.added) return;
+  const c = sheetCue();
+  if (c && c.moves && blankMove(c.moves[moveSheet.idx])){
+    c.moves.splice(moveSheet.idx, 1);
+    const base = JSON.stringify(editBaseline[c.id] || []);
+    if (JSON.stringify(c.moves) === base){ delete editedCues[c.id]; }
+    saveDraft(); markDirty();
+  }
+}
+
+function openMove(cueId, idx, added){
+  if (!editMode) return;
+  const id = String(cueId);
+  if (moveSheet && !(moveSheet.cueId === id && moveSheet.idx === idx)) finalizeSheetMove();
+  const c = cues.find(x => String(x.id) === id);
+  if (!c) return;
+  c.moves = c.moves || [];
+  // An empty set change shows a "Tap to add a move" row with nothing behind it.
+  if (!c.moves.length){ c.moves.push({ piece:'', action:'', who:'', spike:'', notes:'' }); idx = 0; added = true; }
+  if (idx >= c.moves.length) idx = c.moves.length - 1;
+  moveSheet = { cueId: id, idx, added: !!added };
+  render();
+  renderMoveSheet();
+  document.getElementById('move-sheet').classList.add('open');
+  document.body.classList.add('sheet-open');
+  requestAnimationFrame(keepRowVisible);
+}
+
+function closeMoveSheet(silent){
+  if (!moveSheet) return;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  finalizeSheetMove();
+  moveSheet = null;
+  const el = document.getElementById('move-sheet');
+  if (el) el.classList.remove('open');
+  document.body.classList.remove('sheet-open');
+  if (!silent) render();
+}
+
+// Scroll so the move being edited sits above the sheet, not behind it.
+function keepRowVisible(){
+  const row = document.querySelector('tr.mv-sel');
+  const sheet = document.querySelector('#move-sheet .ms-panel');
+  if (!row || !sheet) return;
+  const r = row.getBoundingClientRect();
+  const top = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0;
+  const limit = window.innerHeight - sheet.offsetHeight - 12;
+  if (r.bottom > limit) window.scrollBy(0, r.bottom - limit);
+  else if (r.top < top + 8) window.scrollBy(0, r.top - top - 8);
+}
+
+function sheetStep(dir){
+  const refs = allMoveRefs();
+  const at = refs.findIndex(r => r.cueId === moveSheet.cueId && r.idx === moveSheet.idx);
+  const next = refs[at + dir];
+  if (next) openMove(next.cueId, next.idx);
+}
+
+function sheetAddMove(cueId){
+  if (!editMode) return;
+  const c = cues.find(x => String(x.id) === String(cueId));
+  if (!c) return;
+  if (moveSheet) finalizeSheetMove();
+  moveSheet = null;
+  c.moves = c.moves || [];
+  // A lone blank placeholder is reused rather than stacking another blank.
+  if (c.moves.length && blankMove(c.moves[c.moves.length - 1])) return openMove(c.id, c.moves.length - 1, true);
+  c.moves.push({ piece:'', action:'', who:'', spike:'', notes:'' });
+  openMove(c.id, c.moves.length - 1, true);
+}
+
+function sheetDelete(){
+  const c = sheetCue();
+  if (!c || !c.moves) return;
+  const idx = moveSheet.idx;
+  const m = c.moves[idx];
+  if (moveSheet.added && blankMove(m)) return closeMoveSheet();
+  const label = (m && (m.piece || m.action)) || 'this move';
+  if (!confirm('Delete ' + label + '?')) return;
+  c.moves.splice(idx, 1);
+  editedCues[c.id] = true;
+  saveDraft(); markDirty();
+  moveSheet.added = false;
+  if (c.moves.length) openMove(c.id, Math.min(idx, c.moves.length - 1));
+  else closeMoveSheet();
+}
+
+function sheetField(field, value){
+  if (!moveSheet) return;
+  const c = sheetCue();
+  if (!c || !c.moves || !c.moves[moveSheet.idx]) return;
+  mvField(c.id, moveSheet.idx, field, value);
+  if (field === 'action') syncActionPills(value);
+  if (field === 'who') syncWhoPills(value);
+  // Keep the row under the sheet in step without rebuilding the whole table.
+  const row = document.querySelector('tr.mv-sel');
+  const m = c.moves[moveSheet.idx];
+  if (row){
+    row.cells[1].innerHTML = blankMove(m) ? '<span class="mv-empty">Tap to add a move</span>'
+      : `<span class="mv-piece">${esc(m.piece || '')}</span>${m.action ? `<span class="mv-act">${esc(m.action)}</span>` : ''}`;
+    row.cells[2].textContent = m.who || '';
+    row.cells[3].innerHTML = `<span class="mv-spike">${esc(m.spike || '')}</span>`;
+    row.cells[4].innerHTML = m.notes ? `<span class="mv-note">${esc(m.notes)}</span>` : '';
+  }
+}
+
+function sheetPick(field, value){
+  const input = document.getElementById('ms-' + field);
+  if (!input) return;
+  // Tapping the one that's already set clears it.
+  const v = input.value.trim().toLowerCase() === String(value).toLowerCase() ? '' : value;
+  input.value = v;
+  sheetField(field, v);
+}
+function syncActionPills(v){
+  const k = String(v || '').trim().toLowerCase();
+  document.querySelectorAll('#ms-actions .ms-pill').forEach(b => b.classList.toggle('on', b.dataset.v.toLowerCase() === k));
+}
+function syncWhoPills(v){
+  const k = String(v || '').trim().toLowerCase();
+  document.querySelectorAll('#ms-whos .ms-pill').forEach(b => b.classList.toggle('on', b.dataset.v.toLowerCase() === k));
+}
+
+function renderMoveSheet(){
+  const c = sheetCue();
+  if (!c) return;
+  const m = c.moves[moveSheet.idx] || {};
+  const t = typeOf(c.type);
+  const refs = allMoveRefs();
+  const at = refs.findIndex(r => r.cueId === moveSheet.cueId && r.idx === moveSheet.idx);
+  const pieces = allPieces().map(p => `<option value="${esc(p.piece)}"></option>`).join('');
+  const whos = allWho();
+  const inp = (field, ph, extra) => `<input id="ms-${field}" class="ms-in${extra || ''}" value="${esc(m[field] || '')}"
+      placeholder="${esc(ph)}" autocomplete="off" oninput="sheetField('${field}', this.value)"${field === 'piece' ? ' list="ms-pieces"' : ''}>`;
+  const pill = (field, v, on) => `<button type="button" class="ms-pill${on ? ' on' : ''}" data-v="${esc(v)}"
+      onclick="sheetPick('${field}', this.dataset.v)">${esc(v)}</button>`;
+  const actKey = String(m.action || '').trim().toLowerCase();
+  const whoKey = String(m.who || '').trim().toLowerCase();
+
+  document.getElementById('ms-body').innerHTML = `
+    <div class="ms-head">
+      <span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>
+      <span class="ms-num">${esc(shortNumber(c, t.name))}</span>
+      <span class="ms-of">· move ${moveSheet.idx + 1} of ${c.moves.length} · p.${esc(c.page || '?')}</span>
+      <span style="flex:1"></span>
+      <button class="ms-icon" aria-label="Previous move" onclick="sheetStep(-1)"${at <= 0 ? ' disabled' : ''}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <button class="ms-icon" aria-label="Next move" onclick="sheetStep(1)"${at < 0 || at >= refs.length - 1 ? ' disabled' : ''}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+    <div class="ms-grid ms-g2">
+      <label class="ms-f"><span>Piece</span>${inp('piece', 'e.g. Main Curtain', ' strong')}</label>
+      <label class="ms-f"><span>Action</span>${inp('action', 'e.g. In')}</label>
+    </div>
+    <datalist id="ms-pieces">${pieces}</datalist>
+    <div class="ms-pills" id="ms-actions">${MOVE_ACTIONS.map(v => pill('action', v, v.toLowerCase() === actKey)).join('')}</div>
+    <div class="ms-grid ms-g3">
+      <label class="ms-f"><span>Who</span>${inp('who', 'Who', ' strong')}</label>
+      <label class="ms-f"><span>Spike</span>${inp('spike', 'Spike')}</label>
+      <label class="ms-f"><span>Note</span>${inp('notes', 'Note')}</label>
+    </div>
+    ${whos.length ? `<div class="ms-pills" id="ms-whos">${whos.map(v => pill('who', v, v.toLowerCase() === whoKey)).join('')}</div>` : ''}
+    <div class="ms-btns">
+      <button class="ms-btn danger" onclick="sheetDelete()">Delete move</button>
+      <button class="ms-btn dashed" onclick="sheetAddMove('${esc(c.id)}')">+ Another move</button>
+      <span style="flex:1"></span>
+      <button class="ms-btn primary" onclick="closeMoveSheet()">Close</button>
+    </div>`;
 }
 
 function toggle(id){ if (editMode) return; expanded[id] = !expanded[id]; render(); }
