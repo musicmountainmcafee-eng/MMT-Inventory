@@ -540,6 +540,9 @@ body:not(.display) #rtshows button{width:100%;display:flex;justify-content:space
 body:not(.display) #rtshows button .m{font-size:14px;letter-spacing:.1em;color:var(--dim);font-weight:600}
 body:not(.display) #rtshows button.on{color:var(--type)}body:not(.display) #rtshows button.on .m{color:var(--amber)}
 body:not(.display) #rtshows button.oth{border-style:dashed;color:var(--dim);justify-content:center;min-height:48px}
+body:not(.display) #rtshows button.oth.open{border-style:solid;color:var(--type)}
+body:not(.display) #rtshows button.more{margin-left:18px;width:calc(100% - 18px)}
+body:not(.display) #rtshows button.oth.on{color:var(--type);border-color:var(--amber)}
 body:not(.display) #rtpreview{border-left:3px solid var(--btnline);padding:4px 0 4px 12px;font-size:17px;line-height:1.35;color:#C9C9CE}
 body:not(.display) #rtstart{min-height:88px;font-size:32px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:6px;background:var(--go);color:#06210F}
 body:not(.display) #rtstart:disabled{background:transparent;border:2px dashed var(--btnline);color:var(--type);opacity:.6;font-size:24px;cursor:default}
@@ -1061,7 +1064,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4.1';
+var VERSION='3.4.2';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1659,12 +1662,21 @@ function go(){
   var lastGo=S.key===f.perf.key&&S.log.length?S.log[S.log.length-1].at:0;
   if(lastGo&&Math.abs(now-lastGo)<GO_GUARD_MS){if(!remoteAt)toast('GO ignored: it was just pressed');return}
   var L=f.L,next=f.idx==null?f.nA:f.idx+1;
+  // A run-through set for later ("In 30 min") that gets its first GO early just
+  // starts now: its start time moves to this GO, so nothing reads "30 min ahead".
+  var moved=null;
+  if(f.idx==null&&S.adhoc&&f.perf.key===S.adhoc.key&&S.adhoc.kind!=='performance'&&S.adhoc.curtain-now>6e4){
+    var dn=new Date(now);
+    moved=Object.assign({},S.adhoc,{curtain:now,date:ymd(dn),time:pad(dn.getHours())+':'+pad(dn.getMinutes())});
+    S.adhoc=moved;f=frame(now);L=f.L;next=f.nA;
+  }
   var log=S.key===f.perf.key?S.log.slice():[];
   log.push({i:next,at:now});
   recordAct(f,now);
   var hw=S.key===f.perf.key?heldWith(now):{};
-  if(next>=L.length)commit({key:f.perf.key,idx:L.length,target:now,paused:false,holdAt:0,held:hw,extra:0,aimAuto:false,log:log,msg:null});
-  else{var en=enterCue(f,next,now);commit({key:f.perf.key,idx:next,target:en.target,paused:false,holdAt:0,held:hw,left:0,extra:en.extra,aimAuto:en.aimAuto,log:log,msg:null})}
+  var up=moved?{adhoc:moved}:{};
+  if(next>=L.length)commit(Object.assign(up,{key:f.perf.key,idx:L.length,target:now,paused:false,holdAt:0,held:hw,extra:0,aimAuto:false,log:log,msg:null}));
+  else{var en=enterCue(f,next,now);commit(Object.assign(up,{key:f.perf.key,idx:next,target:en.target,paused:false,holdAt:0,held:hw,left:0,extra:en.extra,aimAuto:en.aimAuto,log:log,msg:null}))}
 }
 function back(){
   if(techActive(nowMs()))return techUndo();
@@ -1740,6 +1752,13 @@ function handle(txt,live){
     if(m.message.slice(0,5)==='pong:'){if(fresh)notePong(m.message.slice(5));return}
     if(m.message.slice(0,7)==='reload:'){if(fresh)remoteReload(m.message.slice(7),m.time*1000);return}
   }
+  // Settings too big for the relay: it carries only the new stamp, and each
+  // screen fetches the settings themselves from the backend.
+  if(typeof m.message==='string'&&m.message.slice(0,5)==='cfgv:'){
+    var cv=Number(m.message.slice(5))||0;relayCfgV=Math.max(relayCfgV||0,cv);
+    if(cv>(cfg.v||0))loadCfgFromBackend();
+    return;
+  }
   if(typeof m.message==='string'&&m.message.slice(0,4)==='cfg:'){noteRelayCfg(m.message.slice(4));receiveCfg(m.message.slice(4));return}
   if(applyCommand(m.message,m.id,m.time?m.time*1000:null))return;
   try{s=JSON.parse(m.message)}catch(x){return}
@@ -1781,15 +1800,23 @@ function connect(){
 // from an old link days later still picks up the latest.
 var cfgTimer=null,cfgTooBig=false;
 var cfgPending=false,relayCfgV=null;   // relayCfgV: newest schedule stamp seen on the relay
-function sendCfgSoon(){cfgPending=true;clearTimeout(cfgTimer);cfgTimer=setTimeout(function(){sendCfg();saveCfgToBackend()},5000)}
+function sendCfgSoon(){cfgPending=true;clearTimeout(cfgTimer);cfgTimer=setTimeout(sendCfg,5000)}
 function sendCfg(){
-  clearTimeout(cfgTimer);cfgPending=false;
-  if(!cfg.v||typeof fetch==='undefined')return;
+  clearTimeout(cfgTimer);
+  if(!cfg.v||typeof fetch==='undefined'){cfgPending=false;return}
+  // an edit waiting to go out is saved to the backend first (Done inside the
+  // 5 seconds used to skip this save)
+  var saved=cfgPending?saveCfgToBackend():Promise.resolve();cfgPending=false;
   if(relayCfgV!=null&&relayCfgV>=cfg.v)return;       // the relay already has this (or newer)
-  var body='cfg:'+JSON.stringify(cfg);
-  cfgTooBig=body.length>3900;          // the relay only carries about 4 KB
-  if(cfgTooBig){sig='';return}
-  fetch(topicUrl(),{method:'POST',body:body}).then(function(r){if(r.ok)relayCfgV=cfg.v;sent(r)}).catch(function(){});
+  var body='cfg:'+JSON.stringify(cfg),v=cfg.v;
+  // The relay only carries about 4 KB. Bigger settings go out as just their
+  // stamp, once the backend has them, and every screen fetches them from there.
+  if(body.length>3900){
+    saved.then(function(){return fetch(topicUrl(),{method:'POST',body:'cfgv:'+v})})
+      .then(function(r){if(r&&r.ok)relayCfgV=v;if(r)sent(r)}).catch(function(){});
+    return;
+  }
+  fetch(topicUrl(),{method:'POST',body:body}).then(function(r){if(r.ok)relayCfgV=v;sent(r)}).catch(function(){});
 }
 function noteRelayCfg(txt){try{var c=JSON.parse(txt);if(c)relayCfgV=Math.max(relayCfgV||0,c.v||0)}catch(e){}}
 // Shared by both sync paths (the live relay and the durable backend) so a
@@ -1833,8 +1860,11 @@ function loadCfgFromBackend(){
 }
 function saveCfgToBackend(){
   if(typeof fetch==='undefined')return;
-  fetch(BACKEND_URL+'?action=saveKV&key='+CFG_KV_KEY+'&value='+encodeURIComponent(JSON.stringify(cfg))+'&_='+Date.now())
-    .catch(function(){});
+  // POST, like the dashboard: settings this size are too long to ride in a link
+  return fetch(BACKEND_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'saveKV',key:CFG_KV_KEY,value:cfg})})
+    .catch(function(){
+      return fetch(BACKEND_URL+'?action=saveKV&key='+CFG_KV_KEY+'&value='+encodeURIComponent(JSON.stringify(cfg))+'&_='+Date.now()).catch(function(){});
+    });
 }
 loadCfgFromBackend();
 function catchUp(announce){
@@ -2406,7 +2436,7 @@ function tick(){
   var s=[f.idle?'idle':f.perf.key,f.pos,f.idx,f.paused,m,S.n,syncState,S.adhoc?1:0,f.preCall?1:0,f.ready?1:0].join('|');
   if(s===sig)return;sig=s;
   paintPill();
-  $('toobig').hidden=!cfgTooBig;
+  $('toobig').hidden=true;
   $('relaylimit').hidden=!relayLimited;
   $('run').hidden=f.idle;$('idlecard').hidden=!f.idle;
   var onRun=!!(S.adhoc&&!f.idle&&f.perf===S.adhoc);
@@ -3248,9 +3278,29 @@ function rtShows(){
   });
   return out;
 }
-var rtStage='main';
+// Under Other: every other show still to come on either stage (not the two
+// already on the list), soonest first, then a typed name as the last resort.
+function rtMore(){
+  var today=ymd(new Date(NOW())),seen={},out=[];
+  rtShows().forEach(function(r){seen[r.stage+'|'+r.show]=1});
+  [['main',cfg.runs],['kids',kidsCfg().runs]].forEach(function(sr){
+    sr[1].forEach(function(r){
+      if(!r.show||(r.end&&r.end<today)||seen[sr[0]+'|'+r.show])return;
+      seen[sr[0]+'|'+r.show]=1;out.push(Object.assign({},r,{stage:sr[0]}));
+    });
+  });
+  return out.sort(function(a,b){return (a.start||'').localeCompare(b.start||'')});
+}
+function rtRunWhen(r){
+  var today=ymd(new Date(NOW()));
+  if(!r.start||r.start<=today)return 'Now playing';
+  var d=new Date(r.start+'T12:00');
+  return 'Opens '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+var rtStage='main',rtOtherOpen=false,rtPickStage=null;
 function rtStageFor(){
   if(rtShow==='other')return rtStage;
+  if(rtPickStage)return rtPickStage;
   var hit=rtShows().filter(function(r){return r.show===rtShow})[0];
   return hit?hit.stage:rtStage;
 }
@@ -3327,17 +3377,24 @@ $('rttime').oninput=rtPreview;
 function rtChips(){
   var sb=$('rtshows');sb.innerHTML='';
   var shows=rtShows();
-  shows.map(function(r){return r.show}).concat(['other']).forEach(function(v){
-    var hitS=shows.filter(function(r){return r.show===v})[0];
-    var b=document.createElement('button');b.classList.toggle('on',rtShow===v);
-    if(v==='other'){b.textContent='Other\u2026';b.className+=' oth'}
-    else{
-      var sl=hitS?rtSlot(v,hitS.stage):null,st=hitS&&hitS.stage==='kids'?"Children's":'Mainstage';
-      b.innerHTML='<span class="n"></span><span class="m"></span>';
-      b.querySelector('.n').textContent=v;b.querySelector('.m').textContent=st+(sl?' \u00B7 '+pretty(sl.time):'');
-    }
-    b.onclick=function(){rtShow=v;rtChips()};sb.appendChild(b);
+  var chip=function(name,meta,on,cls,fn){
+    var b=document.createElement('button');b.classList.toggle('on',on);if(cls)b.className+=' '+cls;
+    if(meta==null)b.textContent=name;
+    else{b.innerHTML='<span class="n"></span><span class="m"></span>';b.querySelector('.n').textContent=name;b.querySelector('.m').textContent=meta}
+    b.onclick=fn;sb.appendChild(b);
+  };
+  var stLab=function(s){return s==='kids'?"Children's":'Mainstage'};
+  shows.forEach(function(r){
+    var sl=rtSlot(r.show,r.stage);
+    chip(r.show,stLab(r.stage)+(sl?' \u00B7 '+pretty(sl.time):''),!rtOtherOpen&&rtShow===r.show,'',function(){rtShow=r.show;rtPickStage=r.stage;rtOtherOpen=false;rtChips()});
   });
+  chip(rtOtherOpen?'Other shows':'Other\u2026',null,false,'oth'+(rtOtherOpen?' open':''),function(){rtOtherOpen=!rtOtherOpen;if(rtOtherOpen){rtShow=null;rtPickStage=null}rtChips()});
+  if(rtOtherOpen){
+    rtMore().forEach(function(r){
+      chip(r.show,stLab(r.stage)+' \u00B7 '+rtRunWhen(r),rtShow===r.show&&rtPickStage===r.stage,'more',function(){rtShow=r.show;rtPickStage=r.stage;rtChips()});
+    });
+    chip('Type a name\u2026',null,rtShow==='other','more oth',function(){rtShow='other';rtPickStage=null;rtChips();$('rtname').focus()});
+  }
   var stb=$('rtstage');stb.hidden=rtShow!=='other';stb.innerHTML='';
   [['main','Mainstage'],['kids',"Children's Theatre"]].forEach(function(o){
     var b=document.createElement('button');b.textContent=o[1];b.classList.toggle('on',rtStage===o[0]);
@@ -3357,7 +3414,7 @@ function rtFirst(){
   openRT();
 }
 function rtClose(){$('rtpanel').hidden=true;document.body.classList.remove('picking');window.scrollTo(0,0)}
-function openRT(){document.body.classList.add('picking');rtShow=null;rtStage=CURST;rtKind=null;rtWhen='now';rtLead=0;$('rttime').value='';$('rtname').value='';rtChips();rtKindChips();rtLeadChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
+function openRT(){document.body.classList.add('picking');rtShow=null;rtPickStage=null;rtOtherOpen=false;rtStage=CURST;rtKind=null;rtWhen='now';rtLead=0;$('rttime').value='';$('rtname').value='';rtChips();rtKindChips();rtLeadChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
 function endRT(){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false,holdAt:0,held:{}});rtFirst();window.scrollTo(0,0)}   // back to the picker, the controller's main screen
 $('rtname').oninput=rtPreview;
 $('rehearse').onclick=function(){
