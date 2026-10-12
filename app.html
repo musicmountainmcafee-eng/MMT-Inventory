@@ -6171,7 +6171,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.12 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.12 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -15424,8 +15424,15 @@ function onCueRowTap(id) {
     editCue(id);
     return;
   }
-  jumpToCue(id);
+  // Click: just take the script to it. Double-click: open its details at the
+  // bottom (the set change grid for a SHIFT). Timed by hand so a double-tap
+  // on a touch screen works the same as a double-click.
+  const now = Date.now();
+  if (_cueTap.id === id && now - _cueTap.t < 420) { _cueTap = { id: null, t: 0 }; selectCue(id); return; }
+  _cueTap = { id, t: now };
+  jumpToCue(id, true);
 }
+let _cueTap = { id: null, t: 0 };
 
 function ceShowOnScript() {
   const id = editingCueId;
@@ -15951,12 +15958,12 @@ function renderCueList() {
       // Scenes divide the list, the way they divide the cue sheet.
       if (c.type === SCENE_TYPE_ID) {
         const label = [c.number, c.action].map(v => String(v || '').trim()).filter(Boolean).join(' · ') || 'Scene';
-        return `<tr class="ct-scene" data-cue-id="${c.id}" onclick="onCueRowTap('${c.id}')" ondblclick="editCue('${c.id}')">
+        return `<tr class="ct-scene" data-cue-id="${c.id}" onclick="onCueRowTap('${c.id}')">
           <td colspan="6"><span>${esc(label)}</span><small>p.${c.page}</small></td></tr>`;
       }
       // The chip already says the type, so "SHIFT 3" reads as just "3".
       const num = seShortNum(c.number, typeName);
-      const row = `<tr data-cue-id="${c.id}" onclick="onCueRowTap('${c.id}')" ondblclick="editCue('${c.id}')">
+      const row = `<tr data-cue-id="${c.id}" onclick="onCueRowTap('${c.id}')">
         <td><span class="ct-type" style="background:${color}">${typeName}</span></td>
         <td class="ct-num">${esc(num)}</td>
         <td class="ct-action">${esc(c.action || '')}${isShift ? `<span class="ct-moves">${nMoves} move${nMoves !== 1 ? 's' : ''}</span>` : ''}</td>
@@ -16639,7 +16646,7 @@ function moveCommit(vocabKind, val) {
 }
 
 // Click a cue in the panel → flip to its page and scroll the script to its marker.
-function jumpToCue(id) {
+function jumpToCue(id, quiet) {
   const c = cues.find(c => c.id === id);
   if (!c) return;
   const doScroll = () => {
@@ -16665,7 +16672,12 @@ function jumpToCue(id) {
         flashCueMarker(a);
       }
     }
-    selectCue(id);
+    if (!quiet) { selectCue(id); return; }
+    // Jump only: close another cue's details, and mark this row.
+    if (selectedCueId && selectedCueId !== id) clearCueSelection();
+    document.querySelectorAll('.cue-table tr.cue-selected').forEach(r => r.classList.remove('cue-selected'));
+    const row = document.querySelector('.cue-table tr[data-cue-id="' + id + '"]');
+    if (row) { row.classList.add('cue-selected'); if (row.scrollIntoView) row.scrollIntoView({ block: 'nearest' }); }
   };
   if (c.page !== currentPage) {
     savePageAnnotations();
