@@ -348,6 +348,11 @@ body.display.full #big,body.display.full #measure{font-weight:700}
 body.display.full #slug{font-weight:700;letter-spacing:.14em}
 body.display.full #sub{font-weight:600;letter-spacing:.07em}
 body.display.full #ident{letter-spacing:.08em;color:#A9ACBB}
+/* view only on a phone held upright: the clock on its own line, the show under it */
+@media (orientation:portrait){
+  body.display.full.view #wall{left:4vw;right:4vw;text-align:left;font-size:max(22px,4.4vh)}
+  body.display.full.view #ident{top:calc(max(2vh,env(safe-area-inset-top,0px)) + max(34px,6.4vh));left:4vw;right:4vw;max-width:none;flex-wrap:wrap;row-gap:6px;font-size:max(16px,2.6vh)}
+}
 button,input,select,textarea{font-family:inherit}
 .bar{border-bottom:0;padding-bottom:4px;margin-bottom:8px;align-items:flex-start}
 .bar>div:first-child{min-width:0}
@@ -1010,6 +1015,11 @@ body:not(.display) #toast{font-family:'Barlow Condensed',sans-serif;font-size:17
       <div class="link" id="lk-full"></div>
       <button class="small" data-copy="full">Copy full-screen link</button>
       <div style="height:14px"></div>
+      <label>View only (cast, crew, anyone's phone)</label>
+      <p class="hint" style="margin-bottom:8px">Shows the full-screen display and nothing to press. It never touches the sync relay, so any number of people can open it. It checks for changes about every 20 seconds, so a GO or a call can take that long to show up.</p>
+      <div class="link" id="lk-view"></div>
+      <button class="small" data-copy="view">Copy view-only link</button>
+      <div style="height:14px"></div>
       <label>A small display window with no browser bars</label>
       <p class="hint" style="margin-bottom:8px">Download a launcher on the computer that will show the display. It already has this display's link inside. Unzip it and double-click it, then drag the window to any size. On a Mac, if it's blocked the first time, open System Settings, Privacy &amp; Security, scroll down and click Open Anyway. Needs Firefox or Chrome on a Mac (Chrome or Edge on Windows). You can also get it from the display itself: move the mouse over a full-screen display.</p>
       <div class="row"><button class="small" id="dl-mac">Launcher for Mac</button><button class="small" id="dl-win">Launcher for Windows</button></div>
@@ -1068,7 +1078,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev18';
+var VERSION='3.4-dev19';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1078,6 +1088,7 @@ var SYNC_HOST='https://ntfy.envs.net/';
 // real settings on load instead of falling back to blank defaults.
 var BACKEND_URL='https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
 var CFG_KV_KEY='timer_cfg_dev';
+var STATE_KV_KEY='timer_state_dev';   // the show state, for view-only screens
 var LIVE_CFG_KV_KEY='timer_cfg';   // read-only seed: the dev copy starts with the live settings but never writes to them
 var DEFAULT={
   template:[
@@ -1183,8 +1194,13 @@ sset('mmt-timer-cfg-dev',enc(cfg));
 (function(){var b=document.createElement('div');b.id='devbadge';b.textContent='DEV';
   b.style.cssText='position:fixed;left:8px;bottom:8px;z-index:99999;background:#7A1FA2;color:#fff;font:700 12px/1 system-ui,sans-serif;letter-spacing:.14em;padding:5px 8px;border-radius:6px;opacity:.9;pointer-events:none';
   document.body.appendChild(b)})();
-var isDisplay=hp('v')==='display';
+// View only: the full-screen display for anyone's phone. It never connects to
+// the relay (the free relay can't take a crowd); it reads the state the
+// controllers save to the backend instead.
+var isView=hp('v')==='view';
+var isDisplay=hp('v')==='display'||isView;
 if(isDisplay)document.body.classList.add('display');
+if(isView)document.body.classList.add('full','view');
 // ---------- full screen ----------
 // Pages can't hide the browser's bars, but full screen hides all of it. The
 // button only shows in windows opened from a controller (pop=1), never on the
@@ -1298,10 +1314,39 @@ var remoteAt=null;
 function nowMs(){return remoteAt||NOW()}
 function commit(patch){
   Object.assign(S,patch);S.n=(S.n||0)+1;
-  if(remoteAt){S.t=remoteAt;S.by='deck';sset('mmt-timer-shared-dev',JSON.stringify(S));draw();return}
+  if(remoteAt){S.t=remoteAt;S.by='deck';sset('mmt-timer-shared-dev',JSON.stringify(S));saveStateSoon();draw();return}
   S.t=NOW();S.by=ME;
   sset('mmt-timer-shared-dev',JSON.stringify(S));
-  publish();draw();
+  publish();saveStateSoon();draw();
+}
+// ---------- view only ----------
+// Controllers leave a copy of the state on the backend a moment after every
+// press. View-only screens read it every ~20 seconds (never the relay), and
+// work out every countdown in between from the settings, like any display.
+var stTimer=null;
+function saveStateSoon(){
+  if(isDisplay||typeof fetch==='undefined')return;
+  clearTimeout(stTimer);
+  stTimer=setTimeout(function(){
+    fetch(BACKEND_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'saveKV',key:STATE_KV_KEY,value:{s:S,cv:cfg.v||0,at:Date.now()}})}).catch(function(){});
+  },1500);
+}
+var viewTimer=null,viewGen=0,VIEW_MS=20000;
+function viewPoll(){
+  clearTimeout(viewTimer);
+  if(typeof fetch==='undefined'||document.visibilityState==='hidden')return;   // picks up again when the phone comes back
+  var gen=++viewGen;
+  fetch(BACKEND_URL+'?action=getKV&key='+STATE_KV_KEY+'&_='+Date.now()).then(function(r){return r.json()})
+    .then(function(d){
+      var v=d&&d.value;syncState='live';
+      if(v&&typeof v==='object'){
+        if(v.cv&&v.cv>(cfg.v||0))loadCfgFromBackend();
+        if(v.s)receive(v.s);
+      }
+    })
+    .catch(function(){syncState='down'})
+    .then(function(){if(gen===viewGen)viewTimer=setTimeout(viewPoll,VIEW_MS+Math.random()*5000)});
 }
 var DECK={
   go:function(){go()},back:function(){back()},hold:function(){hold()},ready:function(){houseToggle()},plus:function(){plusOne()},minus:function(){adjust(-60)},
@@ -1782,6 +1827,7 @@ function hangUp(){
 }
 function again(){clearTimeout(retry);retry=setTimeout(connect,backoff);backoff=Math.min(backoff*2,30000)}
 function connect(){
+  if(isView){viewPoll();return}
   hangUp();
   syncState='connecting';paintPill();
   if(typeof WebSocket!=='undefined'){
@@ -1810,7 +1856,7 @@ var cfgTimer=null,cfgTooBig=false;
 var cfgPending=false,relayCfgV=null;   // relayCfgV: newest schedule stamp seen on the relay
 function sendCfgSoon(){cfgPending=true;clearTimeout(cfgTimer);cfgTimer=setTimeout(sendCfg,5000)}
 function sendCfg(){
-  clearTimeout(cfgTimer);
+  clearTimeout(cfgTimer);if(isView){cfgPending=false;return}
   if(!cfg.v||typeof fetch==='undefined'){cfgPending=false;return}
   // an edit waiting to go out is saved to the backend first (Done inside the
   // 5 seconds used to skip this save)
@@ -1833,7 +1879,7 @@ function noteRelayCfg(txt){try{var c=JSON.parse(txt);if(c)relayCfgV=Math.max(rel
 function applyIncomingCfg(c){
   cfg=c;normalizeCfg();
   sset('mmt-timer-cfg-dev',enc(cfg));
-  try{history.replaceState(null,'',linkFor(isDisplay?(document.body.classList.contains('full')?'full':'display'):''))}catch(e){}
+  try{history.replaceState(null,'',linkFor(isView?'view':isDisplay?(document.body.classList.contains('full')?'full':'display'):''))}catch(e){}
   fitKey='';
   if(!$('settings').hidden){
     drawTimes();drawRuns();drawTpl();drawPreview();drawLinks();
@@ -1877,7 +1923,7 @@ function saveCfgToBackend(){
 }
 loadCfgFromBackend();
 function catchUp(announce){
-  if(typeof fetch==='undefined')return;
+  if(isView||typeof fetch==='undefined')return;
   fetch(topicUrl()+'/json?poll=1&since=all')
     .then(function(r){if(r.status===429){relayLimited=true;sig='';paintPill()}return r.ok?r.text():''})
     .then(function(t){
@@ -1903,7 +1949,7 @@ function sent(r){
   syncState='down';paintPill();
 }
 function publish(){
-  if(typeof fetch==='undefined')return;
+  if(isView||typeof fetch==='undefined')return;
   fetch(topicUrl(),{method:'POST',body:JSON.stringify(S)})
     .then(sent)
     .catch(function(){syncState='down';paintPill()});
@@ -1931,7 +1977,7 @@ function devLabel(){
   return role+' ('+pl+')';
 }
 function soundState(){return !isDisplay?'-':!soundWanted()?'off':soundReady?'ready':'needs a tap'}
-function sendMsg(t){if(typeof fetch==='undefined')return;fetch(topicUrl(),{method:'POST',body:t}).catch(function(){})}
+function sendMsg(t){if(isView||typeof fetch==='undefined')return;fetch(topicUrl(),{method:'POST',body:t}).catch(function(){})}
 function replyPong(pid){
   if(pid.indexOf(DEVID+'.')===0){if(pid===CHK.id&&CHK.rtt==null){CHK.rtt=Date.now()-CHK.at;paintCheck()}return}   // our own ping coming back
   // one answer per check (a check right after the connection test still gets its own)
@@ -2237,7 +2283,7 @@ function paintPill(){
 var AC=null,soundReady=false,chimeQuietUntil=Date.now()+4000;
 function soundKey(){return document.body.classList.contains('full')?'mmt-chime':'mmt-chime-cap'}
 function soundWanted(){
-  if(!isDisplay)return false;
+  if(!isDisplay||isView)return false;   // no chimes on people's phones
   return sget(soundKey())!=='0';
 }
 function unlockSound(){
@@ -3655,6 +3701,7 @@ $('done').onclick=function(){$('settings').hidden=true;document.body.classList.r
 
 function linkFor(view){
   var base=location.href.split('#')[0];
+  if(view==='view')return base+'#v=view';   // short: the settings come from the backend
   return base+'#s='+enc(cfg)+(view==='display'?'&v=display':view==='full'?'&v=display&mode=full':'');
 }
 function deckUrl(cmd){return topicUrl()+'/publish?message='+encodeURIComponent('cmd:'+cmd)}
@@ -3674,7 +3721,7 @@ function drawDeck(){
 }
 function drawLinks(){
   drawDeck();
-  $('lk-control').textContent=linkFor('');$('lk-display').textContent=linkFor('display');$('lk-full').textContent=linkFor('full');
+  $('lk-control').textContent=linkFor('');$('lk-display').textContent=linkFor('display');$('lk-full').textContent=linkFor('full');$('lk-view').textContent=linkFor('view');
 }
 Array.prototype.forEach.call(document.querySelectorAll('[data-copy]'),function(b){
   var label=b.textContent;b.onclick=function(){copy(linkFor(b.dataset.copy),b,label)};
@@ -3684,7 +3731,7 @@ function persist(){
   cfg.v=NOW();
   sset('mmt-timer-cfg-dev',enc(cfg));
   sendCfgSoon();
-  try{history.replaceState(null,'',linkFor(isDisplay?(document.body.classList.contains('full')?'full':'display'):''))}catch(e){}
+  try{history.replaceState(null,'',linkFor(isView?'view':isDisplay?(document.body.classList.contains('full')?'full':'display'):''))}catch(e){}
   drawPreview();drawLinks();sig='';
 }
 
