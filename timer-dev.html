@@ -1064,7 +1064,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev12';
+var VERSION='3.4-dev13';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2147,7 +2147,13 @@ function paintUpd(){
 function refreshDisplays(){
   var now=NOW();
   if(!safeToReload(now)&&!confirm('Something is running. Refreshing blanks the displays for a few seconds. Refresh them anyway?'))return;
-  sendMsg('reload:all|'+DEVID+'.'+now);toast('Refreshing every display\u2026');
+  var n=DEVID+'.'+now;sendMsg('reload:all|'+n);
+  // Displays on 3.3 and earlier only reload when named: name each display seen
+  // in a Check (the Wyse, once it has answered one) as well.
+  var k=knownDevs(),ids={};Object.keys(k).forEach(function(d){if(/display/i.test(k[d].label||''))ids[d]=1});
+  if(CHK&&CHK.pongs)Object.keys(CHK.pongs).forEach(function(d){if(/display/i.test(CHK.pongs[d].label||''))ids[d]=1});
+  Object.keys(ids).forEach(function(d){if(d!==DEVID)sendMsg('reload:'+d+'|'+n)});
+  toast('Refreshing every display\u2026');
 }
 setTimeout(verCheck,20000);setInterval(verCheck,10*6e4);setInterval(function(){if(isDisplay&&updVer)paintUpd()},6e4);
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')verCheck()});
