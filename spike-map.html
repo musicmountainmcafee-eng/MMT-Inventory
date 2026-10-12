@@ -132,6 +132,13 @@ try {
   .sw { width: 62px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 0; border: none; background: none; font-size: 12px; font-weight: 500; color: var(--text); }
   .sw i { display: block; width: 54px; height: 30px; border-radius: 5px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.16); }
   .sw.on i { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--purple); }
+  .sw-del i { position: relative; }
+  .sw-del i b { position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; border-radius: 11px; background: #b02a20; color: #fff; font-size: 15px; line-height: 21px; text-align: center; box-shadow: 0 0 0 2px var(--surface); }
+  .sw-edit i { display: flex; align-items: center; justify-content: center; background: var(--band); color: var(--purple-dark); font-style: normal; font-size: 16px; box-shadow: inset 0 0 0 1px var(--border-2); }
+  .pal-add { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+  .pal-add .txt { flex: 1 1 180px; min-height: 44px; padding: 0 12px; border: 1px solid var(--border-2); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 16px; }
+  .pal-add input[type=color] { width: 52px; height: 44px; padding: 2px; border: 1px solid var(--border-2); border-radius: 10px; background: none; }
+  .pal-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
   .styles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
   .style-opt { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 12px; border: 1px solid var(--border-2); border-radius: 12px; background: var(--surface); text-align: left; color: var(--text); }
   .style-opt .tape { width: 64px; height: 32px; }
@@ -256,9 +263,10 @@ const BOARD = [
   ['White', '#ffffff'], ['Lt blue', '#3d9ef0'], ['Orange', '#ff5a1f'], ['Brown', '#a0826a'],
   ['Pink', '#ff3d8b'], ['Red', '#d7262e']
 ];
-const TAPES = BOARD.concat([
-  ['Blue', '#1f5fbf'], ['Navy', '#1d2b5c'], ['Purple', '#7a3fb0'], ['Gray', '#8d8d96'], ['Black', '#1a1a1a']
-]);
+// The tape you can pick from in the editor. It's yours to edit (Edit list in
+// the editor) and saves with the map as data.tapes; until then it's the board.
+const TAPES = BOARD;
+function palette(){ return Array.isArray(data.tapes) && data.tapes.length ? data.tapes : BOARD; }
 const MARKS = [
   ['corners', 'Corners', '<path d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6"/>'],
   ['t',       "T's",     '<path d="M3 4h18M12 4v16"/>'],
@@ -432,6 +440,8 @@ function applyOp(d, op){
   if (op.t === 'houseUpsert'){
     const i = d.house.findIndex(e => e.id === op.e.id);
     if (i >= 0) d.house[i] = clone(op.e); else d.house.push(clone(op.e));
+  } else if (op.t === 'tapesSet'){
+    d.tapes = clone(op.list);
   } else if (op.t === 'houseOrder'){
     const at = id => { const i = op.ids.indexOf(id); return i < 0 ? 1e6 : i; };
     d.house = d.house.map((e, i) => [e, i]).sort((a, b) => (at(a[0].id) - at(b[0].id)) || (a[1] - b[1])).map(x => x[0]);
@@ -688,10 +698,20 @@ function renderEditor(){
   const e = ed.e;
   const title = ed.kind === 'new' ? 'New color' : 'Edit color';
   const dup = sameTape(e);
-  const swatches = TAPES.map(([n, c]) => {
+  const pal = palette().slice();
+  // A colour this entry already uses stays pickable even if it's off the list.
+  [[e.c1n, e.c1], [e.c2n, e.c2]].forEach(([n, c]) => { if (c && !pal.some(t => t[1] === c)) pal.push([n || 'Other', c, true]); });
+  const swatches = pal.map(([n, c, off], i) => {
     const on = ed.slot === 2 ? e.c2 === c : e.c1 === c;
+    if (ed.palEdit) return off ? '' : `<button class="sw sw-del" aria-label="Remove ${esc(n)} from the list" onclick="tapeRemove(${i})"><i style="background:${c}"><b>×</b></i>${esc(n)}</button>`;
     return `<button class="sw${on ? ' on' : ''}" onclick="pickTape('${c}','${esc(n)}')"><i style="background:${c}"></i>${esc(n)}</button>`;
-  }).join('');
+  }).join('') + (ed.palEdit ? '' : `<button class="sw sw-edit" onclick="ed.palEdit=true;renderEditor()"><i>✎</i>Edit list</button>`);
+  const palEditor = ed.palEdit ? `<div class="pal-add">
+      <input id="pal-name" class="txt" placeholder="New tape name, e.g. Fl. purple" autocomplete="off">
+      <input id="pal-hex" type="color" value="#7a3fb0" aria-label="Tape color">
+      <button class="btn" onclick="tapeAdd()">Add</button>
+      <button class="btn primary" onclick="ed.palEdit=false;renderEditor()">Done</button></div>
+    <div class="pal-hint">Tap × to take a tape off the list. Colors already in use stay on the map.</div>` : '';
   const marks = MARKS.map(m => `<button class="pill${e.mark === m[0] ? ' on' : ''}" onclick="pickMark('${m[0]}')">${markHTML(m[0], 18)}</button>`).join('');
 
   // The tab decides what a change touches: This show changes this show only,
@@ -720,7 +740,7 @@ function renderEditor(){
     ${ed.two ? `<div class="slots">Setting:
       <button class="slot${ed.slot === 1 ? ' on' : ''}" onclick="setSlot(1)"><i style="background:${e.c1}"></i>First · ${esc(e.c1n)}</button>
       <button class="slot${ed.slot === 2 ? ' on' : ''}" onclick="setSlot(2)"><i style="background:${e.c2 || 'transparent'}"></i>Second · ${esc(e.c2n || 'pick one')}</button></div>` : ''}
-    <div class="swatches">${swatches}</div>
+    <div class="swatches">${swatches}</div>${palEditor}
     ${ed.two ? `<div class="f-lbl">Laid as</div>
       <div class="styles">${STYLES.map(([v, l, d]) => `<button class="style-opt${(e.style || 'tab') === v ? ' on' : ''}" onclick="pickStyle('${v}')">
         ${tapeHTML({ c1: e.c1, c2: e.c2 || '#ffffff', style: v })}<span><b>${esc(l)}</b><small>${esc(d)}</small></span></button>`).join('')}</div>` : ''}
@@ -767,6 +787,21 @@ function refreshTapePreview(){
 function pickTape(c, n){
   if (ed.two && ed.slot === 2){ ed.e.c2 = c; ed.e.c2n = n; }
   else { ed.e.c1 = c; ed.e.c1n = n; if (ed.two) ed.slot = 2; }
+  renderEditor();
+}
+function tapeRemove(i){
+  const list = palette().slice();
+  list.splice(i, 1);
+  commit({ t: 'tapesSet', list });
+  renderEditor();
+}
+function tapeAdd(){
+  const n = (document.getElementById('pal-name').value || '').trim();
+  const c = (document.getElementById('pal-hex').value || '').toLowerCase();
+  if (!n){ document.getElementById('pal-name').focus(); return; }
+  const list = palette().filter(t => t[0].toLowerCase() !== n.toLowerCase());
+  list.push([n, c]);
+  commit({ t: 'tapesSet', list });
   renderEditor();
 }
 function pickMark(m){ ed.e.mark = ed.e.mark === m ? '' : m; renderEditor(); }
@@ -848,7 +883,11 @@ function boardPlan(){
   });
   return plan;
 }
-function boardMissing(){ return boardPlan().filter(p => !p.h || String(p.h.c1).toLowerCase() !== p.hex || p.h.c1n !== p.name); }
+// Offered once: after the board's been matched (any of its own colours is in
+// the house list) or the tape list has been edited, it never shows again.
+const BOARD_ONLY = ['fl. green', 'fl. yellow', 'lime yellow', 'lt blue'];
+function boardDone(){ return Array.isArray(data.tapes) || (data.house || []).some(h => BOARD_ONLY.includes(String(h.c1n || '').toLowerCase())); }
+function boardMissing(){ if (boardDone()) return []; return boardPlan().filter(p => !p.h || String(p.h.c1).toLowerCase() !== p.hex || p.h.c1n !== p.name); }
 function matchBoard(){
   const plan = boardPlan(), todo = plan.filter(p => !p.h || String(p.h.c1).toLowerCase() !== p.hex || p.h.c1n !== p.name);
   if (!todo.length) return;
@@ -870,7 +909,7 @@ function matchBoard(){
 
 function seedStandard(){
   if ((data.house || []).length) return;
-  TAPES.forEach(([n, c]) => commit({ t: 'houseUpsert', e: { id: uid(), label: '', c1: c, c1n: n, c2: null, c2n: '', mark: '', note: '' } }));
+  palette().forEach(([n, c]) => commit({ t: 'houseUpsert', e: { id: uid(), label: '', c1: c, c1n: n, c2: null, c2n: '', mark: '', note: '' } }));
 }
 
 // ── Shows ───────────────────────────────────────────────────────────────────
