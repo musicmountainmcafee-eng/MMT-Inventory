@@ -540,6 +540,9 @@ body:not(.display) #rtshows button{width:100%;display:flex;justify-content:space
 body:not(.display) #rtshows button .m{font-size:14px;letter-spacing:.1em;color:var(--dim);font-weight:600}
 body:not(.display) #rtshows button.on{color:var(--type)}body:not(.display) #rtshows button.on .m{color:var(--amber)}
 body:not(.display) #rtshows button.oth{border-style:dashed;color:var(--dim);justify-content:center;min-height:48px}
+body:not(.display) #rtshows button.oth.open{border-style:solid;color:var(--type)}
+body:not(.display) #rtshows button.more{margin-left:18px;width:calc(100% - 18px)}
+body:not(.display) #rtshows button.oth.on{color:var(--type);border-color:var(--amber)}
 body:not(.display) #rtpreview{border-left:3px solid var(--btnline);padding:4px 0 4px 12px;font-size:17px;line-height:1.35;color:#C9C9CE}
 body:not(.display) #rtstart{min-height:88px;font-size:32px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:6px;background:var(--go);color:#06210F}
 body:not(.display) #rtstart:disabled{background:transparent;border:2px dashed var(--btnline);color:var(--type);opacity:.6;font-size:24px;cursor:default}
@@ -1065,7 +1068,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev14';
+var VERSION='3.4-dev15';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -3257,9 +3260,29 @@ function rtShows(){
   });
   return out;
 }
-var rtStage='main';
+// Under Other: every other show still to come on either stage (not the two
+// already on the list), soonest first, then a typed name as the last resort.
+function rtMore(){
+  var today=ymd(new Date(NOW())),seen={},out=[];
+  rtShows().forEach(function(r){seen[r.stage+'|'+r.show]=1});
+  [['main',cfg.runs],['kids',kidsCfg().runs]].forEach(function(sr){
+    sr[1].forEach(function(r){
+      if(!r.show||(r.end&&r.end<today)||seen[sr[0]+'|'+r.show])return;
+      seen[sr[0]+'|'+r.show]=1;out.push(Object.assign({},r,{stage:sr[0]}));
+    });
+  });
+  return out.sort(function(a,b){return (a.start||'').localeCompare(b.start||'')});
+}
+function rtRunWhen(r){
+  var today=ymd(new Date(NOW()));
+  if(!r.start||r.start<=today)return 'Now playing';
+  var d=new Date(r.start+'T12:00');
+  return 'Opens '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+var rtStage='main',rtOtherOpen=false,rtPickStage=null;
 function rtStageFor(){
   if(rtShow==='other')return rtStage;
+  if(rtPickStage)return rtPickStage;
   var hit=rtShows().filter(function(r){return r.show===rtShow})[0];
   return hit?hit.stage:rtStage;
 }
@@ -3336,17 +3359,24 @@ $('rttime').oninput=rtPreview;
 function rtChips(){
   var sb=$('rtshows');sb.innerHTML='';
   var shows=rtShows();
-  shows.map(function(r){return r.show}).concat(['other']).forEach(function(v){
-    var hitS=shows.filter(function(r){return r.show===v})[0];
-    var b=document.createElement('button');b.classList.toggle('on',rtShow===v);
-    if(v==='other'){b.textContent='Other\u2026';b.className+=' oth'}
-    else{
-      var sl=hitS?rtSlot(v,hitS.stage):null,st=hitS&&hitS.stage==='kids'?"Children's":'Mainstage';
-      b.innerHTML='<span class="n"></span><span class="m"></span>';
-      b.querySelector('.n').textContent=v;b.querySelector('.m').textContent=st+(sl?' \u00B7 '+pretty(sl.time):'');
-    }
-    b.onclick=function(){rtShow=v;rtChips()};sb.appendChild(b);
+  var chip=function(name,meta,on,cls,fn){
+    var b=document.createElement('button');b.classList.toggle('on',on);if(cls)b.className+=' '+cls;
+    if(meta==null)b.textContent=name;
+    else{b.innerHTML='<span class="n"></span><span class="m"></span>';b.querySelector('.n').textContent=name;b.querySelector('.m').textContent=meta}
+    b.onclick=fn;sb.appendChild(b);
+  };
+  var stLab=function(s){return s==='kids'?"Children's":'Mainstage'};
+  shows.forEach(function(r){
+    var sl=rtSlot(r.show,r.stage);
+    chip(r.show,stLab(r.stage)+(sl?' \u00B7 '+pretty(sl.time):''),!rtOtherOpen&&rtShow===r.show,'',function(){rtShow=r.show;rtPickStage=r.stage;rtOtherOpen=false;rtChips()});
   });
+  chip(rtOtherOpen?'Other shows':'Other\u2026',null,false,'oth'+(rtOtherOpen?' open':''),function(){rtOtherOpen=!rtOtherOpen;if(rtOtherOpen){rtShow=null;rtPickStage=null}rtChips()});
+  if(rtOtherOpen){
+    rtMore().forEach(function(r){
+      chip(r.show,stLab(r.stage)+' \u00B7 '+rtRunWhen(r),rtShow===r.show&&rtPickStage===r.stage,'more',function(){rtShow=r.show;rtPickStage=r.stage;rtChips()});
+    });
+    chip('Type a name\u2026',null,rtShow==='other','more oth',function(){rtShow='other';rtPickStage=null;rtChips();$('rtname').focus()});
+  }
   var stb=$('rtstage');stb.hidden=rtShow!=='other';stb.innerHTML='';
   [['main','Mainstage'],['kids',"Children's Theatre"]].forEach(function(o){
     var b=document.createElement('button');b.textContent=o[1];b.classList.toggle('on',rtStage===o[0]);
@@ -3366,7 +3396,7 @@ function rtFirst(){
   openRT();
 }
 function rtClose(){$('rtpanel').hidden=true;document.body.classList.remove('picking');window.scrollTo(0,0)}
-function openRT(){document.body.classList.add('picking');rtShow=null;rtStage=CURST;rtKind=null;rtWhen='now';rtLead=0;$('rttime').value='';$('rtname').value='';rtChips();rtKindChips();rtLeadChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
+function openRT(){document.body.classList.add('picking');rtShow=null;rtPickStage=null;rtOtherOpen=false;rtStage=CURST;rtKind=null;rtWhen='now';rtLead=0;$('rttime').value='';$('rtname').value='';rtChips();rtKindChips();rtLeadChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
 function endRT(){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false,holdAt:0,held:{}});rtFirst();window.scrollTo(0,0)}   // back to the picker, the controller's main screen
 $('rtname').oninput=rtPreview;
 $('rehearse').onclick=function(){
