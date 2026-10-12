@@ -1064,7 +1064,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4.2';
+var VERSION='3.4.3';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -3386,14 +3386,20 @@ function rtChips(){
   var stLab=function(s){return s==='kids'?"Children's":'Mainstage'};
   shows.forEach(function(r){
     var sl=rtSlot(r.show,r.stage);
-    chip(r.show,stLab(r.stage)+(sl?' \u00B7 '+pretty(sl.time):''),!rtOtherOpen&&rtShow===r.show,'',function(){rtShow=r.show;rtPickStage=r.stage;rtOtherOpen=false;rtChips()});
+    chip(r.show,stLab(r.stage)+(sl?' \u00B7 '+pretty(sl.time):''),rtShow===r.show&&rtPickStage===r.stage,'',function(){rtShow=r.show;rtPickStage=r.stage;rtOtherOpen=false;rtChips()});
   });
-  chip(rtOtherOpen?'Other shows':'Other\u2026',null,false,'oth'+(rtOtherOpen?' open':''),function(){rtOtherOpen=!rtOtherOpen;if(rtOtherOpen){rtShow=null;rtPickStage=null}rtChips()});
+  // Other works like a drop-down: it opens the list, a pick closes it again and
+  // the pick takes Other's place, so Start is right there.
+  var more=rtMore(),picked=rtShow==='other'?null:more.filter(function(r){return r.show===rtShow&&r.stage===rtPickStage})[0];
+  var arrow=rtOtherOpen?' \u25B4':' \u25BE',toggle=function(){rtOtherOpen=!rtOtherOpen;rtChips()};
+  if(!rtOtherOpen&&picked)chip(picked.show,stLab(picked.stage)+' \u00B7 '+rtRunWhen(picked)+arrow,true,'',toggle);
+  else if(!rtOtherOpen&&rtShow==='other')chip('Typed name'+arrow,null,true,'oth',toggle);
+  else chip('Other shows'+arrow,null,false,'oth'+(rtOtherOpen?' open':''),toggle);
   if(rtOtherOpen){
-    rtMore().forEach(function(r){
-      chip(r.show,stLab(r.stage)+' \u00B7 '+rtRunWhen(r),rtShow===r.show&&rtPickStage===r.stage,'more',function(){rtShow=r.show;rtPickStage=r.stage;rtChips()});
+    more.forEach(function(r){
+      chip(r.show,stLab(r.stage)+' \u00B7 '+rtRunWhen(r),rtShow===r.show&&rtPickStage===r.stage,'more',function(){rtShow=r.show;rtPickStage=r.stage;rtOtherOpen=false;rtChips()});
     });
-    chip('Type a name\u2026',null,rtShow==='other','more oth',function(){rtShow='other';rtPickStage=null;rtChips();$('rtname').focus()});
+    chip('Type a name\u2026',null,rtShow==='other','more oth',function(){rtShow='other';rtPickStage=null;rtOtherOpen=false;rtChips();$('rtname').focus()});
   }
   var stb=$('rtstage');stb.hidden=rtShow!=='other';stb.innerHTML='';
   [['main','Mainstage'],['kids',"Children's Theatre"]].forEach(function(o){
