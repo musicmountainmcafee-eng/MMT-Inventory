@@ -86,9 +86,7 @@ try {
   .row { width: 100%; padding: 13px 16px; background: var(--surface); border: none; border-bottom: 1px solid var(--border); text-align: left; font-size: 16px; }
   .row:active { background: var(--purple-light); }
   .row.hidden { opacity: 0.5; }
-  .tape { width: 64px; height: 30px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.16); display: flex; align-items: center; justify-content: center; }
-  .tape-txt { font-weight: 700; font-size: 15px; line-height: 1; letter-spacing: 0.02em; }
-  .sh-head .tape .tape-txt { font-size: 20px; }
+  .tape { width: 64px; height: 32px; display: block; flex: none; }
   .lbl { font-size: 17px; font-weight: 700; word-break: break-word; }
   .lbl.empty { color: var(--text-faint); font-weight: 500; font-style: italic; }
   .sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
@@ -103,7 +101,7 @@ try {
   @media (max-width: 640px) {
     .cols { display: none; }
     .row { grid-template-columns: 64px minmax(0, 1fr); grid-template-areas: "tape main" "tape mark"; row-gap: 6px; }
-    .row .tape { grid-area: tape; width: 56px; align-self: start; margin-top: 2px; }
+    .row .tape { grid-area: tape; width: 56px; height: 28px; align-self: start; margin-top: 2px; }
     .row .main { grid-area: main; }
     .row .mark { grid-area: mark; }
     header .btn .wide { display: none; }
@@ -120,7 +118,7 @@ try {
   }
   .grip { width: 44px; height: 5px; border-radius: 3px; background: var(--border-2); margin: 0 auto 12px; }
   .sh-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
-  .sh-head .tape { width: 110px; height: 42px; border-radius: 6px; }
+  .sh-head .tape { width: 120px; height: 60px; }
   .sh-title { font-size: 20px; font-weight: 700; }
   .sh-sub { font-size: 14px; color: var(--text-muted); }
   .f-lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin: 16px 0 8px; }
@@ -133,7 +131,7 @@ try {
   .sw.on i { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--purple); }
   .styles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
   .style-opt { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 12px; border: 1px solid var(--border-2); border-radius: 12px; background: var(--surface); text-align: left; color: var(--text); }
-  .style-opt .tape { width: 52px; height: 26px; flex: none; }
+  .style-opt .tape { width: 64px; height: 32px; }
   .style-opt b { display: block; font-size: 15px; }
   .style-opt small { display: block; font-size: 12px; color: var(--text-muted); }
   .style-opt.on { border: 2px solid var(--purple); background: var(--purple-light); }
@@ -163,7 +161,7 @@ try {
     .print-title small { display: block; font-size: 11pt; font-weight: 400; color: #444; }
     .cols { display: grid !important; background: #eee; }
     .row { break-inside: avoid; background: #fff !important; grid-template-columns: 76px minmax(0, 1fr) 150px !important; grid-template-areas: none !important; }
-    .row .tape { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .row .tape { -webkit-print-color-adjust: exact; print-color-adjust: exact; width: 64px; height: 32px; }
     .row.hidden, .section.hidden-head { display: none !important; }
   }
 </style>
@@ -447,6 +445,11 @@ function tapeCss(e){
   if (st === 'side')  return `linear-gradient(180deg, ${e.c1} 0 50%, ${e.c2} 50% 100%)`;
   return `linear-gradient(90deg, ${e.c1} 0 42%, ${e.c2} 42% 58%, ${e.c1} 58% 100%)`;
 }
+function isDark(hex){
+  const h = String(hex || '#000').replace('#', '');
+  const n = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+  return (0.299 * parseInt(n.slice(0, 2), 16) + 0.587 * parseInt(n.slice(2, 4), 16) + 0.114 * parseInt(n.slice(4, 6), 16)) < 60;
+}
 // Black or white lettering, whichever reads on the main tape color.
 function inkOn(hex){
   const h = String(hex || '#000').replace('#', '');
@@ -454,9 +457,32 @@ function inkOn(hex){
   const r = parseInt(n.slice(0, 2), 16), g = parseInt(n.slice(2, 4), 16), b = parseInt(n.slice(4, 6), 16);
   return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#141414' : '#ffffff';
 }
+// A swatch is a little top-down view of one spiked corner on a black deck,
+// laid the way crew will actually lay it — so the key reads like the floor.
 function tapeHTML(e){
-  return `<div class="tape" style="background:${tapeCss(e)}">${e.text
-    ? `<span class="tape-txt" style="color:${inkOn(e.c1)}">${esc(e.text)}</span>` : ''}</div>`;
+  const A = e.c1 || '#888', B = e.c2 || A;
+  const st = e.c2 ? (styleOf(e) || STYLES[1])[0] : 'solid';
+  const txt = String(e.text || '').trim();
+  const x = 9, y = 7, L = 46, H = 22;           // corner origin, leg lengths
+  const w = txt ? 13 : 7;                         // wider top leg holds the letter
+  // Dark tape on a black deck gets a faint edge so it doesn't vanish.
+  const r = (rx, ry, rw, rh, c) => `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${c}"${
+    inkOn(c) === '#ffffff' && isDark(c) ? ' stroke="rgba(255,255,255,0.45)" stroke-width="0.7"' : ''}/>`;
+  let tape = '';
+  if (st === 'split'){
+    tape = r(x, y, L, w, A) + r(x, y, 7, H, B);
+  } else if (st === 'side'){
+    tape = r(x, y, L, 4, A) + r(x, y, 4, H, A) + r(x + 4, y + 4, L - 4, 4, B) + r(x + 4, y + 4, 4, H - 4, B);
+    if (txt) tape = r(x, y, L, w, A) + r(x + 4, y + w, L - 4, 4, B) + r(x, y, 4, H, A) + r(x + 4, y + w, 4, H - w, B);
+  } else {
+    tape = r(x, y, L, w, A) + r(x, y, 7, H, A);
+    if (st === 'tab') tape += r(x + L - 15, y - 4, 6, w + 8, B);
+  }
+  const band = w;                                   // height of the leg the letter sits on
+  const label = txt ? `<text x="${x + 7 + (L - 7 - (st === 'tab' ? 15 : 0)) / 2}" y="${y + band / 2 + 0.5}" text-anchor="middle" dominant-baseline="central"
+      font-family="DM Sans, sans-serif" font-weight="700" font-size="${txt.length > 2 ? 8 : 10}" fill="${inkOn(A)}">${esc(txt)}</text>` : '';
+  return `<svg class="tape" viewBox="0 0 64 32" role="img" aria-label="${esc(tapeName(e) || 'Tape')}">
+    <rect x="0" y="0" width="64" height="32" rx="4" fill="#262626"/>${tape}${label}</svg>`;
 }
 function markHTML(id, size){
   const m = MARKS.find(x => x[0] === id);
