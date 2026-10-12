@@ -93,6 +93,9 @@ try {
   .mark { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); }
   .mark svg { flex: none; }
   .section { padding: 18px 16px 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--text-muted); }
+  .board-note { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 12px; padding: 12px 14px; border-radius: 12px; background: var(--purple-light, #efeefc); font-size: 14px; line-height: 1.4; }
+  .board-note span { flex: 1 1 240px; }
+  .board-note b { display: block; }
   .empty-state { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 15px; line-height: 1.5; }
   .empty-state b { display: block; color: var(--text); font-size: 18px; margin-bottom: 6px; }
   .empty-state .btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
@@ -247,13 +250,15 @@ const CORRECT_PIN = '1483';
 const KV_KEY = 'spikemap';
 const POLL_MS = 30000;
 
-// Standard spike tape colours.
-const TAPES = [
-  ['Red', '#d7262e'], ['Orange', '#ef7d1a'], ['Yellow', '#f2c500'], ['Lime', '#9ccc2c'],
-  ['Green', '#2e9b4f'], ['Lt blue', '#5bb6e8'], ['Blue', '#1f5fbf'], ['Navy', '#1d2b5c'],
-  ['Purple', '#7a3fb0'], ['Pink', '#e85aa7'], ['Brown', '#7a4a24'], ['Gray', '#8d8d96'],
-  ['White', '#ffffff'], ['Black', '#1a1a1a']
+// The tape on the board in the shop, top to bottom, then other colours.
+const BOARD = [
+  ['Fl. green', '#3fef6b'], ['Green', '#22c84a'], ['Fl. yellow', '#ecf72e'], ['Lime yellow', '#cfec1c'],
+  ['White', '#ffffff'], ['Lt blue', '#3d9ef0'], ['Orange', '#ff5a1f'], ['Brown', '#a0826a'],
+  ['Pink', '#ff3d8b'], ['Red', '#d7262e']
 ];
+const TAPES = BOARD.concat([
+  ['Blue', '#1f5fbf'], ['Navy', '#1d2b5c'], ['Purple', '#7a3fb0'], ['Gray', '#8d8d96'], ['Black', '#1a1a1a']
+]);
 const MARKS = [
   ['corners', 'Corners', '<path d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6"/>'],
   ['t',       "T's",     '<path d="M3 4h18M12 4v16"/>'],
@@ -334,6 +339,9 @@ function applyOp(d, op){
   if (op.t === 'houseUpsert'){
     const i = d.house.findIndex(e => e.id === op.e.id);
     if (i >= 0) d.house[i] = clone(op.e); else d.house.push(clone(op.e));
+  } else if (op.t === 'houseOrder'){
+    const at = id => { const i = op.ids.indexOf(id); return i < 0 ? 1e6 : i; };
+    d.house = d.house.map((e, i) => [e, i]).sort((a, b) => (at(a[0].id) - at(b[0].id)) || (a[1] - b[1])).map(x => x[0]);
   } else if (op.t === 'houseDelete'){
     d.house = d.house.filter(e => e.id !== op.id);
     Object.values(d.shows).forEach(r => { if (r && r.over) delete r.over[op.id]; });
@@ -529,7 +537,9 @@ function render(){
         <button class="btn primary" onclick="openEditor(null)">+ Add color</button></div></div>`;
       return;
     }
-    el.innerHTML = title + cols + list.map(e => rowHTML(e, `'h:${e.id}'`)).join('');
+    const bm = boardMissing(), bAdd = bm.filter(p => !p.h).length, bUpd = bm.length - bAdd;
+    const bWhat = [bAdd ? 'adds ' + bAdd + ' color' + (bAdd === 1 ? '' : 's') : '', bUpd ? 'updates ' + bUpd + ' shade' + (bUpd === 1 ? '' : 's') : ''].filter(Boolean).join(' and ');
+    el.innerHTML = title + (bm.length ? `<div class="board-note"><span><b>Match the board in the shop?</b> This ${bWhat} and puts them in the board's order. Nothing is deleted; labels, marks and show changes stay.</span><button class="btn primary" onclick="matchBoard()">Match the board</button></div>` : '') + cols + list.map(e => rowHTML(e, `'h:${e.id}'`)).join('');
     return;
   }
 
@@ -729,6 +739,40 @@ function deleteEntry(){
     commit({ t: 'showDelete', sid: scriptId, id: ed.e.id });
   }
   closeEditor();
+}
+
+// House colours to line up with the board: an existing colour with the same
+// name is kept (its label, marks and every show's changes stay) and given the
+// board's shade; the rest are added. Then the list follows the board's order.
+const normTape = n => String(n || '').toLowerCase().replace(/^fl\.?\s*|fluorescent\s*/, '').replace(/[^a-z]/g, '');
+function boardPlan(){
+  const house = (data.house || []).slice(), used = new Set(), plan = [];
+  BOARD.forEach(([n, c]) => {
+    let h = house.find(x => !used.has(x.id) && !x.c2 && String(x.c1n || '').toLowerCase() === n.toLowerCase());
+    if (!h) h = house.find(x => !used.has(x.id) && !x.c2 && normTape(x.c1n) === normTape(n) && !BOARD.some(([m]) => m.toLowerCase() === String(x.c1n || '').toLowerCase()));
+    if (h) used.add(h.id);
+    plan.push({ name: n, hex: c, h });
+  });
+  return plan;
+}
+function boardMissing(){ return boardPlan().filter(p => !p.h || String(p.h.c1).toLowerCase() !== p.hex || p.h.c1n !== p.name); }
+function matchBoard(){
+  const plan = boardPlan(), todo = plan.filter(p => !p.h || String(p.h.c1).toLowerCase() !== p.hex || p.h.c1n !== p.name);
+  if (!todo.length) return;
+  const adds = todo.filter(p => !p.h).length, upd = todo.length - adds;
+  if (!confirm('Match the house colors to the board?\n\n' + (adds ? adds + ' new color' + (adds === 1 ? '' : 's') + ' added' : '') + (adds && upd ? ', ' : '') + (upd ? upd + ' existing shade' + (upd === 1 ? '' : 's') + ' updated' : '') + '.\nNothing is deleted, and labels stay.')) return;
+  const ids = [];
+  plan.forEach(p => {
+    if (p.h){
+      if (String(p.h.c1).toLowerCase() !== p.hex || p.h.c1n !== p.name) commit({ t: 'houseUpsert', e: Object.assign(clone(p.h), { c1: p.hex, c1n: p.name }) });
+      ids.push(p.h.id);
+    } else {
+      const id = uid();
+      commit({ t: 'houseUpsert', e: { id, label: '', c1: p.hex, c1n: p.name, c2: null, c2n: '', mark: '', note: '' } });
+      ids.push(id);
+    }
+  });
+  commit({ t: 'houseOrder', ids });
 }
 
 function seedStandard(){
