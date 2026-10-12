@@ -446,12 +446,15 @@
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   /* ── Before House rows ── */
-  tr.pr-edit { cursor: pointer; }
+  tr.pr-edit, tr.pr-tap { cursor: pointer; }
   tr.pr-off td { opacity: 0.5; }
   .pr-offtag { display: inline-block; margin-left: 8px; font-size: 11px; font-weight: 600; color: var(--text-muted); border: 1px solid var(--border); border-radius: 9px; padding: 1px 7px; }
 
   /* ── Spike chips (from the spike map) ── */
   .spk-line { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-family: 'DM Sans', sans-serif; }
+  .spk-inh { opacity: .7; }
+  .pr-addspike { color: var(--purple, #534AB7); font-weight: 600; font-size: .9em; }
+  @media print { .pr-addspike { display: none; } }
   .spk-chip { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
   .spk-chip .spk-tape { flex: none; border-radius: 3px; }
   .spk-chip.spk-gone { color: var(--ink-meta); font-weight: 400; font-style: italic; }
@@ -1350,10 +1353,10 @@ function presetRowHTML(r, band){
   if (presetSheet && presetSheet.key === r.key) cls.push('mv-sel');
   const loc = String(r.location || '').trim();
   const hasSpike = (r.spikeIds || []).length || r.spike;
-  return `<tr class="${cls.join(' ')}" data-key="${esc(r.key)}"${editMode ? ` onclick="openPresetSheet('${esc(r.key)}')"` : ''}>
+  return `<tr class="${cls.join(' ')} pr-tap" data-key="${esc(r.key)}" onclick="${editMode ? 'openPresetSheet' : 'presetQuick'}('${esc(r.key)}')">
     <td><span class="mv-piece">${esc(r.piece)}</span>${r.hidden ? '<span class="pr-offtag">not on plot</span>' : ''}</td>
     <td class="cs-action">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
-    <td class="cs-line">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : ''}</td>
+    <td class="cs-line">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : '<span class="pr-addspike">+ Spike</span>'}</td>
     <td class="cs-notes">${esc(r.notes || '')}</td>
   </tr>`;
 }
@@ -1435,18 +1438,35 @@ function spkSVG(e, w, h){
 }
 // The spike entries a move points at, in the order they were picked. An id
 // whose colour has since been deleted from the map comes back as null.
+// A move with no spike of its own takes its piece's Before House spike, so a
+// piece's colour shows on every move of it (and in the plot and Excel) until a
+// move is given its own.
+function spkEff(m){
+  if (!m || m.spike || (Array.isArray(m.spikeIds) && m.spikeIds.length)) return m;
+  const k = String(m.piece || '').trim().toLowerCase();
+  if (!k || typeof presets === 'undefined' || !presets) return m;
+  let p = presets[k];
+  if (!p) { const kk = Object.keys(presets).find(x => String((presets[x] || {}).piece || x).trim().toLowerCase() === k); p = kk ? presets[kk] : null; }
+  if (p && p !== m && (p.spike || (Array.isArray(p.spikeIds) && p.spikeIds.length)))
+    return Object.assign({}, m, { spikeIds: (p.spikeIds || []).slice(), spike: p.spike || '', _inh: true });
+  return m;
+}
 function spkOfMove(m, sid){
+  m = spkEff(m);
   return (Array.isArray(m && m.spikeIds) ? m.spikeIds : []).map(id => spkFind(sid, id));
 }
 // Chips for display: tape drawing + label, then anything typed.
 function spkChipsHTML(m, sid){
+  m = spkEff(m);
   const chips = spkOfMove(m, sid).map(e => e
     ? `<span class="spk-chip" title="${spkEsc(spkTapeName(e))}">${spkSVG(e, 30, 15)}<span>${spkEsc(spkLabel(e))}</span></span>`
     : `<span class="spk-chip spk-gone">removed spike</span>`).join('');
-  return chips + (m && m.spike ? `<span class="spk-typed">${spkEsc(m.spike)}</span>` : '');
+  const html = chips + (m && m.spike ? `<span class="spk-typed">${spkEsc(m.spike)}</span>` : '');
+  return m && m._inh && html ? `<span class="spk-inh" title="From Before House">${html}</span>` : html;
 }
 // The same in words, for spreadsheets and anything else without pictures.
 function spkMoveText(m, sid){
+  m = spkEff(m);
   const parts = spkOfMove(m, sid).filter(Boolean).map(e => e.label ? `${e.label} (${spkTapeName(e)})` : spkTapeName(e));
   if (m && m.spike) parts.push(String(m.spike));
   return parts.join('; ');
@@ -1544,7 +1564,7 @@ function cueRow(c, band){
     // who / spike / note share the Notes column; on the first row the cue's own
     // note leads, since it describes the change as a whole.
     const meta = [
-      (m.spike || (m.spikeIds || []).length) ? `<span class="mv-spike spk-line">${spkChipsHTML(m, scriptId)}</span>` : '',
+      (spkEff(m).spike || (spkEff(m).spikeIds || []).length) ? `<span class="mv-spike spk-line">${spkChipsHTML(m, scriptId)}</span>` : '',
       m.notes ? `<span class="mv-note"><span class="mv-label">Note</span>${esc(m.notes)}</span>` : ''
     ].filter(Boolean).join('');
 
@@ -1942,7 +1962,7 @@ async function exportSetChangePlot() {
       }
     });
     doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
-    wrap(m.spike, 6).forEach(t => out.push({ t, ind: 0 }));
+    wrap(spkEff(m).spike, 6).forEach(t => out.push({ t, ind: 0 }));
     return out;
   };
   const sections = [];
@@ -2945,9 +2965,18 @@ function presetEntry(key){
   if (!Array.isArray(e.spikeIds)) e.spikeIds = [];
   return e;
 }
-function openPresetSheet(key){
+// Tapping a piece without pressing Edit first: open its panel, and save the
+// moment it's closed, the same careful way Done does.
+function presetQuick(key){
+  if (editMode || editSaving) return;
+  setEditMode(true);
   if (!editMode) return;
-  presetSheet = { key };
+  openPresetSheet(key, true);
+}
+function openPresetSheet(key, quick){
+  if (!editMode) return;
+  quick = quick || !!(presetSheet && presetSheet.quick);
+  presetSheet = { key, quick };
   render();
   renderPresetPanel();
   document.getElementById('move-sheet').classList.add('open');
@@ -2957,9 +2986,11 @@ function openPresetSheet(key){
 function closePresetSheet(silent){
   if (!presetSheet) return;
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  const quick = presetSheet.quick;
   presetSheet = null;
   document.getElementById('move-sheet').classList.remove('open');
   document.body.classList.remove('sheet-open');
+  if (quick && !silent && editMode) { setEditMode(false); return; }
   if (!silent) render();
 }
 function presetField(field, value){
@@ -3016,7 +3047,7 @@ function renderPresetPanel(){
     <div class="ms-btns">
       <button class="ms-btn${e.hidden ? '' : ' dashed'}" onclick="presetField('hidden', ${!e.hidden}); renderPresetPanel();">${e.hidden ? 'Put back on the plot' : 'Leave off the plot'}</button>
       <span style="flex:1"></span>
-      <button class="ms-btn primary" onclick="closePresetSheet()">Close</button>
+      <button class="ms-btn primary" onclick="closePresetSheet()">${presetSheet.quick ? 'Save' : 'Close'}</button>
     </div>`;
 }
 

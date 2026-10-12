@@ -1555,6 +1555,7 @@
   [data-theme="dark"] #tab-inventory .item-row:hover { background: rgba(255,255,255,0.03); }
   [data-theme="dark"] #tab-inventory .inv-modal .inv-modal-content { background: var(--surface); color: var(--text); }
   [data-theme="dark"] #tab-inventory .detail-row { border-color: var(--border); }
+.spk-inh { opacity: .7; }
 /* ══ INVENTORY (rebuilt 10.12) ══════════════════════════════════════════════
    Everything is under #tab-inventory or #iv-ov, prefixed iv-. Buttons repeat
    their padding/font with !important because the app-wide button rule does. */
@@ -6173,7 +6174,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.12 v5</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.12 v6</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -16217,18 +16218,35 @@ function spkSVG(e, w, h){
 }
 // The spike entries a move points at, in the order they were picked. An id
 // whose colour has since been deleted from the map comes back as null.
+// A move with no spike of its own takes its piece's Before House spike, so a
+// piece's colour shows on every move of it (and in the plot and Excel) until a
+// move is given its own.
+function spkEff(m){
+  if (!m || m.spike || (Array.isArray(m.spikeIds) && m.spikeIds.length)) return m;
+  const k = String(m.piece || '').trim().toLowerCase();
+  if (!k || typeof presets === 'undefined' || !presets) return m;
+  let p = presets[k];
+  if (!p) { const kk = Object.keys(presets).find(x => String((presets[x] || {}).piece || x).trim().toLowerCase() === k); p = kk ? presets[kk] : null; }
+  if (p && p !== m && (p.spike || (Array.isArray(p.spikeIds) && p.spikeIds.length)))
+    return Object.assign({}, m, { spikeIds: (p.spikeIds || []).slice(), spike: p.spike || '', _inh: true });
+  return m;
+}
 function spkOfMove(m, sid){
+  m = spkEff(m);
   return (Array.isArray(m && m.spikeIds) ? m.spikeIds : []).map(id => spkFind(sid, id));
 }
 // Chips for display: tape drawing + label, then anything typed.
 function spkChipsHTML(m, sid){
+  m = spkEff(m);
   const chips = spkOfMove(m, sid).map(e => e
     ? `<span class="spk-chip" title="${spkEsc(spkTapeName(e))}">${spkSVG(e, 30, 15)}<span>${spkEsc(spkLabel(e))}</span></span>`
     : `<span class="spk-chip spk-gone">removed spike</span>`).join('');
-  return chips + (m && m.spike ? `<span class="spk-typed">${spkEsc(m.spike)}</span>` : '');
+  const html = chips + (m && m.spike ? `<span class="spk-typed">${spkEsc(m.spike)}</span>` : '');
+  return m && m._inh && html ? `<span class="spk-inh" title="From Before House">${html}</span>` : html;
 }
 // The same in words, for spreadsheets and anything else without pictures.
 function spkMoveText(m, sid){
+  m = spkEff(m);
   const parts = spkOfMove(m, sid).filter(Boolean).map(e => e.label ? `${e.label} (${spkTapeName(e)})` : spkTapeName(e));
   if (m && m.spike) parts.push(String(m.spike));
   return parts.join('; ');
@@ -16593,9 +16611,12 @@ function renderMoveDrawer(focusFirst) {
 // number). The text box beside it stays for one-offs.
 let _spkPick = null;   // { cueId, moveId, btn }
 function spkBtnHTML(m){
-  const picked = spkOfMove(m, showId);
+  // The move's own picks; with none, its piece's Before House spike, faded.
+  const own = (Array.isArray(m && m.spikeIds) ? m.spikeIds : []).map(id => spkFind(showId, id));
+  const picked = own.length ? own : spkOfMove(m, showId);
   if (!picked.length) return '<span class="spk-plus">+</span>';
-  return picked.map(e => e ? spkSVG(e, 26, 13) : '<span class="spk-plus">?</span>').join('');
+  const html = picked.map(e => e ? spkSVG(e, 26, 13) : '<span class="spk-plus">?</span>').join('');
+  return own.length ? html : `<span class="spk-inh" title="From Before House">${html}</span>`;
 }
 function spkMoveOf(cueId, moveId){
   const c = cues.find(x => x.id === cueId);
@@ -17782,7 +17803,7 @@ async function exportSetChangePlot() {
       }
     });
     doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
-    wrap(m.spike, 6).forEach(t => out.push({ t, ind: 0 }));
+    wrap(spkEff(m).spike, 6).forEach(t => out.push({ t, ind: 0 }));
     return out;
   };
   const sections = [];
