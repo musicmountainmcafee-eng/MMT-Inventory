@@ -437,6 +437,10 @@
   .export-opt span { font-size: 13px; color: var(--text-muted); }
   .export-opt:hover { border-color: var(--purple); background: var(--purple-light); }
   .hist-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+  .pr-guard { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 12px auto 0; max-width: 1200px; padding: 12px 14px; border-radius: 12px; background: #fff4e0; color: #5c3b00; font-size: 14px; line-height: 1.4; }
+  .pr-guard[hidden] { display: none; }
+  .pr-guard span { flex: 1 1 260px; }
+  @media print { .pr-guard { display: none !important; } }
   .hist-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
   .hist-when { font-weight: 600; font-size: 14px; }
   .hist-what { font-size: 13px; color: var(--text-muted); }
@@ -600,7 +604,7 @@
       <button class="top-btn" id="export-btn" onclick="openExport()" title="Download the cue sheet or set change plot">Export</button>
       <span class="edit-state" id="edit-state"></span>
       <button class="top-btn" id="edit-btn" onclick="setEditMode(!editMode)" title="Edit set changes">Edit</button>
-      <button class="top-btn" onclick="openSheet()">Script</button>
+      <button class="top-btn" onclick="openSheet()">Settings</button>
     </div>
     <div class="search-row">
       <div class="view-tabs">
@@ -617,6 +621,7 @@
     <div class="type-strip" id="type-strip"></div>
   </header>
 
+  <div id="pr-guard" class="pr-guard" hidden></div>
   <div class="sheet-wrap"><div class="sheet" id="sheet-body"></div></div>
 </div>
 
@@ -1116,11 +1121,52 @@ function allWho(){
   return [...seen.values()].sort((a,b) => a.localeCompare(b));
 }
 
+// ── Before House watchdog ───────────────────────────────────────────────────
+// This page remembers the Before House it last saved. If a load finds pieces
+// that had a spike, location or note now completely blank, something else
+// cleared them (an old copy of the dashboard, say), so offer to put them back.
+const prGuardKey = () => 'mmt_cuelist_savedpresets_' + scriptId;
+const prHasData = e => !!(e && ((Array.isArray(e.spikeIds) && e.spikeIds.length) || e.spike || e.location || e.notes || e.hidden));
+function prGuardRemember(p){ try { localStorage.setItem(prGuardKey(), JSON.stringify(normalizePresets(p || {}))); } catch (e) {} }
+let _prLost = [];
+function prGuardCheck(){
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(prGuardKey()) || 'null'); } catch (e) {}
+  _prLost = saved ? Object.keys(saved).filter(k => prHasData(saved[k]) && !prHasData(presets[k])) : [];
+  // Keep the record current with what's set now (from any device), holding on
+  // to the cleared ones until they're put back or let go.
+  const next = Object.assign({}, saved || {});
+  Object.keys(presets).forEach(k => { if (prHasData(presets[k])) next[k] = presets[k]; });
+  try { localStorage.setItem(prGuardKey(), JSON.stringify(next)); } catch (e) {}
+  saved = next;
+  const el = document.getElementById('pr-guard');
+  if (!el) return;
+  if (!_prLost.length || editMode){ el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `<span><b>${_prLost.length} Before House piece${_prLost.length === 1 ? ' was' : 's were'} cleared</b> since this page saved ${_prLost.length === 1 ? 'it' : 'them'} (${esc(_prLost.slice(0, 4).map(k => saved[k].piece || k).join(', '))}${_prLost.length > 4 ? '…' : ''}). Something else saved over them.</span>
+    <button class="top-btn primary" onclick="prGuardRestore()">Put them back</button><button class="top-btn" onclick="prGuardDismiss()">Leave cleared</button>`;
+}
+function prGuardRestore(){
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(prGuardKey()) || 'null'); } catch (e) {}
+  if (!saved || !_prLost.length || editSaving) return;
+  const keys = _prLost.slice();
+  const wasEditing = editMode;
+  if (!editMode) setEditMode(true);
+  keys.forEach(k => { presets[k] = saved[k]; editedPresets[k] = true; });
+  saveDraft(); markDirty();
+  document.getElementById('pr-guard').hidden = true;
+  if (!wasEditing) setEditMode(false); else render();
+  toast('Putting back ' + keys.length + ' piece' + (keys.length === 1 ? '' : 's'));
+}
+function prGuardDismiss(){ prGuardRemember(presets); _prLost = []; document.getElementById('pr-guard').hidden = true; }
+
 function applyPayload(data){
   cueTypes = mergeCueTypes(data.cueTypes);
   const incoming = Array.isArray(data.cues) ? data.cues : [];
   annotations = data.annotations || {};
   presets = normalizePresets(data.presets);
+  prGuardCheck();
 
   changedIds = new Set();
   const nextSig = {};
@@ -2986,6 +3032,7 @@ function saveMoveEdits(){
       }
       loadedRev = data._rev;
       saveSnap(data, 'saved from the cue sheet');
+      prGuardRemember(data.presets);
       if (_saveAgain) { saveMoveEdits(); return; }
       if (!editMode) schedulePoll();
       render();
