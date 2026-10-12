@@ -445,6 +445,11 @@
     transition: opacity .2s, transform .2s; }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+  /* ── Before House rows ── */
+  tr.pr-edit { cursor: pointer; }
+  tr.pr-off td { opacity: 0.5; }
+  .pr-offtag { display: inline-block; margin-left: 8px; font-size: 11px; font-weight: 600; color: var(--text-muted); border: 1px solid var(--border); border-radius: 9px; padding: 1px 7px; }
+
   /* ── Spike chips (from the spike map) ── */
   .spk-line { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-family: 'DM Sans', sans-serif; }
   .spk-chip { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
@@ -635,7 +640,7 @@
 </div>
 
 <!-- ── MOVE SHEET (edit mode) ───────────────────────────────────────────────── -->
-<div id="move-sheet" onclick="if(event.target===this) closeMoveSheet()">
+<div id="move-sheet" onclick="if(event.target===this){ closeMoveSheet(); closePresetSheet(); }">
   <div class="ms-panel" role="dialog" aria-label="Edit move"><div class="ms-grip"></div><div id="ms-body"></div></div>
 </div>
 
@@ -821,6 +826,9 @@ function start(){
   } catch(e) {}
 
   const savedView = linkView || lsGet('mmt_cuelist_view','cues');
+  let linkEdit = false;
+  try { linkEdit = new URLSearchParams(location.search).get('edit') === '1'; } catch(e) {}
+  if (linkEdit) setTimeout(() => { if (!editMode && scriptId) setEditMode(true); }, 1500);
   if (savedView === 'presets') setView('presets');
 
   if (linkScript) {
@@ -848,8 +856,8 @@ function start(){
   // are held on this device. Offer them back rather than letting them rot.
   try {
     const draft = getDraft();
-    if (draft && draft.moves && Object.keys(draft.moves).length) {
-      const n = Object.keys(draft.moves).length;
+    if (draft && ((draft.moves && Object.keys(draft.moves).length) || (draft.presets && Object.keys(draft.presets).length))) {
+      const n = Object.keys(draft.moves || {}).length + Object.keys(draft.presets || {}).length;
       const when = new Date(draft.at || Date.now()).toLocaleString('en-US',
         { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
       setTimeout(() => {
@@ -857,10 +865,14 @@ function start(){
           + ' (' + n + ' set change' + (n !== 1 ? 's' : '') + ').\n\nOpen them for editing?')) {
           setEditMode(true);
           editBaseline = draft.baseline || {};
-          Object.keys(draft.moves).forEach(id => {
+          Object.keys(draft.moves || {}).forEach(id => {
             const c = cues.find(x => String(x.id) === String(id));
             if (c) { c.moves = draft.moves[id]; editedCues[id] = true; }
           });
+          if (draft.presets) {
+            presetBaseline = draft.presetBaseline || presetBaseline;
+            Object.keys(draft.presets).forEach(k => { if (draft.presets[k]) { presets[k] = draft.presets[k]; editedPresets[k] = true; } });
+          }
           markDirty(); render();
         } else { clearDraft(); }
       }, 900);
@@ -907,6 +919,10 @@ function loadScripts(){
     if (!scriptId && scripts.length){
       const newest = scripts.slice().sort((a,b) => new Date(b.date||0) - new Date(a.date||0))[0];
       pickScript(newest.id, newest.name, true);
+    } else if (scriptId && !scriptName){
+      const mine = scripts.find(x => String(x.id) === String(scriptId));
+      if (mine){ scriptName = mine.name; lsSet('mmt_cuelist_scriptname', mine.name);
+        document.getElementById('show-name').textContent = cleanShowName(mine.name); }
     }
     renderScriptList();
   }, () => renderScriptList('Could not load the script list.'));
@@ -962,7 +978,9 @@ function normalizePresets(v){
       const e = v[k];
       if (!e || typeof e !== 'object') return;
       out[k] = { piece: String(e.piece || k), location: String(e.location || ''),
-                 notes: String(e.notes || ''), hidden: !!e.hidden };
+                 notes: String(e.notes || ''), hidden: !!e.hidden,
+                 spikeIds: Array.isArray(e.spikeIds) ? e.spikeIds.map(String) : [],
+                 spike: String(e.spike || '') };
     });
   }
   return out;
@@ -1192,8 +1210,8 @@ function renderPresetSheet(){
     </div>`;
 
   const rows = allPieces()
-    .map(({ key, piece }) => ({ ...(presets[key] || {}), piece }))
-    .filter(r => !r.hidden)
+    .map(({ key, piece }) => ({ ...(presets[key] || {}), piece, key }))
+    .filter(r => editMode || !r.hidden)
     .filter(r => {
       if (!query) return true;
       const h = [r.piece, r.location, r.notes].filter(Boolean).join(' ').toLowerCase();
@@ -1212,20 +1230,11 @@ function renderPresetSheet(){
   const gaps = rows.filter(r => !String(r.location || '').trim()).length;
   let band = false;
   el.innerHTML = title + `<table class="cs">
-    <colgroup><col style="width:26%"><col style="width:34%"><col style="width:40%"></colgroup>
-    <thead><tr><th>Piece</th><th>Preset Location</th><th>Notes</th></tr></thead>
+    <colgroup><col style="width:24%"><col style="width:28%"><col style="width:24%"><col style="width:24%"></colgroup>
+    <thead><tr><th>Piece</th><th>Preset Location</th><th>Spike</th><th>Notes</th></tr></thead>
     <tbody>
-      <tr class="scene"><td colspan="3">Before house opens</td></tr>
-      ${rows.map(r => {
-        const cls = band ? ' class="band"' : '';
-        band = !band;
-        const loc = String(r.location || '').trim();
-        return `<tr${cls}>
-          <td class="mv-piece">${esc(r.piece)}</td>
-          <td class="cs-action">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
-          <td class="cs-notes">${esc(r.notes || '')}</td>
-        </tr>`;
-      }).join('')}
+      <tr class="scene"><td colspan="4">Before house opens</td></tr>
+      ${rows.map(r => presetRowHTML(r, band = !band)).join('')}
     </tbody></table>
     <div class="sheet-foot"><span>Music Mountain Theatre</span>
       <span>${rows.length} piece${rows.length !== 1 ? 's' : ''}${gaps ? ' · ' + gaps + ' with no location' : ''}</span></div>`;
@@ -1233,6 +1242,23 @@ function renderPresetSheet(){
   document.getElementById('status-count').textContent =
     rows.length + ' piece' + (rows.length !== 1 ? 's' : '') + ' ·';
   stampUpdated(); measureHeader(); restoreScroll();
+}
+
+// One Before House row. In Edit mode the row opens the preset panel.
+function presetRowHTML(r, band){
+  const cls = ['pr-row'];
+  if (!band) cls.push('band');
+  if (r.hidden) cls.push('pr-off');
+  if (editMode) cls.push('pr-edit');
+  if (presetSheet && presetSheet.key === r.key) cls.push('mv-sel');
+  const loc = String(r.location || '').trim();
+  const hasSpike = (r.spikeIds || []).length || r.spike;
+  return `<tr class="${cls.join(' ')}" data-key="${esc(r.key)}"${editMode ? ` onclick="openPresetSheet('${esc(r.key)}')"` : ''}>
+    <td><span class="mv-piece">${esc(r.piece)}</span>${r.hidden ? '<span class="pr-offtag">not on plot</span>' : ''}</td>
+    <td class="cs-action">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
+    <td class="cs-line">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : ''}</td>
+    <td class="cs-notes">${esc(r.notes || '')}</td>
+  </tr>`;
 }
 
 // ── SPIKE MAP (read side) ────────────────────────────────────────────────────
@@ -1710,9 +1736,10 @@ async function exportSetChangePlot() {
 
   if (presetRows.length) {
     const PC = [
-      { key: 'piece',    label: 'PIECE',           w: 180, bold: true },
-      { key: 'location', label: 'PRESET LOCATION', w: 244 },
-      { key: 'notes',    label: 'NOTES',           w: 280 },
+      { key: 'piece',    label: 'PIECE',           w: 166, bold: true },
+      { key: 'location', label: 'PRESET LOCATION', w: 196 },
+      { key: 'spike',    label: 'SPIKE',           w: 150 },
+      { key: 'notes',    label: 'NOTES',           w: 192 },
     ];
     const PX = []; { let x = M; for (const c of PC) { PX.push(x); x += c.w; } }
 
@@ -1735,7 +1762,23 @@ async function exportSetChangePlot() {
     doc.setFontSize(FS);
     let pShade = false;
     presetRows.forEach(r => {
-      const cells = PC.map(c => doc.splitTextToSize(String(r[c.key] || ''), c.w - PAD*2));
+      // Spike cells hold the tape drawing, label and colours, then anything typed.
+      const presetSpike = (rec, w) => {
+        const out = [];
+        spkOfMove(rec, showId).forEach(e => {
+          if (!e) return;
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(FS);
+          doc.splitTextToSize(spkLabel(e), w - PAD*2 - 20).forEach((t, i) => out.push({ t, ind: 20, bold: true, e: i === 0 ? e : null }));
+          if (e.label) {
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(FS - 1.5);
+            doc.splitTextToSize(spkTapeName(e), w - PAD*2 - 20).forEach(t => out.push({ t, ind: 20, small: true }));
+          }
+        });
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
+        doc.splitTextToSize(String(rec.spike || ''), w - PAD*2).forEach(t => { if (t) out.push({ t, ind: 0 }); });
+        return out;
+      };
+      const cells = PC.map(c => c.key === 'spike' ? presetSpike(r, c.w) : doc.splitTextToSize(String(r[c.key] || ''), c.w - PAD*2));
       const rowH = Math.max(MIN_ROW, Math.max(...cells.map(c => c.length), 1) * LEAD + PAD*2);
       // A long piece list runs on, and the continuation needs its own bar and
       // column header or the rows arrive unlabelled.
@@ -1748,7 +1791,17 @@ async function exportSetChangePlot() {
       doc.setFontSize(FS); doc.setTextColor(30,30,30);
       PC.forEach((c, k) => {
         doc.setFont('helvetica', c.bold ? 'bold' : 'normal');
-        cells[k].forEach((ln, li) => doc.text(ln, PX[k] + PAD, y + PAD + LEAD - 3 + li * LEAD));
+        cells[k].forEach((ln, li) => {
+          const base = y + PAD + LEAD - 3 + li * LEAD;
+          if (typeof ln === 'string') { doc.text(ln, PX[k] + PAD, base); return; }
+          if (ln.e) spkDrawPDF(doc, ln.e, PX[k] + PAD, base - 8, 15, 9);
+          doc.setFont('helvetica', ln.bold ? 'bold' : 'normal');
+          doc.setFontSize(ln.small ? FS - 1.5 : FS);
+          if (ln.small) doc.setTextColor(90, 90, 98);
+          doc.text(ln.t, PX[k] + PAD + ln.ind, base);
+          doc.setFontSize(FS); doc.setTextColor(30, 30, 30);
+          doc.setFont('helvetica', c.bold ? 'bold' : 'normal');
+        });
       });
       doc.setDrawColor(...GRID); doc.setLineWidth(0.4);
       PC.forEach((c, k) => doc.line(PX[k], y, PX[k], y + rowH));
@@ -2001,7 +2054,7 @@ function presetRowData() {
   return allPieces()
     .map(({ key, piece }) => ({ ...(presets[key] || {}), piece }))
     .filter(r => !r.hidden)
-    .map(r => ({ piece: String(r.piece || ''), location: String(r.location || ''), notes: String(r.notes || '') }));
+    .map(r => ({ piece: String(r.piece || ''), location: String(r.location || ''), spike: spkMoveText(r, showId), notes: String(r.notes || '') }));
 }
 
 // Act number off the front of a scene name: "2-1" or "Act 2, Scene 1". Labels
@@ -2272,14 +2325,14 @@ async function exportSetChangeXLSX() {
         margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 }
       }
     });
-    ps.columns = [{ key:'piece', width:34 }, { key:'location', width:46 }, { key:'notes', width:52 }];
-    titleBlock(ps, 'C', showName, 'Set Changes');
-    sceneBar(ps, 4, 'Before house opens', 'C');
-    headerRow(ps, 5, ['PIECE', 'PRESET LOCATION', 'NOTES']);
+    ps.columns = [{ key:'piece', width:30 }, { key:'location', width:38 }, { key:'spike', width:32 }, { key:'notes', width:42 }];
+    titleBlock(ps, 'D', showName, 'Set Changes');
+    sceneBar(ps, 4, 'Before house opens', 'D');
+    headerRow(ps, 5, ['PIECE', 'PRESET LOCATION', 'SPIKE', 'NOTES']);
 
     presetRows.forEach((rec, idx) => {
       const row = ps.getRow(6 + idx);
-      ['piece', 'location', 'notes'].forEach((k, i) => {
+      ['piece', 'location', 'spike', 'notes'].forEach((k, i) => {
         const cell = row.getCell(i + 1);
         cell.value = rec[k] || null;
         cell.font = { size: XL_FS, bold: i === 0, name: 'Helvetica' };
@@ -2602,6 +2655,9 @@ let editBaseline  = {};        // cueId -> moves as they were when editing began
 let editedCues    = {};        // cueId -> true
 let editLoadedRev = null;
 let editSaving    = false;
+let presetBaseline = {};       // key -> JSON of the preset when editing began
+let editedPresets  = {};       // key -> true
+let presetSheet    = null;     // { key } while the preset panel is open
 
 function draftKey(){ return 'mmt_cuelist_draft_' + scriptId; }
 
@@ -2612,7 +2668,10 @@ function saveDraft(){
       const c = cues.find(x => String(x.id) === String(id));
       if (c) out[id] = c.moves || [];
     });
-    lsSet(draftKey(), JSON.stringify({ at: Date.now(), rev: editLoadedRev, baseline: editBaseline, moves: out }));
+    const pOut = {};
+    Object.keys(editedPresets).forEach(k => { pOut[k] = presets[k] || null; });
+    lsSet(draftKey(), JSON.stringify({ at: Date.now(), rev: editLoadedRev, baseline: editBaseline, moves: out,
+      presetBaseline, presets: pOut }));
   } catch(e) {}
 }
 function clearDraft(){ try { localStorage.removeItem(draftKey()); } catch(e) {} }
@@ -2620,7 +2679,7 @@ function getDraft(){ try { return JSON.parse(lsGet(draftKey(), 'null')); } catch
 
 function setEditMode(on){
   if (on && !scriptId) { alert('Pick a script first.'); return; }
-  if (!on) closeMoveSheet(true);
+  if (!on) { closeMoveSheet(true); closePresetSheet(true); }
   editMode = !!on;
   const btn = document.getElementById('edit-btn');
   if (btn){ btn.textContent = editMode ? 'Done' : 'Edit'; btn.classList.toggle('on', editMode); }
@@ -2631,10 +2690,12 @@ function setEditMode(on){
     editedCues = {};
     editLoadedRev = loadedRev;
     cues.forEach(c => { if (c.type === SHIFT_TYPE_ID) editBaseline[c.id] = JSON.parse(JSON.stringify(c.moves || [])); });
+    presetBaseline = {}; editedPresets = {};
+    Object.keys(presets).forEach(k => { presetBaseline[k] = JSON.stringify(presets[k]); });
     if (pollTimer){ clearInterval(pollTimer); pollTimer = null; }
     render();
   } else {
-    if (Object.keys(editedCues).length) saveMoveEdits();
+    if (Object.keys(editedCues).length || Object.keys(editedPresets).length) saveMoveEdits();
     else { schedulePoll(); render(); }
   }
 }
@@ -2671,7 +2732,7 @@ function mvDelRow(cueId, idx){
 function markDirty(){
   const el = document.getElementById('edit-state');
   if (!el) return;
-  const n = Object.keys(editedCues).length;
+  const n = Object.keys(editedCues).length + Object.keys(editedPresets).length;
   el.className = 'edit-state dirty';
   el.textContent = n ? n + ' change' + (n !== 1 ? 's' : '') + ' not saved yet' : '';
   measureHeader();
@@ -2700,7 +2761,8 @@ function mergeMoveEdits(fresh, baseline, ours){
 function saveMoveEdits(){
   if (editSaving) return;
   const ids = Object.keys(editedCues);
-  if (!ids.length){ schedulePoll(); render(); return; }
+  const pKeys = Object.keys(editedPresets);
+  if (!ids.length && !pKeys.length){ schedulePoll(); render(); return; }
   editSaving = true;
 
   const el = document.getElementById('edit-state');
@@ -2720,6 +2782,17 @@ function saveMoveEdits(){
     }
     saveSnap(d.cueData, 'before a cue sheet save');
     const { data, applied, conflicts } = mergeMoveEdits(d.cueData, editBaseline, ours);
+    // Presets: each edited piece goes over the Sheet's copy only if nobody
+    // else changed that piece since editing began.
+    const pApplied = [];
+    data.presets = (data.presets && typeof data.presets === 'object') ? data.presets : {};
+    pKeys.forEach(k => {
+      const theirs = data.presets[k] ? JSON.stringify(normalizePresets({ [k]: data.presets[k] })[k]) : 'null';
+      const base = presetBaseline[k] || 'null';
+      if (theirs !== base && theirs !== 'null' && base !== 'null'){ conflicts.push({ id: k, why: 'someone else changed the preset for ' + (presets[k] && presets[k].piece || k) }); return; }
+      data.presets[k] = JSON.parse(JSON.stringify(presets[k]));
+      pApplied.push(k);
+    });
     data._rev = (d.cueData._rev || 0) + 1;
     data._savedAt = new Date().toISOString();
 
@@ -2730,12 +2803,13 @@ function saveMoveEdits(){
       if (!r.ok) throw new Error('HTTP ' + r.status);
       editSaving = false;
       applied.forEach(id => { delete editedCues[id]; });
+      pApplied.forEach(k => { delete editedPresets[k]; });
       if (conflicts.length){
         // Our version of the clashing changes stays in the draft, so nothing
         // is thrown away — it just isn't pushed over someone else's work.
         if (el){ el.className = 'edit-state error';
           el.textContent = conflicts.length + ' set change' + (conflicts.length !== 1 ? 's' : '') + ' not saved — ' + conflicts[0].why; }
-        alert('Saved ' + applied.length + ' set change' + (applied.length !== 1 ? 's' : '') + '.\n\n'
+        alert('Saved ' + (applied.length + pApplied.length) + ' change' + ((applied.length + pApplied.length) !== 1 ? 's' : '') + '.\n\n'
           + conflicts.length + ' could not be saved because ' + conflicts[0].why
           + '. Your version is still on this device — reopen Edit to see it.');
       } else {
@@ -2758,6 +2832,96 @@ function saveMoveEdits(){
   });
 }
 
+
+
+// ── PRESET PANEL (Before House, edit mode) ──────────────────────────────────
+// Same bottom panel as a move: where the piece starts, its spike, notes, and
+// whether it prints on the plot. Edits go through presetField, so drafts, the
+// unsaved count and the careful save all cover them.
+function presetList(){ return allPieces().map(p => p.key); }
+function presetEntry(key){
+  if (!presets[key]){
+    const p = allPieces().find(x => x.key === key);
+    presets[key] = { piece: p ? p.piece : key, location: '', notes: '', hidden: false, spikeIds: [], spike: '' };
+  }
+  const e = presets[key];
+  if (!Array.isArray(e.spikeIds)) e.spikeIds = [];
+  return e;
+}
+function openPresetSheet(key){
+  if (!editMode) return;
+  presetSheet = { key };
+  render();
+  renderPresetPanel();
+  document.getElementById('move-sheet').classList.add('open');
+  document.body.classList.add('sheet-open');
+  requestAnimationFrame(keepRowVisible);
+}
+function closePresetSheet(silent){
+  if (!presetSheet) return;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  presetSheet = null;
+  document.getElementById('move-sheet').classList.remove('open');
+  document.body.classList.remove('sheet-open');
+  if (!silent) render();
+}
+function presetField(field, value){
+  if (!presetSheet) return;
+  const e = presetEntry(presetSheet.key);
+  e[field] = value;
+  editedPresets[presetSheet.key] = true;
+  saveDraft(); markDirty();
+  const row = document.querySelector('tr.pr-row[data-key="' + CSS.escape(presetSheet.key) + '"]');
+  if (row){
+    const tmp = document.createElement('tbody');
+    tmp.innerHTML = presetRowHTML({ ...e, key: presetSheet.key }, !row.classList.contains('band'));
+    row.replaceWith(tmp.firstElementChild);
+  }
+}
+function presetSpike(id){
+  if (!presetSheet) return;
+  const cur = (presetEntry(presetSheet.key).spikeIds || []).slice();
+  const i = cur.indexOf(id);
+  if (i >= 0) cur.splice(i, 1); else cur.push(id);
+  presetField('spikeIds', cur);
+  const box = document.getElementById('ps-spikes');
+  if (box) box.innerHTML = spkPickerHTML(scriptId, cur, 'presetSpike');
+}
+function presetStep(dir){
+  const keys = presetList();
+  const at = keys.indexOf(presetSheet.key);
+  if (keys[at + dir]) openPresetSheet(keys[at + dir]);
+}
+function renderPresetPanel(){
+  const key = presetSheet.key;
+  const e = presetEntry(key);
+  const keys = presetList(), at = keys.indexOf(key);
+  const inp = (field, ph) => `<input id="ps-${field}" class="ms-in" value="${esc(e[field] || '')}" placeholder="${esc(ph)}"
+      autocomplete="off" oninput="presetField('${field}', this.value)">`;
+  document.getElementById('ms-body').innerHTML = `
+    <div class="ms-head">
+      <span class="ms-num" style="font-size:19px">${esc(e.piece || key)}</span>
+      <span class="ms-of">· before house · ${at + 1} of ${keys.length}</span>
+      <span style="flex:1"></span>
+      <button class="ms-icon" aria-label="Previous piece" onclick="presetStep(-1)"${at <= 0 ? ' disabled' : ''}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <button class="ms-icon" aria-label="Next piece" onclick="presetStep(1)"${at >= keys.length - 1 ? ' disabled' : ''}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+    <div class="ms-grid ms-g2 ms-even">
+      <label class="ms-f"><span>Preset location</span>${inp('location', 'e.g. SL wing, upstage')}</label>
+      <label class="ms-f"><span>Note</span>${inp('notes', 'Optional')}</label>
+    </div>
+    <div class="ms-spike-head"><span>Spike</span><a href="${spkMapURL(scriptId, scriptName)}" target="_blank" rel="noopener">Edit spike map ›</a></div>
+    <div id="ps-spikes">${spkPickerHTML(scriptId, e.spikeIds, 'presetSpike')}</div>
+    <input id="ps-spike" class="ms-in" style="margin:8px 0 6px" value="${esc(e.spike || '')}" placeholder="Other spike, typed (optional)"
+      autocomplete="off" oninput="presetField('spike', this.value)">
+    <div class="ms-btns">
+      <button class="ms-btn${e.hidden ? '' : ' dashed'}" onclick="presetField('hidden', ${!e.hidden}); renderPresetPanel();">${e.hidden ? 'Put back on the plot' : 'Leave off the plot'}</button>
+      <span style="flex:1"></span>
+      <button class="ms-btn primary" onclick="closePresetSheet()">Close</button>
+    </div>`;
+}
 
 // ── MOVE SHEET ──────────────────────────────────────────────────────────────
 // One move at a time in a panel at the bottom of the screen, so the plot stays

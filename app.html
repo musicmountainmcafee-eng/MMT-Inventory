@@ -6456,7 +6456,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.11 v7</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.11 v8</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -14861,6 +14861,9 @@ function normalizePresets(v) {
       const e = v[k];
       if (!e || typeof e !== 'object') return;
       out[k] = {
+        // Spike from the spike map (linked ids) and typed, kept through loads.
+        spikeIds: Array.isArray(e.spikeIds) ? e.spikeIds.map(String) : [],
+        spike: String(e.spike || ''),
         piece: String(e.piece || k),
         location: String(e.location || ''),
         notes: String(e.notes || ''),
@@ -16935,7 +16938,7 @@ function openCueSheetPage(view) {
   if (showId) q.push('script=' + encodeURIComponent(showId));
   if (name) q.push('name=' + encodeURIComponent(name));
   if (view === 'shift') q.push('type=shift');
-  if (view === 'presets') q.push('view=presets');
+  if (view === 'presets') { q.push('view=presets'); q.push('edit=1'); }
   window.open('cue-list.html' + (q.length ? '?' + q.join('&') : ''), '_blank');
 }
 
@@ -18123,9 +18126,10 @@ async function exportSetChangePlot() {
 
   if (presetRows.length) {
     const PC = [
-      { key: 'piece',    label: 'PIECE',           w: 180, bold: true },
-      { key: 'location', label: 'PRESET LOCATION', w: 244 },
-      { key: 'notes',    label: 'NOTES',           w: 280 },
+      { key: 'piece',    label: 'PIECE',           w: 166, bold: true },
+      { key: 'location', label: 'PRESET LOCATION', w: 196 },
+      { key: 'spike',    label: 'SPIKE',           w: 150 },
+      { key: 'notes',    label: 'NOTES',           w: 192 },
     ];
     const PX = []; { let x = M; for (const c of PC) { PX.push(x); x += c.w; } }
 
@@ -18148,7 +18152,23 @@ async function exportSetChangePlot() {
     doc.setFontSize(FS);
     let pShade = false;
     presetRows.forEach(r => {
-      const cells = PC.map(c => doc.splitTextToSize(String(r[c.key] || ''), c.w - PAD*2));
+      // Spike cells hold the tape drawing, label and colours, then anything typed.
+      const presetSpike = (rec, w) => {
+        const out = [];
+        spkOfMove(rec, showId).forEach(e => {
+          if (!e) return;
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(FS);
+          doc.splitTextToSize(spkLabel(e), w - PAD*2 - 20).forEach((t, i) => out.push({ t, ind: 20, bold: true, e: i === 0 ? e : null }));
+          if (e.label) {
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(FS - 1.5);
+            doc.splitTextToSize(spkTapeName(e), w - PAD*2 - 20).forEach(t => out.push({ t, ind: 20, small: true }));
+          }
+        });
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
+        doc.splitTextToSize(String(rec.spike || ''), w - PAD*2).forEach(t => { if (t) out.push({ t, ind: 0 }); });
+        return out;
+      };
+      const cells = PC.map(c => c.key === 'spike' ? presetSpike(r, c.w) : doc.splitTextToSize(String(r[c.key] || ''), c.w - PAD*2));
       const rowH = Math.max(MIN_ROW, Math.max(...cells.map(c => c.length), 1) * LEAD + PAD*2);
       // A long piece list runs on, and the continuation needs its own bar and
       // column header or the rows arrive unlabelled.
@@ -18161,7 +18181,17 @@ async function exportSetChangePlot() {
       doc.setFontSize(FS); doc.setTextColor(30,30,30);
       PC.forEach((c, k) => {
         doc.setFont('helvetica', c.bold ? 'bold' : 'normal');
-        cells[k].forEach((ln, li) => doc.text(ln, PX[k] + PAD, y + PAD + LEAD - 3 + li * LEAD));
+        cells[k].forEach((ln, li) => {
+          const base = y + PAD + LEAD - 3 + li * LEAD;
+          if (typeof ln === 'string') { doc.text(ln, PX[k] + PAD, base); return; }
+          if (ln.e) spkDrawPDF(doc, ln.e, PX[k] + PAD, base - 8, 15, 9);
+          doc.setFont('helvetica', ln.bold ? 'bold' : 'normal');
+          doc.setFontSize(ln.small ? FS - 1.5 : FS);
+          if (ln.small) doc.setTextColor(90, 90, 98);
+          doc.text(ln.t, PX[k] + PAD + ln.ind, base);
+          doc.setFontSize(FS); doc.setTextColor(30, 30, 30);
+          doc.setFont('helvetica', c.bold ? 'bold' : 'normal');
+        });
       });
       doc.setDrawColor(...GRID); doc.setLineWidth(0.4);
       PC.forEach((c, k) => doc.line(PX[k], y, PX[k], y + rowH));
@@ -18427,7 +18457,7 @@ function presetRowData() {
   return allPieces()
     .map(({ key, piece }) => ({ ...(presets[key] || {}), piece }))
     .filter(r => !r.hidden)
-    .map(r => ({ piece: String(r.piece || ''), location: String(r.location || ''), notes: String(r.notes || '') }));
+    .map(r => ({ piece: String(r.piece || ''), location: String(r.location || ''), spike: spkMoveText(r, showId), notes: String(r.notes || '') }));
 }
 
 // Act number off the front of a scene name: "2-1" or "Act 2, Scene 1". Labels
@@ -18698,14 +18728,14 @@ async function exportSetChangeXLSX() {
         margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 }
       }
     });
-    ps.columns = [{ key:'piece', width:34 }, { key:'location', width:46 }, { key:'notes', width:52 }];
-    titleBlock(ps, 'C', showName, 'Set Changes');
-    sceneBar(ps, 4, 'Before house opens', 'C');
-    headerRow(ps, 5, ['PIECE', 'PRESET LOCATION', 'NOTES']);
+    ps.columns = [{ key:'piece', width:30 }, { key:'location', width:38 }, { key:'spike', width:32 }, { key:'notes', width:42 }];
+    titleBlock(ps, 'D', showName, 'Set Changes');
+    sceneBar(ps, 4, 'Before house opens', 'D');
+    headerRow(ps, 5, ['PIECE', 'PRESET LOCATION', 'SPIKE', 'NOTES']);
 
     presetRows.forEach((rec, idx) => {
       const row = ps.getRow(6 + idx);
-      ['piece', 'location', 'notes'].forEach((k, i) => {
+      ['piece', 'location', 'spike', 'notes'].forEach((k, i) => {
         const cell = row.getCell(i + 1);
         cell.value = rec[k] || null;
         cell.font = { size: XL_FS, bold: i === 0, name: 'Helvetica' };
