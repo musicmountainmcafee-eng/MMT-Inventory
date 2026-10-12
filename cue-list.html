@@ -437,6 +437,7 @@
   .export-opt span { font-size: 13px; color: var(--text-muted); }
   .export-opt:hover { border-color: var(--purple); background: var(--purple-light); }
   .hist-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+  .hist-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
   .hist-when { font-weight: 600; font-size: 14px; }
   .hist-what { font-size: 13px; color: var(--text-muted); }
   #history-body { max-height: 55vh; overflow-y: auto; margin-bottom: 10px; }
@@ -635,8 +636,8 @@
 <!-- ── HISTORY ────────────────────────────────────────────────────────────── -->
 <div class="overlay" id="history" onclick="if(event.target===this) closeHistory()">
   <div class="modal">
-    <h3>Set change history</h3>
-    <p class="note">Snapshots kept on this device. Restoring puts back the set changes only.</p>
+    <h3>History</h3>
+    <p class="note">Copies kept on this device. Restore puts back the set changes; Before House puts back the presets and spikes.</p>
     <div id="history-body"></div>
     <div class="modal-btns"><button class="top-btn primary" onclick="closeHistory()">Done</button></div>
   </div>
@@ -1645,7 +1646,7 @@ async function runExport(kind){
 // only puts back set change moves — snapshots carry no cue positions, so a
 // whole-show restore from here could wipe them. The current Sheet copy is
 // snapshotted first, so a restore can itself be undone.
-const SNAP_MAX = 12, SNAP_BUDGET = 1500000;
+const SNAP_MAX = 30, SNAP_BUDGET = 1500000;
 function snapKey(){ return 'mmt_cues_snap_' + scriptId; }
 function getSnaps(){ try { return JSON.parse(lsGet(snapKey(), '[]')) || []; } catch(e){ return []; } }
 function saveSnap(data, reason){
@@ -1677,12 +1678,37 @@ function openHistory(){
   document.getElementById('history-body').innerHTML = snaps.length
     ? snaps.map((sn, i) => `<div class="hist-row">
         <div><div class="hist-when">${esc(when(sn.at))}</div>
-          <div class="hist-what">${sn.cueCount} cues · ${sn.moveCount} moves${sn.reason && sn.reason !== 'edit' && sn.reason !== 'auto' ? ' · ' + esc(sn.reason) : ''}</div></div>
-        <button class="top-btn" onclick="restoreSnap(${snaps.length - 1 - i})">Restore</button></div>`).join('')
+          <div class="hist-what">${sn.cueCount} cues · ${sn.moveCount} moves · ${snapPresetCount(sn)} Before House set${sn.reason && sn.reason !== 'edit' && sn.reason !== 'auto' ? ' · ' + esc(sn.reason) : ''}</div></div>
+        <div class="hist-btns">${snapPresetCount(sn) ? `<button class="top-btn" onclick="restoreSnapPresets(${snaps.length - 1 - i})">Before House</button>` : ''}
+        <button class="top-btn" onclick="restoreSnap(${snaps.length - 1 - i})">Restore</button></div></div>`).join('')
     : '<div class="note">No snapshots on this device yet. One is kept every few minutes while the dashboard is open, and before every save from this page.</div>';
   document.getElementById('history').classList.add('open');
 }
 function closeHistory(){ document.getElementById('history').classList.remove('open'); }
+// Pieces in a snapshot with a spike, location or note set.
+function snapPresetCount(sn){
+  const p = (sn && sn.data && sn.data.presets) || {};
+  return Object.keys(p).filter(k => { const e = p[k] || {}; return (e.spikeIds && e.spikeIds.length) || e.spike || e.location || e.notes || e.hidden; }).length;
+}
+// Put back Before House from a snapshot: each piece it has set goes back as it
+// was there; pieces it doesn't mention are left alone. Saved the careful way.
+function restoreSnapPresets(idx){
+  if (editSaving){ toast('Wait for the save to finish'); return; }
+  const sn = getSnaps()[idx];
+  const src = (sn && sn.data && sn.data.presets) || {};
+  const keys = Object.keys(src).filter(k => { const e = src[k] || {}; return (e.spikeIds && e.spikeIds.length) || e.spike || e.location || e.notes || e.hidden; });
+  if (!keys.length){ toast('Nothing set in that copy'); return; }
+  if (!confirm('Put back Before House for ' + keys.length + ' piece' + (keys.length === 1 ? '' : 's') + ' from this copy?\n\nSet changes and other pieces are left as they are. The current version goes into History first.')) return;
+  const wasEditing = editMode;
+  if (!editMode) setEditMode(true);
+  saveSnap({ cues, presets, _rev: loadedRev }, 'before putting back Before House');
+  const fixed = normalizePresets(Object.fromEntries(keys.map(k => [k, src[k]])));
+  keys.forEach(k => { presets[k] = fixed[k]; editedPresets[k] = true; });
+  saveDraft(); markDirty();
+  closeHistory();
+  if (!wasEditing) setEditMode(false); else render();
+  toast('Putting back ' + keys.length + ' piece' + (keys.length === 1 ? '' : 's'));
+}
 function restoreSnap(idx){
   if (editMode){ toast('Finish editing first (tap Done)'); return; }
   const sn = getSnaps()[idx];
@@ -2959,6 +2985,7 @@ function saveMoveEdits(){
         }
       }
       loadedRev = data._rev;
+      saveSnap(data, 'saved from the cue sheet');
       if (_saveAgain) { saveMoveEdits(); return; }
       if (!editMode) schedulePoll();
       render();

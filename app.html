@@ -6174,7 +6174,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.12 v6</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.12 v7</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -17230,7 +17230,7 @@ function cueHasUnsaved() {
 // Kept so a bad overwrite is recoverable. Crop images are stripped: they are
 // data: URLs worth hundreds of KB and would blow the storage budget, and the
 // typed work is what needs protecting.
-const CUE_SNAP_MAX   = 12;
+const CUE_SNAP_MAX   = 30;
 const CUE_SNAP_BUDGET = 1500000;          // ~1.5 MB of the ~5 MB localStorage
 const CUE_SNAP_MIN_GAP = 3 * 60 * 1000;   // don't snapshot more than once per 3 min
 
@@ -17334,6 +17334,57 @@ function saveShowData() {
   saveShowData._t = setTimeout(() => pushCueData(data), 2000);
 }
 
+// ── Sharing the show with the cue sheet ─────────────────────────────────────
+// The cue sheet page edits Before House and set changes in the same Sheet
+// record. The editor used to save its whole copy over it, so anything done on
+// the cue sheet while a script was open here was put back to the old version.
+// Now a save takes the Sheet's Before House as it is (Before House is edited
+// on the cue sheet), and for each set change takes the Sheet's moves unless
+// this editor changed that set change since it last synced.
+let _srvPresets = null;      // Before House as the Sheet last had it
+let _cueBase = {};           // cue id -> moves JSON as of the last sync
+function cueNoteSynced(d) {
+  if (!d) return;
+  _srvPresets = d.presets && typeof d.presets === 'object' ? JSON.parse(JSON.stringify(d.presets)) : {};
+  _cueBase = {};
+  (d.cues || []).forEach(c => { if (c && c.type === SHIFT_TYPE_ID) _cueBase[c.id] = JSON.stringify(c.moves || []); });
+}
+function cueMergeFresh(data, fresh) {
+  const out = { ...data };
+  out.presets = fresh && fresh.presets && typeof fresh.presets === 'object' ? fresh.presets : (_srvPresets || data.presets || {});
+  const fById = {};
+  ((fresh && fresh.cues) || []).forEach(c => { if (c && c.type === SHIFT_TYPE_ID) fById[c.id] = c.moves || []; });
+  out.cues = (data.cues || []).map(c => {
+    if (!c || c.type !== SHIFT_TYPE_ID || !(c.id in fById)) return c;
+    const mine = JSON.stringify(c.moves || []);
+    // Not seen at a sync yet: it's this editor's work, keep it.
+    const changedHere = (c.id in _cueBase) ? _cueBase[c.id] !== mine : true;
+    return changedHere ? c : { ...c, moves: JSON.parse(JSON.stringify(fById[c.id])) };
+  });
+  out._rev = Math.max(data._rev || 0, (fresh && fresh._rev) || 0) + 1;
+  return out;
+}
+// Bring what the cue sheet saved into this editor without losing local work.
+function cueAdoptFresh(fresh) {
+  if (!fresh) return;
+  const merged = cueMergeFresh({ cues, presets, _rev: 0 }, fresh);
+  presets = normalizePresets(merged.presets);
+  const byId = {}; merged.cues.forEach(c => { if (c) byId[c.id] = c; });
+  cues.forEach(c => { if (c && c.type === SHIFT_TYPE_ID && byId[c.id]) c.moves = byId[c.id].moves; });
+  cueNoteSynced(merged);
+  try { renderCueList(); } catch (e) {}
+}
+
+// Coming back to the editor: pick up anything the cue sheet saved meanwhile.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !showId) return;
+  const ed = document.getElementById('scripts-editor');
+  if (!ed || !ed.classList.contains('open')) return;
+  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(showId) + '&_=' + Date.now(), d => {
+    if (d && d.success && d.cueData) cueAdoptFresh(d.cueData);
+  }, () => {});
+});
+
 function pushCueData(data, viaBeacon) {
   // Local (not-yet-uploaded) crop images are huge data: URLs — never send those
   // to the Sheet; only synced Drive links go. The crop finishes its own
@@ -17344,20 +17395,23 @@ function pushCueData(data, viaBeacon) {
     }
     return c;
   });
-  const body = JSON.stringify({
-    action: 'saveCueData', scriptId: showId,
-    cueData: { ...data, cues: syncCues },
-  });
-
   if (viaBeacon) {
-    // Page is going away: fire and forget, but at least it leaves the machine.
+    // Page is going away: no time to re-read, so use the Sheet's copy as last seen.
+    const merged = cueMergeFresh({ ...data, cues: syncCues }, _srvPresets ? { presets: _srvPresets, cues: [] , _rev: 0 } : null);
+    const body = JSON.stringify({ action: 'saveCueData', scriptId: showId, cueData: merged });
     try { navigator.sendBeacon(SCRIPT_URL, new Blob([body], { type: 'text/plain' })); } catch(e) {}
     return;
   }
 
+  const send = fresh => {
+  const merged = cueMergeFresh({ ...data, cues: syncCues }, fresh);
+  const body = JSON.stringify({ action: 'saveCueData', scriptId: showId, cueData: merged });
   fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body })
     .then(r => {
       if (!r.ok) throw new Error('HTTP ' + r.status);
+      // What the Sheet has now is what we just sent; show it here too.
+      if (fresh) cueAdoptFresh(merged);
+      else cueNoteSynced(merged);
       const st = getCueSync();
       setCueSync({ ...st, syncedRev: data._rev, syncedAt: new Date().toISOString() });
       _cueRetryDelay = 4000;
@@ -17371,6 +17425,14 @@ function pushCueData(data, viaBeacon) {
       _cueRetryTimer = setTimeout(() => pushCueData(data), _cueRetryDelay);
       _cueRetryDelay = Math.min(_cueRetryDelay * 2, 60000);
     });
+  };
+  // Read the Sheet first so the cue sheet's work is kept. If it can't be
+  // read, nothing is sent (sending blind is what overwrote it); try again.
+  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(showId) + '&_=' + Date.now(), d => {
+    if (d && d.success && d.cueData) send(d.cueData);
+    else if (d && d.success && !d.cueData) send(null);   // nothing there yet
+    else { setCueSaveState('error'); clearTimeout(_cueRetryTimer); _cueRetryTimer = setTimeout(() => pushCueData(data), _cueRetryDelay); _cueRetryDelay = Math.min(_cueRetryDelay * 2, 60000); }
+  }, () => { setCueSaveState('error'); clearTimeout(_cueRetryTimer); _cueRetryTimer = setTimeout(() => pushCueData(data), _cueRetryDelay); _cueRetryDelay = Math.min(_cueRetryDelay * 2, 60000); });
 }
 
 // Anything pending goes out before the page is hidden or closed.
@@ -17505,6 +17567,9 @@ function loadShowData() {
       if (serverHasData) {
         // Keep the Sheet's copy anyway, so nothing is ever simply discarded.
         saveCueSnapshot(d.cueData, 'sheet copy not used: ' + decision.why, true);
+        // Before House always comes from the Sheet; it's edited on the cue sheet.
+        _srvPresets = d.cueData.presets || {};
+        presets = normalizePresets(d.cueData.presets);
         console.warn('Kept local cue data —', decision.why);
         if (typeof toast === 'function') {
           toast('Kept this device\u2019s set changes \u2014 ' + decision.why);
@@ -17525,6 +17590,7 @@ function loadShowData() {
     const migrated = migrateMoveTriggers();
     const cleaned = purgeRetiredTypes() || migrated;
     try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(d.cueData)); } catch(e) {}
+    cueNoteSynced(d.cueData);
     setCueSync({
       rev: d.cueData._rev || 0,
       syncedRev: d.cueData._rev || 0,
