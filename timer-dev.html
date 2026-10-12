@@ -1068,7 +1068,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev16';
+var VERSION='3.4-dev17';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1760,6 +1760,13 @@ function handle(txt,live){
     if(m.message.slice(0,5)==='pong:'){if(fresh)notePong(m.message.slice(5));return}
     if(m.message.slice(0,7)==='reload:'){if(fresh)remoteReload(m.message.slice(7),m.time*1000);return}
   }
+  // Settings too big for the relay: it carries only the new stamp, and each
+  // screen fetches the settings themselves from the backend.
+  if(typeof m.message==='string'&&m.message.slice(0,5)==='cfgv:'){
+    var cv=Number(m.message.slice(5))||0;relayCfgV=Math.max(relayCfgV||0,cv);
+    if(cv>(cfg.v||0))loadCfgFromBackend();
+    return;
+  }
   if(typeof m.message==='string'&&m.message.slice(0,4)==='cfg:'){noteRelayCfg(m.message.slice(4));receiveCfg(m.message.slice(4));return}
   if(applyCommand(m.message,m.id,m.time?m.time*1000:null))return;
   try{s=JSON.parse(m.message)}catch(x){return}
@@ -1801,15 +1808,23 @@ function connect(){
 // from an old link days later still picks up the latest.
 var cfgTimer=null,cfgTooBig=false;
 var cfgPending=false,relayCfgV=null;   // relayCfgV: newest schedule stamp seen on the relay
-function sendCfgSoon(){cfgPending=true;clearTimeout(cfgTimer);cfgTimer=setTimeout(function(){sendCfg();saveCfgToBackend()},5000)}
+function sendCfgSoon(){cfgPending=true;clearTimeout(cfgTimer);cfgTimer=setTimeout(sendCfg,5000)}
 function sendCfg(){
-  clearTimeout(cfgTimer);cfgPending=false;
-  if(!cfg.v||typeof fetch==='undefined')return;
+  clearTimeout(cfgTimer);
+  if(!cfg.v||typeof fetch==='undefined'){cfgPending=false;return}
+  // an edit waiting to go out is saved to the backend first (Done inside the
+  // 5 seconds used to skip this save)
+  var saved=cfgPending?saveCfgToBackend():Promise.resolve();cfgPending=false;
   if(relayCfgV!=null&&relayCfgV>=cfg.v)return;       // the relay already has this (or newer)
-  var body='cfg:'+JSON.stringify(cfg);
-  cfgTooBig=body.length>3900;          // the relay only carries about 4 KB
-  if(cfgTooBig){sig='';return}
-  fetch(topicUrl(),{method:'POST',body:body}).then(function(r){if(r.ok)relayCfgV=cfg.v;sent(r)}).catch(function(){});
+  var body='cfg:'+JSON.stringify(cfg),v=cfg.v;
+  // The relay only carries about 4 KB. Bigger settings go out as just their
+  // stamp, once the backend has them, and every screen fetches them from there.
+  if(body.length>3900){
+    saved.then(function(){return fetch(topicUrl(),{method:'POST',body:'cfgv:'+v})})
+      .then(function(r){if(r&&r.ok)relayCfgV=v;if(r)sent(r)}).catch(function(){});
+    return;
+  }
+  fetch(topicUrl(),{method:'POST',body:body}).then(function(r){if(r.ok)relayCfgV=v;sent(r)}).catch(function(){});
 }
 function noteRelayCfg(txt){try{var c=JSON.parse(txt);if(c)relayCfgV=Math.max(relayCfgV||0,c.v||0)}catch(e){}}
 // Shared by both sync paths (the live relay and the durable backend) so a
@@ -1854,8 +1869,11 @@ function loadCfgFromBackend(){
 }
 function saveCfgToBackend(){
   if(typeof fetch==='undefined')return;
-  fetch(BACKEND_URL+'?action=saveKV&key='+CFG_KV_KEY+'&value='+encodeURIComponent(JSON.stringify(cfg))+'&_='+Date.now())
-    .catch(function(){});
+  // POST, like the dashboard: settings this size are too long to ride in a link
+  return fetch(BACKEND_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'saveKV',key:CFG_KV_KEY,value:cfg})})
+    .catch(function(){
+      return fetch(BACKEND_URL+'?action=saveKV&key='+CFG_KV_KEY+'&value='+encodeURIComponent(JSON.stringify(cfg))+'&_='+Date.now()).catch(function(){});
+    });
 }
 loadCfgFromBackend();
 function catchUp(announce){
@@ -2427,7 +2445,7 @@ function tick(){
   var s=[f.idle?'idle':f.perf.key,f.pos,f.idx,f.paused,m,S.n,syncState,S.adhoc?1:0,f.preCall?1:0,f.ready?1:0].join('|');
   if(s===sig)return;sig=s;
   paintPill();
-  $('toobig').hidden=!cfgTooBig;
+  $('toobig').hidden=true;
   $('relaylimit').hidden=!relayLimited;
   $('run').hidden=f.idle;$('idlecard').hidden=!f.idle;
   var onRun=!!(S.adhoc&&!f.idle&&f.perf===S.adhoc);
