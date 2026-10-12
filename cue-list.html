@@ -1353,7 +1353,7 @@ function presetRowHTML(r, band){
   if (presetSheet && presetSheet.key === r.key) cls.push('mv-sel');
   const loc = String(r.location || '').trim();
   const hasSpike = (r.spikeIds || []).length || r.spike;
-  return `<tr class="${cls.join(' ')} pr-tap" data-key="${esc(r.key)}" onclick="${editMode ? 'openPresetSheet' : 'presetQuick'}('${esc(r.key)}')">
+  return `<tr class="${cls.join(' ')} pr-tap" data-key="${esc(r.key)}" onclick="presetQuick('${esc(r.key)}')">
     <td><span class="mv-piece">${esc(r.piece)}</span>${r.hidden ? '<span class="pr-offtag">not on plot</span>' : ''}</td>
     <td class="cs-action">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
     <td class="cs-line">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : '<span class="pr-addspike">+ Spike</span>'}</td>
@@ -2803,12 +2803,16 @@ function setEditMode(on){
   document.body.classList.toggle('editing', editMode);
 
   if (editMode){
+    // Starting again while the last save is still going: keep what that save
+    // is carrying (and its starting point), so a failed save can be retried.
+    const keepC = editSaving ? editedCues : {}, keepP = editSaving ? editedPresets : {};
+    const oldB = editBaseline, oldPB = presetBaseline;
     editBaseline = {};
-    editedCues = {};
+    editedCues = Object.assign({}, keepC);
     editLoadedRev = loadedRev;
-    cues.forEach(c => { if (c.type === SHIFT_TYPE_ID) editBaseline[c.id] = JSON.parse(JSON.stringify(c.moves || [])); });
-    presetBaseline = {}; editedPresets = {};
-    Object.keys(presets).forEach(k => { presetBaseline[k] = JSON.stringify(presets[k]); });
+    cues.forEach(c => { if (c.type === SHIFT_TYPE_ID) editBaseline[c.id] = (c.id in keepC && oldB[c.id]) ? oldB[c.id] : JSON.parse(JSON.stringify(c.moves || [])); });
+    presetBaseline = {}; editedPresets = Object.assign({}, keepP);
+    Object.keys(presets).forEach(k => { presetBaseline[k] = (k in keepP && oldPB[k]) ? oldPB[k] : JSON.stringify(presets[k]); });
     if (pollTimer){ clearInterval(pollTimer); pollTimer = null; }
     render();
   } else {
@@ -2875,8 +2879,10 @@ function mergeMoveEdits(fresh, baseline, ours){
   return { data: out, applied, conflicts };
 }
 
+let _saveAgain = false;
 function saveMoveEdits(){
-  if (editSaving) return;
+  if (editSaving) { _saveAgain = true; return; }
+  _saveAgain = false;
   const ids = Object.keys(editedCues);
   const pKeys = Object.keys(editedPresets);
   if (!ids.length && !pKeys.length){ schedulePoll(); render(); return; }
@@ -2919,8 +2925,18 @@ function saveMoveEdits(){
     }).then(r => {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       editSaving = false;
-      applied.forEach(id => { delete editedCues[id]; });
-      pApplied.forEach(k => { delete editedPresets[k]; });
+      // What we saved is now the starting point. Anything changed again while
+      // this save was out stays marked, so the next save picks it up.
+      applied.forEach(id => {
+        const c = cues.find(x => String(x.id) === String(id));
+        editBaseline[id] = JSON.parse(JSON.stringify(ours[id]));
+        if (!c || JSON.stringify(c.moves || []) === JSON.stringify(ours[id])) delete editedCues[id];
+      });
+      pApplied.forEach(k => {
+        const saved = data.presets[k];
+        presetBaseline[k] = JSON.stringify(normalizePresets({ [k]: saved })[k]);
+        if (JSON.stringify(presets[k]) === JSON.stringify(saved)) delete editedPresets[k];
+      });
       if (conflicts.length){
         // Our version of the clashing changes stays in the draft, so nothing
         // is thrown away — it just isn't pushed over someone else's work.
@@ -2930,17 +2946,24 @@ function saveMoveEdits(){
           + conflicts.length + ' could not be saved because ' + conflicts[0].why
           + '. Your version is still on this device — reopen Edit to see it.');
       } else {
-        clearDraft();
         if (el){ el.className = 'edit-state saved'; el.textContent = 'Saved'; setTimeout(() => { if (el.textContent === 'Saved') el.textContent = ''; }, 2500); }
-        editMode = false;
-        const btn = document.getElementById('edit-btn');
-        if (btn){ btn.textContent = 'Edit'; btn.classList.remove('on'); }
-        document.body.classList.remove('editing');
+        if (editMode || _saveAgain) {
+          // You're already editing again (or another save is queued): keep
+          // the draft with those edits, and leave the panel open.
+          saveDraft();
+        } else {
+          clearDraft();
+          const btn = document.getElementById('edit-btn');
+          if (btn){ btn.textContent = 'Edit'; btn.classList.remove('on'); }
+          document.body.classList.remove('editing');
+        }
       }
       loadedRev = data._rev;
-      schedulePoll(); render();
+      if (_saveAgain) { saveMoveEdits(); return; }
+      if (!editMode) schedulePoll();
+      render();
     }).catch(() => {
-      editSaving = false;
+      editSaving = false; _saveAgain = false;
       if (el){ el.className = 'edit-state error'; el.textContent = 'Save failed — your edits are safe on this device, try Done again'; }
     });
   }, () => {
@@ -2968,7 +2991,7 @@ function presetEntry(key){
 // Tapping a piece without pressing Edit first: open its panel, and save the
 // moment it's closed, the same careful way Done does.
 function presetQuick(key){
-  if (editMode || editSaving) return;
+  if (editMode) { openPresetSheet(key); return; }
   setEditMode(true);
   if (!editMode) return;
   openPresetSheet(key, true);
