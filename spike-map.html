@@ -78,9 +78,8 @@ try {
 
   /* ── List ── */
   main { max-width: 980px; margin: 0 auto; padding: 0 0 calc(24px + var(--safe-b)); }
-  .cols, .row { display: grid; grid-template-columns: 76px minmax(0, 1fr) 140px 116px; column-gap: 14px; align-items: center; }
+  .cols, .row { display: grid; grid-template-columns: 76px minmax(0, 1fr) 150px; column-gap: 14px; align-items: center; }
   .cols { padding: 10px 16px; background: var(--head-bg); border-bottom: 2px solid var(--rule); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--head-ink); }
-  .cols div:last-child { text-align: right; }
   .row { width: 100%; padding: 13px 16px; background: var(--surface); border: none; border-bottom: 1px solid var(--border); text-align: left; font-size: 16px; }
   .row:active { background: var(--purple-light); }
   .row.hidden { opacity: 0.5; }
@@ -90,11 +89,6 @@ try {
   .sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
   .mark { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); }
   .mark svg { flex: none; }
-  .badge { justify-self: end; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; padding: 4px 9px; border-radius: 12px; white-space: nowrap; }
-  .b-house { color: var(--head-ink); border: 1px solid var(--border-2); }
-  .b-relabel { color: #7a4b00; background: #fdf1d8; }
-  .b-show { color: var(--purple-dark); background: var(--purple-light); }
-  [data-theme="dark"] .b-relabel { color: #f5c46b; background: #3a2e14; }
   .section { padding: 18px 16px 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--text-muted); }
   .empty-state { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 15px; line-height: 1.5; }
   .empty-state b { display: block; color: var(--text); font-size: 18px; margin-bottom: 6px; }
@@ -103,12 +97,10 @@ try {
 
   @media (max-width: 640px) {
     .cols { display: none; }
-    .row { grid-template-columns: 64px minmax(0, 1fr) auto; grid-template-areas: "tape main badge" "tape mark mark"; row-gap: 6px; }
+    .row { grid-template-columns: 64px minmax(0, 1fr); grid-template-areas: "tape main" "tape mark"; row-gap: 6px; }
     .row .tape { grid-area: tape; width: 56px; align-self: start; margin-top: 2px; }
     .row .main { grid-area: main; }
     .row .mark { grid-area: mark; }
-    .row .badge { grid-area: badge; align-self: start; }
-    .legend { display: none; }
     header .btn .wide { display: none; }
     header .btn .narrow-ico { display: inline; }
   }
@@ -159,10 +151,9 @@ try {
     .print-title { display: block; padding: 0 0 12px; font-size: 20pt; font-weight: 700; }
     .print-title small { display: block; font-size: 11pt; font-weight: 400; color: #444; }
     .cols { display: grid !important; background: #eee; }
-    .row { break-inside: avoid; background: #fff !important; grid-template-columns: 76px minmax(0, 1fr) 140px 116px !important; grid-template-areas: none !important; }
+    .row { break-inside: avoid; background: #fff !important; grid-template-columns: 76px minmax(0, 1fr) 150px !important; grid-template-areas: none !important; }
     .row .tape { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .row.hidden, .section.hidden-head { display: none !important; }
-    .badge { display: none; }
   }
 </style>
 </head>
@@ -198,9 +189,6 @@ try {
     <div class="tabs-row">
       <button class="tab on" id="tab-show" onclick="setTab('show')">This show</button>
       <button class="tab" id="tab-house" onclick="setTab('house')">House defaults</button>
-      <div class="legend">
-        <span class="badge b-house">HOUSE</span><span class="badge b-relabel">RELABELED</span><span class="badge b-show">THIS SHOW</span>
-      </div>
     </div>
   </header>
 
@@ -445,15 +433,11 @@ function setTab(t){
 }
 
 function rowHTML(e, clickArg){
-  const badge = e.src === 'show' ? '<span class="badge b-show">THIS SHOW</span>'
-    : e.src === 'relabel' ? '<span class="badge b-relabel">RELABELED</span>'
-    : '<span class="badge b-house">HOUSE</span>';
   const sub = [tapeName(e), e.note].filter(Boolean).join(' · ');
   return `<button class="row${e.hidden ? ' hidden' : ''}" onclick="openEditor(${clickArg})">
     <div class="tape" style="background:${tapeCss(e)}"></div>
     <div class="main"><div class="lbl${e.label ? '' : ' empty'}">${e.label ? esc(e.label) : 'No label yet'}</div><div class="sub">${esc(sub)}</div></div>
     <div class="mark">${markHTML(e.mark)}</div>
-    ${badge}
   </button>`;
 }
 
@@ -463,7 +447,7 @@ function render(){
   if (cl) cl.href = 'cue-list.html' + (scriptId ? '?script=' + encodeURIComponent(scriptId) : '');
   const el = document.getElementById('list');
   const title = `<div class="print-title">Spike Map<small>${esc(tab === 'house' ? 'House defaults' : cleanShowName(scriptName))}</small></div>`;
-  const cols = '<div class="cols"><div>Tape</div><div>Means</div><div>Marks</div><div>From</div></div>';
+  const cols = '<div class="cols"><div>Tape</div><div>Means</div><div>Marks</div></div>';
 
   if (!loaded && !(data.house || []).length){
     el.innerHTML = '<div class="empty-state">Loading the spike map…</div>'; return;
@@ -539,16 +523,9 @@ function renderEditor(){
   }).join('');
   const marks = MARKS.map(m => `<button class="pill${e.mark === m[0] ? ' on' : ''}" onclick="pickMark('${m[0]}')">${markHTML(m[0], 18)}</button>`).join('');
 
-  // Who this change applies to. A house colour opened from a show defaults to
-  // this show only, so relabeling for one show never rewrites every show.
-  let scopeHTML = '';
-  if (ed.kind === 'new' && tab === 'show'){
-    scopeHTML = segHTML('scope', [['show', 'This show only'], ['house', 'Every show (house)']], ed.scope);
-  } else if (ed.kind === 'over'){
-    scopeHTML = segHTML('scope', [['show', 'This show only'], ['house', 'Every show (house)']], ed.scope);
-  } else if (ed.kind === 'show'){
-    scopeHTML = segHTML('scope', [['show', 'This show only'], ['house', 'Make it a house color']], ed.scope);
-  }
+  // The tab decides what a change touches: This show changes this show only,
+  // House defaults changes every show. No separate choice to get wrong.
+  const scopeNote = tab === 'house' ? 'Changes here apply to every show.' : 'Changes here apply to ' + esc(cleanShowName(scriptName)) + ' only.';
 
   let extra = '';
   if (ed.kind === 'over'){
@@ -556,7 +533,7 @@ function renderEditor(){
       ? `<button class="btn" onclick="setHidden(false)">Use on this show</button>`
       : `<button class="btn" onclick="setHidden(true)">Not used this show</button>`;
     const o = data.shows && data.shows[scriptId] && data.shows[scriptId].over[ed.e.id];
-    if (o && Object.keys(o).some(k => k !== 'hidden')) extra += `<button class="btn" onclick="resetToHouse()">Back to house label</button>`;
+    if (o && Object.keys(o).some(k => k !== 'hidden')) extra += `<button class="btn" onclick="resetToHouse()">Undo changes</button>`;
   } else if (ed.kind === 'show' || ed.kind === 'house'){
     extra += `<button class="btn danger" onclick="deleteEntry()">Delete</button>`;
   }
@@ -580,7 +557,7 @@ function renderEditor(){
     <div class="pills">${marks}</div>
     <div style="height:10px"></div>
     <input class="in" id="ed-note" value="${esc(e.note)}" placeholder="Note (optional), e.g. downstage edge only" autocomplete="off" oninput="ed.e.note=this.value">
-    ${scopeHTML ? `<div class="f-lbl">Keep it for</div>${scopeHTML}` : ''}
+    <div class="sh-sub" style="margin-top:16px">${scopeNote}</div>
     <div class="sh-btns">${extra}<span class="grow"></span>
       <button class="btn" onclick="closeEditor()">Cancel</button>
       <button class="btn primary" onclick="saveEditor()">Save color</button></div>`;
