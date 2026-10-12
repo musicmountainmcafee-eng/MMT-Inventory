@@ -71,6 +71,9 @@ try {
   .btn.danger { color: #b02a20; border-color: rgba(176,42,32,0.35); }
   [data-theme="dark"] .btn.danger { color: #ff8a80; }
   header .btn .narrow-ico { display: none; }
+  .show-btn { max-width: 46vw; min-width: 0; }
+  .show-btn #show-btn-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-weight: 600; }
+  .bar-sub:empty, .bar-sub:has(.save-state:empty) { display: none; }
   .tabs-row { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
   .tab { min-height: 40px; padding: 0 16px; border: none; border-radius: 10px; background: none; color: var(--text-muted); font-size: 15px; font-weight: 600; }
   .tab.on { background: var(--purple); color: #fff; }
@@ -180,10 +183,10 @@ try {
     <div class="bar">
       <div class="bar-title">
         <h1>Spike Map</h1>
-        <div class="bar-sub"><span id="show-name">No show picked</span><span class="save-state" id="save-state"></span></div>
+        <div class="bar-sub"><span class="save-state" id="save-state"></span></div>
       </div>
       <button class="btn" onclick="window.print()" aria-label="Print key"><span class="wide">Print key</span><svg class="narrow-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M8 14h8v7H8z"/></svg></button>
-      <button class="btn" onclick="openShows()">Show ▾</button>
+      <button class="btn show-btn" onclick="openShows()" aria-label="Pick a show"><span id="show-btn-name">Pick a show</span><span aria-hidden="true">▾</span></button>
       <button class="btn primary" onclick="openEditor(null)" aria-label="+ Add color">+ <span class="wide">Add color</span></button>
     </div>
     <div class="tabs-row">
@@ -442,7 +445,7 @@ function rowHTML(e, clickArg){
 }
 
 function render(){
-  document.getElementById('show-name').textContent = scriptName ? cleanShowName(scriptName) : 'No show picked';
+  document.getElementById('show-btn-name').textContent = scriptName ? cleanShowName(scriptName) : (scriptId ? 'Show' : 'Pick a show');
   const cl = document.getElementById('link-cues');
   if (cl) cl.href = 'cue-list.html' + (scriptId ? '?script=' + encodeURIComponent(scriptId) : '');
   const el = document.getElementById('list');
