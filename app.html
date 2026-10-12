@@ -2526,6 +2526,43 @@
   #mv-drawer .mv-add:hover { border-style: solid; color: var(--cue-text); }
   /* Lives on <body>, not in the drawer: the drawer clips its overflow, which
      would cut the list off after a row or two. */
+  /* Spike cell + picker in the set-change grid */
+  #mv-drawer .spk-cell { display: flex; align-items: center; gap: 5px; }
+  #mv-drawer .spk-cell input { flex: 1; min-width: 0; }
+  .spk-btn {
+    flex: none; display: inline-flex; align-items: center; gap: 3px; min-height: 32px; min-width: 32px; padding: 3px 5px;
+    border: 1px dashed var(--cue-border, #3a3a48); border-radius: 6px; background: var(--cue-surface2, #2a2a4a); cursor: pointer;
+  }
+  .spk-btn:hover, .spk-btn:focus-visible { border-style: solid; border-color: var(--purple); outline: none; }
+  .spk-btn .spk-tape { display: block; }
+  .spk-plus { color: var(--cue-text-muted, #9494ae); font-size: 16px; line-height: 1; padding: 0 4px; }
+  #spk-pop {
+    position: fixed; z-index: 905; display: none; overflow-y: auto; box-sizing: border-box; padding: 12px;
+    background: var(--cue-surface, #232340); color: var(--cue-text, #e4e4ec); font-family: 'DM Sans', sans-serif;
+    border: 1px solid var(--cue-border, rgba(255,255,255,0.1)); border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  }
+  #spk-pop.open { display: block; }
+  #spk-pop .spk-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; font-size: 14px; }
+  #spk-pop .spk-head span { flex: 1; min-width: 0; color: var(--cue-text-muted, #9494ae); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #spk-pop .spk-head a { color: #b0a8f4; text-decoration: none; font-size: 13px; white-space: nowrap; }
+  #spk-pop .spk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+  #spk-pop .spk-opt {
+    display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 10px; text-align: left; cursor: pointer;
+    border: 1px solid var(--cue-border, rgba(255,255,255,0.12)); border-radius: 10px; background: var(--cue-surface2, #2a2a4a); color: inherit; font-family: inherit;
+  }
+  #spk-pop .spk-opt .spk-tape { flex: none; }
+  #spk-pop .spk-opt b { display: block; font-size: 14px; font-weight: 600; }
+  #spk-pop .spk-opt small { display: block; font-size: 11px; color: var(--cue-text-muted, #9494ae); }
+  #spk-pop .spk-opt.on { border: 2px solid var(--purple); background: rgba(83,74,183,0.35); }
+  #spk-pop .spk-empty { font-size: 14px; color: var(--cue-text-muted, #9494ae); padding: 6px 2px 10px; }
+  #spk-pop .spk-foot { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 12px; color: var(--cue-text-muted, #9494ae); }
+  #spk-pop .spk-foot span { flex: 1; }
+  #spk-pop .spk-done { min-height: 40px; padding: 0 18px; border: none; border-radius: 8px; background: var(--purple); color: #fff; font: 600 14px 'DM Sans', sans-serif; cursor: pointer; }
+  /* A phone gets it as a bottom sheet with thumb-sized tiles. */
+  body.se-touch #spk-pop { left: 0 !important; right: 0; bottom: 0 !important; top: auto !important; width: auto !important;
+    max-height: 70vh !important; border-radius: 16px 16px 0 0; padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
+  body.se-touch #spk-pop .spk-opt { min-height: 56px; }
+  body.se-touch .spk-btn { min-height: 40px; min-width: 40px; }
   #ac-pop {
     position: fixed; z-index: 900; display: none;
     max-height: 220px; overflow-y: auto;
@@ -6229,7 +6266,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.11 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.11 v5</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -16360,12 +16397,131 @@ function presetEdit(key, piece, field, val) {
 // next cue's block.
 // No placeholders: greyed sample text in an empty cell reads as real content at
 // a glance, which is exactly wrong on a sheet someone runs a show off.
+// ── SPIKE MAP (read side) ────────────────────────────────────────────────────
+// The spike tape key lives in its own page (spike-map.html) and one KV blob,
+// 'spikemap'. This is the read side: resolve a show's colours, draw a tape
+// swatch, and describe a move's spike in words. The same block sits in
+// app.html, cue-list.html and spike-map.html's drawing code — keep in step.
+//
+// A move keeps two things: spikeIds (colours picked from the map, linked, so a
+// relabel on the map shows up everywhere) and spike (typed, for one-offs).
+const SPK_STYLE_NAMES = { split: 'split corner', tab: 'stacked tab', side: 'side by side' };
+let _spkData = null;
+
+function spkData(){
+  if (_spkData) return _spkData;
+  try { _spkData = JSON.parse(localStorage.getItem('mmt_spike_cache') || 'null'); } catch (e) { _spkData = null; }
+  return _spkData || { house: [], shows: {} };
+}
+function spkLoad(cb){
+  jsonp(SCRIPT_URL + '?action=getKV&key=spikemap&_=' + Date.now(), d => {
+    if (d && d.value && typeof d.value === 'object') {
+      _spkData = d.value;
+      try { localStorage.setItem('mmt_spike_cache', JSON.stringify(_spkData)); } catch (e) {}
+    }
+    if (cb) cb();
+  }, () => { if (cb) cb(); });
+}
+// Every colour a show can see — house colours with this show's changes, then
+// its own. Hidden ones are flagged rather than dropped, so a move tagged
+// before a colour was hidden still draws.
+function spkList(sid){
+  const d = spkData();
+  const rec = (sid && d.shows && d.shows[sid]) || {};
+  const over = rec.over || {};
+  const out = (d.house || []).map(h => Object.assign({}, h, over[h.id] || {}, { hidden: !!(over[h.id] && over[h.id].hidden) }));
+  (rec.extra || []).forEach(x => out.push(Object.assign({}, x, { hidden: false })));
+  return out;
+}
+function spkFind(sid, id){ return spkList(sid).find(e => e.id === id) || null; }
+function spkIsDark(hex){
+  const h = String(hex || '#000').replace('#', '');
+  const n = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+  return (0.299 * parseInt(n.slice(0, 2), 16) + 0.587 * parseInt(n.slice(2, 4), 16) + 0.114 * parseInt(n.slice(4, 6), 16)) < 60;
+}
+function spkInk(hex){
+  const h = String(hex || '#000').replace('#', '');
+  const n = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+  return (0.299 * parseInt(n.slice(0, 2), 16) + 0.587 * parseInt(n.slice(2, 4), 16) + 0.114 * parseInt(n.slice(4, 6), 16)) > 150 ? '#141414' : '#ffffff';
+}
+function spkStyle(e){ return e.c2 ? (SPK_STYLE_NAMES[e.style] ? e.style : 'tab') : 'solid'; }
+function spkTapeName(e){
+  if (!e || !e.c1n) return '';
+  const st = spkStyle(e);
+  const base = st === 'solid' ? e.c1n : `${e.c1n} + ${e.c2n || '?'}, ${SPK_STYLE_NAMES[st]}`;
+  return e.text ? `${base}, marked “${e.text}”` : base;
+}
+function spkLabel(e){ return (e && (e.label || spkTapeName(e))) || 'Spike'; }
+const spkEsc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+// A top-down view of one spiked corner on a black deck.
+function spkSVG(e, w, h){
+  const A = e.c1 || '#888', B = e.c2 || A;
+  const st = spkStyle(e);
+  const txt = String(e.text || '').trim();
+  const x = 9, y = 7, L = 46, H = 22, t = txt ? 13 : 7;
+  const r = (rx, ry, rw, rh, c) => `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${c}"${
+    spkIsDark(c) ? ' stroke="rgba(255,255,255,0.45)" stroke-width="0.7"' : ''}/>`;
+  let tape;
+  if (st === 'split') tape = r(x, y, L, t, A) + r(x, y, 7, H, B);
+  else if (st === 'side') tape = txt
+    ? r(x, y, L, t, A) + r(x + 4, y + t, L - 4, 4, B) + r(x, y, 4, H, A) + r(x + 4, y + t, 4, H - t, B)
+    : r(x, y, L, 4, A) + r(x, y, 4, H, A) + r(x + 4, y + 4, L - 4, 4, B) + r(x + 4, y + 4, 4, H - 4, B);
+  else { tape = r(x, y, L, t, A) + r(x, y, 7, H, A); if (st === 'tab') tape += r(x + L - 15, y - 4, 6, t + 8, B); }
+  const label = txt ? `<text x="${x + 7 + (L - 7 - (st === 'tab' ? 15 : 0)) / 2}" y="${y + t / 2 + 0.5}" text-anchor="middle"
+    dominant-baseline="central" font-family="DM Sans, sans-serif" font-weight="700" font-size="${txt.length > 2 ? 8 : 10}" fill="${spkInk(A)}">${spkEsc(txt)}</text>` : '';
+  return `<svg class="spk-tape" width="${w || 32}" height="${h || 16}" viewBox="0 0 64 32" aria-hidden="true">
+    <rect x="0" y="0" width="64" height="32" rx="4" fill="#262626"/>${tape}${label}</svg>`;
+}
+// The spike entries a move points at, in the order they were picked. An id
+// whose colour has since been deleted from the map comes back as null.
+function spkOfMove(m, sid){
+  return (Array.isArray(m && m.spikeIds) ? m.spikeIds : []).map(id => spkFind(sid, id));
+}
+// Chips for display: tape drawing + label, then anything typed.
+function spkChipsHTML(m, sid){
+  const chips = spkOfMove(m, sid).map(e => e
+    ? `<span class="spk-chip" title="${spkEsc(spkTapeName(e))}">${spkSVG(e, 30, 15)}<span>${spkEsc(spkLabel(e))}</span></span>`
+    : `<span class="spk-chip spk-gone">removed spike</span>`).join('');
+  return chips + (m && m.spike ? `<span class="spk-typed">${spkEsc(m.spike)}</span>` : '');
+}
+// The same in words, for spreadsheets and anything else without pictures.
+function spkMoveText(m, sid){
+  const parts = spkOfMove(m, sid).filter(Boolean).map(e => e.label ? `${e.label} (${spkTapeName(e)})` : spkTapeName(e));
+  if (m && m.spike) parts.push(String(m.spike));
+  return parts.join('; ');
+}
+// Picker body: every colour this show uses as a toggle. Hidden colours only
+// appear if this move already has them, so nothing silently disappears.
+function spkPickerHTML(sid, selected, toggleFn){
+  const sel = new Set(selected || []);
+  const list = spkList(sid).filter(e => !e.hidden || sel.has(e.id));
+  if (!list.length) return `<div class="spk-empty">No spike colors for this show yet.</div>`;
+  return `<div class="spk-grid">${list.map(e => `<button type="button" class="spk-opt${sel.has(e.id) ? ' on' : ''}"
+      onclick="${toggleFn}('${spkEsc(e.id)}')" aria-pressed="${sel.has(e.id)}">
+      ${spkSVG(e, 44, 22)}<span><b>${spkEsc(spkLabel(e))}</b><small>${spkEsc(e.label ? spkTapeName(e) : '')}</small></span></button>`).join('')}</div>`;
+}
+function spkMapURL(sid, name){
+  return 'spike-map.html' + (sid ? '?script=' + encodeURIComponent(sid) + (name ? '&name=' + encodeURIComponent(name) : '') : '');
+}
+// The colours on a typed-up plot, drawn with jsPDF: a small corner in tape
+// colours, outlined so white tape shows on paper.
+function spkDrawPDF(doc, e, x, y, w, h){
+  const hex = c => { const n = String(c || '#888').replace('#', ''); const f = n.length === 3 ? n.split('').map(ch => ch + ch).join('') : n;
+    return [parseInt(f.slice(0, 2), 16), parseInt(f.slice(2, 4), 16), parseInt(f.slice(4, 6), 16)]; };
+  const A = hex(e.c1), B = hex(e.c2 || e.c1), st = spkStyle(e);
+  const t = Math.max(1.8, h * 0.3);
+  const box = (bx, by, bw, bh, c) => { doc.setFillColor(...c); doc.setDrawColor(120, 120, 128); doc.setLineWidth(0.3); doc.rect(bx, by, bw, bh, 'FD'); };
+  if (st === 'split') { box(x, y, w, t, A); box(x, y, t, h, B); }
+  else if (st === 'side') { const s = t * 0.6; box(x, y, w, s, A); box(x, y, s, h, A); box(x + s, y + s, w - s, s, B); box(x + s, y + s, s, h - s, B); }
+  else { box(x, y, w, t, A); box(x, y, t, h, A); if (st === 'tab') box(x + w * 0.62, y - 1.2, t * 0.9, t + 2.4, B); }
+}
+
 const MOVE_COLS = [
   { key: 'piece',  label: 'Piece',  pct: '24%', src: 'pieces'  },
   { key: 'action', label: 'Action', pct: '13%', src: 'actions' },
   { key: 'who',    label: 'Who',    pct: '18%', src: 'people'  },
-  { key: 'spike',  label: 'Spike',  pct: '11%', src: null      },
-  { key: 'notes',  label: 'Notes',  pct: '34%', src: null      },
+  { key: 'spike',  label: 'Spike',  pct: '17%', src: null      },
+  { key: 'notes',  label: 'Notes',  pct: '28%', src: null      },
 ];
 
 // ── Keyboard autocomplete ────────────────────────────────────────────────────
@@ -16630,14 +16786,16 @@ function renderMoveDrawer(focusFirst) {
   renderSetVocab();
   const moves = c.moves || [];
   const rows = moves.map(m => `<tr>
-    ${MOVE_COLS.map((col, ci) => `<td style="width:${col.pct}"><input type="text"
+    ${MOVE_COLS.map((col, ci) => `<td style="width:${col.pct}">${col.key === 'spike'
+        ? `<div class="spk-cell"><button type="button" class="spk-btn" data-cue="${c.id}" data-move="${m.id}"
+             onclick="spkOpenPicker(this)" title="Pick spike colors" aria-label="Pick spike colors">${spkBtnHTML(m)}</button>` : ''}<input type="text"
         value="${escA(m[col.key])}" autocomplete="off"
         data-cue="${c.id}" data-move="${m.id}" data-key="${col.key}"
         data-src="${col.src || ''}" data-vocab="${col.src === 'actions' ? '' : (col.src || '')}"
         data-last="${ci === MOVE_COLS.length - 1 ? '1' : '0'}"
         oninput="moveEdit(this.dataset.cue,this.dataset.move,this.dataset.key,this.value);acOpen(this)"
         onblur="moveCommit(this.dataset.vocab,this.value);setTimeout(acClose,120)"
-        onkeydown="acKey(event,this)" /></td>`).join('')}
+        onkeydown="acKey(event,this)"${col.key === 'spike' ? ' placeholder="other"' : ''} />${col.key === 'spike' ? '</div>' : ''}</td>`).join('')}
     <td style="width:30px"><button class="mv-del" title="Delete move" aria-label="Delete move" tabindex="-1"
         onclick="moveDelete('${c.id}','${m.id}')">✕</button></td>
   </tr>`).join('');
@@ -16657,6 +16815,78 @@ function renderMoveDrawer(focusFirst) {
     const first = body.querySelector('input');
     if (first) { first.focus(); first.select(); }
   }
+}
+
+// ── Spike picker in the set-change grid ─────────────────────────────────────
+// Tap the tape button in a Spike cell to pick colours from the spike map (any
+// number). The text box beside it stays for one-offs.
+let _spkPick = null;   // { cueId, moveId, btn }
+function spkBtnHTML(m){
+  const picked = spkOfMove(m, showId);
+  if (!picked.length) return '<span class="spk-plus">+</span>';
+  return picked.map(e => e ? spkSVG(e, 26, 13) : '<span class="spk-plus">?</span>').join('');
+}
+function spkMoveOf(cueId, moveId){
+  const c = cues.find(x => x.id === cueId);
+  return c && Array.isArray(c.moves) ? c.moves.find(x => x.id === moveId) : null;
+}
+function spkOpenPicker(btn){
+  acClose();
+  _spkPick = { cueId: btn.dataset.cue, moveId: btn.dataset.move, btn };
+  let pop = document.getElementById('spk-pop');
+  if (!pop) {
+    pop = document.createElement('div');
+    pop.id = 'spk-pop';
+    pop.setAttribute('role', 'dialog');
+    pop.setAttribute('aria-label', 'Spike colors');
+    document.body.appendChild(pop);
+    document.addEventListener('pointerdown', ev => {
+      const p = document.getElementById('spk-pop');
+      if (p && p.classList.contains('open') && !p.contains(ev.target) && !ev.target.closest('.spk-btn')) spkClosePicker();
+    });
+    document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && _spkPick) { ev.stopPropagation(); spkClosePicker(true); } }, true);
+  }
+  spkRenderPicker();
+  pop.classList.add('open');
+  // Under the cell on a desk; a bottom sheet on a phone (CSS takes over there).
+  const r = btn.getBoundingClientRect();
+  const w = Math.min(420, window.innerWidth - 16);
+  pop.style.width = w + 'px';
+  pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+  const below = window.innerHeight - r.bottom;
+  if (below > 260 || below > r.top) { pop.style.top = (r.bottom + 6) + 'px'; pop.style.bottom = ''; pop.style.maxHeight = (below - 16) + 'px'; }
+  else { pop.style.bottom = (window.innerHeight - r.top + 6) + 'px'; pop.style.top = ''; pop.style.maxHeight = (r.top - 16) + 'px'; }
+  // Refresh the map in the background so a colour added a minute ago shows up.
+  spkLoad(() => { if (_spkPick) spkRenderPicker(); });
+}
+function spkRenderPicker(){
+  const pop = document.getElementById('spk-pop');
+  const m = _spkPick && spkMoveOf(_spkPick.cueId, _spkPick.moveId);
+  if (!pop || !m) return;
+  const name = (document.getElementById('show-name') || {}).textContent || '';
+  pop.innerHTML = `<div class="spk-head"><b>Spike</b><span>${spkEsc(m.piece || 'this move')}</span>
+      <a href="${spkMapURL(showId, name)}" target="_blank" rel="noopener">Edit spike map ›</a></div>
+    ${spkPickerHTML(showId, m.spikeIds, 'spkTogglePick')}
+    <div class="spk-foot"><span>Tap to add or remove. Type one-offs in the box.</span>
+      <button type="button" class="spk-done" onclick="spkClosePicker(true)">Done</button></div>`;
+}
+function spkTogglePick(id){
+  const m = _spkPick && spkMoveOf(_spkPick.cueId, _spkPick.moveId);
+  if (!m) return;
+  const cur = Array.isArray(m.spikeIds) ? m.spikeIds.slice() : [];
+  const i = cur.indexOf(id);
+  if (i >= 0) cur.splice(i, 1); else cur.push(id);
+  moveEdit(_spkPick.cueId, _spkPick.moveId, 'spikeIds', cur);
+  const btn = document.querySelector(`.spk-btn[data-cue="${_spkPick.cueId}"][data-move="${_spkPick.moveId}"]`);
+  if (btn) btn.innerHTML = spkBtnHTML(m);
+  spkRenderPicker();
+}
+function spkClosePicker(refocus){
+  const pop = document.getElementById('spk-pop');
+  if (pop) pop.classList.remove('open');
+  const btn = _spkPick && document.querySelector(`.spk-btn[data-cue="${_spkPick.cueId}"][data-move="${_spkPick.moveId}"]`);
+  _spkPick = null;
+  if (refocus && btn && !seIsTouch()) btn.focus();
 }
 
 // Nearest SCENE marker at or above this cue in script order, for the header.
@@ -17577,8 +17807,8 @@ async function exportSetChangePlot() {
     { key: 'piece',  label: 'PIECE',     w: 130, bold: true },
     { key: 'action', label: 'ACTION',    w: 68  },
     { key: 'who',    label: 'WHO',       w: 88  },
-    { key: 'spike',  label: 'SPIKE',     w: 48  },
-    { key: 'notes',  label: 'NOTES',     w: 180 },
+    { key: 'spike',  label: 'SPIKE',     w: 112 },
+    { key: 'notes',  label: 'NOTES',     w: 116 },
   ];
   // "SCENE CHANGE 12" -> "12". Falls back to the whole label so a change named
   // something without digits still prints something.
@@ -17733,6 +17963,25 @@ async function exportSetChangePlot() {
   // not just its next row.
   doc.setFontSize(FS);
   const wrap = (txt, i) => doc.splitTextToSize(String(txt || ''), COLS[i].w - PAD*2);
+  // Spike: each colour from the map is a small drawing of the tape, its label,
+  // and the colours in words underneath (so it still reads in black and
+  // white); then anything typed. Lines carry how to draw themselves.
+  const SPK_IND = 20;
+  const spikeCell = m => {
+    const out = [];
+    spkOfMove(m, showId).forEach(e => {
+      if (!e) return;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(FS);
+      doc.splitTextToSize(spkLabel(e), COLS[6].w - PAD*2 - SPK_IND).forEach((t, i) => out.push({ t, ind: SPK_IND, bold: true, e: i === 0 ? e : null }));
+      if (e.label) {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(FS - 1.5);
+        doc.splitTextToSize(spkTapeName(e), COLS[6].w - PAD*2 - SPK_IND).forEach(t => out.push({ t, ind: SPK_IND, small: true }));
+      }
+    });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
+    wrap(m.spike, 6).forEach(t => out.push({ t, ind: 0 }));
+    return out;
+  };
   const sections = [];
   let cur = null;
 
@@ -17758,7 +18007,7 @@ async function exportSetChangePlot() {
         piece:  wrap(m.piece,  3),
         action: wrap(m.action, 4),
         who:    wrap(m.who,    5),
-        spike:  wrap(m.spike,  6),
+        spike:  spikeCell(m),
         notes:  wrap(m.notes,  7),
       };
       const lines = Math.max(...COLS.map(col => cells[col.key].length), 1);
@@ -17778,8 +18027,17 @@ async function exportSetChangePlot() {
       doc.setFontSize(FS); doc.setTextColor(30,30,30);
       COLS.forEach((col, i) => {
         doc.setFont('helvetica', col.bold ? 'bold' : 'normal');
-        r.cells[col.key].forEach((ln, li) =>
-          doc.text(ln, X[i] + PAD, y + PAD + LEAD - 3 + li * LEAD));
+        r.cells[col.key].forEach((ln, li) => {
+          const base = y + PAD + LEAD - 3 + li * LEAD;
+          if (typeof ln === 'string') { doc.text(ln, X[i] + PAD, base); return; }
+          if (ln.e) spkDrawPDF(doc, ln.e, X[i] + PAD, base - 8, 15, 9);
+          doc.setFont('helvetica', ln.bold ? 'bold' : 'normal');
+          doc.setFontSize(ln.small ? FS - 1.5 : FS);
+          if (ln.small) doc.setTextColor(90, 90, 98);
+          doc.text(ln.t, X[i] + PAD + ln.ind, base);
+          doc.setFontSize(FS); doc.setTextColor(30, 30, 30);
+          doc.setFont('helvetica', col.bold ? 'bold' : 'normal');
+        });
       });
       doc.setDrawColor(...GRID); doc.setLineWidth(0.4);
       COLS.forEach((col, i) => doc.line(X[i], y, X[i], y + r.h));
@@ -17936,7 +18194,7 @@ function setChangeSections() {
       piece:  String(m.piece  || ''),
       action: String(m.action || ''),
       who:    String(m.who    || ''),
-      spike:  String(m.spike  || ''),
+      spike:  spkMoveText(m, showId),
       notes:  String(m.notes  || '')
     })));
   });
@@ -18047,8 +18305,8 @@ const XLSX_COLS = [
   // Not 9: ExcelJS treats 9 as its default column width and drops the <col>
   // element entirely, so the column would silently fall back to whatever the
   // reading app defaults to instead of the width set here.
-  { key: 'spike',  label: 'SPIKE',  width: 10, wrap: false, bold: false },
-  { key: 'notes',  label: 'NOTES',  width: 31, wrap: true,  bold: false },
+  { key: 'spike',  label: 'SPIKE',  width: 24, wrap: true,  bold: false },
+  { key: 'notes',  label: 'NOTES',  width: 27, wrap: true,  bold: false },
 ];
 
 // Body text. 9.5 came off the PDF, where it sits on a page held at reading
@@ -18622,6 +18880,7 @@ function openScriptsEditor() {
   initCueFormResize();
   seInitTouch();
   initZoom();
+  spkLoad(() => { if (mvDrawerCueId) renderMoveDrawer(false); });
   // Default to the cue tool with the first cue type selected
   setTool('cue');
   if (cueTypes.length) {
