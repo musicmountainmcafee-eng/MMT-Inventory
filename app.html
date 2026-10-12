@@ -1555,43 +1555,233 @@
   [data-theme="dark"] #tab-inventory .item-row:hover { background: rgba(255,255,255,0.03); }
   [data-theme="dark"] #tab-inventory .inv-modal .inv-modal-content { background: var(--surface); color: var(--text); }
   [data-theme="dark"] #tab-inventory .detail-row { border-color: var(--border); }
-/* Inventory print styles (label printing — must stay global) */
-  /* PRINT STYLES — Avery 8163: 4"×2", 2 columns, 5 rows */
-  @media print {
-    @page { margin: 0; size: 8.5in 11in; }
-    body * { visibility: hidden; }
-    .print-area, .print-area * { visibility: visible; }
-    .print-area {
-      position: fixed; left: 0; top: 0; width: 8.5in; height: 11in;
-      padding: 0.5in 0.15625in 0.5in 0.15625in;
-      box-sizing: border-box;
-    }
-    .label-grid-print {
-      border: none;
-      display: grid;
-      grid-template-columns: 4in 4in;
-      grid-template-rows: repeat(5, 2in);
-      column-gap: 0.1875in;
-      row-gap: 0;
-      width: 100%;
-    }
-    .label-cell {
-      width: 4in; height: 2in;
-      border: none;
-      padding: 0.15in 0.2in;
-      page-break-inside: avoid;
-      box-sizing: border-box;
-      overflow: hidden;
-    }
-    .label-cell.empty { visibility: hidden; }
-    .label-cell .lc-name { font-size:16px; font-weight: 700; margin-bottom: 2px; }
-    .label-cell .lc-tagid { font-size:12px; }
-    .label-cell .lc-cat { font-size:12px; }
-    .label-cell .lc-loc-label { font-size:12px; }
-    .label-cell .lc-loc { font-size:14px; }
-    .label-cell .lc-notes { font-size:12px; }
-    .label-cell .lc-url { font-size:12px; color: #666; }
-  }
+/* ══ INVENTORY (rebuilt 10.12) ══════════════════════════════════════════════
+   Everything is under #tab-inventory or #iv-ov, prefixed iv-. Buttons repeat
+   their padding/font with !important because the app-wide button rule does. */
+#tab-inventory .iv, #iv-ov { --iv-in: #1e6b34; --iv-in-bg: #e6f4ea; --iv-out: #3C3489; --iv-out-bg: #efeefc; --iv-late: #a3271b; --iv-late-bg: #fdecea; --iv-ph: #ecebe6; --iv-deep: #1d1b33; }
+[data-theme="dark"] #tab-inventory .iv, [data-theme="dark"] #iv-ov { --iv-in: #93cf72; --iv-in-bg: #1d3320; --iv-out: #c3bafa; --iv-out-bg: #2b2750; --iv-late: #f2918f; --iv-late-bg: #3a1c1c; --iv-ph: #2a2a38; --iv-deep: #0e0d1c; }
+#tab-inventory .iv { font-family: 'DM Sans', sans-serif; color: var(--text); max-width: 1500px; margin: 0 auto; padding-bottom: 96px; }
+#tab-inventory .iv *, #iv-ov * { box-sizing: border-box; }
+#tab-inventory .iv button, #iv-ov button { font-family: 'DM Sans', sans-serif !important; letter-spacing: 0 !important; cursor: pointer; }
+
+/* top bar */
+.iv-top { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--surface); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.iv-title { flex: 1; min-width: 140px; }
+.iv-title b { display: block; font-size: 18px; font-weight: 700; }
+.iv-title small { font: 400 11px 'DM Mono', monospace; color: var(--text-muted); }
+.iv-ib { width: 44px !important; height: 44px !important; min-height: 44px !important; padding: 0 !important; border: 1px solid var(--border-strong, var(--border)) !important; border-radius: 10px !important; background: var(--surface) !important; color: var(--text) !important; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.iv-ib.pri { background: var(--purple) !important; border-color: var(--purple) !important; color: #fff !important; }
+.iv-ib svg { pointer-events: none; }
+.iv-btn { height: 44px; min-height: 44px !important; padding: 0 14px !important; border: 1px solid var(--border-strong, var(--border)) !important; border-radius: 10px !important; background: var(--surface) !important; color: var(--text) !important; font-size: 14px !important; font-weight: 600 !important; display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; white-space: nowrap; }
+.iv-btn.pri { background: var(--purple) !important; border-color: var(--purple) !important; color: #fff !important; }
+.iv-btn.go { background: var(--iv-in) !important; border-color: var(--iv-in) !important; color: #fff !important; }
+[data-theme="dark"] .iv-btn.go { color: #10200f !important; }
+.iv-btn.ghost { border-color: transparent !important; background: none !important; color: var(--purple) !important; }
+.iv-btn.big { height: 52px; min-height: 52px !important; font-size: 16px !important; font-weight: 700 !important; border-radius: 12px !important; }
+.iv-btn.sm { height: 36px; min-height: 36px !important; font-size: 13px !important; padding: 0 12px !important; }
+.iv-btn[disabled] { opacity: .5; cursor: default; }
+.iv-badge { font: 500 12px 'DM Mono', monospace; color: var(--text-muted); }
+.iv-badge.late { color: var(--iv-late); }
+.iv-desk-only { display: none !important; }
+.iv-wide .iv-desk-only { display: inline-flex !important; }
+.iv-wide .iv-phone-only { display: none !important; }
+
+/* notices */
+.iv-note { margin: 10px 12px 0; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.4; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: var(--purple-light); color: var(--text); }
+.iv-note.warn { background: #fff4e0; color: #5c3b00; }
+[data-theme="dark"] .iv-note.warn { background: #3a2a10; color: #f6d9a8; }
+.iv-note b { font-weight: 700; }
+.iv-note .iv-btn { margin-left: auto; }
+
+/* search + chips */
+.iv-findbar { padding: 10px 12px 0; background: var(--surface); }
+.iv-search { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border: 1px solid var(--border-strong, var(--border)); border-radius: 12px; background: var(--surface-2, var(--bg)); color: var(--text-muted); }
+.iv-search input { flex: 1; min-width: 0; border: none !important; background: none !important; font: 400 16px 'DM Sans', sans-serif; color: var(--text); outline: none; padding: 0 !important; box-shadow: none !important; }
+.iv-chips { display: flex; gap: 6px; padding: 10px 0; overflow-x: auto; scrollbar-width: none; }
+.iv-chips::-webkit-scrollbar { display: none; }
+.iv-chip { height: 36px; min-height: 36px !important; padding: 0 13px !important; border: 1px solid var(--border-strong, var(--border)) !important; border-radius: 18px !important; background: var(--surface) !important; font-size: 13px !important; font-weight: 600 !important; color: var(--text) !important; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; white-space: nowrap; }
+.iv-chip small { font: 500 11px 'DM Mono', monospace; opacity: .75; }
+.iv-chip.on { background: var(--purple) !important; border-color: var(--purple) !important; color: #fff !important; }
+.iv-chip.late { color: var(--iv-late) !important; }
+.iv-chip.late.on { background: var(--iv-late) !important; border-color: var(--iv-late) !important; color: #fff !important; }
+select.iv-chip { appearance: none; -webkit-appearance: none; padding-right: 28px !important; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%) !important; background-position: calc(100% - 15px) 16px, calc(100% - 10px) 16px !important; background-size: 5px 5px !important; background-repeat: no-repeat !important; }
+
+/* out-now card */
+.iv-outcard { margin: 10px 12px 4px; display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: calc(100% - 24px); text-align: left; min-height: 0 !important; font-size: inherit !important; font-weight: inherit !important; }
+.iv-outcard b { display: block; font-size: 14px; font-weight: 700; color: var(--text); }
+.iv-outcard span.s { font-size: 13px; color: var(--text-muted); }
+.iv-outcard .go { margin-left: auto; font-size: 14px; font-weight: 600; color: var(--purple); white-space: nowrap; }
+
+/* phone list */
+.iv-list { margin-top: 8px; border-top: 1px solid var(--border); }
+.iv-sec { padding: 7px 14px; font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--text-muted); background: var(--bg); text-transform: uppercase; position: sticky; top: 0; z-index: 1; }
+.iv-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--surface); cursor: pointer; }
+.iv-row.sel { background: var(--purple-light); }
+.iv-ph { width: 56px; height: 56px; border-radius: 10px; background: var(--iv-ph); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-faint); overflow: hidden; }
+.iv-ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.iv-ph.s40 { width: 44px; height: 44px; border-radius: 8px; }
+.iv-mid { flex: 1; min-width: 0; }
+.iv-nm { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.iv-sub { font: 400 12px 'DM Mono', monospace; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.iv-loc { font-size: 13px; color: var(--text-muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.iv-loc.out { color: var(--iv-out); font-weight: 600; }
+.iv-loc.late { color: var(--iv-late); font-weight: 600; }
+.iv-pill { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 10px; flex-shrink: 0; white-space: nowrap; }
+.iv-pill.in { background: var(--iv-in-bg); color: var(--iv-in); }
+.iv-pill.out { background: var(--iv-out-bg); color: var(--iv-out); }
+.iv-pill.late { background: var(--iv-late-bg); color: var(--iv-late); }
+.iv-cb { width: 44px !important; height: 44px !important; min-height: 44px !important; margin: -10px -8px -10px -10px; padding: 0 !important; border: none !important; background: none !important; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.iv-cb i { width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--border-strong, #c9c8d3); display: flex; align-items: center; justify-content: center; color: #fff; }
+.iv-cb.on i { background: var(--purple); border-color: var(--purple); }
+.iv-empty { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 14px; }
+
+/* selection bar */
+.iv-selbar { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; width: min(560px, calc(100% - 20px)); display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; background: var(--iv-deep); color: #fff; border-radius: 14px; box-shadow: 0 8px 24px rgba(20,20,37,.3); z-index: 80; }
+@media (max-width: 768px) { .iv-selbar { bottom: calc(68px + env(safe-area-inset-bottom, 0px)); } }
+.iv-selbar .t { flex: 1; font-size: 14px; font-weight: 600; }
+.iv-selbar .iv-btn { background: none !important; border-color: transparent !important; color: #c9c5f5 !important; }
+.iv-selbar .iv-btn.pri { background: #7b72e0 !important; color: #fff !important; }
+
+/* desk layout */
+.iv-wide .iv-body { display: grid; grid-template-columns: 210px minmax(0, 1fr) 360px; align-items: start; min-height: calc(100vh - 140px); }
+.iv-side { background: var(--surface); border-right: 1px solid var(--border); padding: 14px 10px; align-self: stretch; }
+.iv-side h4 { font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--text-muted); padding: 0 12px 8px; margin: 0; }
+.iv-side h4 + * { margin-top: 0; }
+.iv-sideitem { display: flex !important; justify-content: space-between; width: 100%; padding: 9px 12px !important; min-height: 0 !important; border-radius: 9px !important; font-size: 14px !important; font-weight: 500 !important; color: var(--text) !important; background: none !important; border: none !important; text-align: left; }
+.iv-sideitem.on { background: var(--purple-light) !important; color: var(--purple-dark) !important; font-weight: 700 !important; }
+.iv-sideitem small { font: 400 12px 'DM Mono', monospace; color: var(--text-muted); }
+.iv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; padding: 14px 16px; }
+.iv-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; cursor: pointer; position: relative; }
+.iv-card.on { border: 2px solid var(--purple); box-shadow: 0 0 0 3px rgba(83,74,183,.15); }
+.iv-card.sel { box-shadow: 0 0 0 3px var(--purple); }
+.iv-card .img { height: 130px; background: var(--iv-ph); display: flex; align-items: center; justify-content: center; color: var(--text-faint); }
+.iv-card .img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.iv-card .iv-cbody { padding: 10px 12px; }
+.iv-card .iv-cb { position: absolute; top: 8px; left: 8px; margin: 0; width: 36px !important; height: 36px !important; min-height: 36px !important; background: rgba(255,255,255,.85) !important; border-radius: 9px !important; }
+.iv-card .row2 { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--text-muted); }
+.iv-card .row2 span:first-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.iv-pane { background: var(--surface); border-left: 1px solid var(--border); position: sticky; top: 0; max-height: 100vh; overflow-y: auto; align-self: stretch; }
+.iv-pane .iv-empty { padding-top: 80px; }
+
+/* item view */
+.iv-hero { height: 250px; background: var(--iv-ph); position: relative; display: flex; align-items: center; justify-content: center; color: var(--text-faint); flex-shrink: 0; overflow: hidden; }
+.iv-hero img { width: 100%; height: 100%; object-fit: cover; }
+.iv-pane .iv-hero { height: 210px; }
+.iv-hero .iv-ib { position: absolute; top: 12px; }
+.iv-hero .l { left: 12px; } .iv-hero .r { right: 12px; }
+.iv-info { padding: 16px; }
+.iv-h1 { font-size: 21px; font-weight: 700; line-height: 1.2; margin: 0; }
+.iv-mono { font: 400 13px 'DM Mono', monospace; color: var(--text-muted); margin-top: 4px; }
+.iv-k { font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--text-muted); text-transform: uppercase; }
+.iv-v { font-size: 15px; margin-top: 3px; white-space: pre-line; word-break: break-word; }
+.iv-where { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 12px; background: var(--purple-light); border-radius: 12px; }
+.iv-where b { display: block; font-size: 16px; margin-top: 2px; }
+.iv-outbox { margin-top: 14px; padding: 12px; border-radius: 12px; background: var(--iv-out-bg); }
+.iv-outbox.late { background: var(--iv-late-bg); }
+.iv-outbox b { display: block; font-size: 16px; margin-top: 2px; }
+.iv-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+.iv-hist { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.iv-hist .w { font: 400 12px 'DM Mono', monospace; color: var(--text-muted); white-space: nowrap; margin-left: auto; text-align: right; }
+.iv-actions { display: flex; gap: 8px; padding: 10px 12px 14px; background: var(--surface); border-top: 1px solid var(--border); }
+.iv-actions .iv-btn.big.grow { flex: 1; }
+
+/* overlay */
+#iv-ov { position: fixed; inset: 0; z-index: 1200; display: none; }
+#iv-ov.open { display: block; }
+#iv-ov .iv-scrim { position: absolute; inset: 0; background: rgba(20,20,37,.45); }
+#iv-ov .iv-panel { position: absolute; left: 0; right: 0; bottom: 0; top: 0; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; color: var(--text); font-family: 'DM Sans', sans-serif; }
+#iv-ov .iv-panel.sheet { top: auto; max-height: 92vh; border-radius: 20px 20px 0 0; background: var(--surface); box-shadow: 0 -10px 30px rgba(0,0,0,.2); padding-bottom: env(safe-area-inset-bottom, 0px); }
+@media (min-width: 900px) {
+  #iv-ov .iv-panel, #iv-ov .iv-panel.sheet { top: 50%; bottom: auto; left: 50%; right: auto; transform: translate(-50%, -50%); width: min(var(--iv-w, 560px), calc(100vw - 48px)); max-height: calc(100vh - 64px); border-radius: 18px; box-shadow: 0 24px 64px rgba(0,0,0,.28); }
+}
+.iv-ohead { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.iv-ohead .t { flex: 1; min-width: 0; }
+.iv-ohead .t b { display: block; font-size: 18px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.iv-ohead .t small { font: 400 11px 'DM Mono', monospace; color: var(--text-muted); }
+.iv-grab { width: 40px; height: 5px; border-radius: 3px; background: var(--border-strong, #dcdbe4); margin: 8px auto 0; }
+.iv-obody { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.iv-pad { padding: 4px 16px 16px; }
+.iv-ofoot { flex-shrink: 0; display: flex; gap: 8px; padding: 10px 12px 14px; background: var(--surface); border-top: 1px solid var(--border); flex-wrap: wrap; }
+.iv-ofoot .grow { flex: 1; }
+.iv-fl { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--text-muted); margin: 14px 0 6px; text-transform: uppercase; }
+.iv-in { height: 48px; width: 100%; padding: 0 12px !important; border: 1px solid var(--border-strong, var(--border)) !important; border-radius: 12px !important; background: var(--surface-2, var(--bg)) !important; font: 400 16px 'DM Sans', sans-serif !important; color: var(--text) !important; outline: none; }
+.iv-in:focus { border-color: var(--purple) !important; box-shadow: var(--ring) !important; }
+textarea.iv-in { height: 84px; padding: 10px 12px !important; resize: vertical; }
+.iv-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
+.iv-seg { display: flex; gap: 8px; }
+.iv-seg button { flex: 1; height: 44px; min-height: 44px !important; padding: 0 8px !important; border: 1px solid var(--border-strong, var(--border)) !important; border-radius: 10px !important; background: var(--surface) !important; font-size: 14px !important; font-weight: 600 !important; color: var(--text) !important; }
+.iv-seg button.on { background: var(--purple-light) !important; border: 2px solid var(--purple) !important; color: var(--purple-dark) !important; }
+.iv-wrap { display: flex; gap: 6px; flex-wrap: wrap; }
+.iv-pick { height: 40px; min-height: 40px !important; padding: 0 13px !important; border: 1px solid var(--border-strong, var(--border)) !important; border-radius: 20px !important; background: var(--surface) !important; font-size: 13px !important; font-weight: 600 !important; color: var(--text) !important; }
+.iv-pick.on { background: var(--purple) !important; border-color: var(--purple) !important; color: #fff !important; }
+.iv-pick.good.on { background: var(--iv-in) !important; border-color: var(--iv-in) !important; }
+.iv-pick small { font-weight: 400; opacity: .8; margin-left: 4px; }
+.iv-its { margin-top: 6px; }
+.iv-it { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.iv-it .n { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; }
+.iv-it .n small { display: block; font: 400 12px 'DM Mono', monospace; color: var(--text-muted); }
+.iv-warn { color: var(--iv-late); font-size: 12px; font-weight: 600; }
+.iv-tagbox { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.iv-tagbox b { display: block; font: 600 17px 'DM Mono', monospace; color: var(--purple-dark); margin-top: 3px; }
+.iv-photos { display: flex; gap: 8px; margin-top: 12px; }
+.iv-photo { width: 104px; height: 104px; border-radius: 12px; background: var(--iv-ph); display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: 12px; overflow: hidden; position: relative; }
+.iv-photo img { width: 100%; height: 100%; object-fit: cover; }
+label.iv-photo.add { border: 2px dashed var(--purple); background: var(--purple-light); color: var(--purple-dark); font-weight: 600; font-size: 13px; flex-direction: column; gap: 6px; cursor: pointer; }
+.iv-grid2 { display: grid; grid-template-columns: minmax(0, 1fr) 100px; gap: 10px; }
+.iv-grid2e { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+
+/* out now */
+.iv-grp { margin: 12px 12px 0; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.iv-grp.late { border-color: #f0c4be; }
+.iv-gh { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.iv-grp.late .iv-gh { background: var(--iv-late-bg); }
+.iv-gh .t { flex: 1; min-width: 0; }
+.iv-gh .t b { display: block; font-size: 15px; }
+.iv-gh .t small { font-size: 12px; color: var(--text-muted); }
+.iv-grp.late .iv-gh .t small { color: var(--iv-late); font-weight: 600; }
+.iv-orow { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.iv-orow:last-child { border-bottom: none; }
+.iv-cin { height: 40px; min-height: 40px !important; padding: 0 14px !important; border: 1px solid var(--iv-in) !important; border-radius: 10px !important; background: var(--surface) !important; color: var(--iv-in) !important; font-size: 14px !important; font-weight: 700 !important; flex-shrink: 0; }
+
+/* history */
+.iv-hrow { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--surface); font-size: 13px; }
+.iv-hrow .w { font: 400 12px 'DM Mono', monospace; color: var(--text-muted); text-align: right; }
+.iv-hrow .d { grid-column: 2 / 4; color: var(--text-muted); font-size: 12px; }
+@media (min-width: 700px) { .iv-hrow { grid-template-columns: 52px minmax(0, 1.4fr) minmax(0, 1fr) 90px minmax(0, 1fr) 120px; } .iv-hrow .d { grid-column: auto; } }
+
+/* labels */
+.iv-labwrap { display: flex; flex-wrap: wrap; min-height: 100%; }
+.iv-labpick { flex: 1 1 300px; background: var(--surface); border-right: 1px solid var(--border); }
+.iv-labprev { flex: 999 1 380px; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px; background: var(--bg); }
+.iv-sheet { width: 340px; aspect-ratio: 8.5 / 11; background: #fff; box-shadow: 0 6px 24px rgba(20,20,37,.14); padding: 6% 2% ; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(5, 1fr); column-gap: 2.2%; color: #141414; }
+.iv-slot { border: 1px dashed #e3e2ea; border-radius: 4px; font-size: 8px; padding: 5px 6px; overflow: hidden; display: flex; flex-direction: column; }
+.iv-slot.used { align-items: center; justify-content: center; color: #9a9aa5; }
+.iv-slot.lab { border-color: #c9c8d3; }
+.iv-slot b { font: 700 9px 'DM Mono', monospace; }
+.iv-slot i { font-style: normal; font-weight: 700; font-size: 8px; }
+.iv-slot span { margin-top: auto; border-top: 1px solid #ddd; padding-top: 2px; color: #555; font-size: 7px; }
+
+/* paint */
+.iv-sw { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; padding: 12px 14px; }
+.iv-swc { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); cursor: pointer; text-align: left; padding: 0 !important; min-height: 0 !important; font-size: inherit !important; }
+.iv-swc .c { height: 64px; display: block; }
+.iv-swc .t { padding: 7px 9px; font-size: 13px; font-weight: 700; display: block; color: var(--text); }
+.iv-swc .t small { display: block; font: 400 11px 'DM Mono', monospace; color: var(--text-muted); margin-top: 1px; font-weight: 400; }
+.iv-showchk { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 14px; }
+.iv-showchk input { width: 20px; height: 20px; }
+
+/* menu sheet */
+.iv-menu button { display: flex !important; align-items: center; gap: 12px; width: 100%; padding: 0 18px !important; height: 56px; min-height: 56px !important; border: none !important; border-bottom: 1px solid var(--border) !important; border-radius: 0 !important; background: none !important; font-size: 16px !important; font-weight: 600 !important; color: var(--text) !important; text-align: left; }
+
+/* status toast with undo */
+.iv-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; width: min(520px, calc(100% - 20px)); display: none; align-items: center; gap: 10px; padding: 8px 8px 8px 16px; background: var(--iv-deep, #1d1b33); color: #fff; border-radius: 14px; box-shadow: 0 8px 24px rgba(20,20,37,.3); z-index: 1300; font-family: 'DM Sans', sans-serif; font-size: 14px; }
+@media (max-width: 768px) { .iv-toast { bottom: calc(68px + env(safe-area-inset-bottom, 0px)); } }
+.iv-toast.show { display: flex; }
+.iv-toast .t { flex: 1; min-height: 28px; padding: 4px 0; line-height: 1.35; }
+body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+.iv-toast .ok { color: #9fe0b0; }
+.iv-toast.err { background: #7a1f17; }
+.iv-toast button { height: 44px; min-height: 44px !important; padding: 0 14px !important; border: none !important; border-radius: 10px !important; background: none !important; color: #c9c5f5 !important; font-size: 14px !important; font-weight: 700 !important; }
 
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: white; padding: 10px 20px; border-radius: 99px; font-size:14px; font-weight: 500; z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none; white-space: nowrap; }
   .undo-bar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: white; padding: 10px 8px 10px 20px; border-radius: 99px; font-size:14px; font-weight: 500; z-index: 9999; display: none; align-items: center; gap: 12px; white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
@@ -5077,284 +5267,9 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
   </div>
   <!-- ===== TAB: INVENTORY (merged from staff.html — Session 3) ===== -->
   <div class="tab-panel" id="tab-inventory" data-tab="inventory">
-  <div class="tabs">
-    <button class="tab-btn active" id="inv-subtab-inventory" onclick="switchInvSubtab('inventory')">
-      Inventory
-    </button>
-    <button class="tab-btn" id="inv-subtab-add" onclick="switchInvSubtab('add')">
-      Add new asset
-    </button>
-    <button class="tab-btn" id="inv-subtab-labels" onclick="switchInvSubtab('labels')">
-      Print labels
-    </button>
-    <button class="tab-btn" id="inv-subtab-history" onclick="switchInvSubtab('history')">
-      History
-    </button>
-    <!-- PARKED: Paint sub-tab button -->
-  </div>
-
-  <!-- INVENTORY TAB -->
-  <div id="page-inventory">
-    <div id="whats-out-section" style="margin-bottom:1.5rem;display:none;">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
-        <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleWhatsOut()">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span id="whats-out-arrow" style="font-size:12px;color:var(--text-muted);transition:transform 0.2s;">▼</span>
-            <div style="font-size:15px;font-weight:600;">Currently Out</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div id="whats-out-counts" style="font-size:13px;color:var(--text-muted);"></div>
-          </div>
-        </div>
-        <div id="whats-out-body">
-          <div id="whats-out-list" style="padding:0;"></div>
-        </div>
-      </div>
-    </div>
-    <div class="stats">
-      <div class="stat"><div class="stat-label">Total items</div><div class="stat-val purple" id="total-count">—</div></div>
-      <div class="stat"><div class="stat-label">Available</div><div class="stat-val green" id="avail-count">—</div></div>
-      <div class="stat"><div class="stat-label">Currently out</div><div class="stat-val blue" id="out-count">—</div></div>
-      <div class="stat"><div class="stat-label">Overdue</div><div class="stat-val red" id="overdue-count">—</div></div>
-    </div>
-    <div class="search-section">
-      <h2>Find items</h2>
-      <div class="search-row">
-        <div class="search-wrap">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input type="text" id="search" placeholder="Search by name, Asset ID, location, renter..." oninput="render()" autofocus />
-        </div>
-        <select class="filter-select" id="cat-filter" onchange="render()"><option value="">All categories</option></select>
-        <select class="filter-select" id="status-filter" onchange="render()">
-          <option value="">All statuses</option>
-          <option value="IN">In</option>
-          <option value="OUT">Out</option>
-        </select>
-        <div style="display:flex;gap:4px;">
-          <button class="tab-btn" id="s-grid-btn" onclick="setStaffView('grid')" title="Grid view" style="padding:8px 12px;">&#9783;</button>
-          <button class="tab-btn active" id="s-list-btn" onclick="setStaffView('list')" title="List view" style="padding:8px 12px;">&#9776;</button>
-        </div>
-      </div>
-    </div>
-    <div class="batch-bar hidden" id="batch-bar">
-      <span class="batch-count" id="batch-count">0 selected</span>
-      <span id="batch-actions"></span>
-      <button class="btn btn-clear" onclick="clearSelection()">Clear</button>
-    </div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
-      <div class="select-all-row">
-        <input type="checkbox" class="cb" id="select-all" onchange="toggleSelectAll()" />
-        <label for="select-all" style="cursor:pointer;">Select all visible</label>
-        <span style="margin-left:auto;font-size:12px;color:var(--text-faint);" id="result-count"></span>
-      </div>
-      <div id="results" style="padding:0;"><div class="empty">Loading inventory...</div></div>
-    </div>
-  </div>
-
-  <!-- ADD ASSET TAB -->
-  <div id="page-add" style="display:none;">
-    <div class="add-form-wrap">
-      <div class="add-form-card">
-        <h2 class="add-section-title">Item details</h2>
-        <div class="add-grid">
-          <div class="field" style="grid-column:1/-1;">
-            <label>Item name <span class="required">*</span></label>
-            <input type="text" id="a-name" oninput="updatePreview()" />
-          </div>
-          <div class="field">
-            <label>Category <span class="required">*</span></label>
-            <select id="a-category" onchange="updatePreview()">
-              <option value="">Select category...</option>
-              <option>Furniture</option><option>Specialty</option><option>Chairs</option>
-              <option>Tables</option><option>Desks</option><option>Set Dressing</option>
-              <option>Show Specific</option><option>Couches</option><option>Flats</option>
-              <option>Wall Decor</option><option>Drops</option><option>Other</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Subcategory</label>
-            <input type="text" id="a-subcategory" oninput="updatePreview()" />
-          </div>
-          <div class="field" style="grid-column:1/-1;">
-            <label>Storage location <span class="required">*</span></label>
-            <input type="text" id="a-location" oninput="updatePreview()" />
-          </div>
-          <div class="field">
-            <label>Quantity</label>
-            <input type="text" inputmode="numeric" id="a-quantity" value="1" />
-          </div>
-          <div class="field">
-            <label>Rental value ($)</label>
-            <input type="text" inputmode="numeric" id="a-rental" />
-          </div>
-          <div class="field" style="grid-column:1/-1;">
-            <label>Replacement value ($)</label>
-            <input type="text" inputmode="numeric" id="a-replacement" />
-          </div>
-          <div class="field" style="grid-column:1/-1;">
-            <label>Notes</label>
-            <textarea id="a-notes"></textarea>
-          </div>
-          <div class="field" style="grid-column:1/-1;">
-            <label>Photo <span class="required">*</span></label>
-            <div class="photo-drop" id="photo-drop" onclick="document.getElementById('a-photo').click()">
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-              <span id="photo-label">Click to upload photo</span>
-            </div>
-            <input type="file" id="a-photo" accept="image/*" style="display:none;" onchange="handlePhoto(this)" />
-          </div>
-        </div>
-      </div>
-      <div class="add-form-card preview-card" id="preview-card">
-        <h2 class="add-section-title">ID preview</h2>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;">Auto-assigned when you save.</p>
-        <div style="display:flex;flex-direction:column;gap:12px;">
-          <div class="pf"><div class="pf-label">Asset ID</div><div class="pf-val mono" id="prev-assetid" style="font-size:1.1rem;color:var(--purple);">—</div></div>
-          <div class="pf"><div class="pf-label">Tag ID</div><div class="pf-val mono" id="prev-tagid" style="font-size:1.1rem;color:var(--purple);">—</div></div>
-          <div class="pf"><div class="pf-label">Category prefix</div><div class="pf-val mono" id="prev-prefix">—</div></div>
-          <div class="pf"><div class="pf-label">Subcat code</div><div class="pf-val mono" id="prev-subcat">—</div></div>
-          <div class="pf"><div class="pf-label">Label preview</div>
-            <div id="prev-label" style="font-size:12px;font-family:monospace;background:var(--bg);padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);white-space:pre-line;line-height:1.6;margin-top:4px;color:var(--text-muted);">—</div>
-          </div>
-        </div>
-        <div style="margin-top:1.5rem;display:flex;gap:10px;">
-          <button class="btn btn-ghost" style="flex:1;" onclick="resetAddForm()">Clear</button>
-          <button class="btn btn-in" style="flex:1;" id="save-asset-btn" onclick="saveAsset()">Save to inventory</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- LABELS TAB -->
-  <div id="page-labels" style="display:none;">
-    <div class="label-page">
-      <div class="label-sidebar">
-        <h2>Select items to print</h2>
-        <div style="display:flex;gap:6px;margin-bottom:10px;">
-          <button class="btn btn-ghost" style="flex:1;font-size:12px;" onclick="selectAllLabels()">Select all</button>
-          <button class="btn btn-ghost" style="flex:1;font-size:12px;" onclick="clearAllLabels()">Clear all</button>
-        </div>
-        <div class="label-item-list" id="label-item-list"><div class="empty" style="padding:1rem;">Loading...</div></div>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;" id="label-selected-count">0 items selected</div>
-        <button class="btn btn-print" onclick="printLabels()">🖨 Print labels</button>
-      </div>
-      <div class="label-preview-area">
-        <h2>Label preview</h2>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;">Formatted for Avery 8163 (2" × 4", 2 per row)</p>
-        <div class="label-grid-print print-area" id="label-preview-grid">
-          <div class="label-cell empty" style="display:flex;align-items:center;justify-content:center;color:var(--text-faint);font-size:13px;">Select items to preview</div>
-          <div class="label-cell empty"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- HISTORY TAB -->
-  <div id="page-history" style="display:none;">
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
-      <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-size:15px;font-weight:600;">Check-in/out history</div>
-          <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">All inventory transactions</div>
-        </div>
-        <div style="display:flex;gap:10px;align-items:center;">
-          <input type="text" id="history-search" placeholder="Search..." oninput="renderHistory()" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);outline:none;width:200px;" />
-          <select id="history-filter" onchange="renderHistory()" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);outline:none;">
-            <option value="">All actions</option>
-            <option value="OUT">Check out</option>
-            <option value="IN">Check in</option>
-          </select>
-          <button class="btn btn-ghost" style="font-size:12px;" onclick="loadHistory()">↻ Refresh</button>
-        </div>
-      </div>
-      <div id="history-results" style="padding:1rem;"><div class="empty">Loading history...</div></div>
-    </div>
-  </div>
-
-  <!-- PAINT TAB -->
-  <div id="page-paint" style="display:none;">
-    <div style="display:grid;grid-template-columns:340px 1fr;gap:1.5rem;align-items:start;">
-
-      <!-- ADD PAINT FORM -->
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;position:sticky;top:1rem;">
-        <div style="font-size:15px;font-weight:600;margin-bottom:1.25rem;" id="paint-form-title">Add paint color</div>
-
-        <div class="field" style="margin-bottom:12px;">
-          <label>Color name <span class="required">*</span></label>
-          <input type="text" id="p-name" oninput="autoLookup()" />
-        </div>
-
-        <div class="field" style="margin-bottom:12px;">
-          <label>Brand <span class="required">*</span></label>
-          <select id="p-brand-select" onchange="toggleCustomBrand();autoLookup()">
-            <option value="">Select brand...</option>
-            <option selected>Glidden</option>
-            <option>Benjamin Moore</option>
-            <option>Sherwin Williams</option>
-            <option>Behr</option>
-            <option>Rosco</option>
-            <option>Createx</option>
-            <option>Golden</option>
-            <option>Liquitex</option>
-            <option>Other / Custom</option>
-          </select>
-          <input type="text" id="p-brand-custom" placeholder="Enter brand name" style="display:none;margin-top:6px;" />
-        </div>
-
-        <div class="field" style="margin-bottom:12px;">
-          <label>Color code / number</label>
-          <input type="text" id="p-code" placeholder="e.g. HC-172, SW 6119" />
-        </div>
-
-        <div class="field" style="margin-bottom:12px;">
-          <label>Hex color (for swatch)</label>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input type="color" id="p-hex-picker" value="#888888" oninput="document.getElementById('p-hex').value=this.value" style="width:44px;height:38px;padding:2px;border:1px solid var(--border);border-radius:6px;cursor:pointer;" />
-            <input type="text" id="p-hex" placeholder="#RRGGBB" oninput="syncHexPicker()" style="flex:1;" />
-            <button onclick="lookupPaintColor()" style="padding:8px 12px;background:var(--purple);color:white;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;" title="Auto-find hex from color name">🔍 Look up</button>
-          </div>
-          <div id="lookup-results" style="display:none;margin-top:8px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;max-height:180px;overflow-y:auto;"></div>
-          <div id="lookup-status" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
-        </div>
-
-        <div class="field" style="margin-bottom:12px;">
-          <label>Notes</label>
-          <textarea id="p-notes" style="min-height:60px;"></textarea>
-        </div>
-
-        <div class="field" style="margin-bottom:1.25rem;">
-          <label>Shows used in</label>
-          <div id="p-shows-list" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;background:var(--bg);"></div>
-        </div>
-
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-ghost" style="flex:1;" onclick="resetPaintForm()">Clear</button>
-          <button class="btn btn-in" style="flex:1;" id="p-save-btn" onclick="savePaint()">Save color</button>
-        </div>
-      </div>
-
-      <!-- PAINT LIBRARY -->
-      <div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
-          <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-            <div style="font-size:15px;font-weight:600;">Color Library</div>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <input type="text" id="paint-search" placeholder="Search colors..." oninput="renderPaint()" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);width:180px;outline:none;" />
-              <select id="paint-brand-filter" onchange="renderPaint()" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);outline:none;">
-                <option value="">All brands</option>
-              </select>
-              <select id="paint-show-filter" onchange="renderPaint()" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);outline:none;">
-                <option value="">All shows</option>
-              </select>
-            </div>
-          </div>
-          <div id="paint-results" style="padding:1rem;"><div class="empty">No colors yet. Add your first paint color!</div></div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
+    <div class="iv" id="iv-app"><div class="iv-empty">Loading the inventory…</div></div>
+    <div id="iv-ov"></div>
+    <div class="iv-toast" id="iv-toast" role="status" aria-live="polite"></div>
   </div>
   <!-- ===== TAB: BACKDROPS (placeholder — Session 4) ===== -->
   <div class="tab-panel" id="tab-backdrops" data-tab="backdrops">
@@ -6140,208 +6055,8 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 </div>
 
 
-<!-- Inventory: action + edit modals (merged from staff.html) -->
-<!-- CHECK IN/OUT MODAL -->
-<div id="action-overlay" class="inv-overlay" style="display:none;" onclick="closeActionModal(event)">
-  <div class="inv-modal" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <div>
-        <div class="modal-title" id="action-title"></div>
-        <div class="modal-subtitle" id="action-subtitle"></div>
-      </div>
-      <button class="close-btn" onclick="closeActionModal()">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="field">
-        <label>Items & quantities</label>
-        <div id="action-chips" style="display:flex;flex-direction:column;gap:6px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);"></div>
-      </div>
-      <div id="checkout-fields">
-        <div style="display:flex;flex-direction:column;gap:14px;">
-          <div class="field">
-            <label>Renter / organization name <span class="required">*</span></label>
-            <input type="text" id="f-renter" />
-          </div>
-          <div class="field">
-            <label>Show / production name <span class="required">*</span></label>
-            <input type="text" id="f-who" />
-          </div>
-          <div class="field">
-            <label>Type <span class="required">*</span></label>
-            <select id="co-type">
-              <option value="">Select...</option>
-              <option value="Rental">Rental</option>
-              <option value="Internal">Internal / MMT use</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Due back date <span class="required">*</span></label>
-            <input type="date" id="f-due" />
-          </div>
-          <div class="field">
-            <label>Staff member processing <span class="required">*</span></label>
-            <input type="text" id="f-staff" />
-          </div>
-          <div class="field">
-            <label>Notes</label>
-            <textarea id="f-notes-out"></textarea>
-          </div>
-        </div>
-      </div>
-      <div id="checkin-fields" style="display:none;">
-        <div style="display:flex;flex-direction:column;gap:14px;">
-          <div class="field">
-            <label>Staff member <span class="required">*</span></label>
-            <input type="text" id="f-staff-in" />
-          </div>
-          <div class="field">
-            <label>Condition on return <span class="required">*</span></label>
-            <select id="f-condition">
-              <option value="">Select condition...</option>
-              <option value="Good">Good — no issues</option>
-              <option value="Minor wear">Minor wear — cosmetic only</option>
-              <option value="Needs repair">Needs repair</option>
-              <option value="Damaged">Damaged</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Additional notes</label>
-            <textarea id="f-notes-in"></textarea>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeActionModal()">Cancel</button>
-      <button class="btn" id="action-submit-btn" onclick="submitAction()"></button>
-    </div>
-  </div>
-</div>
-
-<!-- DETAIL PANEL -->
-<div id="panel-overlay" class="inv-overlay" style="display:none;" onclick="closePanel(event)">
-  <div class="panel" onclick="event.stopPropagation()">
-    <div class="panel-img" id="panel-img"></div>
-    <div class="panel-body">
-      <div class="panel-header">
-        <div>
-          <div class="panel-title" id="panel-name"></div>
-          <div style="margin-top:5px;" id="panel-badge"></div>
-        </div>
-        <button class="close-btn" onclick="closePanel()">&times;</button>
-      </div>
-      <div class="panel-grid">
-        <div class="pf"><div class="pf-label">Asset ID</div><div class="pf-val mono" id="panel-assetid"></div></div>
-        <div class="pf"><div class="pf-label">Tag ID</div><div class="pf-val mono" id="panel-tagid"></div></div>
-        <div class="pf"><div class="pf-label">Category</div><div class="pf-val" id="panel-cat"></div></div>
-        <div class="pf"><div class="pf-label">Storage location</div><div class="pf-val" id="panel-loc"></div></div>
-        <div class="pf"><div class="pf-label">Current show</div><div class="pf-val" id="panel-show"></div></div>
-        <div class="pf"><div class="pf-label">Due back</div><div class="pf-val" id="panel-due"></div></div>
-        <div class="pf"><div class="pf-label">Last used date</div><div class="pf-val" id="panel-lastdate"></div></div>
-        <div class="pf"><div class="pf-label">Last used show</div><div class="pf-val" id="panel-lastshow"></div></div>
-        <div class="pf"><div class="pf-label">Rental value</div><div class="pf-val" id="panel-rental"></div></div>
-        <div class="pf"><div class="pf-label">Replacement value</div><div class="pf-val" id="panel-replace"></div></div>
-      </div>
-      <div class="pf" style="margin-bottom:1rem;"><div class="pf-label">Notes</div><div class="pf-val" id="panel-notes" style="font-size:13px;color:var(--text-muted);font-weight:400;"></div></div>
-      <hr class="divider" />
-      <div style="margin-bottom:1rem;">
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Transaction history</div>
-        <div id="panel-history" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;"></div>
-      </div>
-      <hr class="divider" />
-      <div class="panel-actions" id="panel-actions"></div>
-      <div style="margin-top:8px;">
-        <button class="btn btn-ghost" style="width:100%;font-size:13px;" onclick="openEditModal()">✏️ Edit this item</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- EDIT MODAL -->
-<div id="edit-overlay" class="inv-overlay" style="display:none;" onclick="closeEditModal(event)">
-  <div class="inv-modal" style="max-width:520px;" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <div>
-        <div class="modal-title">Edit item</div>
-        <div class="modal-subtitle" id="edit-subtitle"></div>
-      </div>
-      <button class="close-btn" onclick="closeEditModal()">&times;</button>
-    </div>
-    <div class="modal-body" style="gap:12px;">
-      <div class="field-row">
-        <div class="field">
-          <label>Asset ID</label>
-          <input type="text" id="e-assetid" disabled style="opacity:0.5;cursor:not-allowed;" />
-        </div>
-        <div class="field">
-          <label>Tag ID</label>
-          <input type="text" id="e-tagid" disabled style="opacity:0.5;cursor:not-allowed;" />
-        </div>
-      </div>
-      <div class="field">
-        <label>Item name <span class="required">*</span></label>
-        <input type="text" id="e-name" />
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label>Category <span class="required">*</span></label>
-          <select id="e-category">
-            <option value="">Select...</option>
-            <option>Furniture</option><option>Specialty</option><option>Chairs</option>
-            <option>Tables</option><option>Desks</option><option>Set Dressing</option>
-            <option>Show Specific</option><option>Couches</option><option>Flats</option>
-            <option>Wall Decor</option><option>Drops</option><option>Other</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Subcategory</label>
-          <input type="text" id="e-subcategory" />
-        </div>
-      </div>
-      <div class="field">
-        <label>Storage location <span class="required">*</span></label>
-        <input type="text" id="e-location" />
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label>Rental value ($)</label>
-          <input type="text" inputmode="numeric" id="e-rental" />
-        </div>
-        <div class="field">
-          <label>Replacement value ($)</label>
-          <input type="text" inputmode="numeric" id="e-replacement" />
-        </div>
-      </div>
-      <div class="field">
-        <label>Notes</label>
-        <textarea id="e-notes" style="min-height:60px;"></textarea>
-      </div>
-      <div class="field">
-        <label>Update photo (optional — keeps existing photo too)</label>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div id="e-current-photo" style="width:60px;height:60px;border-radius:var(--radius-sm);overflow:hidden;background:var(--bg);flex-shrink:0;display:flex;align-items:center;justify-content:center;"></div>
-          <div style="flex:1;">
-            <div class="photo-drop" id="e-photo-drop" onclick="document.getElementById('e-photo').click()" style="padding:10px;">
-              <span id="e-photo-label" style="font-size:12px;">Click to upload new photo</span>
-            </div>
-            <input type="file" id="e-photo" accept="image/*" style="display:none;" onchange="handleEditPhoto(this)" />
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
-      <button class="btn btn-in" id="edit-save-btn" onclick="saveEdit()">Save changes</button>
-    </div>
-  </div>
-</div>
-
 <div id="net-bar"><i></i></div>
 <div class="toast" id="toast"></div>
-<div class="undo-bar" id="undo-bar">
-  <span id="undo-msg"></span>
-  <button class="undo-btn" onclick="doUndo()">Undo</button>
-</div>
 
 <!-- Lists: list-name Modal (merged from tasks.html) -->
 <div class="modal-overlay" id="list-modal" style="display:none;">
@@ -6456,7 +6171,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.11 v8</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.12 v1</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -8599,8 +8314,7 @@ function gsCollect() {
   try {
     (allItems || []).forEach(i => push('inventory', i.name,
       [i.category, i.location, i.assetId].filter(Boolean).join(' · '),
-      () => { switchTab('inventory'); const s = document.getElementById('search');
-              if (s) { s.value = i.name; if (typeof render === 'function') render(); } },
+      () => { switchTab('inventory'); if (typeof ivOpenItem === 'function') ivOpenItem(i.assetId); },
       i.photo));
   } catch(e) {}
 
@@ -12857,574 +12571,106 @@ function escHtml(s) {
 
 
 // ════════════════════════════════════════════════════════════════════════════
-// INVENTORY TAB MODULE (merged from staff.html — Session 3)
-// Reuses shell globals: SCRIPT_URL, jsonp, toast (shell), dark mode, PIN, sidebar.
-// Owns its own data: allItems (inventory CSV), paint, history.
-// Internal sub-tabs (Inventory/Add/Labels/History/Paint) switch via
-// switchInvSubtab(); inventory data loads via loadInventoryData().
+// INVENTORY TAB (rebuilt 10.12)
+// The data lives in the warehouse Google Sheet (Inventory, Form_Responses,
+// Paint_Library, New_Assets, Prefix_Table). This tab talks to the separate
+// inventory Apps Script (INV_URL), which reads the Sheet live and changes only
+// the cells a check in/out or edit needs.
+//
+// Until that script's address is set, the tab falls back to the old route:
+// the published CSV (lags a few minutes) for reading, and the main script for
+// check in/out, which it has always handled.
+//
+// Shared with other tabs: allItems, paintData, historyData, inventoryLoaded,
+// loadInventoryData(), loadPaintData(), renderInventoryTab(), showToast().
 // ════════════════════════════════════════════════════════════════════════════
+const INV_URL_DEFAULT = '';
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRupSW2TcKEhcXbsDg5FRWaQgRzjkgDKvRFduvVwpdwCsMers-HJRwK4lK1AmAH4qO74ZBrmvJzOO25/pub?gid=0&single=true&output=csv';
-// LOGO_URL is declared at the top of this script block (see PERF note there).
 const CORRECT_PIN = '1483';
-let sessionStaffName = '';
+const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dyzkxnrnd/image/upload';
+const CLOUDINARY_PRESET = 'mmt_inventory';
 const SHOWS_BY_SEASON = {
-  "2026 \u2014 Season 9": [
-    "Grease",
-    "Les Liaisons Dangereuses",
-    "Shrek",
-    "Mame",
-    "Present Laughter",
-    "Disaster",
-    "My Fair Lady",
-    "Urinetown",
-    "The Will Rogers Follies",
-    "The Cher Show",
-    "And Then There Were None",
-    "It's a Wonderful Life",
-    "A Christmas Carol 2026",
-    "Big Band Holiday Concert 2026"
-  ],
-  "2025 \u2014 Season 8": [
-    "Iconic Broadway (Concert)",
-    "Vanya and Sonia and Masha and Spike",
-    "Fiddler on the Roof",
-    "Ride the Cyclone",
-    "POTUS",
-    "Pippin",
-    "Hair",
-    "Young Frankenstein",
-    "SpongeBob the Musical",
-    "The Rocky Horror Show 2025",
-    "Man of La Mancha",
-    "Beautiful: The Carole King Musical",
-    "Deathtrap",
-    "Sweeney Todd",
-    "Annie 2025",
-    "A Christmas Carol 2025",
-    "Big Band Holiday Concert 2025"
-  ],
-  "2024 \u2014 Season 7": [
-    "Lend Me a Tenor",
-    "City of Angels",
-    "Fun Home",
-    "Hello Dolly!",
-    "Murder on the Orient Express",
-    "Tuck Everlasting",
-    "Sweet Charity",
-    "Avenue Q",
-    "Anything Goes",
-    "The King and I",
-    "The Scarlet Pimpernel",
-    "Beauty and the Beast",
-    "Clue",
-    "White Christmas",
-    "A Christmas Carol 2024",
-    "Big Band Holiday Concert 2024"
-  ],
-  "2023 \u2014 Season 6": [
-    "Ain't Misbehavin'",
-    "The Secret Garden",
-    "Peter and the Starcatcher",
-    "Oliver!",
-    "Blithe Spirit",
-    "Viva Las Vegas",
-    "Something Rotten!",
-    "Spring Awakening",
-    "Assassins",
-    "On the Town",
-    "All Shook Up",
-    "Sunset Boulevard",
-    "Carrie",
-    "Elf 2023",
-    "A Christmas Carol 2023",
-    "Big Band Holiday Concert 2023"
-  ],
-  "2022 \u2014 Season 5": [
-    "Noises Off!",
-    "Gypsy",
-    "Moon Over Buffalo",
-    "The Sound of Music",
-    "The Producers 2022",
-    "Godspell 2022",
-    "La Cage aux Folles",
-    "In the Heights",
-    "Crazy for You",
-    "The Vagina Monologues",
-    "Thoroughly Modern Millie",
-    "A Gentleman's Guide to Love and Murder 2022",
-    "A Christmas Story 2022",
-    "A Christmas Carol 2022",
-    "Big Band Holiday Concert 2022"
-  ],
-  "2021 \u2014 Season 4": [
-    "Strollin' Down Broadway 50s Review",
-    "The Diary of Anne Frank",
-    "Broadway A Go-Go 60s Review",
-    "Songs for a New World",
-    "70s Concert",
-    "The Last 5 Years",
-    "The Fantastiks",
-    "Murder at Cheltenham Manor",
-    "Head Over Heels",
-    "Matilda",
-    "Carousel",
-    "The Drowsy Chaperone",
-    "American Idiot",
-    "The Mystery of Edwin Drood",
-    "The Rocky Horror Show 2021",
-    "Elf 2021",
-    "A Christmas Carol 2021",
-    "Big Band Holiday Concert 2021"
-  ],
-  "2020 \u2014 Season 3": [
-    "Nunsense A-Men! 2020",
-    "Songs of the Silver Screen",
-    "The Laramie Project",
-    "Into the Woods",
-    "Dracula",
-    "The Importance of Being Earnest",
-    "Broadway Request Live",
-    "Fruitcakes"
-  ],
-  "2018-2019 \u2014 Season 2": [
-    "Jesus Christ Superstar",
-    "Curtains",
-    "The Rocky Horror Show 2018",
-    "A Christmas Story 2018",
-    "A Christmas Carol 2018",
-    "The Complete Works of William Shakespeare (Abridged)",
-    "Aida",
-    "Steel Magnolias",
-    "Guys and Dolls",
-    "Joseph and the Amazing Technicolor Dreamcoat",
-    "Spamalot",
-    "Little Women",
-    "The Full Monty",
-    "South Pacific",
-    "Wait Until Dark",
-    "The Will Rogers Follies 2019",
-    "The 25th Annual Putnam County Spelling Bee",
-    "Mamma Mia!",
-    "A Gentleman's Guide to Love and Murder 2019",
-    "Annie 2019",
-    "A Christmas Carol 2019"
-  ],
-  "2017-2018 \u2014 Season 1": [
-    "Phantom",
-    "Hairspray",
-    "A Christmas Carol 2017",
-    "42nd Street",
-    "Nunsense A-Men! 2018",
-    "Seussical",
-    "A Chorus Line",
-    "Beehive",
-    "Grease 2018",
-    "The Producers 2018",
-    "The Music Man",
-    "The Little Mermaid",
-    "Oklahoma!",
-    "Godspell 2018"
-  ]
+  "2026 — Season 9": ["Grease", "Les Liaisons Dangereuses", "Shrek", "Mame", "Present Laughter", "Disaster", "My Fair Lady", "Urinetown", "The Will Rogers Follies", "Oklahoma!", "Godspell 2018"]
 };
-const HISTORY_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRupSW2TcKEhcXbsDg5FRWaQgRzjkgDKvRFduvVwpdwCsMers-HJRwK4lK1AmAH4qO74ZBrmvJzOO25/pub?gid=149245829&single=true&output=csv';
-let paintData = [];
 const BRAND_URLS = {
   'Glidden': 'https://raw.githubusercontent.com/jpederson/colornerd/master/json/ppg.json',
   'Benjamin Moore': 'https://raw.githubusercontent.com/jpederson/colornerd/master/json/benjamin-moore.json',
   'Behr': 'https://raw.githubusercontent.com/jpederson/colornerd/master/json/behr.json',
   'Sherwin Williams': 'https://raw.githubusercontent.com/jpederson/colornerd/master/json/sherwin-williams.json',
 };
-let brandColorCache = {};
-let lookupTimer = null;
-let historyData = [];
-let allItems = [], selected = new Set(), filteredItems = [], currentPanelIdx = null;
-let staffView = 'list';
+const PAINT_BRANDS = ['Glidden', 'Benjamin Moore', 'Sherwin Williams', 'Behr', 'Rosco', 'Createx', 'Golden', 'Liquitex'];
+// Fallback when the Sheet's Prefix_Table can't be read.
 const PREFIXES = {
   'Furniture':'F','Specialty':'SP','Chairs':'CH','Tables':'TB','Desks':'DK',
   'Set Dressing':'SD','Show Specific':'SS','Couches':'CO','Flats':'FL',
   'Wall Decor':'WD','Drops':'DR','Other':'OT'
 };
-let nextAssetId = null;
-let labelSelected = new Set();
-let undoTimeout = null;
-let undoData = null;
+const INV_CONDITIONS = ['Good', 'Minor wear', 'Needs repair', 'Damaged'];
 
+let allItems = [], paintData = [], historyData = [];
 let inventoryLoaded = false;
-// Called by the shell when the Inventory tab is opened (lazy first load).
-function renderInventoryTab() {
-  if (!inventoryLoaded) {
-    inventoryLoaded = true;
-    if (typeof loadInventoryData === 'function') loadInventoryData();
-    // PARKED: initPaint() — Paint sub-tab is hidden, so skip its load.
-  }
+let sessionStaffName = '';
+try { sessionStaffName = localStorage.getItem('mmt_inv_staff') || ''; } catch (e) {}
+
+const iv = {
+  src: '', writesOn: false, prefixes: null, nextId: '', loaded: false, loading: null, err: '', syncedAt: 0,
+  q: '', status: 'all', cat: '', sel: new Set(), detail: '', wide: false,
+  stack: [],           // open overlay views, top last: { v, ...args }
+  co: null, ci: null, form: null, lab: null, paint: null, hist: { q: '', f: '' }, outQ: '',
+  undo: null, busy: false,
+};
+
+const IV_ICON = {
+  back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>',
+  x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  plus: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  more: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
+  search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>',
+  photo: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-9 8"/></svg>',
+  cam: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  pin: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  edit: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
+  check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L19 7"/></svg>',
+};
+
+// ── Small helpers ───────────────────────────────────────────────────────────
+function ivE(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+function ivJ(s) { return ivE(JSON.stringify(String(s == null ? '' : s))); }   // a quoted JS string, safe in an attribute
+function invUrl() { try { return localStorage.getItem('mmt_inv_url') || INV_URL_DEFAULT; } catch (e) { return INV_URL_DEFAULT; } }
+function ivToday() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function ivISO(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+// '2026-10-23' or '10/23/2026' → a local date (no time-zone slip).
+function ivDate(s) {
+  s = String(s || '').trim(); let m;
+  if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s))) return new Date(+m[1], +m[2] - 1, +m[3]);
+  if ((m = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(s))) return new Date(+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[1] - 1, +m[2]);
+  return null;
 }
-
-function toggleCustomBrand() {
-  const sel = document.getElementById('p-brand-select').value;
-  document.getElementById('p-brand-custom').style.display = sel === 'Other / Custom' ? 'block' : 'none';
+function ivFmt(s, withYear) {
+  const d = s instanceof Date ? s : ivDate(s);
+  if (!d) return String(s || '');
+  const o = { month: 'short', day: 'numeric' };
+  if (withYear || d.getFullYear() !== new Date().getFullYear()) o.year = 'numeric';
+  return d.toLocaleDateString('en-US', o);
 }
-
-function syncHexPicker() {
-  const hex = document.getElementById('p-hex').value;
-  if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
-    document.getElementById('p-hex-picker').value = hex;
-  }
+function ivStamp(s) {
+  const d = new Date(String(s || '').replace(' ', 'T'));
+  if (isNaN(d)) { const dd = ivDate(s); return dd ? ivFmt(dd) : String(s || ''); }
+  return ivFmt(d) + ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(' ', '').toLowerCase();
 }
-
-function initPaint() {
-  // Build shows list checkboxes
-  const list = document.getElementById('p-shows-list');
-  list.innerHTML = Object.entries(SHOWS_BY_SEASON).map(([season, shows]) =>
-    `<div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;padding:4px 0 2px;">${season}</div>` +
-    shows.map(show => `<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0;cursor:pointer;">
-      <input type="checkbox" class="cb" style="width:14px;height:14px;" value="${show}" name="p-show" />
-      ${show}
-    </label>`).join('')
-  ).join('');
-
-  // Load paint data from storage
-  loadPaintData();
+function ivDaysLate(i) { const d = ivDate(i.dueBack); if (!d) return 0; return Math.round((ivToday() - d) / 86400000); }
+function ivIsOut(i) { return i.status === 'OUT'; }
+function ivIsLate(i) { return ivIsOut(i) && ivDaysLate(i) > 0; }
+function ivItem(id) { const k = String(id || '').toUpperCase(); return allItems.find(i => i.assetId.toUpperCase() === k); }
+function ivPhoto(i, cls) { return `<div class="iv-ph${cls ? ' ' + cls : ''}">${i && i.photo ? `<img src="${ivE(i.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : IV_ICON.photo}</div>`; }
+function ivWho(i) { return i.currentShow || 'someone'; }
+function ivStatusLine(i) {
+  if (!ivIsOut(i)) return { cls: '', text: i.location || 'No storage spot yet' };
+  const late = ivDaysLate(i);
+  if (late > 0) return { cls: 'late', text: 'Out · ' + ivWho(i) + ' · ' + late + ' day' + (late === 1 ? '' : 's') + ' late' };
+  return { cls: 'out', text: 'Out · ' + ivWho(i) + (i.dueBack ? ' · back ' + ivFmt(i.dueBack) : '') };
 }
-
-function autoLookup() {
-  clearTimeout(lookupTimer);
-  const q = document.getElementById('p-name').value.trim();
-  if (q.length < 2) {
-    document.getElementById('lookup-results').style.display = 'none';
-    document.getElementById('lookup-status').textContent = '';
-    return;
-  }
-  lookupTimer = setTimeout(lookupPaintColor, 400);
-}
-
-async function lookupPaintColor() {
-  const name = document.getElementById('p-name').value.trim();
-  const code = document.getElementById('p-code').value.trim();
-  const brandSel = document.getElementById('p-brand-select').value;
-  const brand = brandSel === 'Other / Custom'
-    ? document.getElementById('p-brand-custom').value.trim()
-    : brandSel;
-
-  const query = (code || name).toLowerCase();
-  if (!query) { showToast('Enter a color name or code first', true); return; }
-
-  const status = document.getElementById('lookup-status');
-  const results = document.getElementById('lookup-results');
-  status.textContent = 'Searching...';
-  results.style.display = 'none';
-
-  // Determine which brands to search
-  const brandsToSearch = BRAND_URLS[brand] ? [brand] : Object.keys(BRAND_URLS);
-
-  let found = [];
-  for (const b of brandsToSearch) {
-    if (!brandColorCache[b]) {
-      try {
-        const res = await fetch(BRAND_URLS[b]);
-        brandColorCache[b] = await res.json();
-      } catch(e) {
-        console.log('Could not load', b, e);
-        continue;
-      }
-    }
-    const matches = brandColorCache[b].filter(c =>
-      c.name.toLowerCase().includes(query) ||
-      (c.label && c.label.toString().toLowerCase().includes(query))
-    ).slice(0, 5).map(c => ({...c, brand: b}));
-    found = found.concat(matches);
-    if (found.length >= 8) break;
-  }
-
-  if (!found.length) {
-    status.textContent = 'No colors found. Try a different name or spelling.';
-    results.style.display = 'none';
-    return;
-  }
-
-  status.textContent = found.length + ' result' + (found.length !== 1 ? 's' : '') + ' found — click to use:';
-  results.style.display = 'block';
-  results.innerHTML = found.map(c => `
-    <div onclick="selectLookupColor('${c.hex}','${c.name.replace(/'/g,"\'")}','${c.label||''}','${c.brand}')"
-      style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.1s;"
-      onmouseover="this.style.background='var(--purple-light)'" onmouseout="this.style.background=''">
-      <div style="width:36px;height:36px;border-radius:6px;background:${c.hex};flex-shrink:0;border:1px solid rgba(0,0,0,0.1);"></div>
-      <div style="flex:1;">
-        <div style="font-size:13px;font-weight:600;">${c.name}</div>
-        <div style="font-size:11px;color:var(--text-muted);">${c.brand}${c.label ? ' · <strong style="color:var(--text);">'+c.label+'</strong>' : ''}</div>
-        <div style="font-size:10px;color:var(--text-faint);">Hex: ${c.hex}</div>
-      </div>
-      <div style="font-size:10px;color:var(--purple);font-weight:600;">Select ›</div>
-    </div>
-  `).join('');
-}
-
-function selectLookupColor(hex, name, code, brand) {
-  document.getElementById('p-hex').value = hex;
-  document.getElementById('p-hex-picker').value = hex;
-  document.getElementById('p-name').value = name;
-  if (code) document.getElementById('p-code').value = code;
-
-  // Auto-set brand dropdown if it matches a known brand
-  const brandSel = document.getElementById('p-brand-select');
-  const knownBrands = Array.from(brandSel.options).map(o => o.value);
-  if (knownBrands.includes(brand)) {
-    brandSel.value = brand;
-    // Hide custom brand field if it was showing
-    const customWrap = document.getElementById('p-brand-custom-wrap');
-    if (customWrap) customWrap.style.display = 'none';
-  }
-
-  document.getElementById('lookup-results').style.display = 'none';
-  document.getElementById('lookup-status').textContent = '✓ Color selected: ' + name + (code ? ' · ' + code : '') + ' · ' + hex;
-}
-
-async function loadPaintData() {
-  document.getElementById('paint-results').innerHTML = '<div class="empty">Loading colors...</div>';
-  try {
-    const res = await fetch(SCRIPT_URL + '?action=getPaints');
-    const data = await res.json();
-    paintData = data.success ? data.paints : [];
-  } catch(e) {
-    paintData = [];
-  }
-  renderPaint();
-  updatePaintFilters();
-}
-
-async function savePaint() {
-  const name = document.getElementById('p-name').value.trim();
-  const brandSel = document.getElementById('p-brand-select').value;
-  const brand = brandSel === 'Other / Custom'
-    ? document.getElementById('p-brand-custom').value.trim()
-    : brandSel;
-  if (!name) { showToast('Color name is required', true); return; }
-  if (!brand) { showToast('Brand is required', true); return; }
-
-  const hex = document.getElementById('p-hex').value.trim() || '#888888';
-  const code = document.getElementById('p-code').value.trim();
-  const notes = document.getElementById('p-notes').value.trim();
-  const shows = [...document.querySelectorAll('input[name="p-show"]:checked')].map(cb => cb.value);
-
-  const editingId = document.getElementById('p-save-btn').dataset.editId;
-
-  if (editingId) {
-    const idx = paintData.findIndex(p => p.id === editingId);
-    if (idx >= 0) {
-      paintData[idx] = { ...paintData[idx], name, brand, hex, code, notes, shows };
-    }
-  } else {
-    paintData.push({
-      id: Date.now().toString(),
-      name, brand, hex, code, notes, shows,
-      addedDate: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
-    });
-  }
-
-  const btn = document.getElementById('p-save-btn');
-  btn.disabled = true;
-  btn.textContent = 'Saving...';
-
-  try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'savePaint', id: editingId || null, name, brand, hex, code, notes, shows })
-    });
-    const result = await res.json();
-    if (result.success) {
-      showToast('✓ ' + name + ' saved!');
-      resetPaintForm();
-      await loadPaintData();
-    } else {
-      showToast('Error saving: ' + (result.error || 'Unknown'), true);
-    }
-  } catch(e) {
-    showToast('Could not reach server.', true);
-  }
-  btn.disabled = false;
-  btn.textContent = 'Save color';
-}
-
-function resetPaintForm() {
-  document.getElementById('p-name').value = '';
-  document.getElementById('p-brand-select').value = '';
-  document.getElementById('p-brand-custom').value = '';
-  document.getElementById('p-brand-custom').style.display = 'none';
-  document.getElementById('p-code').value = '';
-  document.getElementById('p-hex').value = '';
-  document.getElementById('p-hex-picker').value = '#888888';
-  document.getElementById('p-notes').value = '';
-  document.querySelectorAll('input[name="p-show"]:checked').forEach(cb => cb.checked = false);
-  const btn = document.getElementById('p-save-btn');
-  btn.textContent = 'Save color';
-  btn.dataset.editId = '';
-  document.getElementById('paint-form-title').textContent = 'Add paint color';
-}
-
-function editPaint(id) {
-  const p = paintData.find(p => p.id === id);
-  if (!p) return;
-  document.getElementById('p-name').value = p.name;
-  const knownBrands = ['Benjamin Moore','Sherwin Williams','Rosco','Createx','Golden','Liquitex','Behr'];
-  if (knownBrands.includes(p.brand)) {
-    document.getElementById('p-brand-select').value = p.brand;
-    document.getElementById('p-brand-custom').style.display = 'none';
-  } else {
-    document.getElementById('p-brand-select').value = 'Other / Custom';
-    document.getElementById('p-brand-custom').value = p.brand;
-    document.getElementById('p-brand-custom').style.display = 'block';
-  }
-  document.getElementById('p-code').value = p.code || '';
-  document.getElementById('p-hex').value = p.hex || '';
-  document.getElementById('p-hex-picker').value = p.hex || '#888888';
-  document.getElementById('p-notes').value = p.notes || '';
-  document.querySelectorAll('input[name="p-show"]').forEach(cb => {
-    cb.checked = (p.shows || []).includes(cb.value);
-  });
-  const btn = document.getElementById('p-save-btn');
-  btn.textContent = 'Update color';
-  btn.dataset.editId = id;
-  document.getElementById('paint-form-title').textContent = 'Edit: ' + p.name;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-async function deletePaint(id) {
-  if (!confirm('Delete this color?')) return;
-  try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'deletePaint', id })
-    });
-    const result = await res.json();
-    if (result.success) {
-      showToast('Color deleted');
-      await loadPaintData();
-    } else {
-      showToast('Error: ' + (result.error || 'Unknown'), true);
-    }
-  } catch(e) {
-    showToast('Could not reach server.', true);
-  }
-}
-
-function updatePaintFilters() {
-  const brands = [...new Set(paintData.map(p => p.brand).filter(Boolean))].sort();
-  const brandSel = document.getElementById('paint-brand-filter');
-  if (brandSel) {
-    const cur = brandSel.value;
-    brandSel.innerHTML = '<option value="">All brands</option>' + brands.map(b => `<option ${b===cur?'selected':''}>${b}</option>`).join('');
-  }
-  const allShows = [...new Set(paintData.flatMap(p => p.shows || []))].sort();
-  const showSel = document.getElementById('paint-show-filter');
-  if (showSel) {
-    const cur = showSel.value;
-    showSel.innerHTML = '<option value="">All shows</option>' + allShows.map(s => `<option ${s===cur?'selected':''}>${s}</option>`).join('');
-  }
-}
-
-function renderPaint() {
-  const q = (document.getElementById('paint-search')?.value || '').toLowerCase();
-  const brandF = document.getElementById('paint-brand-filter')?.value || '';
-  const showF = document.getElementById('paint-show-filter')?.value || '';
-  const filtered = paintData.filter(p =>
-    (!q || [p.name, p.brand, p.code, p.notes].some(f => (f||'').toLowerCase().includes(q))) &&
-    (!brandF || p.brand === brandF) &&
-    (!showF || (p.shows||[]).includes(showF))
-  );
-  const container = document.getElementById('paint-results');
-  if (!filtered.length) {
-    container.innerHTML = '<div class="empty">No colors match your search.</div>';
-    return;
-  }
-  container.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">' +
-    filtered.map(p => {
-      const hex = p.hex || '#888888';
-      const shows = (p.shows || []);
-      return `<div style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface);">
-        <div style="height:80px;background:${hex};position:relative;">
-          <div style="position:absolute;bottom:6px;right:6px;display:flex;gap:4px;">
-            <button onclick="editPaint('${p.id}')" style="background:rgba(255,255,255,0.9);border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;">Edit</button>
-            <button onclick="deletePaint('${p.id}')" style="background:rgba(255,255,255,0.9);border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--red);font-weight:600;">✕</button>
-          </div>
-        </div>
-        <div style="padding:10px 12px;">
-          <div style="font-weight:600;font-size:14px;margin-bottom:2px;">${p.name}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${p.brand}${p.code ? ' · <span style="font-weight:600;color:var(--text);font-family:monospace;">'+p.code+'</span>' : ''}</div>
-          <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text-faint);margin-bottom:6px;">${hex}</div>
-          ${p.notes ? `<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-style:italic;">${p.notes}</div>` : ''}
-          ${shows.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">${shows.map(s => `<span style="font-size:10px;padding:2px 6px;background:var(--purple-light);color:var(--purple-dark);border-radius:99px;font-weight:500;">${s}</span>`).join('')}</div>` : ''}
-        </div>
-      </div>`;
-    }).join('') + '</div>';
-}
-
-function loadHistory() {
-  document.getElementById('history-results').innerHTML = '<div class="empty">Loading...</div>';
-  // Remove any existing script tag
-  const old = document.getElementById('history-script');
-  if (old) old.remove();
-  // Use JSONP via script tag to bypass CORS
-  window.historyCallback = function(data) {
-    if (data.success) {
-      historyData = data.history.map(r => ({
-        ...r,
-        action: (r.action || '').toUpperCase()
-      }));
-      renderHistory();
-    } else {
-      document.getElementById('history-results').innerHTML = '<div class="empty">Could not load history.</div>';
-    }
-  };
-  const script = document.createElement('script');
-  script.id = 'history-script';
-  script.src = SCRIPT_URL + '?action=getHistory&callback=historyCallback';
-  script.onerror = () => {
-    document.getElementById('history-results').innerHTML = '<div class="empty">Could not load history.</div>';
-  };
-  document.body.appendChild(script);
-}
-
-function renderHistory() {
-  const q = document.getElementById('history-search').value.toLowerCase();
-  const filter = document.getElementById('history-filter').value;
-  const filtered = historyData.filter(r =>
-    (!q || [r.assetId, r.who, r.staff, r.type].some(f => f.toLowerCase().includes(q))) &&
-    (!filter || r.action === filter)
-  );
-  const container = document.getElementById('history-results');
-  if (!filtered.length) { container.innerHTML = '<div class="empty">No history found.</div>'; return; }
-  const formatTs = ts => {
-    const d = new Date(ts);
-    if (isNaN(d)) return ts;
-    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  };
-  container.innerHTML =
-    '<div class="history-row history-header"><div></div><div>Action</div><div>Item</div><div>Show / Renter</div><div>Staff</div><div>Notes</div></div>' +
-    filtered.map((r, idx) => {
-      const isOut = r.action === 'OUT';
-      const item = allItems.find(i => i.assetId === r.assetId);
-      const itemName = item?.name || r.assetId;
-      const photo = item?.photo || '';
-      const rowBg = idx % 2 === 0 ? '' : 'background:#f4f3f0;';
-      return `<div class="history-row" style="${rowBg}">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div style="width:62px;height:62px;border-radius:6px;overflow:hidden;background:var(--bg);flex-shrink:0;display:flex;align-items:center;justify-content:center;">
-            ${photo ? `<img src="${photo}" style="width:62px;height:62px;object-fit:cover;" />` : `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="width:22px;height:22px;opacity:0.2;"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`}
-          </div>
-        </div>
-        <div>
-          <span class="badge ${isOut?'badge-out':'badge-in'}">${isOut?'Out':'In'}</span>
-          <div style="font-size:11px;color:var(--text-faint);margin-top:3px;">${formatTs(r.timestamp)}</div>
-        </div>
-        <div>
-          <div style="font-weight:600;font-size:13px;">${itemName}</div>
-          <div style="font-size:11px;color:var(--text-faint);font-family:'DM Mono',monospace;">${r.assetId}</div>
-        </div>
-        <div style="font-size:13px;">${r.who || '—'}${r.dueDate?`<div style="font-size:11px;color:var(--text-faint);">Due: ${r.dueDate}</div>`:''}</div>
-        <div style="font-size:13px;">${r.staff || '—'}${r.type?`<div style="font-size:11px;color:var(--text-faint);">${r.type}</div>`:''}</div>
-        <div style="font-size:12px;color:var(--text-muted);">${r.condition || '—'}</div>
-      </div>`;
-    }).join('');
-}
+function ivPill(i) { return ivIsLate(i) ? '<span class="iv-pill late">Late</span>' : ivIsOut(i) ? '<span class="iv-pill out">Out</span>' : '<span class="iv-pill in">In</span>'; }
 
 function driveThumb(raw) {
   if (!raw) return '';
@@ -13432,784 +12678,980 @@ function driveThumb(raw) {
   const m = raw.match(/id=([\w-]+)/) || raw.match(/\/d\/([\w-]+)\//);
   return m ? 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w400' : raw;
 }
-
-function splitLine(line) {
-  const vals = []; let cur = '', inQ = false;
-  for (let c of line) {
-    if (c === '"') { inQ = !inQ; }
-    else if (c === ',' && !inQ) { vals.push(cur); cur = ''; }
-    else cur += c;
-  }
-  vals.push(cur); return vals;
+function ivBig(raw) {
+  if (!raw) return '';
+  if (raw.includes('cloudinary.com')) return raw.replace('/upload/', '/upload/w_1000,c_limit/');
+  const m = raw.match(/id=([\w-]+)/) || raw.match(/\/d\/([\w-]+)\//);
+  return m ? 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w1000' : raw;
 }
 
-function parseCSV(text) {
-  const lines = text.trim().split(/\r?\n/);
-  const headers = splitLine(lines[0]);
-  return lines.slice(1).map(line => {
-    const vals = splitLine(line);
-    const obj = {};
-    headers.forEach((h, i) => obj[h.trim()] = (vals[i] || '').trim());
-    return obj;
-  }).filter(r => r['Asset ID'] && r['Name']);
+function ivCategories() {
+  const p = iv.prefixes && iv.prefixes.categories;
+  const list = p && Object.keys(p).length ? Object.keys(p) : Object.keys(PREFIXES);
+  allItems.forEach(i => { if (i.category && !list.includes(i.category)) list.push(i.category); });
+  return list;
+}
+function ivSubcatCode(sub) {
+  const s = String(sub || '').trim();
+  if (!s) return '';
+  const t = iv.prefixes && iv.prefixes.subcats && iv.prefixes.subcats[s.toLowerCase()];
+  if (t) return t;
+  const w = s.split(/\s+/);
+  if (w.length === 1) return w[0].substring(0, 2).toUpperCase();
+  return (w[0].substring(0, 2) + w.slice(1).map(x => x[0]).join('')).toUpperCase();
+}
+function ivPrefix(cat) {
+  const p = iv.prefixes && iv.prefixes.categories && iv.prefixes.categories[cat];
+  if (p) return p;
+  return PREFIXES[cat] ? PREFIXES[cat] + '-' : '';
+}
+function ivNextId() {
+  let max = 0;
+  allItems.concat(historyData).forEach(i => { const m = /^S(\d+)$/i.exec(String(i.assetId || '').trim()); if (m) max = Math.max(max, +m[1]); });
+  const local = 'S' + String(max + 1).padStart(4, '0');
+  if (!iv.nextId) return local;
+  return (+iv.nextId.slice(1) > max) ? iv.nextId : local;
 }
 
-async function loadInventoryData() {
-  try {
-    const res = await fetch(CSV_URL);
-    const text = await res.text();
-    const rows = parseCSV(text);
-    allItems = rows.map((r, idx) => ({
-      _idx: idx,
-      assetId: r['Asset ID'] || '',
-      tagId: r['Tag ID'] || '',
-      name: r['Name'] || '',
-      category: r['Category'] || '',
-      subcategory: r['Subcatagorey'] || '',
-      location: r['Storage Location'] || '',
-      status: (r['Status'] || '').toUpperCase(),
-      currentShow: r['Current show'] || '',
-      dueBack: r['due back'] || '',
-      lastDate: r['Laat Used Date'] || '',
-      lastShow: r['Last Used Show'] || '',
-      rental: r['Rental Value'] || '',
-      replacement: r['Replacement Value'] || '',
-      notes: r['Notes'] || '',
-      type: r['Type'] || '',
-      photo: driveThumb(r['Photo'] || ''),
-    }));
-    const cats = [...new Set(allItems.map(i => i.category).filter(Boolean))].sort();
-    document.getElementById('cat-filter').innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option>${c}</option>`).join('');
-    updateStats(); render(); renderWhatsOut(); populateLabelList(); loadHistory();
-  } catch(e) {
-    document.getElementById('results').innerHTML = '<div class="empty">Could not load inventory.</div>';
-  }
+// Shows to pick from at check-out: running now or coming up, in date order.
+function ivShows() {
+  const t = ivToday();
+  const all = [...(typeof MAINSTAGE !== 'undefined' ? MAINSTAGE : []), ...(typeof CHILDRENS !== 'undefined' ? CHILDRENS : [])];
+  return all.filter(s => { const e = ivDate(s.end); return e && e >= new Date(t.getTime() - 3 * 86400000); })
+    .sort((a, b) => ivDate(a.start) - ivDate(b.start)).slice(0, 8);
+}
+function ivAllShowNames() {
+  const names = new Set();
+  [...(typeof MAINSTAGE !== 'undefined' ? MAINSTAGE : []), ...(typeof CHILDRENS !== 'undefined' ? CHILDRENS : [])].forEach(s => names.add(s.name));
+  Object.values(SHOWS_BY_SEASON).forEach(a => a.forEach(n => names.add(n)));
+  paintData.forEach(p => (p.shows || []).forEach(n => names.add(n)));
+  return [...names];
 }
 
-function updateStats() {
-  document.getElementById('total-count').textContent = allItems.length;
-  document.getElementById('avail-count').textContent = allItems.filter(i => i.status === 'IN').length;
-  document.getElementById('out-count').textContent = allItems.filter(i => i.status === 'OUT').length;
-  const today = new Date();
-  document.getElementById('overdue-count').textContent = allItems.filter(i => {
-    if (i.status !== 'OUT' || !i.dueBack) return false;
-    const d = new Date(i.dueBack); return !isNaN(d) && d < today;
-  }).length;
-}
-
-function setStaffView(v) {
-  staffView = v;
-  document.getElementById('s-grid-btn').classList.toggle('active', v === 'grid');
-  document.getElementById('s-list-btn').classList.toggle('active', v === 'list');
-  render();
-}
-
-function toggleWhatsOut() {
-  const body = document.getElementById('whats-out-body');
-  const arrow = document.getElementById('whats-out-arrow');
-  const isOpen = body.style.display !== 'none';
-  body.style.display = isOpen ? 'none' : 'block';
-  arrow.style.transform = isOpen ? 'rotate(-90deg)' : 'rotate(0deg)';
-}
-
-function checkInFromWhatsOut(assetId) {
-  const condEl = document.getElementById('wo-cond-' + assetId);
-  const condition = condEl ? condEl.value : '';
-  if (!condition) { showToast('Please select a condition first', true); condEl.focus(); return; }
-  if (!sessionStaffName) {
-    const name = prompt('Enter your name (will be remembered for this session):');
-    if (!name) return;
-    sessionStaffName = name;
-  }
-  const staffName = sessionStaffName;
-  const item = allItems.find(i => i.assetId === assetId);
-  const btn = document.getElementById('wo-btn-' + assetId);
-  btn.disabled = true;
-  btn.textContent = 'Saving...';
-  const dateStr = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-  const conditionNote = '[' + dateStr + '] ' + condition;
-  const payload = {
-    action: 'checkInOut', assetIds: [assetId], status: 'IN',
-    who: '', dueBack: '', type: '', staffName, condition, notes: '', conditionNote
+// ── Loading ─────────────────────────────────────────────────────────────────
+function ivNormItem(r, idx) {
+  return {
+    _idx: idx, row: r.row || 0,
+    assetId: String(r.assetId || ''), tagId: String(r.tagId || ''), name: String(r.name || ''),
+    quantity: String(r.quantity || ''), category: String(r.category || ''), subcategory: String(r.subcategory || ''),
+    location: String(r.location || ''), status: String(r.status || '').toUpperCase() === 'OUT' ? 'OUT' : 'IN',
+    dueBack: (() => { const d = ivDate(r.dueBack); return d ? ivISO(d) : String(r.dueBack || ''); })(),
+    type: String(r.type || ''), currentShow: String(r.currentShow || ''),
+    rental: String(r.rental || ''), replacement: String(r.replacement || ''), notes: String(r.notes || ''),
+    lastDate: String(r.lastDate || ''), lastShow: String(r.lastShow || ''),
+    photoRaw: String(r.photo || ''), photo: driveThumb(String(r.photo || '')),
   };
-  fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
-    .then(r => r.json())
-    .then(result => {
-      if (result.success) {
-        if (item) {
-          item.status = 'IN';
-          item.currentShow = '';
-          item.dueBack = '';
-          if (conditionNote) item.notes = (item.notes ? item.notes + '\n' : '') + conditionNote;
-        }
-        showUndoBar('✓ ' + (item?.name || assetId) + ' checked in', {
-          action: 'checkInOut', assetIds: [assetId], status: 'OUT',
-          who: item?.currentShow || '', dueBack: item?.dueBack || '',
-          type: item?.type || '', staffName, condition: '', notes: '', conditionNote: ''
-        });
-        updateStats(); render(); renderWhatsOut();
-      } else {
-        showToast('Error: ' + (result.error || 'Unknown'), true);
-        btn.disabled = false; btn.textContent = '✓ Check in';
-      }
-    })
-    .catch(() => { showToast('Could not reach server.', true); btn.disabled = false; btn.textContent = '✓ Check in'; });
 }
 
-function filterByRenter(name) {
-  // Switch to inventory tab
-  switchInvSubtab('inventory');
-  // Set search to renter name
-  document.getElementById('search').value = name;
-  render();
-  // Scroll to results
-  document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+function ivApply(d, src) {
+  allItems = (d.items || []).map(ivNormItem);
+  if (d.history) historyData = d.history.map(h => ({ ...h, action: String(h.action || '').toUpperCase().indexOf('OUT') > -1 ? 'OUT' : 'IN' }));
+  if (d.paints) paintData = d.paints;
+  if (d.prefixes) iv.prefixes = d.prefixes;
+  if (d.nextId) iv.nextId = d.nextId;
+  iv.writesOn = !!d.writesOn;
+  iv.src = src; iv.loaded = true; iv.err = ''; iv.syncedAt = Date.now();
 }
 
-function renderWhatsOut() {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const soon = new Date(today); soon.setDate(soon.getDate() + 7);
-  const outItems = allItems.filter(i => i.status === 'OUT');
-  const section = document.getElementById('whats-out-section');
-  if (!outItems.length) { section.style.display = 'none'; return; }
-  section.style.display = 'block';
-  const overdue = outItems.filter(i => i.dueBack && new Date(i.dueBack) < today);
-  const dueSoon = outItems.filter(i => i.dueBack && new Date(i.dueBack) >= today && new Date(i.dueBack) <= soon);
-  document.getElementById('whats-out-counts').innerHTML =
-    `<span style="color:var(--text-muted);">${outItems.length} out</span>` +
-    (overdue.length ? ` &nbsp;·&nbsp; <span style="color:var(--red);font-weight:600;">${overdue.length} overdue</span>` : '') +
-    (dueSoon.length ? ` &nbsp;·&nbsp; <span style="color:#e67e22;font-weight:600;">${dueSoon.length} due soon</span>` : '');
-  const photoSVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;opacity:0.2;"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
-  const formatDate = d => { const dt = new Date(d); return isNaN(dt) ? d : dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); };
-  document.getElementById('whats-out-list').innerHTML =
-    `<div style="display:grid;grid-template-columns:52px 1fr 1fr 140px 220px;gap:12px;padding:8px 1.25rem;background:var(--bg);font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);">
-      <div></div><div>Item</div><div>Renter</div><div>Due back</div><div>Check in</div>
-    </div>` +
-    outItems.sort((a,b) => {
-      const da = a.dueBack ? new Date(a.dueBack) : new Date('9999');
-      const db = b.dueBack ? new Date(b.dueBack) : new Date('9999');
-      return da - db;
-    }).map(i => {
-      const due = i.dueBack ? new Date(i.dueBack) : null;
-      const isOverdue = due && due < today;
-      const isSoon = due && due >= today && due <= soon;
-      const rowClass = isOverdue ? 'out-row overdue' : isSoon ? 'out-row due-soon' : 'out-row';
-      const dueLabel = !due ? '—' : isOverdue
-        ? `<span style="color:var(--red);font-weight:600;">⚠ ${formatDate(i.dueBack)}</span>`
-        : isSoon
-        ? `<span style="color:#e67e22;font-weight:600;">${formatDate(i.dueBack)}</span>`
-        : `<span>${formatDate(i.dueBack)}</span>`;
-      return `<div class="${rowClass}">
-        <div class="out-thumb">${i.photo?`<img src="${i.photo}" />`:`${photoSVG}`}</div>
-        <div><div style="font-weight:600;font-size:13px;">${i.name}</div><div style="font-size:11px;color:var(--text-faint);font-family:'DM Mono',monospace;">${i.assetId}</div></div>
-        <div style="font-size:13px;">${i.currentShow ? `<span style="color:var(--purple);cursor:pointer;font-weight:500;" onclick="filterByRenter('${i.currentShow}')">${i.currentShow}</span>` : '—'}</div>
-        <div style="font-size:13px;">${dueLabel}</div>
-        <div style="display:flex;gap:6px;align-items:center;">
-          <select id="wo-cond-${i.assetId}" style="font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);font-family:'DM Sans',sans-serif;outline:none;color:var(--text);">
-            <option value="">Condition...</option>
-            <option value="Good" selected>Good</option>
-            <option value="Minor wear">Minor wear</option>
-            <option value="Needs repair">Needs repair</option>
-            <option value="Damaged">Damaged</option>
-          </select>
-          <button id="wo-btn-${i.assetId}" class="btn btn-in" style="font-size:12px;padding:5px 10px;white-space:nowrap;" onclick="checkInFromWhatsOut('${i.assetId}')">✓ Check in</button>
-        </div>
-      </div>`;
-    }).join('');
-}
-
-function render() {
-  const q = document.getElementById('search').value.toLowerCase();
-  const cat = document.getElementById('cat-filter').value;
-  const status = document.getElementById('status-filter').value;
-  filteredItems = allItems.filter(i =>
-    (!q || [i.name, i.assetId, i.tagId, i.location, i.currentShow].some(f => f.toLowerCase().includes(q))) &&
-    (!cat || i.category === cat) && (!status || i.status === status)
-  );
-  document.getElementById('result-count').textContent = filteredItems.length + ' items';
-  document.getElementById('select-all').checked = filteredItems.length > 0 && filteredItems.every(i => selected.has(i.assetId));
-  const container = document.getElementById('results');
-  if (!filteredItems.length) { container.innerHTML = '<div class="empty">No items match your search.</div>'; return; }
-  const photoSVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>`;
-
-  if (staffView === 'grid') {
-    container.innerHTML = '<div class="staff-grid" style="padding:1rem;">' + filteredItems.map(i => `
-      <div class="staff-card ${selected.has(i.assetId) ? 'selected' : ''} ${i.status==='OUT'?'out ':'' }" onclick="openPanel(${i._idx})">
-        <div class="staff-card-img">
-          ${i.photo ? `<img src="${i.photo}" alt="${i.name}" onerror="this.parentElement.innerHTML='${photoSVG}'" />` : photoSVG}
-        </div>
-        <div class="staff-card-body">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:4px;">
-            <div class="staff-card-name">${i.name}</div>
-            <span class="badge ${i.status==='IN'?'badge-in':'badge-out'}">${i.status==='IN'?'In':'Out'}</span>
-          </div>
-          <div class="staff-card-tag">${i.tagId}</div>
-          <div class="staff-card-cat">${i.category}${i.subcategory?' · '+i.subcategory:''}</div>
-          <div class="staff-card-loc">${i.location||'—'}</div>
-          ${i.status==='OUT' ? `
-            <div style="margin-top:8px;padding:8px 10px;border-radius:6px;background:#fff0f0;border:1px solid #ffd0d0;">
-              <div style="font-size:10px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Currently Out</div>
-              <div style="font-size:12px;margin-bottom:2px;"><span style="color:var(--text-faint);font-size:11px;">Renter: </span><span style="font-weight:600;color:var(--text);">${i.currentShow||'—'}</span></div>
-              ${i.dueBack?`<div style="font-size:12px;margin-bottom:2px;"><span style="color:var(--text-faint);font-size:11px;">Due back: </span><span style="font-weight:600;color:var(--red);">${i.dueBack}</span></div>`:''}
-              ${i.type?`<div style="font-size:11px;"><span style="color:var(--text-faint);">Type: </span><span style="color:var(--text);">${i.type}</span></div>`:''}
-            </div>
-          ` : ''}
-          <div class="staff-card-footer">
-            <input type="checkbox" class="cb" ${selected.has(i.assetId)?'checked':''} onchange="toggleSelect('${i.assetId}')" onclick="event.stopPropagation()" />
-            <button class="detail-btn" onclick="event.stopPropagation();openPanel(${i._idx})">Details</button>
-          </div>
-        </div>
-      </div>
-    `).join('') + '</div>';
-  } else {
-    container.innerHTML = '<div class="staff-list">' + filteredItems.map(i => `
-      <div class="staff-list-row ${selected.has(i.assetId) ? 'selected' : ''} ${i.status==='OUT'?'out ':'' }">
-        <input type="checkbox" class="cb" ${selected.has(i.assetId)?'checked':''} onchange="toggleSelect('${i.assetId}')" onclick="event.stopPropagation()" />
-        <div class="staff-list-thumb">
-          ${i.photo ? `<img src="${i.photo}" alt="${i.name}" onerror="this.parentElement.innerHTML='${photoSVG}'" />` : photoSVG}
-        </div>
-        <div class="staff-list-name">
-          <div class="item-name" onclick="openPanel(${i._idx})">${i.name}</div>
-          <div class="item-sub">${i.assetId} · ${i.tagId}</div>
-        </div>
-        <div class="staff-list-cat"><span class="item-cat">${i.category}${i.subcategory?' · '+i.subcategory:''}</span></div>
-        <div class="staff-list-loc">${i.location||'—'}</div>
-        <div>
-          <span class="badge ${i.status==='IN'?'badge-in':'badge-out'}">${i.status==='IN'?'In':'Out'}</span>
-          ${i.status==='OUT' ? `
-            <div style="margin-top:4px;padding:6px 8px;border-radius:6px;background:#fff0f0;border:1px solid #ffd0d0;">
-              <div style="font-size:12px;margin-bottom:2px;"><span style="color:var(--text-faint);font-size:11px;">Renter: </span><span style="font-weight:600;color:var(--text);">${i.currentShow||'—'}</span></div>
-              ${i.dueBack?`<div style="font-size:12px;"><span style="color:var(--text-faint);font-size:11px;">Due back: </span><span style="font-weight:600;color:var(--red);">${i.dueBack}</span></div>`:''}
-            </div>
-          ` : ''}
-        </div>
-        <button class="detail-btn" onclick="openPanel(${i._idx})">Details</button>
-      </div>
-    `).join('') + '</div>';
-  }
-  updateBatchBar();
-}
-
-function toggleSelect(assetId) {
-  if (selected.has(assetId)) selected.delete(assetId); else selected.add(assetId);
-  render();
-}
-
-function toggleSelectAll() {
-  const allSel = filteredItems.every(i => selected.has(i.assetId));
-  if (allSel) filteredItems.forEach(i => selected.delete(i.assetId));
-  else filteredItems.forEach(i => selected.add(i.assetId));
-  render();
-}
-
-function clearSelection() { selected.clear(); render(); }
-
-function updateBatchBar() {
-  const bar = document.getElementById('batch-bar');
-  if (selected.size === 0) { bar.classList.add('hidden'); return; }
-  bar.classList.remove('hidden');
-  document.getElementById('batch-count').textContent = selected.size + ' item' + (selected.size !== 1 ? 's' : '') + ' selected';
-  const selItems = [...selected].map(id => allItems.find(i => i.assetId === id)).filter(Boolean);
-  const allOut = selItems.every(i => i.status === 'OUT');
-  const allIn = selItems.every(i => i.status === 'IN');
-  let btns = '';
-  if (allIn || (!allOut && !allIn)) btns += `<button class="btn btn-out" onclick="openActionModal('OUT')">↗ Check out</button>`;
-  if (allOut || (!allOut && !allIn)) btns += `<button class="btn btn-in" onclick="openActionModal('IN')">✓ Check in</button>`;
-  document.getElementById('batch-actions').innerHTML = btns;
-}
-
-function openActionModal(action, singleIdx) {
-  const ids = singleIdx !== undefined ? [allItems[singleIdx].assetId] : [...selected];
-  const names = ids.map(id => allItems.find(i => i.assetId === id)?.name).filter(Boolean);
-  document.getElementById('action-title').textContent = action === 'OUT' ? 'Check out items' : 'Check in items';
-  document.getElementById('action-subtitle').textContent = ids.length + ' item' + (ids.length !== 1 ? 's' : '') + ' selected';
-  document.getElementById('action-chips').innerHTML = ids.map((id) => {
-    const item = allItems.find(i => i.assetId === id);
-    const name = item ? item.name : id;
-    return `<div style="padding:6px 8px;background:white;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:500;">${name}</div>`;
-  }).join('');
-  document.getElementById('checkout-fields').style.display = action === 'OUT' ? 'block' : 'none';
-  document.getElementById('checkin-fields').style.display = action === 'IN' ? 'block' : 'none';
-  const btn = document.getElementById('action-submit-btn');
-  btn.textContent = action === 'OUT' ? '↗ Confirm check out' : '✓ Confirm check in';
-  btn.className = 'btn ' + (action === 'OUT' ? 'btn-out' : 'btn-in');
-  btn.dataset.action = action;
-  btn.dataset.ids = JSON.stringify(ids);
-  ['f-renter','f-who','f-staff','f-notes-out','f-staff-in','f-notes-in'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
-  document.getElementById('co-type').value = '';
-  document.getElementById('f-condition').value = '';
-  document.getElementById('f-due').value = '';
-  document.getElementById('action-overlay').style.display = 'flex';
-  // Pre-fill staff name from session
-  if (sessionStaffName) {
-    const staffOut = document.getElementById('f-staff');
-    const staffIn = document.getElementById('f-staff-in');
-    if (staffOut) staffOut.value = sessionStaffName;
-    if (staffIn) staffIn.value = sessionStaffName;
-  }
-  setTimeout(() => {
-    const first = action === 'OUT' ? document.getElementById('f-who') : document.getElementById('f-staff-in');
-    if (first) first.focus();
-  }, 100);
-}
-
-function closeActionModal(e) {
-  if (!e || e.target === document.getElementById('action-overlay'))
-    document.getElementById('action-overlay').style.display = 'none';
-}
-
-async function submitAction() {
-  const btn = document.getElementById('action-submit-btn');
-  const action = btn.dataset.action;
-  const ids = JSON.parse(btn.dataset.ids);
-  if (action === 'OUT') {
-    const renter = document.getElementById('f-renter').value.trim();
-    const who = document.getElementById('f-who').value.trim();
-    const type = document.getElementById('co-type').value;
-    const staff = document.getElementById('f-staff').value.trim();
-    const due = document.getElementById('f-due').value;
-    if (!renter) { showToast('Renter name is required', true); document.getElementById('f-renter').focus(); return; }
-    if (!who) { showToast('Show name is required', true); document.getElementById('f-who').focus(); return; }
-    if (!type) { showToast('Please select a type', true); return; }
-    if (!due) { showToast('Due back date is required', true); return; }
-    if (!staff) { showToast('Staff name is required', true); document.getElementById('f-staff').focus(); return; }
-  } else {
-    const staff = document.getElementById('f-staff-in').value.trim();
-    const condition = document.getElementById('f-condition').value;
-    if (!staff) { showToast('Staff name is required', true); document.getElementById('f-staff-in').focus(); return; }
-    if (!condition) { showToast('Please select a condition', true); return; }
-  }
-  btn.innerHTML = '<span class="spinner"></span>Saving...';
-  btn.disabled = true;
-  const payload = {
-    action: 'checkInOut', assetIds: ids, status: action,
-    who: action === 'OUT' ? (document.getElementById('f-renter').value.trim() + ' — ' + document.getElementById('f-who').value.trim()) : '',
-    type: action === 'OUT' ? document.getElementById('co-type').value : '',
-    dueBack: action === 'OUT' ? document.getElementById('f-due').value : '',
-    staffName: action === 'OUT' ? document.getElementById('f-staff').value.trim() : document.getElementById('f-staff-in').value.trim(),
-    condition: action === 'IN' ? document.getElementById('f-condition').value : '',
-    notes: action === 'OUT' ? document.getElementById('f-notes-out').value.trim() : document.getElementById('f-notes-in').value.trim(),
-    conditionNote: action === 'IN' ? (() => {
-      const dateStr = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-      const cond = document.getElementById('f-condition').value;
-      const note = document.getElementById('f-notes-in').value.trim();
-      return '[' + dateStr + '] ' + cond + (note ? ': ' + note : '');
-    })() : '',
-  };
-  try {
-    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-    const result = await res.json();
-    if (result.success) {
-      ids.forEach(id => {
-        const item = allItems.find(i => i.assetId === id);
-        if (item) {
-              item.status = action;
-              item.currentShow = action === 'OUT' ? payload.who : '';
-              if (action === 'IN' && payload.conditionNote) {
-                item.notes = (item.notes ? item.notes + '\n' : '') + payload.conditionNote;
-              }
-            }
-      });
-      const sn = action === 'OUT' ? document.getElementById('f-staff').value.trim() : document.getElementById('f-staff-in').value.trim();
-      if (sn) sessionStaffName = sn;
-      const undoStatus = action === 'IN' ? 'OUT' : 'IN';
-      showUndoBar(`${action === 'IN' ? '✓ Checked in' : '↗ Checked out'} ${ids.length} item${ids.length !== 1 ? 's' : ''}`, {
-        action: 'checkInOut', assetIds: ids, status: undoStatus,
-        who: payload.who, dueBack: payload.dueBack, type: payload.type,
-        staffName: payload.staffName, condition: '', notes: '', conditionNote: ''
-      });
-      renderWhatsOut();
-      selected.clear(); closeActionModal(); updateStats(); render();
-    } else { showToast('Error: ' + (result.error || 'Unknown'), true); }
-  } catch(e) { showToast('Could not reach server.', true); }
-  btn.innerHTML = action === 'OUT' ? '↗ Confirm check out' : '✓ Confirm check in';
-  btn.disabled = false;
-}
-
-function openPanel(idx) {
-  currentPanelIdx = idx;
-  const i = allItems[idx];
-  document.getElementById('panel-name').textContent = i.name;
-  document.getElementById('panel-assetid').textContent = i.assetId || '—';
-  document.getElementById('panel-tagid').textContent = i.tagId || '—';
-  document.getElementById('panel-cat').textContent = i.category + (i.subcategory ? ' · ' + i.subcategory : '') || '—';
-  document.getElementById('panel-loc').textContent = i.location || '—';
-  document.getElementById('panel-show').textContent = i.currentShow || '—';
-  document.getElementById('panel-due').textContent = i.dueBack || '—';
-  document.getElementById('panel-lastdate').textContent = i.lastDate || '—';
-  document.getElementById('panel-lastshow').textContent = i.lastShow || '—';
-  document.getElementById('panel-rental').textContent = i.rental ? '$' + i.rental : '—';
-  document.getElementById('panel-replace').textContent = i.replacement ? '$' + i.replacement : '—';
-  document.getElementById('panel-notes').textContent = i.notes || 'No notes.';
-  // Load item history from historyData
-  const itemHistory = historyData.filter(h => h.assetId === i.assetId);
-  const phEl = document.getElementById('panel-history');
-  if (!itemHistory.length) {
-    phEl.innerHTML = '<div style="font-size:12px;color:var(--text-faint);">No transactions on record yet.</div>';
-  } else {
-    const fmtDate = ts => { const d = new Date(ts); return isNaN(d) ? ts : d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); };
-    phEl.innerHTML = itemHistory.map(h => {
-      const isOut = h.action === 'OUT';
-      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;background:var(--bg);font-size:12px;">
-        <span class="badge ${isOut?'badge-out':'badge-in'}" style="font-size:10px;padding:2px 7px;">${isOut?'Out':'In'}</span>
-        <span style="color:var(--text-muted);min-width:90px;">${fmtDate(h.timestamp)}</span>
-        <span style="flex:1;">${h.who||'—'}</span>
-        ${h.condition?`<span style="color:var(--text-muted);">${h.condition}</span>`:''}
-      </div>`;
-    }).join('');
-  }
-  document.getElementById('panel-badge').innerHTML = `<span class="badge ${i.status === 'IN' ? 'badge-in' : 'badge-out'}">${i.status === 'IN' ? 'Available' : 'Currently out'}</span>`;
-  const photoSVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>`;
-  document.getElementById('panel-img').innerHTML = i.photo
-    ? `<img src="${i.photo}" alt="${i.name}" style="width:100%;height:200px;object-fit:cover;" />`
-    : photoSVG;
-  document.getElementById('panel-actions').innerHTML = i.status === 'IN'
-    ? `<button class="btn btn-out" style="flex:1;" onclick="closePanel();selected.add('${i.assetId}');openActionModal('OUT')">↗ Check out</button>`
-    : `<button class="btn btn-in" style="flex:1;" onclick="closePanel();selected.add('${i.assetId}');openActionModal('IN')">✓ Check in</button>`;
-  document.getElementById('panel-overlay').style.display = 'flex';
-}
-
-function closePanel(e) {
-  if (!e || e.target === document.getElementById('panel-overlay'))
-    document.getElementById('panel-overlay').style.display = 'none';
-}
-
-function openEditModal() {
-  const i = allItems[currentPanelIdx];
-  document.getElementById('edit-subtitle').textContent = i.name + ' · ' + i.assetId;
-  document.getElementById('e-assetid').value = i.assetId;
-  document.getElementById('e-tagid').value = i.tagId;
-  document.getElementById('e-name').value = i.name;
-  document.getElementById('e-category').value = i.category;
-  document.getElementById('e-subcategory').value = i.subcategory;
-  document.getElementById('e-location').value = i.location;
-  document.getElementById('e-rental').value = i.rental;
-  document.getElementById('e-replacement').value = i.replacement;
-  document.getElementById('e-notes').value = i.notes;
-  document.getElementById('e-photo-label').textContent = 'Click to upload new photo';
-  document.getElementById('e-photo').value = '';
-  document.getElementById('e-photo-drop').classList.remove('has-photo');
-  const photoEl = document.getElementById('e-current-photo');
-  photoEl.innerHTML = i.photo
-    ? `<img src="${i.photo}" style="width:60px;height:60px;object-fit:cover;" />`
-    : `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;opacity:0.2;"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
-  document.getElementById('edit-overlay').style.display = 'flex';
-}
-
-function closeEditModal(e) {
-  if (!e || e.target === document.getElementById('edit-overlay'))
-    document.getElementById('edit-overlay').style.display = 'none';
-}
-
-function handleEditPhoto(input) {
-  if (input.files && input.files[0]) {
-    document.getElementById('e-photo-label').textContent = '✓ ' + input.files[0].name;
-    document.getElementById('e-photo-drop').classList.add('has-photo');
-  }
-}
-
-async function saveEdit() {
-  const i = allItems[currentPanelIdx];
-  const name = document.getElementById('e-name').value.trim();
-  const category = document.getElementById('e-category').value;
-  const location = document.getElementById('e-location').value.trim();
-  if (!name) { showToast('Name is required', true); return; }
-  if (!category) { showToast('Category is required', true); return; }
-  if (!location) { showToast('Location is required', true); return; }
-
-  const btn = document.getElementById('edit-save-btn');
-  btn.disabled = true;
-
-  let photoUrl = i.photo;
-  const photoFile = document.getElementById('e-photo').files[0];
-
-  if (photoFile) {
-    btn.innerHTML = '<span class="spinner"></span>Uploading photo...';
-    try {
-      const fd = new FormData();
-      fd.append('file', photoFile);
-      fd.append('upload_preset', 'mmt_inventory');
-      const uploadRes = await fetch('https://api.cloudinary.com/v1_1/dyzkxnrnd/image/upload', { method: 'POST', body: fd });
-      const uploadResult = await uploadRes.json();
-      if (uploadResult.secure_url) {
-        // Keep old photo URL in notes, use new as primary
-        const oldNote = i.notes ? i.notes + '\n' : '';
-        photoUrl = uploadResult.secure_url;
-      } else {
-        showToast('Photo upload failed — saving other changes', false);
-      }
-    } catch(e) {
-      showToast('Photo upload failed — saving other changes', false);
-    }
-  }
-
-  btn.innerHTML = '<span class="spinner"></span>Saving...';
-
-  const payload = {
-    action: 'editAsset',
-    assetId: i.assetId,
-    name,
-    category,
-    subcategory: document.getElementById('e-subcategory').value.trim(),
-    location,
-    rentalValue: document.getElementById('e-rental').value || '',
-    replacementValue: document.getElementById('e-replacement').value || '',
-    notes: document.getElementById('e-notes').value.trim(),
-    photoUrl,
-    previousPhotoUrl: i.photo || '',
-  };
-
-  try {
-    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-    const result = await res.json();
-    if (result.success) {
-      // Update local item
-      i.name = name;
-      i.category = category;
-      i.subcategory = payload.subcategory;
-      i.location = location;
-      i.rental = payload.rentalValue;
-      i.replacement = payload.replacementValue;
-      i.notes = payload.notes;
-      i.photo = photoUrl ? photoUrl.replace('/upload/', '/upload/w_400,c_fill/') : i.photo;
-      showToast('✓ ' + name + ' updated!');
-      closeEditModal();
-      closePanel();
-      render();
+function loadInventoryData() {
+  if (iv.loading) return iv.loading;
+  const url = invUrl();
+  iv.loading = new Promise(resolve => {
+    const done = () => { iv.loading = null; inventoryLoaded = true; ivRender(); resolve(allItems); };
+    if (url) {
+      jsonp(url + '?action=all&_=' + Date.now(), d => {
+        if (d && d.success) {
+          ivApply(d, 'api');
+          try { localStorage.setItem('mmt_inv_cache', JSON.stringify({ items: d.items, history: d.history, paints: d.paints, prefixes: d.prefixes, writesOn: d.writesOn, at: Date.now() })); } catch (e) {}
+        } else iv.err = (d && d.error) || 'The inventory script said no.';
+        done();
+      }, () => { iv.err = 'Could not reach the inventory script.'; done(); }, 25000);
     } else {
-      showToast('Error: ' + (result.error || 'Unknown'), true);
+      fetch(CSV_URL + '&_=' + Date.now()).then(r => r.text()).then(text => {
+        const rows = ivParseCSV(text);
+        ivApply({ items: rows.map(r => ({
+          assetId: r['Asset ID'], tagId: r['Tag ID'], name: r['Name'], quantity: r['Quantity'], photo: r['Photo'],
+          category: r['Category'], subcategory: r['Subcatagorey'] || r['Subcategory'], location: r['Storage Location'],
+          status: r['Status'], dueBack: r['due back'], type: r['Type'], currentShow: r['Current show'],
+          rental: r['Rental Value'], replacement: r['Replacement Value'], notes: r['Notes'],
+          lastDate: r['Laat Used Date'] || r['Last Used Date'], lastShow: r['Last Used Show'],
+        })) }, 'csv');
+        // The old routes for the log and paint, as before.
+        jsonp(SCRIPT_URL + '?action=getHistory&_=' + Date.now(), h => { if (h && h.success && h.history) { historyData = h.history.map(x => ({ when: x.timestamp, assetId: x.assetId, action: String(x.action || '').toUpperCase().indexOf('OUT') > -1 ? 'OUT' : 'IN', who: x.who, dueBack: x.dueDate, condition: x.condition, staff: x.staff, type: x.type })); ivRender(); } }, () => {});
+        done();
+      }).catch(() => { iv.err = 'Could not load the inventory.'; done(); });
     }
-  } catch(e) {
-    showToast('Could not reach server.', true);
-  }
-  btn.innerHTML = 'Save changes';
-  btn.disabled = false;
-}
-
-function switchInvSubtab(tab) {
-  ['inventory','add','labels','history','paint'].forEach(t => {
-    document.getElementById('page-' + t).style.display = t === tab ? 'block' : 'none';
-    document.getElementById('inv-subtab-' + t).classList.toggle('active', t === tab);
   });
-  if (tab === 'add') fetchNextId();
-  if (tab === 'labels') populateLabelList();
-  if (tab === 'history') loadHistory();
-  if (tab === 'paint') initPaint();
+  return iv.loading;
 }
 
-function getSubcatCode(subcat) {
-  if (!subcat) return '';
-  const words = subcat.trim().split(/\s+/);
-  if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
-  return (words[0].substring(0, 2) + words.slice(1).map(w => w[0]).join('')).toUpperCase();
+function loadPaintData() {
+  if (paintData.length) return Promise.resolve(paintData);
+  if (invUrl()) return loadInventoryData().then(() => paintData);
+  return fetch(SCRIPT_URL + '?action=getPaints').then(r => r.json()).then(d => { paintData = d.success ? d.paints : []; return paintData; }).catch(() => paintData);
 }
 
-async function fetchNextId() {
-  try {
-    const res = await fetch(SCRIPT_URL + '?action=getNextId');
-    const data = await res.json();
-    if (data.success) { nextAssetId = data.nextId; updatePreview(); }
-  } catch(e) { nextAssetId = 'S????'; }
-}
-
-function updatePreview() {
-  const name = document.getElementById('a-name').value.trim();
-  const category = document.getElementById('a-category').value;
-  const subcat = document.getElementById('a-subcategory').value.trim();
-  const location = document.getElementById('a-location').value.trim();
-  const prefix = PREFIXES[category] || '';
-  const subcatCode = getSubcatCode(subcat);
-  const assetId = nextAssetId || '—';
-  let tagId = '—';
-  if (prefix && assetId !== '—') {
-    tagId = subcatCode ? `${prefix}-${subcatCode}-${assetId}` : `${prefix}-${assetId}`;
+function ivParseCSV(text) {
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ',') { row.push(cur); cur = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; }
+    else cur += ch;
   }
-  document.getElementById('prev-assetid').textContent = assetId;
-  document.getElementById('prev-tagid').textContent = tagId;
-  document.getElementById('prev-prefix').textContent = prefix ? prefix + '-' : '—';
-  document.getElementById('prev-subcat').textContent = subcatCode || '—';
-  document.getElementById('prev-label').textContent = tagId !== '—' && name
-    ? `${tagId}\n${name}\n────────\n${location || '(location)'}`
-    : '—';
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  const h = (rows.shift() || []).map(x => x.trim());
+  return rows.map(r => { const o = {}; h.forEach((k, i) => o[k] = (r[i] || '').trim()); return o; }).filter(r => r['Asset ID'] || r['Name']);
 }
 
-function handlePhoto(input) {
-  const drop = document.getElementById('photo-drop');
-  const label = document.getElementById('photo-label');
-  if (input.files && input.files[0]) {
-    label.textContent = '✓ ' + input.files[0].name;
-    drop.classList.add('has-photo');
+// Called by the shell when the tab opens.
+function renderInventoryTab() {
+  if (!inventoryLoaded && !iv.loaded) {
+    try {
+      const c = JSON.parse(localStorage.getItem('mmt_inv_cache') || 'null');
+      if (c && c.items && invUrl()) { ivApply(c, 'api'); iv.syncedAt = c.at || 0; }
+    } catch (e) {}
   }
+  ivRender();
+  if (!iv.loading && (!inventoryLoaded || Date.now() - iv.syncedAt > 60000)) loadInventoryData();
 }
 
-async function saveAsset() {
-  const name = document.getElementById('a-name').value.trim();
-  const category = document.getElementById('a-category').value;
-  const location = document.getElementById('a-location').value.trim();
-  const photoFile = document.getElementById('a-photo').files[0];
-  if (!name) { showToast('Item name is required', true); return; }
-  if (!category) { showToast('Category is required', true); return; }
-  if (!location) { showToast('Storage location is required', true); return; }
-  if (!photoFile) { showToast('Photo is required', true); return; }
-  if (!nextAssetId) { showToast('Still loading next ID — try again', true); return; }
-  const btn = document.getElementById('save-asset-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Uploading photo...';
-  const subcat = document.getElementById('a-subcategory').value.trim();
-  const prefix = PREFIXES[category] || '';
-  const subcatCode = getSubcatCode(subcat);
-  const assetId = nextAssetId;
-  const tagId = subcatCode ? `${prefix}-${subcatCode}-${assetId}` : `${prefix}-${assetId}`;
-  let photoUrl = '', thumbUrl = '';
-  try {
-    const fd = new FormData();
-    fd.append('file', photoFile);
-    fd.append('upload_preset', 'mmt_inventory');
-    const uploadRes = await fetch('https://api.cloudinary.com/v1_1/dyzkxnrnd/image/upload', { method: 'POST', body: fd });
-    const uploadResult = await uploadRes.json();
-    if (uploadResult.secure_url) {
-      photoUrl = uploadResult.secure_url;
-      thumbUrl = uploadResult.secure_url.replace('/upload/', '/upload/w_400,c_fill/');
-    } else {
-      showToast('Photo upload failed', true); btn.innerHTML = 'Save to inventory'; btn.disabled = false; return;
-    }
-  } catch(e) { showToast('Photo upload failed', true); btn.innerHTML = 'Save to inventory'; btn.disabled = false; return; }
-  btn.innerHTML = '<span class="spinner"></span>Saving...';
-  const payload = {
-    action: 'addAsset', assetId, tagId, name, category,
-    subcategory: subcat, subcatCode, location,
-    quantity: document.getElementById('a-quantity').value || 1,
-    rentalValue: document.getElementById('a-rental').value || '',
-    replacementValue: document.getElementById('a-replacement').value || '',
-    notes: document.getElementById('a-notes').value.trim(),
-    photoUrl,
-  };
-  try {
-    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-    const result = await res.json();
-    if (result.success) {
-      showToast('✓ ' + name + ' added as ' + assetId);
-      allItems.push({ _idx: allItems.length, assetId, tagId, name, category, subcategory: subcat, location, status: 'IN', currentShow: '', dueBack: '', lastDate: '', lastShow: '', rental: payload.rentalValue, replacement: payload.replacementValue, notes: payload.notes, type: '', photo: thumbUrl });
-      updateStats(); resetAddForm(); fetchNextId(); switchInvSubtab('inventory');
-    } else { showToast('Error: ' + (result.error || 'Unknown'), true); }
-  } catch(e) { showToast('Could not reach server.', true); }
-  btn.innerHTML = 'Save to inventory'; btn.disabled = false;
-}
+// ── Saving ──────────────────────────────────────────────────────────────────
+function ivCanSave() { return iv.src === 'api' ? iv.writesOn : iv.src === 'csv'; }
 
-function resetAddForm() {
-  ['a-name','a-subcategory','a-location','a-notes','a-rental','a-replacement'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
-  document.getElementById('a-category').value = '';
-  document.getElementById('a-quantity').value = 1;
-  document.getElementById('a-photo').value = '';
-  document.getElementById('photo-label').textContent = 'Click to upload photo';
-  document.getElementById('photo-drop').classList.remove('has-photo');
-  updatePreview();
-}
-
-function populateLabelList() {
-  const list = document.getElementById('label-item-list');
-  if (!allItems.length) { list.innerHTML = '<div class="empty" style="padding:1rem;">No items loaded</div>'; return; }
-  list.innerHTML = allItems.map(i => `
-    <div class="label-item-row ${labelSelected.has(i.assetId) ? 'selected' : ''}" onclick="toggleLabelItem('${i.assetId}')">
-      <input type="checkbox" class="cb" ${labelSelected.has(i.assetId) ? 'checked' : ''} onclick="event.stopPropagation();toggleLabelItem('${i.assetId}')" />
-      <div style="flex:1;">
-        <div class="label-item-name">${i.name}</div>
-        <div class="label-item-tag">${i.tagId}</div>
-      </div>
-      <span class="badge ${i.status === 'IN' ? 'badge-in' : 'badge-out'}">${i.status === 'IN' ? 'In' : 'Out'}</span>
-    </div>
-  `).join('');
-  updateLabelCount();
-}
-
-function toggleLabelItem(assetId) {
-  if (labelSelected.has(assetId)) labelSelected.delete(assetId); else labelSelected.add(assetId);
-  populateLabelList(); renderLabelPreview();
-}
-
-function selectAllLabels() { allItems.forEach(i => labelSelected.add(i.assetId)); populateLabelList(); renderLabelPreview(); }
-
-function clearAllLabels() { labelSelected.clear(); populateLabelList(); renderLabelPreview(); }
-
-function updateLabelCount() {
-  document.getElementById('label-selected-count').textContent = labelSelected.size + ' item' + (labelSelected.size !== 1 ? 's' : '') + ' selected';
-}
-
-function renderLabelPreview() {
-  updateLabelCount();
-  const items = allItems.filter(i => labelSelected.has(i.assetId));
-  const grid = document.getElementById('label-preview-grid');
-  if (!items.length) {
-    grid.innerHTML = '<div class="label-cell empty" style="display:flex;align-items:center;justify-content:center;color:var(--text-faint);font-size:13px;">Select items to preview</div><div class="label-cell empty"></div>';
-    return;
+async function ivPost(body) {
+  const url = invUrl();
+  if (url) {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+    return r.json();
   }
-  // Pad to even number
-  const padded = [...items];
-  if (padded.length % 2 !== 0) padded.push(null);
-  grid.innerHTML = padded.map(i => i ? `
-    <div class="label-cell">
-      <div class="lc-top">
-        <img class="lc-logo" src="${LOGO_URL}" alt="MMT" />
-        <div class="lc-ids">
-          <div class="lc-tagid">${i.tagId}</div>
-          <div class="lc-name">${i.name}</div>
-          <div class="lc-cat">${i.category}${i.subcategory ? ' · ' + i.subcategory : ''}</div>
-        </div>
-      </div>
-      <hr class="lc-divider" />
-      <div class="lc-loc-row"><span class="lc-loc-label">Storage Location:</span><span class="lc-loc">${i.location || '—'}</span></div>
-      <div class="lc-notes">${i.notes || ''}</div>
-    </div>
-  ` : '<div class="label-cell empty"></div>').join('');
+  // Old route: only check in/out and paint went through the main script.
+  if (body.action === 'checkInOut') {
+    const r = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({
+      action: 'checkInOut', assetIds: body.assetIds, status: body.status, who: body.who || '', dueBack: body.dueBack || '',
+      type: body.type || '', staffName: body.staffName || '', condition: body.condition || '', notes: '',
+      conditionNote: body.status === 'IN' && body.condition ? '[' + ivFmt(new Date(), true) + '] ' + [body.condition, body.note].filter(Boolean).join(': ') : '',
+    }) });
+    const res = await r.json();
+    if (res.success) res.updated = res.updated || body.assetIds;
+    return res;
+  }
+  if (body.action === 'savePaint' || body.action === 'deletePaint') {
+    const r = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(body) });
+    return r.json();
+  }
+  return { success: false, error: 'This needs the new inventory script. Open ⋯ › Connect inventory script.' };
 }
 
-function printLabels() {
-  if (labelSelected.size === 0) { showToast('Select at least one item to print', true); return; }
-  window.print();
+function ivMergeItems(list) {
+  (list || []).forEach(r => {
+    const n = ivNormItem(r, 0);
+    const at = allItems.findIndex(i => i.assetId.toUpperCase() === n.assetId.toUpperCase());
+    if (at > -1) { n._idx = allItems[at]._idx; allItems[at] = n; } else { n._idx = allItems.length; allItems.push(n); }
+  });
 }
 
-function showUndoBar(msg, undoPayload) {
-  if (undoTimeout) clearTimeout(undoTimeout);
-  undoData = undoPayload;
-  const bar = document.getElementById('undo-bar');
-  document.getElementById('undo-msg').textContent = msg;
-  bar.style.display = 'flex';
-  undoTimeout = setTimeout(() => {
-    bar.style.display = 'none';
-    undoData = null;
-  }, 6000);
+let _ivToastT = null;
+function ivToast(html, opts) {
+  opts = opts || {};
+  const el = document.getElementById('iv-toast');
+  if (!el) return;
+  clearTimeout(_ivToastT);
+  el.className = 'iv-toast show' + (opts.err ? ' err' : '');
+  el.innerHTML = `<span class="t">${html}</span>${opts.undo ? '<button onclick="ivDoUndo()">Undo</button>' : ''}<button aria-label="Dismiss" onclick="ivToastHide()">${IV_ICON.x}</button>`;
+  _ivToastT = setTimeout(ivToastHide, opts.ms || (opts.undo ? 8000 : 4000));
 }
+function ivToastHide() { const el = document.getElementById('iv-toast'); if (el) el.className = 'iv-toast'; iv.undo = null; }
 
-async function doUndo() {
-  if (!undoData) return;
-  clearTimeout(undoTimeout);
-  document.getElementById('undo-bar').style.display = 'none';
-  const payload = undoData;
-  undoData = null;
-  try {
-    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-    const result = await res.json();
-    if (result.success) {
-      payload.assetIds.forEach(id => {
-        const item = allItems.find(i => i.assetId === id);
-        if (item) {
-          item.status = payload.status;
-          item.currentShow = payload.status === 'OUT' ? payload.who : '';
-          item.dueBack = payload.status === 'OUT' ? payload.dueBack : '';
-        }
-      });
-      showToast('↩ Undone!');
-      updateStats(); render(); renderWhatsOut();
-    }
-  } catch(e) { showToast('Could not undo.', true); }
-}
-
+// Kept for the other tabs that call it.
 function showToast(msg, isError) {
   const t = document.getElementById('toast');
+  if (!t) return;
   t.textContent = msg;
   t.className = 'toast show' + (isError ? ' error' : '');
   setTimeout(() => t.className = 'toast', 3500);
 }
+
+// ── Main screen ─────────────────────────────────────────────────────────────
+function ivFiltered() {
+  const q = iv.q.trim().toLowerCase();
+  return allItems.filter(i => {
+    if (iv.status === 'in' && ivIsOut(i)) return false;
+    if (iv.status === 'out' && !ivIsOut(i)) return false;
+    if (iv.status === 'late' && !ivIsLate(i)) return false;
+    if (iv.cat && i.category !== iv.cat) return false;
+    if (q && ![i.name, i.assetId, i.tagId, i.location, i.currentShow, i.category, i.subcategory, i.notes].some(f => String(f || '').toLowerCase().includes(q))) return false;
+    return true;
+  }).sort((a, b) => (a.category || 'zzz').localeCompare(b.category || 'zzz') || a.name.localeCompare(b.name));
+}
+
+function ivRender() {
+  const root = document.getElementById('iv-app');
+  if (!root) return;
+  iv.wide = window.innerWidth >= 900;
+  root.classList.toggle('iv-wide', iv.wide);
+  const out = allItems.filter(ivIsOut), late = out.filter(ivIsLate);
+  const synced = iv.syncedAt ? (Math.round((Date.now() - iv.syncedAt) / 60000) < 1 ? 'just now' : Math.round((Date.now() - iv.syncedAt) / 60000) + ' min ago') : '';
+  const sub = iv.loading && !iv.loaded ? 'loading…' : allItems.length + ' item' + (allItems.length === 1 ? '' : 's') + (synced ? ' · synced ' + synced : '') + (iv.loading ? ' · refreshing…' : '');
+
+  let notes = '';
+  if (iv.err) notes += `<div class="iv-note warn"><span><b>${ivE(iv.err)}</b> ${iv.loaded ? 'Showing the last copy on this device.' : ''}</span><button class="iv-btn sm" onclick="loadInventoryData()">Try again</button></div>`;
+  if (iv.loaded && iv.src === 'csv') notes += `<div class="iv-note warn"><span>Using the old connection: the list can be a few minutes behind the Sheet. Check in/out still saves.</span><button class="iv-btn sm" onclick="ivOpen({v:'setup'})">Connect</button></div>`;
+  if (iv.loaded && iv.src === 'api' && !iv.writesOn) notes += `<div class="iv-note"><span><b>Read-only check.</b> This is your real Sheet, read live. Saving is switched off in the inventory script until you turn it on.</span></div>`;
+
+  const chip = (k, label, n, extra) => `<button class="iv-chip${iv.status === k ? ' on' : ''}${extra || ''}" onclick="ivSetStatus('${k}')">${label} <small>${n}</small></button>`;
+  const cats = ivCategories().filter(c => allItems.some(i => i.category === c));
+  const top = `
+    <div class="iv-top">
+      <div class="iv-title"><b>Inventory</b><small>${ivE(sub)}</small></div>
+      <button class="iv-btn iv-desk-only" onclick="ivOpen({v:'outnow'})">Out now <span class="iv-badge${late.length ? ' late' : ''}">${out.length}${late.length ? ' · ' + late.length + ' late' : ''}</span></button>
+      <button class="iv-btn iv-desk-only" onclick="ivOpenLabels()">Labels</button>
+      <button class="iv-btn iv-desk-only" onclick="ivOpen({v:'history'})">History</button>
+      <button class="iv-btn iv-desk-only" onclick="ivOpenPaint()">Paint</button>
+      <button class="iv-btn pri iv-desk-only" onclick="ivOpenAdd()">${IV_ICON.plus} Add item</button>
+      <button class="iv-ib pri iv-phone-only" aria-label="Add an item" onclick="ivOpenAdd()">${IV_ICON.plus}</button>
+      <button class="iv-ib iv-phone-only" aria-label="More: labels, history, paint" onclick="ivOpen({v:'menu'})">${IV_ICON.more}</button>
+      <button class="iv-ib iv-desk-only" aria-label="More" onclick="ivOpen({v:'menu'})">${IV_ICON.more}</button>
+    </div>${notes}
+    <div class="iv-findbar">
+      <label class="iv-search">${IV_ICON.search}<input id="iv-q" aria-label="Search inventory" placeholder="Search name, tag, spot, show…" value="${ivE(iv.q)}" oninput="ivSearch(this.value)" autocomplete="off"></label>
+      <div class="iv-chips iv-phone-only">
+        ${chip('all', 'All', allItems.length)}${chip('in', 'In', allItems.length - out.length)}${chip('out', 'Out', out.length)}${late.length ? chip('late', 'Late', late.length, ' late') : ''}
+        <select class="iv-chip${iv.cat ? ' on' : ''}" aria-label="Category" onchange="ivSetCat(this.value)"><option value="">Category</option>${cats.map(c => `<option${c === iv.cat ? ' selected' : ''}>${ivE(c)}</option>`).join('')}</select>
+      </div>
+    </div>`;
+
+  const list = ivFiltered();
+  let body;
+  if (!iv.loaded) body = `<div class="iv-empty">${iv.err ? ivE(iv.err) : 'Loading the inventory…'}</div>`;
+  else if (iv.wide) body = ivDeskBody(list, out, late, cats);
+  else body = ivPhoneBody(list, out, late);
+
+  root.innerHTML = top + body + ivSelBar();
+  if (iv._refocus) { const q = document.getElementById('iv-q'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } iv._refocus = false; }
+}
+
+function ivPhoneBody(list, out, late) {
+  const groups = {};
+  out.forEach(i => { const k = i.currentShow || 'Out'; groups[k] = (groups[k] || 0) + 1; });
+  const gtxt = Object.keys(groups).slice(0, 3).map(k => ivE(k) + ' ' + groups[k]).join(' · ');
+  const card = out.length ? `<button class="iv-outcard" onclick="ivOpen({v:'outnow'})"><div><b>${out.length} out right now</b><span class="s">${gtxt}${late.length ? ` · <span style="color:var(--iv-late);font-weight:600">${late.length} past due</span>` : ''}</span></div><span class="go">Check in ›</span></button>` : '';
+  if (!list.length) return card + `<div class="iv-empty">${allItems.length ? 'Nothing matches.' : 'No items yet. Tap + to add the first one.'}</div>`;
+  let html = '', cat = null;
+  list.forEach(i => {
+    const c = i.category || 'No category';
+    if (c !== cat) { cat = c; html += `<div class="iv-sec">${ivE(c)} · ${list.filter(x => (x.category || 'No category') === c).length}</div>`; }
+    html += ivRowHTML(i);
+  });
+  return card + `<div class="iv-list">${html}</div>`;
+}
+
+function ivRowHTML(i) {
+  const s = ivStatusLine(i), on = iv.sel.has(i.assetId);
+  return `<div class="iv-row${on ? ' sel' : ''}" onclick="ivOpenItem(${ivJ(i.assetId)})">
+    <button class="iv-cb${on ? ' on' : ''}" aria-label="${on ? 'Unselect' : 'Select'} ${ivE(i.name)}" onclick="event.stopPropagation();ivToggleSel(${ivJ(i.assetId)})"><i>${on ? IV_ICON.check : ''}</i></button>
+    ${ivPhoto(i)}
+    <div class="iv-mid"><div class="iv-nm">${ivE(i.name || '(no name)')}${+i.quantity > 1 ? ' <span style="font-weight:500;color:var(--text-muted)">×' + ivE(i.quantity) + '</span>' : ''}</div><div class="iv-sub">${ivE(i.tagId || i.assetId)}</div><div class="iv-loc ${s.cls}">${ivE(s.text)}</div></div>
+    ${ivPill(i)}
+  </div>`;
+}
+
+function ivDeskBody(list, out, late, cats) {
+  const side = (k, label, n, extra) => `<button class="iv-sideitem${iv.status === k && !iv.cat ? ' on' : ''}"${extra || ''} onclick="ivSetStatus('${k}', true)">${label} <small>${n}</small></button>`;
+  const catBtn = c => `<button class="iv-sideitem${iv.cat === c ? ' on' : ''}" onclick="ivSetCat(${ivJ(iv.cat === c ? '' : c)})">${ivE(c)} <small>${allItems.filter(i => i.category === c).length}</small></button>`;
+  const sideHTML = `<div class="iv-side"><h4>STATUS</h4>${side('all', 'All', allItems.length)}${side('in', 'In storage', allItems.length - out.length)}${side('out', 'Out', out.length)}${side('late', 'Past due', late.length, ' style="color:var(--iv-late)"')}
+    <h4 style="padding-top:16px">CATEGORY</h4>${cats.map(catBtn).join('')}</div>`;
+  const cards = list.length ? `<div class="iv-grid">${list.map(i => {
+    const s = ivStatusLine(i), on = iv.sel.has(i.assetId);
+    return `<div class="iv-card${iv.detail === i.assetId ? ' on' : ''}${on ? ' sel' : ''}" onclick="ivOpenItem(${ivJ(i.assetId)})">
+      <div class="img">${i.photo ? `<img src="${ivE(i.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : IV_ICON.photo}</div>
+      <button class="iv-cb${on ? ' on' : ''}" aria-label="${on ? 'Unselect' : 'Select'} ${ivE(i.name)}" onclick="event.stopPropagation();ivToggleSel(${ivJ(i.assetId)})"><i>${on ? IV_ICON.check : ''}</i></button>
+      <div class="iv-cbody"><div class="iv-nm" style="font-size:14px">${ivE(i.name || '(no name)')}</div><div class="iv-sub">${ivE(i.tagId || i.assetId)}</div>
+      <div class="row2"><span class="iv-loc ${s.cls}" style="margin:0">${ivE(s.text)}</span>${ivPill(i)}</div></div></div>`;
+  }).join('')}</div>` : `<div class="iv-empty">${allItems.length ? 'Nothing matches.' : 'No items yet. Use “Add item” to add the first one.'}</div>`;
+  const it = iv.detail && ivItem(iv.detail);
+  const pane = `<div class="iv-pane">${it ? ivItemHTML(it, true) : '<div class="iv-empty">Pick an item to see it here.</div>'}</div>`;
+  return `<div class="iv-body">${sideHTML}<div>${cards}</div>${pane}</div>`;
+}
+
+function ivSelBar() {
+  if (!iv.sel.size) return '';
+  const items = [...iv.sel].map(ivItem).filter(Boolean);
+  const anyIn = items.some(i => !ivIsOut(i)), anyOut = items.some(ivIsOut);
+  return `<div class="iv-selbar"><span class="t">${iv.sel.size} selected</span>
+    <button class="iv-btn" onclick="ivSel.clear()">Clear</button>
+    <button class="iv-btn" onclick="ivOpenLabels(true)">Labels</button>
+    ${anyOut ? `<button class="iv-btn${anyIn ? '' : ' pri'}" onclick="ivOpenCheckIn([...iv.sel].filter(id => ivIsOut(ivItem(id))))">Check in</button>` : ''}
+    ${anyIn ? `<button class="iv-btn pri" onclick="ivOpenCheckOut([...iv.sel].filter(id => !ivIsOut(ivItem(id))))">Check out</button>` : ''}
+  </div>`;
+}
+const ivSel = { clear() { iv.sel.clear(); ivRender(); } };
+
+let _ivSearchT = null;
+function ivSearch(v) { iv.q = v; clearTimeout(_ivSearchT); _ivSearchT = setTimeout(() => { iv._refocus = true; ivRender(); }, 120); }
+function ivSetStatus(k, clearCat) { iv.status = (iv.status === k && !clearCat) ? 'all' : k; if (clearCat) iv.cat = ''; ivRender(); }
+function ivSetCat(c) { iv.cat = c; ivRender(); }
+function ivToggleSel(id) { if (iv.sel.has(id)) iv.sel.delete(id); else iv.sel.add(id); ivRender(); }
+
+let _ivResizeT = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_ivResizeT);
+  _ivResizeT = setTimeout(() => { if ((window.innerWidth >= 900) !== iv.wide && document.getElementById('iv-app')) { ivRender(); ivRenderOv(); } }, 150);
+});
+
+// ── Item ────────────────────────────────────────────────────────────────────
+function ivOpenItem(id) {
+  const it = ivItem(id);
+  if (!it) return;
+  if (iv.wide) { iv.detail = it.assetId; iv.stack = iv.stack.filter(s => s.v !== 'item'); ivRenderOv(); ivRender(); return; }
+  ivOpen({ v: 'item', id: it.assetId });
+}
+
+function ivItemHTML(i, inPane) {
+  const late = ivDaysLate(i);
+  const hist = historyData.filter(h => String(h.assetId).toUpperCase() === i.assetId.toUpperCase()).slice().reverse();
+  const histHTML = hist.length ? hist.slice(0, 6).map(h => `<div class="iv-hist"><span class="iv-pill ${h.action === 'OUT' ? 'out' : 'in'}">${h.action === 'OUT' ? 'Out' : 'In'}</span>
+      <span>${h.action === 'OUT' ? 'To <b>' + ivE(h.who || '—') + '</b>' : 'Back' + (h.who ? ' from <b>' + ivE(h.who) + '</b>' : '') + (h.condition ? ' · ' + ivE(h.condition) : '')}</span>
+      <span class="w">${ivE(ivStamp(h.when))}${h.staff ? '<br>' + ivE(h.staff) : ''}</span></div>`).join('') + (hist.length > 6 ? `<div class="iv-hist" style="border:none"><button class="iv-btn ghost sm" onclick="iv.hist.q=${ivJ(i.assetId)};ivOpen({v:'history'})">All ${hist.length} entries ›</button></div>` : '')
+    : '<div class="iv-hint">No check-outs on record yet.</div>';
+  const big = ivBig(i.photoRaw);
+  const actions = ivIsOut(i)
+    ? `<button class="iv-btn big go grow" onclick="ivOpenCheckIn([${ivJ(i.assetId)}])">Check in</button>`
+    : `<button class="iv-btn big pri grow" onclick="ivOpenCheckOut([${ivJ(i.assetId)}])">Check out</button>`;
+  return `
+    <div class="iv-hero">${big ? `<img src="${ivE(big)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px">${IV_ICON.photo}No photo yet</div>`}
+      ${inPane ? '' : `<button class="iv-ib l" aria-label="Back to inventory" onclick="ivClose()">${IV_ICON.back}</button>`}
+      <button class="iv-ib r" aria-label="Edit item" onclick="ivOpenEdit(${ivJ(i.assetId)})">${IV_ICON.edit}</button></div>
+    <div class="iv-info">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <div style="flex:1;min-width:0"><h2 class="iv-h1">${ivE(i.name || '(no name)')}</h2><div class="iv-mono">${ivE([i.tagId || i.assetId, i.category, i.subcategory].filter(Boolean).join(' · '))}</div></div>
+        ${ivIsLate(i) ? '<span class="iv-pill late" style="margin-top:4px">Late</span>' : ivIsOut(i) ? '<span class="iv-pill out" style="margin-top:4px">Out</span>' : '<span class="iv-pill in" style="margin-top:4px">In storage</span>'}
+      </div>
+      ${ivIsOut(i) ? `<div class="iv-outbox${late > 0 ? ' late' : ''}"><div class="iv-k">OUT TO</div><b>${ivE(i.currentShow || '—')}</b><div class="iv-hint" style="margin-top:2px">${i.dueBack ? (late > 0 ? '<span class="iv-warn">Was due ' + ivFmt(i.dueBack) + ' · ' + late + ' day' + (late === 1 ? '' : 's') + ' late</span>' : 'Back by ' + ivFmt(i.dueBack)) : 'No due date'}${i.type ? ' · ' + ivE(i.type) : ''}</div></div>` : ''}
+      <div class="iv-where">${IV_ICON.pin}<div style="flex:1"><div class="iv-k">STORED AT</div><b>${ivE(i.location || 'Not set')}</b></div></div>
+      <div class="iv-facts">
+        <div><div class="iv-k">QUANTITY</div><div class="iv-v">${ivE(i.quantity || '1')}</div></div>
+        <div><div class="iv-k">LAST USED</div><div class="iv-v">${ivE([i.lastShow, i.lastDate ? ivFmt(i.lastDate) : ''].filter(Boolean).join(' · ') || '—')}</div></div>
+        <div><div class="iv-k">RENTAL VALUE</div><div class="iv-v">${i.rental ? '$' + ivE(i.rental.replace(/^\$/, '')) : '—'}</div></div>
+        <div><div class="iv-k">REPLACEMENT</div><div class="iv-v">${i.replacement ? '$' + ivE(i.replacement.replace(/^\$/, '')) : '—'}</div></div>
+      </div>
+      ${i.notes ? `<div style="margin-top:14px"><div class="iv-k">NOTES</div><div class="iv-v" style="color:var(--text-muted)">${ivE(i.notes)}</div></div>` : ''}
+      <div style="margin-top:16px"><div class="iv-k">HISTORY</div>${histHTML}</div>
+    </div>
+    <div class="iv-actions"${inPane ? ' style="position:sticky;bottom:0"' : ''}>
+      <button class="iv-btn big" onclick="ivOpenLabels(false, [${ivJ(i.assetId)}])">Label</button>${actions}
+    </div>`;
+}
+
+// ── Overlay stack ───────────────────────────────────────────────────────────
+function ivOpen(view) { iv.stack.push(view); ivRenderOv(); }
+function ivClose() { iv.stack.pop(); ivRenderOv(); }
+function ivCloseAll() { iv.stack = []; ivRenderOv(); }
+function ivTop() { return iv.stack[iv.stack.length - 1]; }
+
+function ivRenderOv() {
+  const ov = document.getElementById('iv-ov');
+  if (!ov) return;
+  const v = ivTop();
+  if (!v) { ov.className = ''; ov.innerHTML = ''; document.body.classList.remove('iv-ov-open'); return; }
+  const r = IV_VIEWS[v.v] ? IV_VIEWS[v.v](v) : null;
+  if (!r) { iv.stack.pop(); return ivRenderOv(); }
+  const keepScroll = ov.querySelector('.iv-obody') && ov.dataset.view === v.v ? ov.querySelector('.iv-obody').scrollTop : 0;
+  ov.className = 'open';
+  ov.dataset.view = v.v;
+  ov.innerHTML = `<div class="iv-scrim" onclick="ivClose()"></div><div class="iv-panel${r.sheet ? ' sheet' : ''}" style="--iv-w:${r.w || 560}px" role="dialog" aria-label="${ivE(r.label || '')}">${r.html}</div>`;
+  const b = ov.querySelector('.iv-obody'); if (b && keepScroll) b.scrollTop = keepScroll;
+  document.body.classList.add('iv-ov-open');
+}
+
+function ivHead(title, sub, opts) {
+  opts = opts || {};
+  return `${opts.sheet ? '<div class="iv-grab"></div>' : ''}<div class="iv-ohead"${opts.sheet ? ' style="border:none"' : ''}>
+    ${opts.sheet ? '' : `<button class="iv-ib" aria-label="Back" onclick="ivClose()">${IV_ICON.back}</button>`}
+    <div class="t"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</div>${opts.right || ''}
+    ${opts.sheet ? `<button class="iv-btn ghost" onclick="ivClose()">Cancel</button>` : ''}</div>`;
+}
+
+const IV_VIEWS = {
+  item: null,   // set below
+  menu() {
+    const out = allItems.filter(ivIsOut).length;
+    return { sheet: true, w: 420, label: 'More', html: `${ivHead('Inventory', '', { sheet: true })}<div class="iv-obody iv-menu">
+      <button onclick="ivClose();ivOpen({v:'outnow'})">Out now <span class="iv-badge" style="margin-left:auto">${out}</span></button>
+      <button onclick="ivClose();ivOpenLabels()">Print labels</button>
+      <button onclick="ivClose();ivOpen({v:'history'})">History</button>
+      <button onclick="ivClose();ivOpenPaint()">Paint library</button>
+      <button onclick="ivClose();loadInventoryData()">Refresh from the Sheet</button>
+      <button onclick="ivClose();ivOpen({v:'setup'})">Connect inventory script</button>
+    </div>` };
+  },
+  setup() {
+    const cur = invUrl();
+    return { w: 560, label: 'Connect inventory script', html: `${ivHead('Connect inventory script', cur ? 'connected' : 'not connected')}<div class="iv-obody"><div class="iv-pad">
+      <p class="iv-hint" style="font-size:14px">The inventory script reads your warehouse Sheet live and saves check-outs, new items, edits and paint to it. Paste its web app address (it ends in <b>/exec</b>).</p>
+      <label class="iv-fl" for="iv-url">SCRIPT ADDRESS</label>
+      <input id="iv-url" class="iv-in" value="${ivE(cur)}" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false">
+      <div class="iv-hint">Saved on this device. Leave it empty to go back to the old connection.</div>
+    </div></div><div class="iv-ofoot"><button class="iv-btn big ghost" onclick="ivClose()">Cancel</button><button class="iv-btn big pri grow" onclick="ivSaveUrl()">Save and reload</button></div>` };
+  },
+  outnow() { return { w: 720, label: 'Out now', html: ivOutNowHTML() }; },
+  checkout() { return { sheet: true, w: 560, label: 'Check out', html: ivCheckOutHTML() }; },
+  checkin() { return { sheet: true, w: 520, label: 'Check in', html: ivCheckInHTML() }; },
+  edit() { return { w: 600, label: iv.form && iv.form.mode === 'edit' ? 'Edit item' : 'Add an item', html: ivFormHTML() }; },
+  labels() { return { w: 1000, label: 'Print labels', html: ivLabelsHTML() }; },
+  history() { return { w: 980, label: 'History', html: ivHistoryHTML() }; },
+  paint() { return { w: 980, label: 'Paint library', html: ivPaintHTML() }; },
+  paintEdit() { return { w: 560, label: 'Paint color', html: ivPaintFormHTML() }; },
+};
+// The item view is the item HTML in a scrolling body with its buttons pinned.
+IV_VIEWS.item = function (v) {
+  const i = ivItem(v.id); if (!i) return null;
+  const h = ivItemHTML(i, false);
+  const cut = h.lastIndexOf('<div class="iv-actions"');
+  return { label: i.name, html: `<div class="iv-obody" style="background:var(--surface)">${h.slice(0, cut)}</div>${h.slice(cut)}` };
+};
+
+function ivSaveUrl() {
+  const v = (document.getElementById('iv-url').value || '').trim();
+  if (v && !/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(v)) { ivToast('That doesn\'t look like a script address. It should end in /exec.', { err: true }); return; }
+  try { if (v) localStorage.setItem('mmt_inv_url', v); else localStorage.removeItem('mmt_inv_url'); localStorage.removeItem('mmt_inv_cache'); } catch (e) {}
+  iv.loaded = false; allItems = []; historyData = []; paintData = []; iv.src = '';
+  ivCloseAll(); loadInventoryData();
+}
+
+// ── Out now / check in ──────────────────────────────────────────────────────
+function ivOutNowHTML() {
+  const out = allItems.filter(ivIsOut);
+  const groups = {};
+  out.forEach(i => { const k = i.currentShow || 'No show recorded'; (groups[k] = groups[k] || []).push(i); });
+  const keys = Object.keys(groups).sort((a, b) => {
+    const la = groups[a].some(ivIsLate), lb = groups[b].some(ivIsLate);
+    if (la !== lb) return la ? -1 : 1;
+    const da = Math.min(...groups[a].map(i => (ivDate(i.dueBack) || new Date(9e12)).getTime()));
+    const db = Math.min(...groups[b].map(i => (ivDate(i.dueBack) || new Date(9e12)).getTime()));
+    return da - db;
+  });
+  const late = out.filter(ivIsLate).length;
+  const body = keys.length ? keys.map(k => {
+    const its = groups[k], gl = its.filter(ivIsLate);
+    const due = its.map(i => ivDate(i.dueBack)).filter(Boolean).sort((a, b) => a - b)[0];
+    const sub = gl.length ? 'Was due ' + ivFmt(due) + ' · ' + Math.max(...gl.map(ivDaysLate)) + ' days late' : (due ? 'Back by ' + ivFmt(due) : 'No due date') + ' · ' + its.length + ' item' + (its.length === 1 ? '' : 's');
+    return `<div class="iv-grp${gl.length ? ' late' : ''}"><div class="iv-gh"><div class="t"><b>${ivE(k)}</b><small>${ivE(sub)}</small></div>
+      ${its.length > 1 ? `<button class="iv-cin" onclick='ivOpenCheckIn(${ivE(JSON.stringify(its.map(i => i.assetId)))})'>Check in all ${its.length}</button>` : ''}</div>
+      ${its.map(i => `<div class="iv-orow">${ivPhoto(i, 's40')}<div class="iv-mid" onclick="ivOpenItem(${ivJ(i.assetId)})" style="cursor:pointer"><div class="iv-nm" style="font-size:14px">${ivE(i.name)}</div><div class="iv-sub">${ivE(i.tagId || i.assetId)}${ivIsLate(i) ? ' · <span class="iv-warn">' + ivDaysLate(i) + 'd late</span>' : ''}</div></div>
+        <button class="iv-cin" onclick="ivOpenCheckIn([${ivJ(i.assetId)}])">In</button></div>`).join('')}</div>`;
+  }).join('') : '<div class="iv-empty">Everything is in storage.</div>';
+  return `${ivHead('Out now', out.length + ' item' + (out.length === 1 ? '' : 's') + (late ? ' · ' + late + ' past due' : ''))}<div class="iv-obody" style="padding-bottom:20px">${body}</div>`;
+}
+
+function ivOpenCheckIn(ids) {
+  ids = (ids || []).filter(id => ivItem(id));
+  if (!ids.length) return;
+  iv.ci = { ids, condition: 'Good', note: '', staff: sessionStaffName };
+  ivOpen({ v: 'checkin' });
+}
+
+function ivCheckInHTML() {
+  const c = iv.ci;
+  const its = c.ids.map(ivItem).filter(Boolean);
+  const title = its.length === 1 ? 'Check in ' + ivE(its[0].name) : 'Check in ' + its.length + ' items';
+  return `${ivHead(title, '', { sheet: true })}<div class="iv-obody"><div class="iv-pad">
+    ${its.length > 1 ? `<div class="iv-its">${its.map(i => `<div class="iv-it">${ivPhoto(i, 's40')}<div class="n">${ivE(i.name)}<small>${ivE(i.tagId || i.assetId)} · ${ivE(i.currentShow || '')}</small></div></div>`).join('')}</div>` : `<div class="iv-hint" style="font-size:14px">From <b>${ivE(its[0].currentShow || '—')}</b>${its[0].dueBack ? ' · was due ' + ivFmt(its[0].dueBack) : ''}</div>`}
+    <span class="iv-fl">HOW IS ${its.length > 1 ? 'IT ALL' : 'IT'}?</span>
+    <div class="iv-wrap">${INV_CONDITIONS.map(k => `<button class="iv-pick${k === 'Good' ? ' good' : ''}${c.condition === k ? ' on' : ''}" onclick="iv.ci.condition=${ivJ(k)};ivRenderOv()">${k}</button>`).join('')}</div>
+    <label class="iv-fl" for="iv-ci-note">NOTE (OPTIONAL)</label>
+    <input id="iv-ci-note" class="iv-in" value="${ivE(c.note)}" placeholder="What's wrong, where it went" oninput="iv.ci.note=this.value" autocomplete="off">
+    <div class="iv-hint">${c.condition !== 'Good' || c.note ? 'This goes on the item\'s notes, dated, and in the log.' : 'Goes in the log. The item\'s notes stay as they are.'}</div>
+    <label class="iv-fl" for="iv-ci-staff">CHECKED IN BY</label>
+    <input id="iv-ci-staff" class="iv-in" value="${ivE(c.staff)}" placeholder="Your name" oninput="iv.ci.staff=this.value" autocomplete="name">
+  </div></div><div class="iv-ofoot"><button class="iv-btn big go grow" id="iv-ci-go" onclick="ivSubmitCheckIn()">${its.length > 1 ? 'Check in ' + its.length + ' items' : 'Check in'}</button></div>`;
+}
+
+async function ivSubmitCheckIn() {
+  const c = iv.ci;
+  if (!c.staff.trim()) { ivToast('Add your name first', { err: true }); document.getElementById('iv-ci-staff').focus(); return; }
+  if (!ivCanSave()) { ivToast(iv.src === 'api' ? 'Saving is switched off in the inventory script.' : 'Not connected yet.', { err: true }); return; }
+  const before = c.ids.map(id => ({ ...ivItem(id) }));
+  const body = { action: 'checkInOut', assetIds: c.ids, status: 'IN', condition: c.condition, note: c.note.trim(), staffName: c.staff.trim() };
+  await ivRun('iv-ci-go', 'Saving…', body, res => {
+    sessionStaffName = c.staff.trim(); try { localStorage.setItem('mmt_inv_staff', sessionStaffName); } catch (e) {}
+    const done = res.updated || [];
+    ivAfterMove(res, 'IN', body);
+    iv.ci = null;
+    iv.stack = iv.stack.filter(s => s.v !== 'checkin');
+    done.forEach(id => iv.sel.delete(id));
+    ivRenderOv(); ivRender();
+    iv.undo = { before: before.filter(b => done.map(x => x.toUpperCase()).includes(b.assetId.toUpperCase())), status: 'IN' };
+    const names = done.length === 1 ? ivE((ivItem(done[0]) || {}).name || done[0]) : done.length + ' items';
+    ivToast(done.length ? `✓ ${names} checked in · <span class="ok">saved to Sheet</span>${ivSkipNote(res)}` : 'Nothing changed.' + ivSkipNote(res), { undo: done.length > 0 });
+  });
+}
+
+function ivSkipNote(res) {
+  const s = (res.skipped || []).length, n = (res.notFound || []).length;
+  return (s ? ` · ${s} already ${s === 1 ? 'was' : 'were'} done` : '') + (n ? ` · ${n} not found in the Sheet` : '');
+}
+
+// Mirror a successful move locally: the script returns the fresh rows; the old
+// route doesn't, so fill them in by hand.
+function ivAfterMove(res, status, body) {
+  if (res.items && res.items.length) ivMergeItems(res.items);
+  else (res.updated || []).forEach(id => {
+    const i = ivItem(id); if (!i) return;
+    i.status = status;
+    if (status === 'OUT') { i.currentShow = body.who; i.dueBack = body.dueBack; i.type = body.type; i.lastShow = body.who; i.lastDate = ivISO(new Date()); }
+    else { i.currentShow = ''; i.dueBack = ''; i.type = ''; }
+  });
+  const now = new Date().toISOString();
+  (res.updated || []).forEach(id => historyData.push({ when: now, assetId: id, action: status, who: status === 'OUT' ? body.who : '', dueBack: body.dueBack || '', condition: [body.condition, body.note].filter(Boolean).join(': '), staff: body.staffName, type: body.type || '' }));
+}
+
+async function ivRun(btnId, label, body, onOk) {
+  if (iv.busy) return;
+  iv.busy = true;
+  const btn = document.getElementById(btnId);
+  const old = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = label; }
+  try {
+    const res = await ivPost(body);
+    if (res && res.success) onOk(res);
+    else ivToast(ivE((res && res.error) || 'The Sheet said no.') + ' Nothing was saved.', { err: true, ms: 7000 });
+  } catch (e) {
+    ivToast('Could not reach the Sheet. Nothing was saved, try again.', { err: true, ms: 7000 });
+  } finally {
+    iv.busy = false;
+    const b2 = document.getElementById(btnId);
+    if (b2) { b2.disabled = false; b2.innerHTML = old; }
+  }
+}
+
+async function ivDoUndo() {
+  const u = iv.undo; ivToastHide();
+  if (!u || !u.before.length) return;
+  try {
+    if (u.status === 'IN') {
+      // Put each back out exactly as it was.
+      const groups = {};
+      u.before.forEach(b => { const k = JSON.stringify([b.currentShow, b.dueBack, b.type]); (groups[k] = groups[k] || []).push(b.assetId); });
+      for (const k of Object.keys(groups)) {
+        const [who, dueBack, type] = JSON.parse(k);
+        const body = { action: 'checkInOut', assetIds: groups[k], status: 'OUT', who, dueBack, type, staffName: sessionStaffName, note: 'undo', force: true };
+        const res = await ivPost(body); if (!res.success) throw new Error(res.error);
+        ivAfterMove(res, 'OUT', body);
+      }
+    } else {
+      const body = { action: 'checkInOut', assetIds: u.before.map(b => b.assetId), status: 'IN', condition: '', note: '', staffName: sessionStaffName, force: true };
+      const res = await ivPost(body); if (!res.success) throw new Error(res.error);
+      ivAfterMove(res, 'IN', body);
+    }
+    ivRender(); ivRenderOv();
+    ivToast('↩ Undone · <span class="ok">saved to Sheet</span>');
+  } catch (e) { ivToast('Could not undo: ' + ivE(e.message || 'no connection'), { err: true }); }
+}
+
+// ── Check out ───────────────────────────────────────────────────────────────
+function ivOpenCheckOut(ids) {
+  ids = (ids || []).filter(id => ivItem(id));
+  if (!ids.length) return;
+  const shows = ivShows();
+  const first = shows[0];
+  iv.co = { ids, mode: 'show', show: first ? first.name : '', other: '', renter: '', event: '', due: first ? first.end : '', dueTouched: false, staff: sessionStaffName, note: '' };
+  ivOpen({ v: 'checkout' });
+}
+
+function ivCheckOutHTML() {
+  const c = iv.co;
+  const its = c.ids.map(ivItem).filter(Boolean);
+  const shows = ivShows();
+  const showObj = shows.find(s => s.name === c.show);
+  const already = its.filter(ivIsOut);
+  const who = ivCoWho();
+  return `${ivHead('Check out ' + (its.length === 1 ? ivE(its[0].name) : its.length + ' items'), '', { sheet: true })}<div class="iv-obody"><div class="iv-pad">
+    ${its.length > 1 ? `<div class="iv-its">${its.map(i => `<div class="iv-it">${ivPhoto(i, 's40')}<div class="n">${ivE(i.name)}<small>${ivE(i.tagId || i.assetId)}${+i.quantity > 1 ? ' · all ' + ivE(i.quantity) : ''}</small></div>${ivIsOut(i) ? '<span class="iv-warn">already out</span>' : ''}</div>`).join('')}</div>` : (+its[0].quantity > 1 ? `<div class="iv-hint">All ${ivE(its[0].quantity)} go together (the Sheet keeps one status per row).</div>` : '')}
+    ${already.length ? `<div class="iv-hint iv-warn">${already.length === its.length ? 'Already out' : already.length + ' already out'}: ${ivE(already.map(i => i.currentShow).filter(Boolean)[0] || '')}. Those are skipped.</div>` : ''}
+    <span class="iv-fl">GOING TO</span>
+    <div class="iv-seg"><button class="${c.mode === 'show' ? 'on' : ''}" onclick="ivCoMode('show')">An MMT show</button><button class="${c.mode === 'rental' ? 'on' : ''}" onclick="ivCoMode('rental')">Outside rental</button></div>
+    ${c.mode === 'show' ? `
+      <div class="iv-wrap" style="margin-top:10px">${shows.map(s => `<button class="iv-pick${c.show === s.name ? ' on' : ''}" onclick="ivCoShow(${ivJ(s.name)})">${ivE(s.name)}</button>`).join('')}<button class="iv-pick${c.show === '__other' ? ' on' : ''}" onclick="ivCoShow('__other')">Other…</button></div>
+      ${c.show === '__other' ? `<input class="iv-in" style="margin-top:8px" value="${ivE(c.other)}" placeholder="Show or event name" oninput="iv.co.other=this.value;ivCoWhoHint()" autocomplete="off">` : ''}`
+    : `<label class="iv-fl" for="iv-co-renter">RENTER</label><input id="iv-co-renter" class="iv-in" value="${ivE(c.renter)}" placeholder="Theatre, school or person" oninput="iv.co.renter=this.value;ivCoWhoHint()" autocomplete="off">
+       <label class="iv-fl" for="iv-co-event">FOR (OPTIONAL)</label><input id="iv-co-event" class="iv-in" value="${ivE(c.event)}" placeholder="Their show or event" oninput="iv.co.event=this.value;ivCoWhoHint()" autocomplete="off">`}
+    <label class="iv-fl" for="iv-co-due">BACK BY</label>
+    <div style="display:flex;gap:10px;align-items:center"><input id="iv-co-due" type="date" class="iv-in" style="flex:1" value="${ivE(c.due)}" onchange="iv.co.due=this.value;iv.co.dueTouched=true">
+      ${c.mode === 'show' && showObj && !c.dueTouched ? `<span class="iv-hint" style="width:130px;margin:0">${ivE(showObj.name)} closes ${ivFmt(showObj.end)}, so we filled it in</span>` : ''}</div>
+    <label class="iv-fl" for="iv-co-staff">CHECKED OUT BY</label>
+    <input id="iv-co-staff" class="iv-in" value="${ivE(c.staff)}" placeholder="Your name" oninput="iv.co.staff=this.value" autocomplete="name">
+    ${c.staff && c.staff === sessionStaffName ? '<div class="iv-hint">Remembered on this device</div>' : ''}
+    <label class="iv-fl" for="iv-co-note">NOTE (OPTIONAL)</label>
+    <input id="iv-co-note" class="iv-in" value="${ivE(c.note)}" placeholder="e.g. for the diner scene" oninput="iv.co.note=this.value" autocomplete="off">
+    <div class="iv-hint">The note goes in the log.</div>
+  </div></div><div class="iv-ofoot"><button class="iv-btn big pri grow" id="iv-co-go" onclick="ivSubmitCheckOut()">${who ? 'Check out to ' + ivE(who.length > 28 ? who.slice(0, 26) + '…' : who) : 'Check out'}</button></div>`;
+}
+function ivCoWho() {
+  const c = iv.co; if (!c) return '';
+  if (c.mode === 'show') return c.show === '__other' ? c.other.trim() : c.show;
+  return [c.renter.trim(), c.event.trim()].filter(Boolean).join(' — ');
+}
+function ivCoWhoHint() { const b = document.getElementById('iv-co-go'); const w = ivCoWho(); if (b && !iv.busy) b.textContent = w ? 'Check out to ' + (w.length > 28 ? w.slice(0, 26) + '…' : w) : 'Check out'; }
+function ivCoMode(m) { iv.co.mode = m; if (m === 'rental' && !iv.co.dueTouched) iv.co.due = ''; if (m === 'show') ivCoShow(iv.co.show || (ivShows()[0] || {}).name || ''); else ivRenderOv(); }
+function ivCoShow(name) {
+  iv.co.show = name;
+  const s = ivShows().find(x => x.name === name);
+  if (s && !iv.co.dueTouched) iv.co.due = s.end;
+  ivRenderOv();
+}
+
+async function ivSubmitCheckOut() {
+  const c = iv.co;
+  const who = ivCoWho();
+  if (!who) { ivToast(c.mode === 'show' ? 'Pick a show' : 'Add who\'s renting', { err: true }); return; }
+  if (!c.due) { ivToast('Add a back-by date', { err: true }); return; }
+  if (!c.staff.trim()) { ivToast('Add your name first', { err: true }); document.getElementById('iv-co-staff').focus(); return; }
+  if (!ivCanSave()) { ivToast(iv.src === 'api' ? 'Saving is switched off in the inventory script.' : 'Not connected yet.', { err: true }); return; }
+  const ids = c.ids.filter(id => !ivIsOut(ivItem(id)));
+  if (!ids.length) { ivToast('Those are all already out.', { err: true }); return; }
+  const before = ids.map(id => ({ ...ivItem(id) }));
+  const body = { action: 'checkInOut', assetIds: ids, status: 'OUT', who, type: c.mode === 'show' ? 'Internal' : 'Rental', dueBack: c.due, staffName: c.staff.trim(), note: c.note.trim() };
+  await ivRun('iv-co-go', 'Saving…', body, res => {
+    sessionStaffName = c.staff.trim(); try { localStorage.setItem('mmt_inv_staff', sessionStaffName); } catch (e) {}
+    const done = res.updated || [];
+    ivAfterMove(res, 'OUT', body);
+    iv.co = null;
+    iv.stack = iv.stack.filter(s => s.v !== 'checkout');
+    done.forEach(id => iv.sel.delete(id));
+    ivRenderOv(); ivRender();
+    iv.undo = { before: before.filter(b => done.map(x => x.toUpperCase()).includes(b.assetId.toUpperCase())), status: 'OUT' };
+    const names = done.length === 1 ? ivE((ivItem(done[0]) || {}).name || done[0]) : done.length + ' items';
+    ivToast(done.length ? `↗ ${names} out to ${ivE(who)} · <span class="ok">saved to Sheet</span>${ivSkipNote(res)}` : 'Nothing changed.' + ivSkipNote(res), { undo: done.length > 0 });
+  });
+}
+
+// ── Add / edit ──────────────────────────────────────────────────────────────
+function ivOpenAdd(keep) {
+  const prev = keep && iv.form;
+  iv.form = { mode: 'add', name: '', category: prev ? prev.category : '', subcategory: prev ? prev.subcategory : '', location: prev ? prev.location : '', quantity: '1', rental: '', replacement: '', notes: '', file: null, preview: '', photo: '', more: false };
+  if (prev) { iv.stack = iv.stack.filter(s => s.v !== 'edit'); }
+  ivOpen({ v: 'edit' });
+}
+function ivOpenEdit(id) {
+  const i = ivItem(id); if (!i) return;
+  const base = { name: i.name, category: i.category, subcategory: i.subcategory, location: i.location, quantity: i.quantity, rental: i.rental, replacement: i.replacement, notes: i.notes, photo: i.photoRaw };
+  iv.form = { mode: 'edit', assetId: i.assetId, tagId: i.tagId, ...base, base, file: null, preview: '', more: true };
+  ivOpen({ v: 'edit' });
+}
+function ivF(k, v) { iv.form[k] = v; if (k === 'category' || k === 'subcategory') ivTagPreview(); }
+function ivTagPreview() {
+  const el = document.getElementById('iv-tag'); if (!el || iv.form.mode !== 'add') return;
+  el.textContent = ivTagFor(iv.form.category, iv.form.subcategory);
+}
+function ivTagFor(cat, sub) {
+  if (!cat) return '—';
+  const code = ivSubcatCode(sub);
+  return ivPrefix(cat) + (code ? code + '-' : '') + ivNextId();
+}
+
+function ivFormHTML() {
+  const f = iv.form;
+  const isEdit = f.mode === 'edit';
+  const cats = ivCategories();
+  const locs = [...new Set(allItems.map(i => i.location).filter(Boolean))].sort();
+  const subs = [...new Set(allItems.map(i => i.subcategory).filter(Boolean).concat(Object.keys((iv.prefixes && iv.prefixes.subcats) || {}).map(s => s.replace(/\b\w/g, c => c.toUpperCase()))))].sort();
+  const recent = [...new Set(allItems.slice().reverse().map(i => i.location).filter(Boolean))].slice(0, 3);
+  const photo = f.preview || (f.photo ? driveThumb(f.photo) : '');
+  const inp = (k, label, ph, extra) => `<label class="iv-fl" for="iv-f-${k}">${label}</label><input id="iv-f-${k}" class="iv-in" value="${ivE(f[k])}" placeholder="${ivE(ph || '')}" oninput="ivF('${k}', this.value)" autocomplete="off"${extra || ''}>`;
+  return `${ivHead(isEdit ? 'Edit ' + ivE(f.base.name || 'item') : 'Add an item', isEdit ? ivE(f.tagId || f.assetId) : '')}<div class="iv-obody"><div class="iv-pad">
+    <div class="iv-photos">
+      ${photo ? `<div class="iv-photo"><img src="${ivE(photo)}" alt="Item photo" referrerpolicy="no-referrer"></div>` : ''}
+      <label class="iv-photo add">${IV_ICON.cam}${photo ? 'Retake' : 'Take photo'}<input type="file" accept="image/*" capture="environment" style="display:none" onchange="ivPickPhoto(this)"></label>
+      <label class="iv-photo add" style="border-style:solid">${IV_ICON.photo}From library<input type="file" accept="image/*" style="display:none" onchange="ivPickPhoto(this)"></label>
+    </div>
+    ${inp('name', 'NAME', 'e.g. Bentwood café chair')}
+    <span class="iv-fl">CATEGORY</span>
+    <div class="iv-wrap">${cats.map(c => `<button class="iv-pick${f.category === c ? ' on' : ''}" onclick="ivF('category', ${ivJ(c)});ivRenderOv()">${ivE(c)}</button>`).join('')}</div>
+    <div class="iv-grid2">
+      <div>${inp('subcategory', 'TYPE / SHOW (OPTIONAL)', 'e.g. Bentwood, Sweeney Todd', ' list="iv-subs"')}</div>
+      <div>${inp('quantity', 'HOW MANY', '1', ' inputmode="numeric"')}</div>
+    </div>
+    <datalist id="iv-subs">${subs.map(s => `<option value="${ivE(s)}">`).join('')}</datalist>
+    ${inp('location', 'STORED AT', 'e.g. Barn A · loft bay 2', ' list="iv-locs"')}
+    <datalist id="iv-locs">${locs.map(s => `<option value="${ivE(s)}">`).join('')}</datalist>
+    ${recent.length && !isEdit ? `<div class="iv-wrap" style="margin-top:8px">${recent.map(l => `<button class="iv-pick" style="height:34px;min-height:34px!important;font-weight:500!important" onclick="ivF('location', ${ivJ(l)});ivRenderOv()">${ivE(l)}</button>`).join('')}</div>` : ''}
+    ${isEdit ? '' : `<div class="iv-tagbox"><div style="flex:1"><div class="iv-k">TAG IT WILL GET</div><b id="iv-tag">${ivE(ivTagFor(f.category, f.subcategory))}</b></div><span class="iv-hint" style="width:140px;margin:0">From the category and type. The Sheet confirms it when you save.</span></div>`}
+    ${f.more ? `<div class="iv-grid2e">
+        <div>${inp('rental', 'RENTAL VALUE ($)', '', ' inputmode="decimal"')}</div>
+        <div>${inp('replacement', 'REPLACEMENT ($)', '', ' inputmode="decimal"')}</div></div>
+      <label class="iv-fl" for="iv-f-notes">NOTES</label><textarea id="iv-f-notes" class="iv-in" oninput="ivF('notes', this.value)">${ivE(f.notes)}</textarea>`
+    : `<button class="iv-btn ghost" style="margin-top:10px;padding:0!important" onclick="iv.form.more=true;ivRenderOv()">+ Values and notes</button>`}
+  </div></div>
+  <div class="iv-ofoot">${isEdit ? `<button class="iv-btn big" onclick="ivClose()">Cancel</button><button class="iv-btn big pri grow" id="iv-f-go" onclick="ivSaveForm()">Save changes</button>`
+    : `<button class="iv-btn big" id="iv-f-go2" onclick="ivSaveForm(true)">Save + add another</button><button class="iv-btn big pri grow" id="iv-f-go" onclick="ivSaveForm()">Save item</button>`}</div>`;
+}
+
+function ivPickPhoto(input) {
+  const file = input.files && input.files[0]; if (!file) return;
+  iv.form.file = file;
+  const r = new FileReader();
+  r.onload = () => { iv.form.preview = r.result; ivRenderOv(); };
+  r.readAsDataURL(file);
+}
+
+// Phone photos are huge; send a 1600px JPEG.
+function ivShrink(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const s = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * s); cv.height = Math.round(img.height * s);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      URL.revokeObjectURL(url);
+      cv.toBlob(b => resolve(b || file), 'image/jpeg', 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+async function ivUpload(file) {
+  const blob = await ivShrink(file);
+  const fd = new FormData();
+  fd.append('file', blob, 'item.jpg');
+  fd.append('upload_preset', CLOUDINARY_PRESET);
+  const r = await fetch(CLOUDINARY_URL, { method: 'POST', body: fd });
+  const d = await r.json();
+  if (!d.secure_url) throw new Error('Photo upload failed');
+  return d.secure_url;
+}
+
+async function ivSaveForm(another) {
+  const f = iv.form;
+  if (!f.name.trim()) { ivToast('Give it a name', { err: true }); document.getElementById('iv-f-name').focus(); return; }
+  if (!f.category) { ivToast('Pick a category', { err: true }); return; }
+  if (!invUrl()) { ivToast('Adding and editing need the new inventory script. Open ⋯ › Connect inventory script.', { err: true, ms: 7000 }); return; }
+  if (!ivCanSave()) { ivToast('Saving is switched off in the inventory script.', { err: true }); return; }
+  if (iv.busy) return;
+  const btnId = another ? 'iv-f-go2' : 'iv-f-go';
+  const btn = document.getElementById(btnId);
+  let photo = f.photo || '';
+  if (f.file) {
+    iv.busy = true;
+    if (btn) { btn.disabled = true; btn.textContent = 'Uploading photo…'; }
+    try { photo = await ivUpload(f.file); }
+    catch (e) { iv.busy = false; if (btn) { btn.disabled = false; btn.textContent = another ? 'Save + add another' : 'Save item'; } ivToast('The photo didn\'t upload, so nothing was saved. Try again, or save without a new photo.', { err: true, ms: 7000 }); return; }
+    iv.busy = false;
+    f.photo = photo; f.file = null;
+  }
+  if (f.mode === 'add') {
+    const body = { action: 'addAsset', name: f.name.trim(), category: f.category, subcategory: f.subcategory.trim(), location: f.location.trim(), quantity: f.quantity || 1, rentalValue: f.rental, replacementValue: f.replacement, notes: f.notes.trim(), photoUrl: photo };
+    await ivRun(btnId, 'Saving…', body, res => {
+      if (res.item) ivMergeItems([res.item]);
+      iv.nextId = 'S' + String(+String(res.assetId || 'S0').slice(1) + 1).padStart(4, '0');
+      ivToast(`✓ ${ivE(f.name.trim())} added as <b>${ivE(res.tagId || res.assetId)}</b> · <span class="ok">saved to Sheet</span>`);
+      if (another) { ivOpenAdd(true); }
+      else { iv.stack = iv.stack.filter(s => s.v !== 'edit'); ivRenderOv(); ivOpenItem(res.assetId); }
+      ivRender();
+    });
+  } else {
+    const fields = {}, keys = ['name', 'category', 'subcategory', 'location', 'quantity', 'rental', 'replacement', 'notes', 'photo'];
+    keys.forEach(k => { const v = String(k === 'photo' ? photo : f[k] || '').trim(); if (v !== String(f.base[k] || '').trim()) fields[k] = v; });
+    if (!Object.keys(fields).length) { ivClose(); return; }
+    const body = { action: 'editAsset', assetId: f.assetId, fields, base: f.base };
+    await ivRun(btnId, 'Saving…', body, res => {
+      if (res.item) ivMergeItems([res.item]);
+      const conf = (res.conflicts || []);
+      iv.stack = iv.stack.filter(s => s.v !== 'edit'); ivRenderOv(); ivRender();
+      if (conf.length) ivToast(`Saved ${res.changed.length} change${res.changed.length === 1 ? '' : 's'}. ${conf.length} field${conf.length === 1 ? ' was' : 's were'} changed by someone else meanwhile, so theirs was kept: ${ivE(conf.map(c => c.field).join(', '))}.`, { err: true, ms: 9000 });
+      else ivToast('✓ Changes saved · <span class="ok">saved to Sheet</span>');
+    });
+  }
+}
+
+// ── Labels (Avery 8163: 2" × 4", 10 per sheet) ──────────────────────────────
+function ivOpenLabels(fromSel, ids) {
+  const pre = ids || (fromSel ? [...iv.sel] : []);
+  iv.lab = { sel: new Set(pre), start: 1, q: '' };
+  ivOpen({ v: 'labels' });
+}
+function ivLabelsHTML() {
+  const L = iv.lab;
+  const q = L.q.trim().toLowerCase();
+  const list = allItems.filter(i => !q || [i.name, i.tagId, i.assetId, i.location, i.category].some(f => String(f || '').toLowerCase().includes(q)))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const chosen = allItems.filter(i => L.sel.has(i.assetId));
+  const slots = [];
+  for (let s = 1; s < L.start; s++) slots.push('<div class="iv-slot used">used</div>');
+  chosen.forEach(i => slots.push(`<div class="iv-slot lab"><b>${ivE(i.tagId || i.assetId)}</b><i>${ivE(i.name)}</i><span>${ivE(i.location || '')}</span></div>`));
+  const pages = Math.max(1, Math.ceil(slots.length / 10));
+  while (slots.length < pages * 10) slots.push('<div class="iv-slot"></div>');
+  return `${ivHead('Print labels', 'Avery 8163 · 2″ × 4″ · 10 per sheet', { right: `<button class="iv-btn pri" onclick="ivPrintLabels()"${chosen.length ? '' : ' disabled'}>Print ${chosen.length || ''} label${chosen.length === 1 ? '' : 's'}</button>` })}
+  <div class="iv-obody"><div class="iv-labwrap">
+    <div class="iv-labpick">
+      <div style="padding:10px 12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
+        <label class="iv-search">${IV_ICON.search}<input aria-label="Search items" placeholder="Search…" value="${ivE(L.q)}" oninput="iv.lab.q=this.value;clearTimeout(window._ivLq);window._ivLq=setTimeout(()=>{ivRenderOv();const x=document.querySelector('.iv-labpick input');if(x){x.focus();x.setSelectionRange(x.value.length,x.value.length);}},150)"></label>
+        <div class="iv-wrap"><button class="iv-pick" onclick="ivLabAll(true)">Select shown</button><button class="iv-pick" onclick="ivLabAll(false)">Clear</button>
+          <label class="iv-hint" style="display:flex;align-items:center;gap:6px;margin:0 0 0 auto">Start at label <select class="iv-chip" style="height:36px" onchange="iv.lab.start=+this.value;ivRenderOv()">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `<option${n === L.start ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div>
+      </div>
+      ${list.map(i => { const on = L.sel.has(i.assetId); return `<div class="iv-row${on ? ' sel' : ''}" style="padding:8px 12px" onclick="ivLabToggle(${ivJ(i.assetId)})"><button class="iv-cb${on ? ' on' : ''}" aria-label="${on ? 'Unselect' : 'Select'} ${ivE(i.name)}" onclick="event.stopPropagation();ivLabToggle(${ivJ(i.assetId)})"><i>${on ? IV_ICON.check : ''}</i></button><div class="iv-mid"><div class="iv-nm" style="font-size:14px">${ivE(i.name)}</div><div class="iv-sub">${ivE(i.tagId || i.assetId)}</div></div></div>`; }).join('') || '<div class="iv-empty">No items.</div>'}
+    </div>
+    <div class="iv-labprev">${Array.from({ length: pages }, (_, p) => `<div class="iv-sheet">${slots.slice(p * 10, p * 10 + 10).join('')}</div>`).join('')}
+      <div class="iv-hint">Use “Start at label” to finish a sheet that's partly used.</div></div>
+  </div></div>`;
+}
+function ivLabToggle(id) { const s = iv.lab.sel; if (s.has(id)) s.delete(id); else s.add(id); ivRenderOv(); }
+function ivLabAll(on) {
+  const q = iv.lab.q.trim().toLowerCase();
+  allItems.filter(i => !q || [i.name, i.tagId, i.assetId, i.location, i.category].some(f => String(f || '').toLowerCase().includes(q)))
+    .forEach(i => on ? iv.lab.sel.add(i.assetId) : iv.lab.sel.delete(i.assetId));
+  ivRenderOv();
+}
+function ivLabelSheetHTML(items, start) {
+  const cells = [];
+  for (let s = 1; s < start; s++) cells.push('<div class="c"></div>');
+  items.forEach(i => cells.push(`<div class="c"><div class="top"><img src="${LOGO_URL}" alt=""><div><div class="tag">${ivE(i.tagId || i.assetId)}</div><div class="nm">${ivE(i.name)}</div><div class="cat">${ivE([i.category, i.subcategory].filter(Boolean).join(' · '))}</div></div></div><div class="loc"><span>Storage:</span> ${ivE(i.location || '—')}</div></div>`));
+  while (cells.length % 10) cells.push('<div class="c"></div>');
+  let pagesHTML = '';
+  for (let p = 0; p < cells.length; p += 10) pagesHTML += `<div class="page">${cells.slice(p, p + 10).join('')}</div>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Labels</title><style>
+    @page { size: 8.5in 11in; margin: 0; }
+    * { box-sizing: border-box; } body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #000; }
+    .page { width: 8.5in; height: 11in; padding: 0.5in 0.15625in; display: grid; grid-template-columns: 4in 4in; grid-template-rows: repeat(5, 2in); column-gap: 0.1875in; page-break-after: always; }
+    .c { width: 4in; height: 2in; padding: 0.16in 0.2in; overflow: hidden; display: flex; flex-direction: column; }
+    .top { display: flex; gap: 0.12in; align-items: flex-start; }
+    .top img { width: 0.7in; height: 0.7in; object-fit: contain; }
+    .tag { font: 700 15pt 'Courier New', monospace; }
+    .nm { font-size: 13pt; font-weight: 700; margin-top: 2pt; line-height: 1.15; }
+    .cat { font-size: 9pt; color: #333; margin-top: 2pt; }
+    .loc { margin-top: auto; border-top: 1px solid #000; padding-top: 4pt; font-size: 11pt; }
+    .loc span { font-size: 8pt; text-transform: uppercase; letter-spacing: .05em; }
+    @media screen { body { background: #ddd; } .page { background: #fff; margin: 12px auto; box-shadow: 0 2px 10px rgba(0,0,0,.2); } }
+  </style></head><body>${pagesHTML}<script>window.onload=function(){setTimeout(function(){window.focus();window.print();},300);};<\/script></body></html>`;
+}
+function ivPrintLabels() {
+  const items = allItems.filter(i => iv.lab.sel.has(i.assetId));
+  if (!items.length) return;
+  const w = window.open('', '_blank');
+  if (!w) { ivToast('Your browser blocked the print window. Allow pop-ups for this site and try again.', { err: true, ms: 7000 }); return; }
+  w.document.open(); w.document.write(ivLabelSheetHTML(items, iv.lab.start)); w.document.close();
+}
+
+// ── History ─────────────────────────────────────────────────────────────────
+function ivHistoryHTML() {
+  const H = iv.hist;
+  const q = H.q.trim().toLowerCase();
+  const byId = {}; allItems.forEach(i => byId[i.assetId.toUpperCase()] = i);
+  const rows = historyData.slice().reverse().filter(h => {
+    if (H.f && h.action !== H.f) return false;
+    if (!q) return true;
+    const it = byId[String(h.assetId).toUpperCase()];
+    return [h.assetId, h.who, h.staff, h.condition, h.type, it && it.name].some(f => String(f || '').toLowerCase().includes(q));
+  });
+  const body = rows.length ? rows.slice(0, 400).map(h => {
+    const it = byId[String(h.assetId).toUpperCase()];
+    return `<div class="iv-hrow"><span class="iv-pill ${h.action === 'OUT' ? 'out' : 'in'}" style="justify-self:start">${h.action === 'OUT' ? 'Out' : 'In'}</span>
+      <div style="min-width:0"><b>${ivE(it ? it.name : h.assetId)}</b> <span class="iv-sub" style="display:inline">${ivE(h.assetId)}</span></div>
+      <span class="d">${ivE(h.who || '—')}${h.dueBack && h.action === 'OUT' ? ' · due ' + ivE(ivFmt(h.dueBack)) : ''}</span>
+      <span class="d">${ivE(h.staff || '')}</span>
+      <span class="d"${/repair|damag/i.test(h.condition) ? ' style="color:var(--iv-late);font-weight:600"' : ''}>${ivE(h.condition || '')}</span>
+      <span class="w">${ivE(ivStamp(h.when))}</span></div>`;
+  }).join('') + (rows.length > 400 ? `<div class="iv-empty">Showing the newest 400 of ${rows.length}. Search to narrow it down.</div>` : '') : '<div class="iv-empty">No history yet.</div>';
+  return `${ivHead('History', historyData.length + ' entries · from the Form_Responses tab')}
+    <div style="display:flex;gap:8px;padding:10px 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap">
+      <label class="iv-search" style="flex:1 1 220px">${IV_ICON.search}<input aria-label="Search history" placeholder="Item, show, person…" value="${ivE(H.q)}" oninput="iv.hist.q=this.value;clearTimeout(window._ivHq);window._ivHq=setTimeout(()=>{ivRenderOv();const x=document.querySelector('#iv-ov .iv-search input');if(x){x.focus();x.setSelectionRange(x.value.length,x.value.length);}},150)"></label>
+      <div class="iv-wrap">${[['', 'All'], ['OUT', 'Out'], ['IN', 'In']].map(([k, l]) => `<button class="iv-chip${H.f === k ? ' on' : ''}" onclick="iv.hist.f='${k}';ivRenderOv()">${l}</button>`).join('')}</div>
+    </div><div class="iv-obody">${body}</div>`;
+}
+
+// ── Paint library ───────────────────────────────────────────────────────────
+function ivOpenPaint() {
+  iv.paint = iv.paint || { q: '', brand: '', show: '', edit: null };
+  ivOpen({ v: 'paint' });
+  if (!paintData.length) loadPaintData().then(() => ivRenderOv());
+}
+function ivPaintHTML() {
+  const P = iv.paint;
+  const q = P.q.trim().toLowerCase();
+  const brands = [...new Set(paintData.map(p => p.brand).filter(Boolean))].sort();
+  const shows = [...new Set(paintData.flatMap(p => p.shows || []))].sort();
+  const list = paintData.filter(p => (!q || [p.name, p.brand, p.code, p.notes].some(f => String(f || '').toLowerCase().includes(q))) && (!P.brand || p.brand === P.brand) && (!P.show || (p.shows || []).includes(P.show)));
+  return `${ivHead('Paint library', paintData.length + ' colors', { right: `<button class="iv-btn pri" onclick="ivPaintEdit()">${IV_ICON.plus} Add</button>` })}
+    <div style="display:flex;gap:8px;padding:10px 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap">
+      <label class="iv-search" style="flex:1 1 220px">${IV_ICON.search}<input aria-label="Search colors" placeholder="Color, brand, code…" value="${ivE(P.q)}" oninput="iv.paint.q=this.value;clearTimeout(window._ivPq);window._ivPq=setTimeout(()=>{ivRenderOv();const x=document.querySelector('#iv-ov .iv-search input');if(x){x.focus();x.setSelectionRange(x.value.length,x.value.length);}},150)"></label>
+      <select class="iv-chip" aria-label="Brand" onchange="iv.paint.brand=this.value;ivRenderOv()"><option value="">All brands</option>${brands.map(b => `<option${b === P.brand ? ' selected' : ''}>${ivE(b)}</option>`).join('')}</select>
+      <select class="iv-chip" aria-label="Show" onchange="iv.paint.show=this.value;ivRenderOv()"><option value="">All shows</option>${shows.map(b => `<option${b === P.show ? ' selected' : ''}>${ivE(b)}</option>`).join('')}</select>
+    </div><div class="iv-obody">${list.length ? `<div class="iv-sw">${list.map(p => `<button class="iv-swc" onclick="ivPaintEdit(${ivJ(p.id)})"><span class="c" style="background:${/^#[0-9a-f]{3,8}$/i.test(p.hex || '') ? p.hex : '#888'}"></span><span class="t">${ivE(p.name)}<small>${ivE([p.brand, p.code].filter(Boolean).join(' · '))}</small>${(p.shows || []).length ? `<small>${ivE(p.shows.join(', '))}</small>` : ''}</span></button>`).join('')}</div>` : `<div class="iv-empty">${paintData.length ? 'No colors match.' : 'No colors yet. Add your first one.'}</div>`}</div>`;
+}
+function ivPaintEdit(id) {
+  const p = id ? paintData.find(x => x.id === id) : null;
+  iv.paint.edit = p ? { id: p.id, name: p.name, brand: p.brand, code: p.code, hex: p.hex || '#888888', notes: p.notes, shows: (p.shows || []).slice(), matches: null }
+    : { id: null, name: '', brand: 'Glidden', code: '', hex: '#888888', notes: '', shows: [], matches: null };
+  ivOpen({ v: 'paintEdit' });
+}
+function ivPaintFormHTML() {
+  const e = iv.paint.edit;
+  const showNames = ivAllShowNames().sort();
+  const brands = PAINT_BRANDS.includes(e.brand) || !e.brand ? PAINT_BRANDS : PAINT_BRANDS.concat([e.brand]);
+  return `${ivHead(e.id ? 'Edit color' : 'Add a color', '')}<div class="iv-obody"><div class="iv-pad">
+    <div style="height:90px;border-radius:12px;margin-top:10px;background:${/^#[0-9a-f]{3,8}$/i.test(e.hex) ? e.hex : '#888'};border:1px solid var(--border)" id="iv-p-swatch"></div>
+    <label class="iv-fl" for="iv-p-name">COLOR NAME</label><input id="iv-p-name" class="iv-in" value="${ivE(e.name)}" oninput="iv.paint.edit.name=this.value" autocomplete="off">
+    <div class="iv-grid2e">
+      <div><label class="iv-fl" for="iv-p-brand">BRAND</label><input id="iv-p-brand" class="iv-in" list="iv-brands" value="${ivE(e.brand)}" oninput="iv.paint.edit.brand=this.value" autocomplete="off"><datalist id="iv-brands">${brands.map(b => `<option value="${ivE(b)}">`).join('')}</datalist></div>
+      <div><label class="iv-fl" for="iv-p-code">CODE</label><input id="iv-p-code" class="iv-in" value="${ivE(e.code)}" placeholder="e.g. HC-172" oninput="iv.paint.edit.code=this.value" autocomplete="off"></div>
+    </div>
+    <label class="iv-fl" for="iv-p-hex">SWATCH COLOR</label>
+    <div style="display:flex;gap:8px;align-items:center"><input type="color" aria-label="Pick swatch color" value="${/^#[0-9a-f]{6}$/i.test(e.hex) ? e.hex : '#888888'}" style="width:52px;height:48px;padding:2px;border:1px solid var(--border);border-radius:10px;background:none" oninput="ivPaintHex(this.value)">
+      <input id="iv-p-hex" class="iv-in" style="flex:1" value="${ivE(e.hex)}" placeholder="#RRGGBB" oninput="ivPaintHex(this.value, true)" autocomplete="off">
+      ${BRAND_URLS[e.brand] ? `<button class="iv-btn" onclick="ivPaintLookup()">Look up</button>` : ''}</div>
+    ${e.matches ? (e.matches.length ? `<div class="iv-its">${e.matches.map((m, k) => `<div class="iv-it" style="cursor:pointer" onclick="ivPaintUse(${k})"><span style="width:36px;height:36px;border-radius:8px;background:${ivE(m.hex)};flex-shrink:0;border:1px solid var(--border)"></span><div class="n">${ivE(m.name)}<small>${ivE(m.code)} · ${ivE(m.hex)}</small></div></div>`).join('')}</div>` : '<div class="iv-hint">No matches in that brand\'s list.</div>') : ''}
+    <label class="iv-fl" for="iv-p-notes">NOTES</label><textarea id="iv-p-notes" class="iv-in" oninput="iv.paint.edit.notes=this.value">${ivE(e.notes)}</textarea>
+    <span class="iv-fl">USED IN</span>
+    ${showNames.map(n => `<label class="iv-showchk"><input type="checkbox"${e.shows.includes(n) ? ' checked' : ''} onchange="ivPaintShow(${ivJ(n)}, this.checked)">${ivE(n)}</label>`).join('')}
+  </div></div><div class="iv-ofoot">${e.id ? `<button class="iv-btn big" style="color:var(--red)!important" id="iv-p-del" onclick="ivPaintDelete()">Delete</button>` : ''}<button class="iv-btn big pri grow" id="iv-p-go" onclick="ivPaintSave()">Save color</button></div>`;
+}
+function ivPaintHex(v, typed) {
+  iv.paint.edit.hex = v;
+  const sw = document.getElementById('iv-p-swatch'); if (sw && /^#[0-9a-f]{3,8}$/i.test(v)) sw.style.background = v;
+  if (!typed) { const t = document.getElementById('iv-p-hex'); if (t) t.value = v; }
+}
+function ivPaintShow(n, on) { const s = iv.paint.edit.shows; const i = s.indexOf(n); if (on && i < 0) s.push(n); if (!on && i > -1) s.splice(i, 1); }
+const _ivBrandCache = {};
+async function ivPaintLookup() {
+  const e = iv.paint.edit, url = BRAND_URLS[e.brand];
+  if (!url) return;
+  try {
+    if (!_ivBrandCache[e.brand]) _ivBrandCache[e.brand] = await (await fetch(url)).json();
+    const q = (e.code || e.name).trim().toLowerCase();
+    const list = Array.isArray(_ivBrandCache[e.brand]) ? _ivBrandCache[e.brand] : Object.values(_ivBrandCache[e.brand]);
+    e.matches = list.filter(c => String(c.name || '').toLowerCase().includes(q) || String(c.label || c.code || '').toLowerCase().includes(q)).slice(0, 8)
+      .map(c => ({ name: c.name, code: c.label || c.code || '', hex: c.hex && c.hex[0] !== '#' ? '#' + c.hex : c.hex }));
+  } catch (err) { e.matches = []; }
+  ivRenderOv();
+}
+function ivPaintUse(k) { const e = iv.paint.edit, m = e.matches[k]; e.name = e.name || m.name; e.code = m.code; e.hex = m.hex; e.matches = null; ivRenderOv(); }
+async function ivPaintSave() {
+  const e = iv.paint.edit;
+  if (!e.name.trim()) { ivToast('Give the color a name', { err: true }); return; }
+  if (!ivCanSave()) { ivToast(iv.src === 'api' ? 'Saving is switched off in the inventory script.' : 'Not connected yet.', { err: true }); return; }
+  const body = { action: 'savePaint', id: e.id, name: e.name.trim(), brand: e.brand.trim(), code: e.code.trim(), hex: e.hex.trim(), notes: e.notes.trim(), shows: e.shows };
+  await ivRun('iv-p-go', 'Saving…', body, res => {
+    const rec = { id: res.id || e.id, name: body.name, brand: body.brand, code: body.code, hex: body.hex, notes: body.notes, shows: body.shows.slice() };
+    const at = paintData.findIndex(p => p.id === rec.id);
+    if (at > -1) paintData[at] = { ...paintData[at], ...rec }; else paintData.push(rec);
+    ivClose(); ivToast('✓ ' + ivE(rec.name) + ' saved · <span class="ok">saved to Sheet</span>');
+  });
+}
+async function ivPaintDelete() {
+  const e = iv.paint.edit;
+  if (!confirm('Delete ' + e.name + ' from the paint library?')) return;
+  await ivRun('iv-p-del', 'Deleting…', { action: 'deletePaint', id: e.id }, () => {
+    paintData = paintData.filter(p => p.id !== e.id);
+    ivClose(); ivToast('Deleted ' + ivE(e.name));
+  });
+}
+
+// Android/back button and Escape close the top overlay.
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && iv.stack.length) { ivClose(); e.stopPropagation(); } }, true);
 
 
 // ── BACKDROPS (merged from drops.html — Session 4) ───────────────────────────
