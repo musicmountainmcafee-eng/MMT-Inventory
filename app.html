@@ -5761,6 +5761,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
         <button class="top-btn" onclick="exportSetChangePlot()">Export Scene Change Plot</button>
         <button class="top-btn" onclick="exportSetChangeXLSX()">Scene Changes → Excel</button>
         <button class="top-btn" onclick="exportAnnotatedPDF()">Export PDF</button>
+        <button class="top-btn" onclick="openSpikeMap()">Spike map</button>
         <button class="top-btn se-types-btn" onclick="toggleCueTypesPanel()">Edit cue types</button>
       </div>
       <button class="top-btn sv-more" onclick="toggleScriptTools(event)" aria-label="More tools">⋯</button>
@@ -6228,7 +6229,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.11 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.11 v4</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -10210,6 +10211,17 @@ function hubOpenPlot() {
   window.open('cue-list.html?' + q.join('&'), '_blank');
 }
 
+// The spike tape key for this show (spike-map.html), on the pinned script.
+function hubOpenSpike() {
+  const rec = hubRec(_hubSlug);
+  const q = [];
+  if (rec.scriptId) {
+    q.push('script=' + encodeURIComponent(rec.scriptId));
+    if (rec.scriptName) q.push('name=' + encodeURIComponent(rec.scriptName));
+  }
+  window.open('spike-map.html' + (q.length ? '?' + q.join('&') : ''), '_blank');
+}
+
 function hubOpenNotesDoc() {
   const sh = showBySlug(_hubSlug);
   if (!sh) return;
@@ -10437,6 +10449,7 @@ function renderShowHub() {
           <div class="hub-links">
             <button class="hub-link" onclick="switchTab('checklists')">Pre-show checklists</button>
             <button class="hub-link" onclick="hubOpenPlot()">Set change plot</button>
+            <button class="hub-link" onclick="hubOpenSpike()">Spike map</button>
             <button class="hub-link" onclick="switchTab('reference')">Reference photos</button>
           </div>
         </div>
@@ -16557,6 +16570,12 @@ function toggleCueTypesPanel(on) {
   ed.classList.toggle('show-types', show);
   // On a phone the panel lives on the Cues view.
   if (show && seIsNarrow() && _scriptsView !== 'cues') setScriptsView('cues');
+}
+// The spike tape key for the script that's open, in its own tab.
+function openSpikeMap() {
+  const name = (document.getElementById('show-name') || {}).textContent || '';
+  const q = showId ? '?script=' + encodeURIComponent(showId) + (name ? '&name=' + encodeURIComponent(name) : '') : '';
+  window.open('spike-map.html' + q, '_blank');
 }
 function closeScriptTools() {
   const ed = document.getElementById('scripts-editor');

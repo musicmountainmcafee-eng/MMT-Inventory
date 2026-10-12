@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Spike Map — MMT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+/* Same theme switch the cue sheet uses, so the two pages match on a device. */
+try {
+  var _own = localStorage.getItem('mmt_cuelist_theme');
+  var _t = (_own === 'light' || _own === 'dark' || _own === 'red')
+    ? _own : (localStorage.getItem('mmt_theme') === 'dark' ? 'dark' : 'light');
+  if (_t !== 'light') document.documentElement.setAttribute('data-theme', _t === 'red' ? 'dark' : _t);
+} catch(e) {}
+</script>
+<style>
+  :root {
+    --purple: #534AB7; --purple-light: #EEEDFE; --purple-dark: #3C3489;
+    --red: #c0392b;
+    --bg: #f8f7f4; --surface: #ffffff; --band: #ececf2;
+    --border: rgba(0,0,0,0.1); --border-2: #d9d8e2;
+    --text: #1a1a1a; --text-muted: #6b6b78; --text-faint: #9a9aa5;
+    --head-bg: #e8e8f0; --head-ink: #5a5a69; --rule: #8c8c9b;
+    --radius: 12px; --radius-sm: 8px;
+    --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  [data-theme="dark"] {
+    --bg: #161625; --surface: #1e1e32; --band: #21213a;
+    --border: rgba(255,255,255,0.1); --border-2: rgba(255,255,255,0.16);
+    --text: #e4e4ec; --text-muted: #9a9ab2; --text-faint: #6e6e88;
+    --purple-light: #2a2745; --purple-dark: #b0a8f4;
+    --head-bg: #262642; --head-ink: #a8a8c0; --rule: #5c5c7a;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); -webkit-tap-highlight-color: transparent; }
+  button, input { font-family: inherit; color: inherit; }
+  button { cursor: pointer; }
+
+  /* ── PIN — matches the cue sheet ── */
+  .pin-screen { position: fixed; inset: 0; background: linear-gradient(135deg, #1a1a2e 0%, #3C3489 60%, #185FA5 100%); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+  .pin-card { background: #fff; color: #1a1a1a; border-radius: var(--radius); padding: 2rem; width: 300px; text-align: center; box-shadow: 0 24px 64px rgba(0,0,0,0.35); }
+  .pin-logo { width: 80px; margin: 0 auto 1rem; display: block; }
+  .pin-title { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+  .pin-subtitle { font-size: 13px; color: #6b6b6b; margin-bottom: 1.5rem; }
+  .pin-dots { display: flex; justify-content: center; gap: 12px; margin-bottom: 1.5rem; }
+  .pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--purple); }
+  .pin-dot.filled { background: var(--purple); }
+  .pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .pin-btn { padding: 14px; border-radius: var(--radius-sm); border: 1px solid rgba(0,0,0,0.1); background: #f8f7f4; font-size: 18px; font-weight: 600; color: #1a1a1a; }
+  .pin-btn.clear { color: var(--red); }
+  .pin-error { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 20px; }
+
+  /* ── Toolbar ── */
+  #app { display: none; }
+  header { position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--border); padding: calc(10px + var(--safe-t)) 16px 10px; }
+  .bar { display: flex; align-items: center; gap: 8px; }
+  .bar-title { flex: 1; min-width: 0; }
+  .bar-title h1 { margin: 0; font-size: 20px; font-weight: 700; }
+  .bar-sub { font-size: 13px; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; gap: 8px; align-items: center; }
+  .save-state { font-family: 'DM Mono', monospace; font-size: 11px; }
+  .save-state.saving { color: var(--text-faint); }
+  .save-state.saved { color: #3b6d11; }
+  .save-state.error { color: var(--red); }
+  .btn { flex: none; min-height: 44px; padding: 0 14px; border: 1px solid var(--border-2); border-radius: 10px; background: var(--surface); font-size: 15px; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; color: var(--text); }
+  .btn.primary { background: var(--purple); border-color: var(--purple); color: #fff; font-weight: 600; }
+  .btn.danger { color: #b02a20; border-color: rgba(176,42,32,0.35); }
+  [data-theme="dark"] .btn.danger { color: #ff8a80; }
+  header .btn .narrow-ico { display: none; }
+  .tabs-row { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .tab { min-height: 40px; padding: 0 16px; border: none; border-radius: 10px; background: none; color: var(--text-muted); font-size: 15px; font-weight: 600; }
+  .tab.on { background: var(--purple); color: #fff; }
+  .legend { margin-left: auto; display: flex; gap: 8px; }
+
+  /* ── List ── */
+  main { max-width: 980px; margin: 0 auto; padding: 0 0 calc(24px + var(--safe-b)); }
+  .cols, .row { display: grid; grid-template-columns: 76px minmax(0, 1fr) 140px 116px; column-gap: 14px; align-items: center; }
+  .cols { padding: 10px 16px; background: var(--head-bg); border-bottom: 2px solid var(--rule); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--head-ink); }
+  .cols div:last-child { text-align: right; }
+  .row { width: 100%; padding: 13px 16px; background: var(--surface); border: none; border-bottom: 1px solid var(--border); text-align: left; font-size: 16px; }
+  .row:active { background: var(--purple-light); }
+  .row.hidden { opacity: 0.5; }
+  .tape { width: 64px; height: 30px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.16); }
+  .lbl { font-size: 17px; font-weight: 700; word-break: break-word; }
+  .lbl.empty { color: var(--text-faint); font-weight: 500; font-style: italic; }
+  .sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+  .mark { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); }
+  .mark svg { flex: none; }
+  .badge { justify-self: end; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; padding: 4px 9px; border-radius: 12px; white-space: nowrap; }
+  .b-house { color: var(--head-ink); border: 1px solid var(--border-2); }
+  .b-relabel { color: #7a4b00; background: #fdf1d8; }
+  .b-show { color: var(--purple-dark); background: var(--purple-light); }
+  [data-theme="dark"] .b-relabel { color: #f5c46b; background: #3a2e14; }
+  .section { padding: 18px 16px 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--text-muted); }
+  .empty-state { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 15px; line-height: 1.5; }
+  .empty-state b { display: block; color: var(--text); font-size: 18px; margin-bottom: 6px; }
+  .empty-state .btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+  .notice { margin: 12px 16px 0; padding: 10px 14px; border-radius: 10px; background: var(--purple-light); color: var(--purple-dark); font-size: 14px; }
+
+  @media (max-width: 640px) {
+    .cols { display: none; }
+    .row { grid-template-columns: 64px minmax(0, 1fr) auto; grid-template-areas: "tape main badge" "tape mark mark"; row-gap: 6px; }
+    .row .tape { grid-area: tape; width: 56px; align-self: start; margin-top: 2px; }
+    .row .main { grid-area: main; }
+    .row .mark { grid-area: mark; }
+    .row .badge { grid-area: badge; align-self: start; }
+    .legend { display: none; }
+    header .btn .wide { display: none; }
+    header .btn .narrow-ico { display: inline; }
+  }
+
+  /* ── Sheets ── */
+  .sheet-wrap { position: fixed; inset: 0; z-index: 400; display: none; background: rgba(20,20,37,0.32); }
+  .sheet-wrap.open { display: block; }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 760px;
+    background: var(--surface); border-radius: 20px 20px 0 0; box-shadow: 0 -12px 36px rgba(0,0,0,0.25);
+    padding: 8px 20px calc(18px + var(--safe-b)); max-height: 90vh; overflow-y: auto;
+  }
+  .grip { width: 44px; height: 5px; border-radius: 3px; background: var(--border-2); margin: 0 auto 12px; }
+  .sh-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+  .sh-head .tape { width: 110px; height: 42px; border-radius: 6px; }
+  .sh-title { font-size: 20px; font-weight: 700; }
+  .sh-sub { font-size: 14px; color: var(--text-muted); }
+  .f-lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin: 16px 0 8px; }
+  .seg { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--band); }
+  .seg button { flex: 1; min-height: 42px; border: none; border-radius: 9px; background: none; font-size: 15px; font-weight: 600; color: var(--text-muted); }
+  .seg button.on { background: var(--surface); color: var(--purple-dark); box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+  .swatches { display: flex; flex-wrap: wrap; gap: 12px 8px; }
+  .sw { width: 62px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 0; border: none; background: none; font-size: 12px; font-weight: 500; color: var(--text); }
+  .sw i { display: block; width: 54px; height: 30px; border-radius: 5px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.16); }
+  .sw.on i { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--purple); }
+  .slots { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; font-size: 14px; color: var(--text-muted); flex-wrap: wrap; }
+  .slot { min-height: 40px; padding: 0 12px; border: 1px solid var(--border-2); border-radius: 20px; background: var(--surface); display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text); }
+  .slot i { width: 22px; height: 14px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2); }
+  .slot.on { border: 2px solid var(--purple); background: var(--purple-light); }
+  .in { width: 100%; height: 48px; padding: 0 12px; font-size: 16px; border: 1px solid var(--border-2); border-radius: 10px; background: var(--bg); color: var(--text); }
+  .in:focus { outline: none; border-color: var(--purple); background: var(--surface); }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill { min-height: 42px; padding: 0 14px; border: 1px solid var(--border-2); border-radius: 21px; background: var(--surface); display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; color: var(--text); }
+  .pill.on { background: var(--purple); border-color: var(--purple); color: #fff; }
+  .warn { margin-top: 10px; font-size: 14px; color: #8a5a00; }
+  [data-theme="dark"] .warn { color: #f5c46b; }
+  .sh-btns { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 22px; }
+  .sh-btns .grow { flex: 1; }
+  .script-row { width: 100%; min-height: 52px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); text-align: left; font-size: 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .script-row.on { border: 2px solid var(--purple); background: var(--purple-light); }
+  .script-row small { color: var(--text-muted); font-size: 13px; }
+
+  /* ── Print: a clean key to post backstage ── */
+  .print-title { display: none; }
+  @media print {
+    header, .sheet-wrap, .notice, .section-actions { display: none !important; }
+    body { background: #fff; color: #000; }
+    .print-title { display: block; padding: 0 0 12px; font-size: 20pt; font-weight: 700; }
+    .print-title small { display: block; font-size: 11pt; font-weight: 400; color: #444; }
+    .cols { display: grid !important; background: #eee; }
+    .row { break-inside: avoid; background: #fff !important; grid-template-columns: 76px minmax(0, 1fr) 140px 116px !important; grid-template-areas: none !important; }
+    .row .tape { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .row.hidden, .section.hidden-head { display: none !important; }
+    .badge { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="pin-screen" id="pin-screen">
+  <div class="pin-card">
+    <img class="pin-logo" src="MMT%20Logo.png" alt="MMT" onerror="this.style.display='none'">
+    <div class="pin-title">MMT Spike Map</div>
+    <div class="pin-subtitle">Enter your PIN to continue</div>
+    <div class="pin-dots"><div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div><div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div></div>
+    <div class="pin-pad">
+      <button class="pin-btn" onclick="pinPress('1')">1</button><button class="pin-btn" onclick="pinPress('2')">2</button><button class="pin-btn" onclick="pinPress('3')">3</button>
+      <button class="pin-btn" onclick="pinPress('4')">4</button><button class="pin-btn" onclick="pinPress('5')">5</button><button class="pin-btn" onclick="pinPress('6')">6</button>
+      <button class="pin-btn" onclick="pinPress('7')">7</button><button class="pin-btn" onclick="pinPress('8')">8</button><button class="pin-btn" onclick="pinPress('9')">9</button>
+      <button class="pin-btn clear" onclick="pinClear()">Clear</button><button class="pin-btn" onclick="pinPress('0')">0</button><button class="pin-btn" onclick="pinPress('back')">⌫</button>
+    </div>
+    <div class="pin-error" id="pin-error"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="bar">
+      <div class="bar-title">
+        <h1>Spike Map</h1>
+        <div class="bar-sub"><span id="show-name">No show picked</span><span class="save-state" id="save-state"></span></div>
+      </div>
+      <button class="btn" onclick="window.print()" aria-label="Print key"><span class="wide">Print key</span><svg class="narrow-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M8 14h8v7H8z"/></svg></button>
+      <button class="btn" onclick="openShows()">Show ▾</button>
+      <button class="btn primary" onclick="openEditor(null)" aria-label="+ Add color">+ <span class="wide">Add color</span></button>
+    </div>
+    <div class="tabs-row">
+      <button class="tab on" id="tab-show" onclick="setTab('show')">This show</button>
+      <button class="tab" id="tab-house" onclick="setTab('house')">House defaults</button>
+      <div class="legend">
+        <span class="badge b-house">HOUSE</span><span class="badge b-relabel">RELABELED</span><span class="badge b-show">THIS SHOW</span>
+      </div>
+    </div>
+  </header>
+
+  <main id="list"></main>
+</div>
+
+<!-- Add / edit a color -->
+<div class="sheet-wrap" id="editor" onclick="if(event.target===this) closeEditor()">
+  <div class="sheet" role="dialog" aria-label="Spike color"><div class="grip"></div><div id="editor-body"></div></div>
+</div>
+
+<!-- Pick a show -->
+<div class="sheet-wrap" id="shows" onclick="if(event.target===this) closeShows()">
+  <div class="sheet" role="dialog" aria-label="Pick a show"><div class="grip"></div>
+    <div class="sh-title" style="margin-bottom:12px">Show</div>
+    <div id="shows-body"><div class="sh-sub">Loading shows…</div></div>
+    <div class="f-lbl">Elsewhere</div>
+    <div class="pills">
+      <a class="btn" id="link-cues" href="cue-list.html">Cue sheet</a>
+      <a class="btn" href="app.html">Dashboard</a>
+    </div>
+    <div class="sh-btns"><span class="grow"></span><button class="btn primary" onclick="closeShows()">Done</button></div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   MMT Spike Map — what each spike tape colour means.
+
+   House defaults apply to every show. Each show (one per script, the same
+   ids the cue sheet uses) can relabel a house colour, hide one it isn't
+   using, or add its own. Stored in one KV blob, 'spikemap':
+
+     { _v: 1,
+       house: [ entry ],
+       shows: { <scriptId>: { name, over: { <houseId>: {…fields, hidden} }, extra: [ entry ] } } }
+
+     entry = { id, label, c1, c1n, c2, c2n, mark, note }   (c2 set = two-colour)
+
+   Saving never pushes this device's whole copy over the server's. Each change
+   is a small operation; a save re-reads the server copy, replays the pending
+   operations onto it and writes that back. Operations wait on this device
+   until a save goes through, so nothing is lost to a dropped connection.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
+const CORRECT_PIN = '1483';
+const KV_KEY = 'spikemap';
+const POLL_MS = 30000;
+
+// Standard spike tape colours.
+const TAPES = [
+  ['Red', '#d7262e'], ['Orange', '#ef7d1a'], ['Yellow', '#f2c500'], ['Lime', '#9ccc2c'],
+  ['Green', '#2e9b4f'], ['Lt blue', '#5bb6e8'], ['Blue', '#1f5fbf'], ['Navy', '#1d2b5c'],
+  ['Purple', '#7a3fb0'], ['Pink', '#e85aa7'], ['Brown', '#7a4a24'], ['Gray', '#8d8d96'],
+  ['White', '#ffffff'], ['Black', '#1a1a1a']
+];
+const MARKS = [
+  ['corners', 'Corners', '<path d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6"/>'],
+  ['t',       "T's",     '<path d="M3 4h18M12 4v16"/>'],
+  ['x',       'X',       '<path d="M5 5l14 14M19 5L5 19"/>'],
+  ['outline', 'Full outline', '<rect x="4" y="4" width="16" height="16"/>'],
+  ['line',    'Line',    '<path d="M3 12h18"/>']
+];
+
+let data = { _v: 1, house: [], shows: {} };
+let scripts = [];
+let scriptId = null, scriptName = '';
+let tab = 'show';
+let pending = [];          // operations not yet on the server
+let saving = false, pollTimer = null, loaded = false;
+let ed = null;             // editor draft
+
+const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+function lsGet(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } }
+function lsSet(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+const uid = () => 'sp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const clone = o => JSON.parse(JSON.stringify(o));
+
+function jsonp(url, ok, fail, ms){
+  const cb = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+  const s = document.createElement('script');
+  let done = false;
+  const t = setTimeout(() => { end(); fail && fail('timeout'); }, ms || 15000);
+  window[cb] = d => { end(); ok(d); };
+  function end(){ if (done) return; done = true; clearTimeout(t); delete window[cb]; if (s.parentNode) s.parentNode.removeChild(s); }
+  s.onerror = () => { end(); fail && fail('error'); };
+  s.src = url + (url.indexOf('?') === -1 ? '?' : '&') + 'callback=' + cb;
+  document.head.appendChild(s);
+}
+
+// Same as the cue sheet's, so a show reads the same on both pages.
+function cleanShowName(raw){
+  let s = String(raw || '').replace(/\.[a-z0-9]{2,4}$/i, '');
+  for (let i = 0; i < 4; i++){
+    s = s.replace(/\s*\(\d+\)\s*$/,'')
+         .replace(/\s*[-–—]?\s*(final|draft|copy|rev\.?\s*\d*|v\d+)\s*$/i,'')
+         .replace(/\s*(script|libretto|pdf)\s*$/i,'');
+  }
+  return s.trim() || raw || 'Untitled';
+}
+
+// ── PIN ─────────────────────────────────────────────────────────────────────
+let pinEntry = '';
+function updateDots(){ for (let i = 0; i < 4; i++) document.getElementById('d' + i).classList.toggle('filled', i < pinEntry.length); }
+function pinPress(v){
+  if (v === 'back'){ pinEntry = pinEntry.slice(0, -1); updateDots(); return; }
+  if (pinEntry.length >= 4) return;
+  pinEntry += v; updateDots();
+  if (pinEntry.length === 4) setTimeout(checkPin, 120);
+}
+function pinClear(){ pinEntry = ''; updateDots(); document.getElementById('pin-error').textContent = ''; }
+function checkPin(){
+  if (pinEntry === CORRECT_PIN){ lsSet('mmt_cuelist_ok', '1'); unlock(); }
+  else { document.getElementById('pin-error').textContent = 'Incorrect PIN'; pinEntry = ''; updateDots(); }
+}
+function unlock(){
+  document.getElementById('pin-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  start();
+}
+
+// ── Data: operations ────────────────────────────────────────────────────────
+function showRec(d, sid){
+  d.shows = d.shows || {};
+  if (!d.shows[sid]) d.shows[sid] = { name: '', over: {}, extra: [] };
+  const r = d.shows[sid];
+  r.over = r.over || {}; r.extra = r.extra || [];
+  return r;
+}
+
+function applyOp(d, op){
+  d.house = d.house || []; d.shows = d.shows || {};
+  if (op.t === 'houseUpsert'){
+    const i = d.house.findIndex(e => e.id === op.e.id);
+    if (i >= 0) d.house[i] = clone(op.e); else d.house.push(clone(op.e));
+  } else if (op.t === 'houseDelete'){
+    d.house = d.house.filter(e => e.id !== op.id);
+    Object.values(d.shows).forEach(r => { if (r && r.over) delete r.over[op.id]; });
+  } else if (op.t === 'showOver'){
+    const r = showRec(d, op.sid);
+    if (op.name) r.name = op.name;
+    if (op.over == null) delete r.over[op.id];
+    else r.over[op.id] = clone(op.over);
+  } else if (op.t === 'showUpsert'){
+    const r = showRec(d, op.sid);
+    if (op.name) r.name = op.name;
+    const i = r.extra.findIndex(e => e.id === op.e.id);
+    if (i >= 0) r.extra[i] = clone(op.e); else r.extra.push(clone(op.e));
+  } else if (op.t === 'showDelete'){
+    const r = showRec(d, op.sid);
+    r.extra = r.extra.filter(e => e.id !== op.id);
+  }
+  return d;
+}
+
+function pendingKey(){ return 'mmt_spike_pending'; }
+function loadPending(){ try { pending = JSON.parse(lsGet(pendingKey(), '[]')) || []; } catch(e){ pending = []; } }
+function storePending(){ lsSet(pendingKey(), JSON.stringify(pending)); }
+
+function commit(op){
+  applyOp(data, op);
+  lsSet('mmt_spike_cache', JSON.stringify(data));
+  pending.push(op); storePending();
+  render();
+  flush();
+}
+
+function setSave(text, cls){
+  const el = document.getElementById('save-state');
+  el.textContent = text; el.className = 'save-state ' + (cls || '');
+}
+
+function flush(){
+  if (saving || !pending.length) return;
+  saving = true;
+  setSave('Saving…', 'saving');
+  const batch = pending.slice();
+  jsonp(SCRIPT_URL + '?action=getKV&key=' + KV_KEY + '&_=' + Date.now(), d => {
+    const fresh = (d && d.value && typeof d.value === 'object') ? d.value : { _v: 1, house: [], shows: {} };
+    batch.forEach(op => applyOp(fresh, op));
+    fresh._v = 1;
+    fresh._savedAt = new Date().toISOString();
+    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'saveKV', key: KV_KEY, value: fresh }) })
+      .then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        saving = false;
+        pending = pending.slice(batch.length); storePending();
+        // Keep anything made while this save was in flight on top.
+        data = fresh; pending.forEach(op => applyOp(data, op));
+        lsSet('mmt_spike_cache', JSON.stringify(data));
+        setSave('Saved', 'saved');
+        setTimeout(() => { const el = document.getElementById('save-state'); if (el.textContent === 'Saved') setSave('', ''); }, 2000);
+        render();
+        if (pending.length) flush();
+      })
+      .catch(() => { saving = false; setSave('Not saved — kept on this device', 'error'); });
+  }, () => { saving = false; setSave('Offline — kept on this device', 'error'); });
+}
+
+function fetchMap(){
+  if (saving || pending.length || ed) return;
+  jsonp(SCRIPT_URL + '?action=getKV&key=' + KV_KEY + '&_=' + Date.now(), d => {
+    if (saving || pending.length || ed) return;
+    if (d && d.value && typeof d.value === 'object'){ data = d.value; lsSet('mmt_spike_cache', JSON.stringify(data)); }
+    loaded = true; render();
+  }, () => { loaded = true; render(); });
+}
+
+// ── Resolving what a show sees ──────────────────────────────────────────────
+function resolved(){
+  const rec = (scriptId && data.shows && data.shows[scriptId]) || { over: {}, extra: [] };
+  const out = [];
+  (data.house || []).forEach(h => {
+    const o = (rec.over || {})[h.id];
+    const e = Object.assign({}, h, o || {});
+    const relabeled = !!o && ['label','c1','c2','mark','note'].some(k => k in o && o[k] !== h[k]);
+    out.push(Object.assign(e, { src: relabeled ? 'relabel' : 'house', hidden: !!(o && o.hidden), houseId: h.id }));
+  });
+  (rec.extra || []).forEach(x => out.push(Object.assign({}, x, { src: 'show', hidden: false })));
+  return out;
+}
+
+const tapeName = e => e.c2 ? `${e.c1n || ''} over ${e.c2n || ''}` : (e.c1n || '');
+function tapeCss(e){
+  if (!e.c1) return 'transparent';
+  return e.c2 ? `repeating-linear-gradient(135deg, ${e.c1} 0 8px, ${e.c2} 8px 16px)` : e.c1;
+}
+function markHTML(id, size){
+  const m = MARKS.find(x => x[0] === id);
+  if (!m) return '';
+  return `<svg width="${size||22}" height="${size||22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">${m[2]}</svg>${esc(m[1])}`;
+}
+
+// ── Rendering ───────────────────────────────────────────────────────────────
+function setTab(t){
+  tab = t;
+  document.getElementById('tab-show').classList.toggle('on', t === 'show');
+  document.getElementById('tab-house').classList.toggle('on', t === 'house');
+  lsSet('mmt_spike_tab', t);
+  render();
+}
+
+function rowHTML(e, clickArg){
+  const badge = e.src === 'show' ? '<span class="badge b-show">THIS SHOW</span>'
+    : e.src === 'relabel' ? '<span class="badge b-relabel">RELABELED</span>'
+    : '<span class="badge b-house">HOUSE</span>';
+  const sub = [tapeName(e), e.note].filter(Boolean).join(' · ');
+  return `<button class="row${e.hidden ? ' hidden' : ''}" onclick="openEditor(${clickArg})">
+    <div class="tape" style="background:${tapeCss(e)}"></div>
+    <div class="main"><div class="lbl${e.label ? '' : ' empty'}">${e.label ? esc(e.label) : 'No label yet'}</div><div class="sub">${esc(sub)}</div></div>
+    <div class="mark">${markHTML(e.mark)}</div>
+    ${badge}
+  </button>`;
+}
+
+function render(){
+  document.getElementById('show-name').textContent = scriptName ? cleanShowName(scriptName) : 'No show picked';
+  const cl = document.getElementById('link-cues');
+  if (cl) cl.href = 'cue-list.html' + (scriptId ? '?script=' + encodeURIComponent(scriptId) : '');
+  const el = document.getElementById('list');
+  const title = `<div class="print-title">Spike Map<small>${esc(tab === 'house' ? 'House defaults' : cleanShowName(scriptName))}</small></div>`;
+  const cols = '<div class="cols"><div>Tape</div><div>Means</div><div>Marks</div><div>From</div></div>';
+
+  if (!loaded && !(data.house || []).length){
+    el.innerHTML = '<div class="empty-state">Loading the spike map…</div>'; return;
+  }
+
+  if (tab === 'house'){
+    const list = (data.house || []).map(h => Object.assign({}, h, { src: 'house' }));
+    if (!list.length){
+      el.innerHTML = title + `<div class="empty-state"><b>No house colors yet</b>House colors apply to every show. Each show can relabel or hide them.
+        <div class="btns"><button class="btn" onclick="seedStandard()">Start with standard tape colors</button>
+        <button class="btn primary" onclick="openEditor(null)">+ Add color</button></div></div>`;
+      return;
+    }
+    el.innerHTML = title + cols + list.map(e => rowHTML(e, `'h:${e.id}'`)).join('');
+    return;
+  }
+
+  if (!scriptId){
+    el.innerHTML = `<div class="empty-state"><b>Pick a show</b>Each show uses the house colors and can relabel or add its own.
+      <div class="btns"><button class="btn primary" onclick="openShows()">Pick a show</button></div></div>`;
+    return;
+  }
+  const all = resolved();
+  const shown = all.filter(e => !e.hidden), hidden = all.filter(e => e.hidden);
+  if (!all.length){
+    el.innerHTML = title + `<div class="empty-state"><b>No colors yet</b>Add colors for this show, or set up house colors every show starts with.
+      <div class="btns"><button class="btn" onclick="setTab('house')">Set up house colors</button>
+      <button class="btn primary" onclick="openEditor(null)">+ Add color</button></div></div>`;
+    return;
+  }
+  const arg = e => e.src === 'show' ? `'s:${e.id}'` : `'o:${e.houseId}'`;
+  el.innerHTML = title + cols + shown.map(e => rowHTML(e, arg(e))).join('')
+    + (hidden.length ? `<div class="section hidden-head">NOT USED THIS SHOW</div>` + hidden.map(e => rowHTML(e, arg(e))).join('') : '');
+}
+
+// ── Editor ──────────────────────────────────────────────────────────────────
+// ref: null = new; 'h:<id>' house entry (House tab); 'o:<id>' house entry seen
+// from a show; 's:<id>' a show's own colour.
+function openEditor(ref){
+  if (tab === 'show' && !scriptId && !(ref && ref[0] === 'h')){ openShows(); return; }
+  let e, kind = 'new', scope = tab === 'house' ? 'house' : 'show', hidden = false, base = null;
+  if (ref){
+    const [k, id] = [ref[0], ref.slice(2)];
+    if (k === 'h'){ e = clone(data.house.find(x => x.id === id)); kind = 'house'; scope = 'house'; }
+    else if (k === 's'){ e = clone(showRec(clone(data), scriptId).extra.find(x => x.id === id)); kind = 'show'; scope = 'show'; }
+    else if (k === 'o'){
+      const r = resolved().find(x => x.src !== 'show' && x.houseId === id);
+      base = clone(data.house.find(x => x.id === id));
+      e = { id, label: r.label, c1: r.c1, c1n: r.c1n, c2: r.c2 || null, c2n: r.c2n || '', mark: r.mark || '', note: r.note || '' };
+      kind = 'over'; scope = 'show'; hidden = r.hidden;
+    }
+    if (!e) return;
+  } else {
+    e = { id: uid(), label: '', c1: '#d7262e', c1n: 'Red', c2: null, c2n: '', mark: 'corners', note: '' };
+  }
+  ed = { kind, e, scope, hidden, base, slot: 1, two: !!e.c2 };
+  renderEditor();
+  document.getElementById('editor').classList.add('open');
+}
+
+function closeEditor(){
+  ed = null;
+  document.getElementById('editor').classList.remove('open');
+}
+
+function renderEditor(){
+  const e = ed.e;
+  const title = ed.kind === 'new' ? 'New color' : 'Edit color';
+  const dup = sameTape(e);
+  const swatches = TAPES.map(([n, c]) => {
+    const on = ed.slot === 2 ? e.c2 === c : e.c1 === c;
+    return `<button class="sw${on ? ' on' : ''}" onclick="pickTape('${c}','${esc(n)}')"><i style="background:${c}"></i>${esc(n)}</button>`;
+  }).join('');
+  const marks = MARKS.map(m => `<button class="pill${e.mark === m[0] ? ' on' : ''}" onclick="pickMark('${m[0]}')">${markHTML(m[0], 18)}</button>`).join('');
+
+  // Who this change applies to. A house colour opened from a show defaults to
+  // this show only, so relabeling for one show never rewrites every show.
+  let scopeHTML = '';
+  if (ed.kind === 'new' && tab === 'show'){
+    scopeHTML = segHTML('scope', [['show', 'This show only'], ['house', 'Every show (house)']], ed.scope);
+  } else if (ed.kind === 'over'){
+    scopeHTML = segHTML('scope', [['show', 'This show only'], ['house', 'Every show (house)']], ed.scope);
+  } else if (ed.kind === 'show'){
+    scopeHTML = segHTML('scope', [['show', 'This show only'], ['house', 'Make it a house color']], ed.scope);
+  }
+
+  let extra = '';
+  if (ed.kind === 'over'){
+    extra += ed.hidden
+      ? `<button class="btn" onclick="setHidden(false)">Use on this show</button>`
+      : `<button class="btn" onclick="setHidden(true)">Not used this show</button>`;
+    const o = data.shows && data.shows[scriptId] && data.shows[scriptId].over[ed.e.id];
+    if (o && Object.keys(o).some(k => k !== 'hidden')) extra += `<button class="btn" onclick="resetToHouse()">Back to house label</button>`;
+  } else if (ed.kind === 'show' || ed.kind === 'house'){
+    extra += `<button class="btn danger" onclick="deleteEntry()">Delete</button>`;
+  }
+
+  document.getElementById('editor-body').innerHTML = `
+    <div class="sh-head">
+      <div class="tape" style="background:${tapeCss(e)}"></div>
+      <div><div class="sh-title">${title}</div><div class="sh-sub">${esc([tapeName(e), (MARKS.find(m => m[0] === e.mark) || [, ''])[1]].filter(Boolean).join(' · '))}</div></div>
+    </div>
+    <div class="f-lbl">Tape</div>
+    ${segHTML('two', [['0', 'Solid'], ['1', 'Two-color / striped']], ed.two ? '1' : '0')}
+    <div style="height:12px"></div>
+    ${ed.two ? `<div class="slots">Setting:
+      <button class="slot${ed.slot === 1 ? ' on' : ''}" onclick="setSlot(1)"><i style="background:${e.c1}"></i>First · ${esc(e.c1n)}</button>
+      <button class="slot${ed.slot === 2 ? ' on' : ''}" onclick="setSlot(2)"><i style="background:${e.c2 || 'transparent'}"></i>Second · ${esc(e.c2n || 'pick one')}</button></div>` : ''}
+    <div class="swatches">${swatches}</div>
+    ${dup ? `<div class="warn">Same tape as “${esc(dup.label || 'an unlabeled color')}”. Fine if you mean it, but crew can't tell them apart.</div>` : ''}
+    <div class="f-lbl">Means</div>
+    <input class="in" id="ed-label" value="${esc(e.label)}" placeholder="e.g. Bailey house, Act 2" autocomplete="off" oninput="ed.e.label=this.value">
+    <div class="f-lbl">Marks</div>
+    <div class="pills">${marks}</div>
+    <div style="height:10px"></div>
+    <input class="in" id="ed-note" value="${esc(e.note)}" placeholder="Note (optional), e.g. downstage edge only" autocomplete="off" oninput="ed.e.note=this.value">
+    ${scopeHTML ? `<div class="f-lbl">Keep it for</div>${scopeHTML}` : ''}
+    <div class="sh-btns">${extra}<span class="grow"></span>
+      <button class="btn" onclick="closeEditor()">Cancel</button>
+      <button class="btn primary" onclick="saveEditor()">Save color</button></div>`;
+}
+
+function segHTML(name, opts, cur){
+  return `<div class="seg">${opts.map(([v, l]) => `<button class="${v === cur ? 'on' : ''}" onclick="setSeg('${name}','${v}')">${esc(l)}</button>`).join('')}</div>`;
+}
+function setSeg(name, v){
+  if (name === 'two'){
+    ed.two = v === '1';
+    if (ed.two && !ed.e.c2){ ed.e.c2 = '#ffffff'; ed.e.c2n = 'White'; ed.slot = 2; }
+    if (!ed.two){ ed.e.c2 = null; ed.e.c2n = ''; ed.slot = 1; }
+  } else if (name === 'scope') ed.scope = v;
+  renderEditor();
+}
+function setSlot(n){ ed.slot = n; renderEditor(); }
+function pickTape(c, n){
+  if (ed.two && ed.slot === 2){ ed.e.c2 = c; ed.e.c2n = n; }
+  else { ed.e.c1 = c; ed.e.c1n = n; if (ed.two) ed.slot = 2; }
+  renderEditor();
+}
+function pickMark(m){ ed.e.mark = ed.e.mark === m ? '' : m; renderEditor(); }
+
+// Another colour already using this exact tape, if any.
+function sameTape(e){
+  const pool = tab === 'house' ? (data.house || []) : resolved().filter(x => !x.hidden);
+  return pool.find(x => (x.houseId || x.id) !== e.id && x.id !== e.id && x.c1 === e.c1 && (x.c2 || null) === (e.c2 || null)) || null;
+}
+
+const FIELDS = ['label', 'c1', 'c1n', 'c2', 'c2n', 'mark', 'note'];
+function cleanEntry(e){
+  return { id: e.id, label: String(e.label || '').trim(), c1: e.c1, c1n: e.c1n, c2: e.c2 || null, c2n: e.c2 ? e.c2n : '', mark: e.mark || '', note: String(e.note || '').trim() };
+}
+
+function saveEditor(){
+  const e = cleanEntry(ed.e);
+  const name = scriptName;
+  if (ed.kind === 'new'){
+    if (ed.scope === 'house') commit({ t: 'houseUpsert', e });
+    else commit({ t: 'showUpsert', sid: scriptId, name, e });
+  } else if (ed.kind === 'house'){
+    commit({ t: 'houseUpsert', e });
+  } else if (ed.kind === 'show'){
+    if (ed.scope === 'house'){ commit({ t: 'houseUpsert', e }); commit({ t: 'showDelete', sid: scriptId, id: e.id }); }
+    else commit({ t: 'showUpsert', sid: scriptId, name, e });
+  } else if (ed.kind === 'over'){
+    if (ed.scope === 'house'){
+      commit({ t: 'houseUpsert', e });
+      commit({ t: 'showOver', sid: scriptId, name, id: e.id, over: ed.hidden ? { hidden: true } : null });
+    } else {
+      // Store only what differs from the house colour.
+      const over = {};
+      FIELDS.forEach(k => { if ((e[k] || '') !== (ed.base[k] || '')) over[k] = e[k]; });
+      if (ed.hidden) over.hidden = true;
+      commit({ t: 'showOver', sid: scriptId, name, id: e.id, over: Object.keys(over).length ? over : null });
+    }
+  }
+  closeEditor();
+}
+
+function setHidden(h){
+  const rec = data.shows && data.shows[scriptId];
+  const cur = Object.assign({}, rec && rec.over[ed.e.id]);
+  if (h) cur.hidden = true; else delete cur.hidden;
+  commit({ t: 'showOver', sid: scriptId, name: scriptName, id: ed.e.id, over: Object.keys(cur).length ? cur : null });
+  closeEditor();
+}
+function resetToHouse(){
+  commit({ t: 'showOver', sid: scriptId, name: scriptName, id: ed.e.id, over: ed.hidden ? { hidden: true } : null });
+  closeEditor();
+}
+function deleteEntry(){
+  const label = ed.e.label || 'this color';
+  if (ed.kind === 'house'){
+    if (!confirm('Delete “' + label + '” from the house colors? Every show loses it.')) return;
+    commit({ t: 'houseDelete', id: ed.e.id });
+  } else {
+    if (!confirm('Delete “' + label + '”?')) return;
+    commit({ t: 'showDelete', sid: scriptId, id: ed.e.id });
+  }
+  closeEditor();
+}
+
+function seedStandard(){
+  if ((data.house || []).length) return;
+  TAPES.forEach(([n, c]) => commit({ t: 'houseUpsert', e: { id: uid(), label: '', c1: c, c1n: n, c2: null, c2n: '', mark: '', note: '' } }));
+}
+
+// ── Shows ───────────────────────────────────────────────────────────────────
+function openShows(){
+  renderShows();
+  document.getElementById('shows').classList.add('open');
+  if (!scripts.length) loadScripts();
+}
+function closeShows(){ document.getElementById('shows').classList.remove('open'); }
+function renderShows(){
+  const body = document.getElementById('shows-body');
+  if (!scripts.length){ body.innerHTML = '<div class="sh-sub">Loading shows…</div>'; return; }
+  const sorted = scripts.slice().sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  body.innerHTML = sorted.map(s => `<button class="script-row${s.id === scriptId ? ' on' : ''}" onclick="pickShow('${esc(s.id)}')">
+      <span>${esc(cleanShowName(s.name))}</span><small>${s.date ? esc(new Date(s.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })) : ''}</small></button>`).join('');
+}
+function loadScripts(){
+  jsonp(SCRIPT_URL + '?action=listScripts&_=' + Date.now(), d => {
+    if (!d || !d.success || !d.scripts){ document.getElementById('shows-body').innerHTML = '<div class="sh-sub">Could not load the show list.</div>'; return; }
+    scripts = d.scripts;
+    if (!scriptId && scripts.length){
+      const newest = scripts.slice().sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))[0];
+      setShow(newest.id, newest.name);
+    } else if (scriptId){
+      const s = scripts.find(x => x.id === scriptId);
+      if (s && s.name !== scriptName){ scriptName = s.name; lsSet('mmt_spike_scriptname', s.name); render(); }
+    }
+    renderShows();
+  }, () => { document.getElementById('shows-body').innerHTML = '<div class="sh-sub">Could not load the show list.</div>'; });
+}
+function setShow(id, name){
+  scriptId = id; scriptName = name || '';
+  lsSet('mmt_spike_script', id); lsSet('mmt_spike_scriptname', scriptName);
+  render();
+}
+function pickShow(id){
+  const s = scripts.find(x => x.id === id);
+  setShow(id, s ? s.name : '');
+  renderShows();
+  closeShows();
+}
+
+// ── Boot ────────────────────────────────────────────────────────────────────
+function start(){
+  // ?script=<id>&name=<label> from the dashboard or cue sheet; else what this
+  // page last showed; else what the cue sheet last showed.
+  let q; try { q = new URLSearchParams(location.search); } catch(e) { q = null; }
+  const linkScript = q && q.get('script');
+  if (linkScript) setShow(linkScript, (q.get('name')) || lsGet('mmt_spike_scriptname', ''));
+  else {
+    scriptId = lsGet('mmt_spike_script', null) || lsGet('mmt_cuelist_script', null);
+    scriptName = lsGet('mmt_spike_script', null) ? lsGet('mmt_spike_scriptname', '') : lsGet('mmt_cuelist_scriptname', '');
+  }
+  const t = (q && q.get('tab')) || lsGet('mmt_spike_tab', 'show');
+  tab = t === 'house' ? 'house' : 'show';
+  document.getElementById('tab-show').classList.toggle('on', tab === 'show');
+  document.getElementById('tab-house').classList.toggle('on', tab === 'house');
+
+  try { const c = JSON.parse(lsGet('mmt_spike_cache', 'null')); if (c && typeof c === 'object') { data = c; loaded = true; } } catch(e) {}
+  loadPending();
+  pending.forEach(op => applyOp(data, op));
+  render();
+  loadScripts();
+  if (pending.length) flush(); else fetchMap();
+  pollTimer = setInterval(() => { if (pending.length) flush(); else fetchMap(); }, POLL_MS);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible'){ if (pending.length) flush(); else fetchMap(); } });
+}
+
+if (lsGet('mmt_cuelist_ok', '') === '1') unlock(); else updateDots();
+</script>
+</body>
+</html>
