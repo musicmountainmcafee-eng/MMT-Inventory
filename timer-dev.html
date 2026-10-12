@@ -542,6 +542,7 @@ body:not(.display) #rtshows button.on{color:var(--type)}body:not(.display) #rtsh
 body:not(.display) #rtshows button.oth{border-style:dashed;color:var(--dim);justify-content:center;min-height:48px}
 body:not(.display) #rtpreview{border-left:3px solid var(--btnline);padding:4px 0 4px 12px;font-size:17px;line-height:1.35;color:#C9C9CE}
 body:not(.display) #rtstart{min-height:88px;font-size:32px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:6px;background:var(--go);color:#06210F}
+body:not(.display) #rtstart:disabled{background:transparent;border:2px dashed var(--btnline);color:var(--type);opacity:.6;font-size:24px;cursor:default}
 
 /* settings, history, check */
 body:not(.display) .setbar{background:var(--shell);box-shadow:0 1px 0 var(--line)}
@@ -1064,7 +1065,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev13';
+var VERSION='3.4-dev14';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -3231,10 +3232,18 @@ function rtKindChips(){
     b.onclick=function(){rtKind=o[0];rtKindChips()};box.appendChild(b);
   });
   rtPreview();
-  $('rttitle').textContent=rtKind==='performance'?'Start a performance':rtKind==='tech'?'Start a tech day':'Start a run-through';
-  $('rtstart').textContent=rtKind==='performance'?'Start performance':rtKind==='tech'?'Build tech day':'Start run-through';
+  $('rttitle').textContent=rtKind==='performance'?'Start a performance':rtKind==='tech'?'Start a tech day':rtKind==='rehearsal'?'Start a run-through':'Start a show';
   $('rtstart').style.width='100%';
   $('rtwhenbox').hidden=rtKind!=='rehearsal';
+  rtReadyBtn();
+}
+// Nothing is picked for the SM: the kind and the show both need a tap
+// before the green button wakes up.
+function rtReady(){return !!rtKind&&rtShow!=null}
+function rtReadyBtn(){
+  var b=$('rtstart'),ok=rtReady();b.disabled=!ok;
+  b.textContent=!rtKind&&rtShow==null?'Pick the kind and the show':!rtKind?'Pick the kind of show':rtShow==null?'Pick the show':
+    rtKind==='performance'?'Start performance':rtKind==='tech'?'Build tech day':'Start run-through';
 }
 // One show per stage: the run playing now, or else the next one to open.
 // Anything else is under Other.
@@ -3311,6 +3320,7 @@ function rtLeadChips(){
   rtPreview();
 }
 function rtPreview(){
+  if(!rtKind){$('rtpreview').textContent='Tap Run-through, Performance or Tech, then the show.';return}
   var c=rtCurtain(),later=c-NOW()>3e4,run=rtKind!=='performance';
   var acts=run?cuesFor({adhoc:true,rt:1,kind:'rehearsal',stage:rtStageFor()}).list.slice(1).map(function(x){return x.name.charAt(0)+x.name.slice(1).toLowerCase()}).join(', '):'';
   var t=later?'Screens count down to '+clockOf(c)+', then show READY TO START until the SM presses GO.':'Screens show the clock and READY TO START until the SM presses GO.';
@@ -3326,10 +3336,6 @@ $('rttime').oninput=rtPreview;
 function rtChips(){
   var sb=$('rtshows');sb.innerHTML='';
   var shows=rtShows();
-  if(rtShow===null){
-    var today=ymd(new Date(NOW())),now=shows.filter(function(r){return r.start<=today})[0];
-    rtShow=now?now.show:shows.length?shows[0].show:'other';
-  }
   shows.map(function(r){return r.show}).concat(['other']).forEach(function(v){
     var hitS=shows.filter(function(r){return r.show===v})[0];
     var b=document.createElement('button');b.classList.toggle('on',rtShow===v);
@@ -3347,7 +3353,7 @@ function rtChips(){
     b.onclick=function(){rtStage=o[0];rtChips()};stb.appendChild(b);
   });
   $('rtname').hidden=rtShow!=='other';
-  rtPreview();
+  rtPreview();rtReadyBtn();
 }
 // Opening the controller with nothing under way lands here, so the first
 // thing the SM sees is the choice of run-through or performance. Tonight's
@@ -3360,7 +3366,7 @@ function rtFirst(){
   openRT();
 }
 function rtClose(){$('rtpanel').hidden=true;document.body.classList.remove('picking');window.scrollTo(0,0)}
-function openRT(){document.body.classList.add('picking');rtShow=null;rtStage=CURST;rtKind='rehearsal';rtWhen='now';rtLead=0;$('rttime').value='';$('rtname').value='';rtChips();rtKindChips();rtLeadChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
+function openRT(){document.body.classList.add('picking');rtShow=null;rtStage=CURST;rtKind=null;rtWhen='now';rtLead=0;$('rttime').value='';$('rtname').value='';rtChips();rtKindChips();rtLeadChips();$('rtpanel').hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
 function endRT(){commit({adhoc:null,key:null,idx:null,log:[],msg:null,paused:false,holdAt:0,held:{}});rtFirst();window.scrollTo(0,0)}   // back to the picker, the controller's main screen
 $('rtname').oninput=rtPreview;
 $('rehearse').onclick=function(){
@@ -3381,6 +3387,7 @@ $('rtend').onclick=function(){
 };
 $('rtcancel').onclick=rtClose;
 $('rtstart').onclick=function(){
+  if(!rtReady())return;
   if(rtKind==='tech'){openTechBuilder(rtName(),rtStageFor());return}
   var now=NOW(),c=rtCurtain();
   var d=new Date(c);
