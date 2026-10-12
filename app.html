@@ -2416,11 +2416,14 @@
 
   /* ── SCRIPTS TAB + CUE EDITOR (merged from cues.html — Session 5) ─────────── */
   /* Scoped dark-theme tokens for the cue editor only */
+  /* Light, matching the cue sheet and spike map. The --cue-* names stayed so
+     every rule written against them follows along. */
   #scripts-editor {
-    --cue-bg: #1a1a2e; --cue-surface: #232340; --cue-surface2: #2a2a4a;
-    --cue-border: rgba(255,255,255,0.1); --cue-border2: rgba(255,255,255,0.06);
-    --cue-text: #e4e4ec; --cue-text-muted: #9494ae; --cue-text-faint: #5e5e78;
-    --cue-red: #e74c3c; --cue-radius: 10px; --cue-radius-sm: 6px;
+    --cue-bg: #f8f7f4; --cue-surface: #ffffff; --cue-surface2: #fbfaf7;
+    --cue-border: #e6e5ec; --cue-border2: #eeedf2;
+    --cue-text: #141414; --cue-text-muted: #6b6b78; --cue-text-faint: #96969f;
+    --cue-red: #c0392b; --cue-radius: 10px; --cue-radius-sm: 8px;
+    --se-deck: #e9e8e3; --se-line: #dcdbe4;
   }
 
   /* PICKER (lives inside the Scripts tab content area) */
@@ -4357,6 +4360,186 @@ table td { font-size: 14px !important; }
   body.se-touch .cue-edit-btns .top-btn,
   body.se-touch .cue-edit-btns .ce-btn { min-height: 46px; font-size: 15px; padding: 10px 16px; flex: 1 1 auto; justify-content: center; }
 
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SCRIPTS EDITOR — V1 (light, tools on top, floating pager)
+     Comes last so it wins over the older dark and compact rules above.
+     ══════════════════════════════════════════════════════════════════════════ */
+  #scripts-editor { background: var(--cue-bg); color: var(--cue-text); }
+  #scripts-editor .cue-topbar {
+    background: #fff !important; border-bottom: 1px solid var(--cue-border) !important;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px !important; gap: 10px !important;
+  }
+  #scripts-editor .cue-topbar-left { gap: 12px !important; }
+  #scripts-editor .se-title { min-width: 0; flex: 1; }
+  #scripts-editor .se-name { font-size: 19px; font-weight: 700; color: #141414; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #scripts-editor .se-sub { display: flex; gap: 8px; align-items: center; font: 400 12px 'DM Mono', monospace; color: var(--cue-text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; }
+  #scripts-editor .se-sub #se-count:not(:empty) + .cue-save-status:not(:empty)::before { content: '· '; color: var(--cue-text-muted); }
+  #scripts-editor .se-sub .cue-save-status { font-size: 12px !important; padding: 0 !important; max-width: none !important; }
+  #scripts-editor .cue-save-status:empty { display: none; }
+  #scripts-editor .top-btn {
+    min-height: 44px; min-width: 44px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    border: 1px solid var(--se-line); border-radius: 10px; background: #fff; color: #282828; font: 600 14px 'DM Sans', sans-serif;
+  }
+  #scripts-editor .top-btn:hover { background: #f4f3fc; color: #141414; }
+  #scripts-editor .se-back { padding: 0; width: 44px; }
+  #scripts-editor .sv-more { font-size: 20px; padding: 0; width: 44px; }
+  #scripts-editor .se-link { display: inline-flex; }
+
+  /* ⋯ menu */
+  #scripts-editor .sv-menu {
+    display: none !important; position: absolute; right: 16px; top: calc(100% + 4px); z-index: 80;
+    flex-direction: column; gap: 0; padding: 6px; width: 290px;
+    background: #fff !important; border: 1px solid var(--cue-border) !important; border-radius: 14px;
+    box-shadow: 0 16px 40px rgba(20,20,37,0.22) !important;
+  }
+  #scripts-editor.sv-tools-open .sv-menu { display: flex !important; }
+  #scripts-editor .sv-menu .top-btn {
+    width: 100%; justify-content: flex-start; border: none !important; background: none; font-weight: 500; font-size: 15px;
+    min-height: 46px; padding: 0 12px; color: #141414 !important;
+  }
+  #scripts-editor .sv-menu .top-btn:hover { background: #f4f3fc; }
+  #scripts-editor .sv-menu .mi-ext { margin-left: auto; color: #9a9aa5; }
+  #scripts-editor .mi-head { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cue-text-muted); padding: 10px 12px 4px; }
+  #scripts-editor .mi-sep { height: 1px; background: var(--cue-border2); margin: 6px 8px; }
+
+  /* Tool row */
+  #scripts-editor .tool-sidebar {
+    width: auto !important; height: auto !important; flex-direction: row !important; align-items: center !important;
+    gap: 8px !important; padding: 8px 16px !important; background: #fff !important;
+    border: none !important; border-bottom: 1px solid var(--cue-border) !important;
+    overflow-x: auto; overflow-y: hidden; flex-shrink: 0; scrollbar-width: none;
+  }
+  #scripts-editor .tool-sidebar::-webkit-scrollbar { display: none; }
+  #scripts-editor #tool-cue { display: none !important; }
+  #scripts-editor .tool-spacer { flex: 1; }
+  #scripts-editor .tool-divider { width: 1px !important; height: 26px !important; margin: 0 2px !important; background: var(--cue-border) !important; flex-shrink: 0; }
+  #scripts-editor .tool-sidebar .tool-btn {
+    width: 44px; height: 44px; min-width: 44px; border-radius: 10px; color: #3c3c3c; background: none; flex-shrink: 0;
+  }
+  #scripts-editor .tool-sidebar .tool-btn:hover { background: #f4f3fc; }
+  #scripts-editor .se-mode-btn { width: auto !important; padding: 0 14px; gap: 7px; border: 1px solid var(--se-line) !important; font: 600 14px 'DM Sans', sans-serif; color: #282828 !important; }
+  body.se-touch #scripts-editor .se-mode-btn { display: inline-flex !important; }
+  body:not(.se-touch) #scripts-editor .se-mode-btn,
+  body:not(.se-touch) #scripts-editor .se-mode-btn + .tool-divider { display: none !important; }
+  #scripts-editor .se-mode-btn.active { background: #534AB7 !important; border-color: #534AB7 !important; color: #fff !important; }
+  #scripts-editor #type-quick { display: flex !important; flex-direction: row !important; gap: 8px !important; width: auto !important; padding: 0 !important; flex-shrink: 0; }
+  #scripts-editor .cue-type-quick-btn {
+    width: auto !important; height: 38px; min-height: 38px !important; margin: 0 !important; padding: 0 12px !important;
+    display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
+    border: 1px solid var(--se-line) !important; border-radius: 19px !important; background: #fff !important;
+    color: #282828 !important; font: 600 13px 'DM Sans', sans-serif !important; letter-spacing: 0;
+  }
+  #scripts-editor .cue-type-quick-btn i { width: 10px; height: 10px; border-radius: 5px; background: var(--tc); flex-shrink: 0; }
+  #scripts-editor .cue-type-quick-btn.on { border: 2px solid var(--tc) !important; background: color-mix(in srgb, var(--tc) 12%, #fff) !important; }
+
+  /* Script area + floating pager */
+  #scripts-editor .cue-main { flex-direction: row; }
+  #scripts-editor .viewer { background: var(--se-deck) !important; position: relative; }
+  #scripts-editor .canvas-wrap { padding: 20px 16px 88px !important; }
+  #scripts-editor .canvas-container { box-shadow: 0 6px 24px rgba(20,20,37,0.14); }
+  #scripts-editor .page-nav {
+    position: absolute !important; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 30;
+    display: flex !important; flex-wrap: nowrap !important; align-items: center; gap: 2px !important;
+    padding: 5px !important; background: #fff !important; border: none !important; border-radius: 14px;
+    box-shadow: 0 6px 22px rgba(20,20,37,0.18); white-space: nowrap; max-width: calc(100% - 24px);
+  }
+  #scripts-editor .page-nav button {
+    min-height: 44px !important; min-width: 44px; padding: 0 10px !important; border: none !important; border-radius: 10px !important;
+    background: none !important; color: #282828 !important; font: 600 14px 'DM Sans', sans-serif !important; display: inline-flex; align-items: center; justify-content: center;
+  }
+  #scripts-editor .page-nav button:hover { background: #f4f3fc !important; }
+  #scripts-editor .page-nav .page-jump { font: 500 14px 'DM Sans', sans-serif !important; color: #6b6b78 !important; gap: 6px; }
+  #scripts-editor .page-nav select {
+    min-height: 38px; border: 1px solid var(--se-line) !important; border-radius: 8px !important; background: #fbfaf7 !important;
+    color: #141414 !important; font: 600 15px 'DM Sans', sans-serif !important; padding: 0 6px !important;
+  }
+  #scripts-editor .page-nav #page-total { color: #6b6b78; }
+  #scripts-editor .zoom-group { margin-left: 4px !important; padding-left: 6px !important; border-left: 1px solid var(--cue-border) !important; gap: 2px !important; }
+  #scripts-editor .zoom-group #zoom-info { color: #6b6b78 !important; font: 500 13px 'DM Mono', monospace !important; min-width: 44px; }
+  #scripts-editor .viewer:has(#mv-drawer.open) .page-nav { display: none !important; }
+  body.se-touch #scripts-editor.place-mode .place-banner { bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important; }
+
+  /* Cue list */
+  #scripts-editor .cue-panel { width: 320px; background: #fff !important; border-left: 1px solid var(--cue-border) !important; }
+  #scripts-editor .cue-panel-header { padding: 14px 16px 10px !important; border-bottom: none !important; background: #fff !important; }
+  #scripts-editor .cue-panel-header h3 { font-size: 17px !important; font-weight: 700 !important; color: #141414; }
+  #scripts-editor .cue-panel-header #cue-count { font: 400 12px 'DM Mono', monospace !important; color: #96969f !important; }
+  #scripts-editor .cue-list { padding: 0 !important; }
+  #scripts-editor.compact .cue-table tr {
+    grid-template-columns: auto auto minmax(0, 1fr) auto !important;
+    grid-template-areas: "type num . pg" "act act line line" "notes notes notes notes" !important;
+    column-gap: 8px !important; row-gap: 3px !important; padding: 11px 16px !important; border-bottom: 1px solid var(--cue-border2) !important;
+  }
+  #scripts-editor.compact .cue-table td:nth-child(3) { color: #6b6b78; font-size: 13px !important; }
+  #scripts-editor.compact .cue-table td:nth-child(4) { grid-area: line; justify-self: end; color: #6b6b78; font-size: 13px !important; }
+  #scripts-editor.compact .cue-table td:nth-child(6)::before { content: none !important; }
+  #scripts-editor.compact .cue-table td:nth-child(6) { font: 400 12px 'DM Mono', monospace !important; color: #96969f; }
+  #scripts-editor .cue-table .ct-type { font-size: 11px !important; padding: 3px 8px !important; border-radius: 9px !important; letter-spacing: 0.02em; }
+  #scripts-editor .cue-table .ct-num { font: 700 15px 'DM Sans', sans-serif !important; color: #141414; }
+  #scripts-editor .cue-table .ct-moves { color: #6b6b78; font: 400 13px 'DM Sans', sans-serif !important; margin-left: 0; }
+  #scripts-editor .cue-table .ct-action:not(:empty) .ct-moves { margin-left: 8px; }
+  #scripts-editor .ct-linepic { display: inline-flex; align-items: center; gap: 4px; color: #6b6b78; font-style: normal; }
+  #scripts-editor.compact .cue-table tr.cue-selected { background: #f4f3fc !important; box-shadow: inset 3px 0 0 #534AB7 !important; }
+  #scripts-editor .cue-table tr:hover td { background: none !important; }
+  #scripts-editor.compact .cue-table tr.ct-scene { display: block !important; padding: 0 !important; border: none !important; }
+  #scripts-editor.compact .cue-table tr.ct-scene td {
+    display: flex !important; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 8px 16px !important; background: #EEEDFE !important; color: #3C3489;
+    font: 700 12px 'DM Sans', sans-serif !important; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  #scripts-editor.compact .cue-table tr.ct-scene td small { font: 500 12px 'DM Mono', monospace; letter-spacing: 0; color: #6d64c9; text-transform: none; }
+  #scripts-editor.compact .cue-table tr.ct-scene.cue-selected td { box-shadow: inset 3px 0 0 #534AB7; background: #e4e1fb !important; }
+
+  /* Details + cue types under the list */
+  #scripts-editor .cue-add, #scripts-editor .type-manager { background: #fff !important; }
+  #scripts-editor .cue-add input, #scripts-editor .cue-add select {
+    background: #fbfaf7 !important; border: 1px solid var(--se-line) !important; color: #141414 !important; border-radius: 10px !important; min-height: 44px;
+  }
+  #scripts-editor .cue-add input:disabled { opacity: 0.6; }
+  #scripts-editor #cue-form-mode { color: #6b6b78 !important; }
+
+  /* Set change drawer */
+  #scripts-editor #mv-drawer { background: #fff !important; box-shadow: 0 -10px 28px rgba(20,20,37,0.14) !important; }
+  #scripts-editor #mv-drawer .mvd-title { color: #141414 !important; font-size: 14px !important; }
+  #scripts-editor #mv-drawer table.mv-grid input { background: #fbfaf7 !important; border: 1px solid var(--se-line) !important; color: #141414 !important; border-radius: 8px !important; }
+  #scripts-editor #mv-drawer table.mv-grid th { color: #6b6b78 !important; }
+  #scripts-editor .mv-add { color: #534AB7 !important; border-color: var(--se-line) !important; font-weight: 600 !important; }
+  #scripts-editor .spk-btn { background: #fff !important; border-color: #cfcde0 !important; }
+  #spk-pop { --cue-surface: #fff; --cue-surface2: #fbfaf7; --cue-border: #e6e5ec; --cue-text: #141414; --cue-text-muted: #6b6b78; color: #141414 !important; }
+  #spk-pop .spk-head a { color: #534AB7 !important; }
+  #spk-pop .spk-opt.on { background: #f4f3fc !important; }
+  #ac-pop { --cue-surface: #fff; --cue-border: #e6e5ec; --cue-text: #141414; --cue-surface2: #f4f3fc; }
+
+  /* Edit / type / history dialogs follow the light look */
+  .cue-edit { background: #fff !important; color: #141414 !important; }
+  .cue-edit label, .cue-edit h3 + p { color: #6b6b78 !important; }
+  .cue-edit input, .cue-edit textarea, .cue-edit select { background: #fbfaf7 !important; border: 1px solid #dcdbe4 !important; color: #141414 !important; }
+  .cue-edit-btns .top-btn { background: #fff !important; color: #282828 !important; border: 1px solid #dcdbe4 !important; }
+  .cue-edit-btns .top-btn.primary { background: #534AB7 !important; border-color: #534AB7 !important; color: #fff !important; }
+  table.preset-grid .pg-name { color: #141414 !important; }
+  table.preset-grid input { background: #fbfaf7 !important; color: #141414 !important; border-color: #dcdbe4 !important; }
+
+  /* Narrow phone: Script/Cues switch sits on its own row under the title */
+  @media (max-width: 768px) {
+    #scripts-editor.compact .cue-topbar { flex-wrap: wrap !important; row-gap: 8px !important; }
+    #scripts-editor.compact .cue-topbar-left { flex: 1 1 calc(100% - 60px) !important; order: 0; min-width: 0; }
+    #scripts-editor.compact .cue-topbar-actions { order: 1; }
+    #scripts-editor.compact .sv-switch { order: 2 !important; flex: 1 1 100%; display: flex !important; }
+    /* The set change grid keeps usable columns and scrolls sideways. */
+    #scripts-editor #mv-drawer table.mv-grid { min-width: 640px; }
+    #scripts-editor .sv-switch .sv-btn { flex: 1; }
+    #scripts-editor .se-link { display: none !important; }
+    #scripts-editor .se-name { font-size: 16px; }
+    #scripts-editor .se-sub { display: none; }
+    #scripts-editor .tool-sidebar { padding: 8px 12px !important; }
+    #scripts-editor .canvas-wrap { padding: 12px 6px 84px !important; }
+    #scripts-editor .page-nav .zoom-group { display: none !important; }
+    #scripts-editor .cue-panel { width: 100% !important; border-left: none !important; }
+    #scripts-editor .cue-main { flex-direction: column !important; }
+    #scripts-editor .sv-menu { right: 12px; width: min(290px, calc(100vw - 24px)); }
+  }
+
   /* Scan to carry on with it in your hand. Baked in rather than fetched, so it
      works on a screen with no connection. */
   .tv-qr {
@@ -5779,9 +5962,13 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 <div id="scripts-editor">
   <div class="cue-topbar">
     <div class="cue-topbar-left">
-      <button class="top-btn se-back" onclick="goHome()" aria-label="Back to scripts">←</button>
-      <h1>Scripts</h1>
-      <span class="show-name" id="show-name"></span>
+      <button class="top-btn se-back" onclick="goHome()" aria-label="Back to scripts"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <div class="se-title">
+        <div class="se-name" id="se-name"></div>
+        <div class="se-sub"><span id="se-count"></span><span class="cue-save-status" id="cue-save-status"></span></div>
+      </div>
+      <!-- Raw script filename; exports read it. The tidy name shows in se-name. -->
+      <span class="show-name" id="show-name" hidden></span>
     </div>
     <!-- Phone only: one pane at a time instead of three fighting for 390px. -->
     <div class="sv-switch" id="sv-switch" role="tablist" aria-label="Scripts view">
@@ -5789,42 +5976,45 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
       <button class="sv-btn"    data-sv="cues"   onclick="setScriptsView('cues')">Cues</button>
     </div>
     <div class="cue-topbar-actions">
-      <span class="cue-save-status" id="cue-save-status"></span>
-      <!-- Inline on a desk; folds into the ⋯ dropdown on a touchscreen. -->
+      <button class="top-btn se-link" onclick="openCueSheetPage()">Cue sheet</button>
+      <button class="top-btn se-link" onclick="openSpikeMap()">Spike map</button>
+      <!-- Pages that have their own home open there; this menu keeps what
+           belongs to the script itself. -->
       <div class="sv-menu" id="sv-menu" onclick="closeScriptTools()">
+        <div class="mi-head">Open</div>
+        <button class="top-btn" onclick="openCueSheetPage()">Cue sheet<svg class="mi-ext" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg></button>
+        <button class="top-btn" onclick="openCueSheetPage('shift')">Set change plot<svg class="mi-ext" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg></button>
+        <button class="top-btn" onclick="openCueSheetPage('presets')">Before House presets<svg class="mi-ext" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg></button>
+        <button class="top-btn" onclick="openSpikeMap()">Spike map<svg class="mi-ext" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg></button>
+        <div class="mi-sep"></div>
+        <div class="mi-head">This script</div>
+        <button class="top-btn" onclick="exportAnnotatedPDF()">Export script PDF</button>
+        <button class="top-btn" onclick="toggleCueTypesPanel()">Edit cue types</button>
         <button class="top-btn" onclick="openCueHistory()">History</button>
-        <button class="top-btn" onclick="openPresets()">Presets</button>
-        <button class="top-btn" onclick="exportCueSheet()">Export Cues</button>
-        <button class="top-btn" onclick="exportSetChangePlot()">Export Scene Change Plot</button>
-        <button class="top-btn" onclick="exportSetChangeXLSX()">Scene Changes → Excel</button>
-        <button class="top-btn" onclick="exportAnnotatedPDF()">Export PDF</button>
-        <button class="top-btn" onclick="openSpikeMap()">Spike map</button>
-        <button class="top-btn se-types-btn" onclick="toggleCueTypesPanel()">Edit cue types</button>
       </div>
-      <button class="top-btn sv-more" onclick="toggleScriptTools(event)" aria-label="More tools">⋯</button>
-      <button class="top-btn primary se-back-desk" onclick="goHome()">← Scripts</button>
+      <button class="top-btn sv-more" onclick="toggleScriptTools(event)" aria-label="More">⋯</button>
     </div>
   </div>
+  <!-- Cue types along the top: wide is what a script page has spare. -->
+  <div class="tool-sidebar">
+    <button class="tool-btn active" id="tool-cue" onclick="setTool('cue')" title="Place Cue" aria-label="Place Cue" hidden></button>
+    <!-- Touch only: a finger scrolls the script unless this is armed. -->
+    <button class="tool-btn se-mode-btn" id="se-mode-btn" onclick="setPlaceMode(!sePlaceMode)" title="Mark cues" aria-label="Mark cues"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg><span>Mark</span></button>
+    <div class="tool-divider"></div>
+    <div id="type-quick"></div>
+    <div class="tool-spacer"></div>
+    <button class="tool-btn" onclick="undo()" title="Undo" aria-label="Undo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg></button>
+  </div>
   <div class="cue-main">
-    <!-- TOOL SIDEBAR -->
-    <div class="tool-sidebar">
-      <button class="tool-btn active" id="tool-cue" onclick="setTool('cue')" title="Place Cue" aria-label="Place Cue">🔵</button>
-      <!-- Touch only: a finger scrolls the script unless this is armed. -->
-      <button class="tool-btn se-mode-btn" id="se-mode-btn" onclick="setPlaceMode(!sePlaceMode)" title="Mark cues" aria-label="Mark cues">✏️</button>
-      <div class="tool-divider"></div>
-      <button class="tool-btn" onclick="undo()" title="Undo" aria-label="Undo">↩</button>
-      <div class="tool-divider"></div>
-      <div id="type-quick" style="display:flex;flex-direction:column;gap:3px;align-items:center;"></div>
-    </div>
     <!-- PDF VIEWER -->
     <div class="viewer">
       <div class="page-nav">
-        <button onclick="prevPage()" aria-label="Previous page">◀<span class="pn-word"> Prev</span></button>
+        <button onclick="prevPage()" aria-label="Previous page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
         <span class="page-jump">Page
           <select id="page-sel" onchange="goToPage(parseInt(this.value, 10))" title="Jump to page"></select>
           / <span id="page-total">1</span>
         </span>
-        <button onclick="nextPage()" aria-label="Next page"><span class="pn-word">Next </span>▶</button>
+        <button onclick="nextPage()" aria-label="Next page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
         <span class="zoom-group">
           <button onclick="zoomOut()" title="Zoom out (−)" aria-label="Zoom out (−)">−</button>
           <span id="zoom-info" onclick="zoomReset()" title="Click to reset to 100%">100%</span>
@@ -5857,7 +6047,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
     <div class="cue-panel" id="cue-panel">
       <div class="panel-resizer" id="panel-resizer" title="Drag to resize"></div>
       <div class="cue-panel-header">
-        <h3>Cue Sheet</h3>
+        <h3>Cues</h3>
         <span style="font-size:12px;color:var(--cue-text-faint);" id="cue-count">0 cues</span>
       </div>
       <div class="cue-list" id="cue-list" style="overflow-x:auto;"></div>
@@ -6266,7 +6456,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.11 v6</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.11 v7</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -15724,7 +15914,7 @@ function seUpdateLayout() {
   try { touch = window.matchMedia('(pointer: coarse)').matches; } catch (e) {}
   document.body.classList.toggle('se-touch', touch);
   const ed = document.getElementById('scripts-editor');
-  if (ed) ed.classList.toggle('compact', touch || seIsNarrow());
+  if (ed) ed.classList.add('compact');
 }
 
 function setPlaceMode(on) {
@@ -16142,7 +16332,7 @@ function updateToolCursor() {
 function renderColorSwatches() {
   const selType = document.getElementById('cue-type-sel').value;
   document.getElementById('type-quick').innerHTML = cueTypes.map(t =>
-    `<button class="cue-type-quick-btn" style="border-color:${t.color};${t.id===selType?`background:${t.color};color:#fff;`:`color:${t.color};`}" onclick="quickSetType('${t.id}')" title="${t.name}">${esc(t.name)}</button>`
+    `<button class="cue-type-quick-btn${t.id === selType ? ' on' : ''}" style="--tc:${t.color}" onclick="quickSetType('${t.id}')" title="${esc(t.name)}"><i></i>${esc(t.name)}</button>`
   ).join('');
 }
 
@@ -16297,6 +16487,8 @@ function renderCueList() {
   // Cue set may have changed, so the page selector's dots need re-deriving.
   try { renderPageSelect(); } catch(e) {}
   document.getElementById('cue-count').textContent = cues.length + ' cue' + (cues.length !== 1 ? 's' : '');
+  const seCount = document.getElementById('se-count');
+  if (seCount) seCount.textContent = cues.length + ' cue' + (cues.length !== 1 ? 's' : '');
   const el = document.getElementById('cue-list');
   if (!sorted.length) {
     el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-faint);font-size:13px;">No cues yet.<br>Select a type and drag on the script to place cues.</div>';
@@ -16311,13 +16503,21 @@ function renderCueList() {
       const typeName = t ? t.name : c.type;
       const isShift = c.type === SHIFT_TYPE_ID;
       const nMoves = (c.moves || []).length;
+      // Scenes divide the list, the way they divide the cue sheet.
+      if (c.type === SCENE_TYPE_ID) {
+        const label = [c.number, c.action].map(v => String(v || '').trim()).filter(Boolean).join(' · ') || 'Scene';
+        return `<tr class="ct-scene" data-cue-id="${c.id}" onclick="onCueRowTap('${c.id}')" ondblclick="editCue('${c.id}')">
+          <td colspan="6"><span>${esc(label)}</span><small>p.${c.page}</small></td></tr>`;
+      }
+      // The chip already says the type, so "SHIFT 3" reads as just "3".
+      const num = seShortNum(c.number, typeName);
       const row = `<tr data-cue-id="${c.id}" onclick="onCueRowTap('${c.id}')" ondblclick="editCue('${c.id}')">
         <td><span class="ct-type" style="background:${color}">${typeName}</span></td>
-        <td class="ct-num">${c.number || ''}</td>
-        <td class="ct-action">${c.action || ''}${isShift && nMoves ? ` <span class="ct-moves">${nMoves} move${nMoves !== 1 ? 's' : ''}</span>` : ''}</td>
-        <td class="ct-line">${c.cueLine ? c.cueLine : (c.lineCrop ? '<span style="opacity:0.5;" title="Script line captured as image">📷 line</span>' : '')}</td>
-        <td class="ct-notes">${c.notes || c.description || ''}</td>
-        <td>${c.page}</td>
+        <td class="ct-num">${esc(num)}</td>
+        <td class="ct-action">${esc(c.action || '')}${isShift ? `<span class="ct-moves">${nMoves} move${nMoves !== 1 ? 's' : ''}</span>` : ''}</td>
+        <td class="ct-line">${c.cueLine ? esc(c.cueLine) : (c.lineCrop ? '<span class="ct-linepic" title="Script line captured as an image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg>Line</span>' : '')}</td>
+        <td class="ct-notes">${esc(c.notes || c.description || '')}</td>
+        <td>p.${c.page}</td>
       </tr>`;
       return row;
     }).join('')}</tbody>
@@ -16727,6 +16927,32 @@ function toggleCueTypesPanel(on) {
   // On a phone the panel lives on the Cues view.
   if (show && seIsNarrow() && _scriptsView !== 'cues') setScriptsView('cues');
 }
+// The cue sheet page for this script, in its own tab. view: 'shift' opens the
+// set change plot, 'presets' the Before House sheet.
+function openCueSheetPage(view) {
+  const name = (document.getElementById('show-name') || {}).textContent || '';
+  const q = [];
+  if (showId) q.push('script=' + encodeURIComponent(showId));
+  if (name) q.push('name=' + encodeURIComponent(name));
+  if (view === 'shift') q.push('type=shift');
+  if (view === 'presets') q.push('view=presets');
+  window.open('cue-list.html' + (q.length ? '?' + q.join('&') : ''), '_blank');
+}
+
+// "SHIFT 3" under a SHIFT chip reads as just "3".
+function seShortNum(number, typeName) {
+  const n = String(number || ''), t = String(typeName || '');
+  return (t && n.toLowerCase().startsWith(t.toLowerCase()) ? n.slice(t.length).trim() : n) || n;
+}
+
+// The header shows the show's name, not the file's: "It's a wonderful life
+// script pdf 2026 MM" reads as "It's a wonderful life".
+function seSyncName() {
+  const raw = (document.getElementById('show-name') || {}).textContent || '';
+  const el = document.getElementById('se-name');
+  if (el) el.textContent = raw ? cleanShowName(raw) : 'Script';
+}
+
 // The spike tape key for the script that's open, in its own tab.
 function openSpikeMap() {
   const name = (document.getElementById('show-name') || {}).textContent || '';
@@ -18132,7 +18358,9 @@ function cleanShowName(raw) {
     const before = n;
     n = n.replace(/\.(pdf|docx?|txt)$/i, '')
          .replace(/\s*\(\s*\d+\s*\)\s*$/, '')
-         .replace(/\s*[-–—_]?\s*\b(script|libretto|final|draft|copy|rev\.?\s*\d*|v\d+)\b\s*$/i, '')
+         // "… 2026 MM": a season year, maybe with the company's initials after it.
+         .replace(/\s+(19|20)\d{2}(\s+[A-Z]{1,4})?$/, '')
+         .replace(/\s*[-–—_]?\s*\b(script|libretto|pdf|final|draft|copy|rev\.?\s*\d*|v\d+)\b\s*$/i, '')
          .trim();
     if (n === before) break;
   }
@@ -18870,6 +19098,11 @@ function openScriptsEditor() {
   initCuePanelResize();
   initCueFormResize();
   seInitTouch();
+  seSyncName();
+  try {
+    const sn = document.getElementById('show-name');
+    if (sn && !sn.dataset.watch) { sn.dataset.watch = '1'; new MutationObserver(seSyncName).observe(sn, { childList: true, characterData: true, subtree: true }); }
+  } catch (e) {}
   initZoom();
   spkLoad(() => { if (mvDrawerCueId) renderMoveDrawer(false); });
   // Default to the cue tool with the first cue type selected

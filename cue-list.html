@@ -428,6 +428,23 @@
     background: none; color: var(--muted); cursor: pointer;
   }
   .mv-plus:hover { border-style: solid; color: var(--text); }
+  /* ── Export / history / toast ── */
+  .overlay.open { display: flex; }
+  .export-opts { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 14px; }
+  .export-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 56px; padding: 10px 14px;
+    border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); text-align: left; font: inherit; }
+  .export-opt b { font-size: 16px; }
+  .export-opt span { font-size: 13px; color: var(--text-muted); }
+  .export-opt:hover { border-color: var(--purple); background: var(--purple-light); }
+  .hist-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+  .hist-when { font-weight: 600; font-size: 14px; }
+  .hist-what { font-size: 13px; color: var(--text-muted); }
+  #history-body { max-height: 55vh; overflow-y: auto; margin-bottom: 10px; }
+  #toast { position: fixed; left: 50%; bottom: calc(24px + var(--safe-b)); transform: translateX(-50%) translateY(20px); opacity: 0;
+    background: #1e1e32; color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 14px; z-index: 9000; pointer-events: none;
+    transition: opacity .2s, transform .2s; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
   /* ── Spike chips (from the spike map) ── */
   .spk-line { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-family: 'DM Sans', sans-serif; }
   .spk-chip { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
@@ -571,6 +588,7 @@
       <button class="top-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Dark mode">🌙</button>
       <button class="top-btn" id="photo-btn" onclick="setPhotos(!showPhotos)" title="Show or hide all line photos">Photos</button>
       <button class="top-btn" id="awake-btn" onclick="toggleAwake()" title="Keep the screen on">Awake</button>
+      <button class="top-btn" id="export-btn" onclick="openExport()" title="Download the cue sheet or set change plot">Export</button>
       <span class="edit-state" id="edit-state"></span>
       <button class="top-btn" id="edit-btn" onclick="setEditMode(!editMode)" title="Edit set changes">Edit</button>
       <button class="top-btn" onclick="openSheet()">Script</button>
@@ -591,6 +609,29 @@
   </header>
 
   <div class="sheet-wrap"><div class="sheet" id="sheet-body"></div></div>
+</div>
+
+<!-- ── EXPORT ─────────────────────────────────────────────────────────────── -->
+<div class="overlay" id="export-sheet" onclick="if(event.target===this) closeExport()">
+  <div class="modal">
+    <h3>Export</h3>
+    <div class="export-opts">
+      <button class="export-opt" onclick="runExport('cues')"><b>Cue sheet</b><span>PDF of every cue, with line photos</span></button>
+      <button class="export-opt" onclick="runExport('plot')"><b>Set change plot</b><span>PDF for the deck: Before House, then every change</span></button>
+      <button class="export-opt" onclick="runExport('xlsx')"><b>Set change plot (Excel)</b><span>The same plot as a spreadsheet</span></button>
+    </div>
+    <div class="modal-btns"><button class="top-btn" onclick="closeExport()">Cancel</button></div>
+  </div>
+</div>
+
+<!-- ── HISTORY ────────────────────────────────────────────────────────────── -->
+<div class="overlay" id="history" onclick="if(event.target===this) closeHistory()">
+  <div class="modal">
+    <h3>Set change history</h3>
+    <p class="note">Snapshots kept on this device. Restoring puts back the set changes only.</p>
+    <div id="history-body"></div>
+    <div class="modal-btns"><button class="top-btn primary" onclick="closeHistory()">Done</button></div>
+  </div>
 </div>
 
 <!-- ── MOVE SHEET (edit mode) ───────────────────────────────────────────────── -->
@@ -627,6 +668,9 @@
       <button data-sz="16" onclick="setSize(16)">Large</button>
       <button data-sz="19" onclick="setSize(19)">Huge</button>
     </div>
+
+    <label style="margin-top:18px;">Set change history</label>
+    <div class="size-row"><button onclick="openHistory()">Open history</button></div>
 
     <label style="margin-top:18px;">Spike tape</label>
     <div class="size-row"><button onclick="openSpikeMap()">Open the spike map</button></div>
@@ -848,6 +892,7 @@ function cleanShowName(raw){
   let s = String(raw || '').replace(/\.[a-z0-9]{2,4}$/i, '');
   for (let i = 0; i < 4; i++){
     s = s.replace(/\s*\(\d+\)\s*$/,'')
+         .replace(/\s+(19|20)\d{2}(\s+[A-Z]{1,4})?$/,'')
          .replace(/\s*[-–—]?\s*(final|draft|copy|rev\.?\s*\d*|v\d+)\s*$/i,'')
          .replace(/\s*(script|libretto|pdf)\s*$/i,'');
   }
@@ -1417,6 +1462,1132 @@ function cueRow(c, band){
 }
 
 
+
+// ══ EXPORTS ══════════════════════════════════════════════════════════════════
+// The cue sheet PDF, the set change plot PDF and the set change spreadsheet
+// live here now, next to the sheet they print. The code below is the
+// dashboard's, carried over as-is; these few lines give it what it expects.
+// Keep the two copies in step.
+const isSceneCue = c => isScene(c);
+const isStructuralCue = c => isScene(c);
+function sceneLabels(){
+  const out = {};
+  cues.forEach(c => { if (isScene(c)) out[c.id] = String(c.number || '').trim(); });
+  return out;
+}
+try { Object.defineProperty(window, 'showId', { get(){ return scriptId; }, configurable: true }); } catch(e) {}
+function toast(msg){
+  let el = document.getElementById('toast');
+  if (!el){ el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 2600);
+}
+function openExport(){
+  if (!scriptId || !cues.length){ toast('Pick a script with cues first'); return; }
+  document.getElementById('export-sheet').classList.add('open');
+}
+function closeExport(){ document.getElementById('export-sheet').classList.remove('open'); }
+async function runExport(kind){
+  closeExport();
+  try {
+    if (kind === 'cues') await exportCueSheet();
+    else if (kind === 'plot') await exportSetChangePlot();
+    else if (kind === 'xlsx') await exportSetChangeXLSX();
+  } catch(e) { console.error(e); toast('Export failed — try again'); }
+}
+
+// ══ HISTORY ══════════════════════════════════════════════════════════════════
+// The same snapshots the dashboard keeps on this device (one key per script),
+// plus one this page takes before every save it makes. Restoring from here
+// only puts back set change moves — snapshots carry no cue positions, so a
+// whole-show restore from here could wipe them. The current Sheet copy is
+// snapshotted first, so a restore can itself be undone.
+const SNAP_MAX = 12, SNAP_BUDGET = 1500000;
+function snapKey(){ return 'mmt_cues_snap_' + scriptId; }
+function getSnaps(){ try { return JSON.parse(lsGet(snapKey(), '[]')) || []; } catch(e){ return []; } }
+function saveSnap(data, reason){
+  if (!scriptId || !data) return;
+  try {
+    const snaps = getSnaps();
+    const strip = { ...data };
+    delete strip.annotations;
+    if (Array.isArray(strip.cues)) strip.cues = strip.cues.map(c => (c && typeof c.lineCrop === 'string' && c.lineCrop.startsWith('data:')) ? (({ lineCrop, ...r }) => r)(c) : c);
+    snaps.push({ at: Date.now(), rev: data._rev || 0, reason: reason || 'auto',
+      cueCount: (data.cues || []).length,
+      moveCount: (data.cues || []).reduce((n, c) => n + ((c.moves && c.moves.length) || 0), 0),
+      data: strip });
+    while (snaps.length > SNAP_MAX) snaps.shift();
+    let blob = JSON.stringify(snaps);
+    while (snaps.length > 1 && blob.length > SNAP_BUDGET){ snaps.shift(); blob = JSON.stringify(snaps); }
+    localStorage.setItem(snapKey(), blob);
+  } catch(e) {}
+}
+function openHistory(){
+  closeSheet();
+  if (!scriptId){ toast('Pick a script first'); return; }
+  const snaps = getSnaps().slice().reverse();
+  const when = ms => {
+    const mins = Math.round((Date.now() - ms) / 60000);
+    const rel = mins < 1 ? 'just now' : mins < 60 ? mins + ' min ago' : mins < 1440 ? Math.round(mins / 60) + ' hr ago' : Math.round(mins / 1440) + ' days ago';
+    return new Date(ms).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' · ' + rel;
+  };
+  document.getElementById('history-body').innerHTML = snaps.length
+    ? snaps.map((sn, i) => `<div class="hist-row">
+        <div><div class="hist-when">${esc(when(sn.at))}</div>
+          <div class="hist-what">${sn.cueCount} cues · ${sn.moveCount} moves${sn.reason && sn.reason !== 'edit' && sn.reason !== 'auto' ? ' · ' + esc(sn.reason) : ''}</div></div>
+        <button class="top-btn" onclick="restoreSnap(${snaps.length - 1 - i})">Restore</button></div>`).join('')
+    : '<div class="note">No snapshots on this device yet. One is kept every few minutes while the dashboard is open, and before every save from this page.</div>';
+  document.getElementById('history').classList.add('open');
+}
+function closeHistory(){ document.getElementById('history').classList.remove('open'); }
+function restoreSnap(idx){
+  if (editMode){ toast('Finish editing first (tap Done)'); return; }
+  const sn = getSnaps()[idx];
+  if (!sn || !sn.data){ toast('That snapshot is missing'); return; }
+  if (!confirm('Put back the set changes from this snapshot (' + sn.moveCount + ' moves)?\n\nCue positions and other cues are left as they are. The current version is saved to History first, so this can be undone.')) return;
+  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), d => {
+    if (!d || !d.success || !d.cueData){ toast('Could not reach the Sheet'); return; }
+    const fresh = d.cueData;
+    saveSnap(fresh, 'before restoring on the cue sheet');
+    const byId = {};
+    (sn.data.cues || []).forEach(c => { if (c && c.type === SHIFT_TYPE_ID) byId[c.id] = c.moves || []; });
+    let n = 0;
+    (fresh.cues || []).forEach(c => { if (c.id in byId){ c.moves = JSON.parse(JSON.stringify(byId[c.id])); n++; } });
+    fresh._rev = (fresh._rev || 0) + 1;
+    fresh._savedAt = new Date().toISOString();
+    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'saveCueData', scriptId, cueData: fresh }) })
+      .then(r => { if (!r.ok) throw new Error(); closeHistory(); toast('Restored ' + n + ' set changes'); fetchCues(true); })
+      .catch(() => toast('Restore failed — nothing was changed'));
+  }, () => toast('Could not reach the Sheet'));
+}
+// ── EXPORT ───────────────────────────────────────────────────────────────────
+// ── SET CHANGE PLOT EXPORT ───────────────────────────────────────────────────
+// One block per SHIFT cue: its moves print together, then a rule, then the next
+// change. Scenes get a solid bar. Deliberately its own document rather than a
+// section of the cue sheet — this is what goes on the deck, and nobody running
+// a change wants to page past LX cues to find it.
+async function exportSetChangePlot() {
+  const ordered = cuesInScriptOrder();
+  const changes = ordered.filter(c => c.type === SHIFT_TYPE_ID);
+  if (!changes.length) { toast('No set changes to export'); return; }
+
+  let jsPDFCtor = null;
+  try { jsPDFCtor = await loadJsPDF(); } catch (err) {}
+  if (!jsPDFCtor) { toast('Could not load PDF library'); return; }
+
+  toast('Building set change plot…');
+
+  // The header reads off the uploaded script's filename, which carries junk the
+  // audience for this document doesn't care about: "The Will Rogers Follies
+  // Script (1)" is a Drive de-duplication artifact, not a show title. Strip the
+  // extension, any trailing "(2)", and the words that describe the file rather
+  // than the production. Looped because they stack — "…Script (1).pdf".
+  const rawName = document.getElementById('show-name').textContent || 'Untitled';
+  const showName = cleanShowName(rawName);   // shared helper, see above
+  const now = new Date();
+  const exportedStr = now.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
+    + ' at ' + now.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+
+  // Landscape: the plot is seven columns and Notes carries whole sentences
+  // ("May need to come on later than this"), which wrap two and three deep on a
+  // portrait page. 704pt of printable width instead of 524 buys most of that back.
+  const doc = new jsPDFCtor({ orientation: 'l', unit: 'pt', format: 'letter' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+
+  // 9.5/12 rather than 8.5/10: this gets read backstage in blue light, not at a
+  // desk. Landscape supplied the width to pay for it.
+  const M = 44, PAD = 6, LEAD = 12, FS = 9.5;
+  const MIN_ROW = 20, MARGIN_BOTTOM = 46;
+  const GRID = [205, 205, 214];
+  const HEAD_BG = [232, 232, 240];
+  const SCENE_BAR = [38, 38, 46];       // black bar = scene
+  const BREAK_RULE = [150, 150, 162];   // grey rule = next change, same scene
+  const BLOCK_TINT = [237, 238, 243];   // every other change, so blocks read as units
+
+  // Widths total the printable 704pt so the table squares off at both margins.
+  // Most of the extra width goes to NOTES, which is the column that was
+  // actually wrapping, and to PIECE ("Vaudville drop", "Dressing Screen").
+  // The old single CUE column fell back to the cue's name when no trigger was
+  // typed, so it printed "SCENE CHANGE 1…28" — the widest column on the page
+  // spent on a phrase that repeats every block. Split: a narrow number to call
+  // over headset, and the trigger itself in the space that frees up.
+  const COLS = [
+    { key: 'num',    label: '#',         w: 30,  bold: true },
+    { key: 'cue',    label: 'CUE',       w: 130 },
+    { key: 'pg',     label: 'PG',        w: 30  },
+    { key: 'piece',  label: 'PIECE',     w: 130, bold: true },
+    { key: 'action', label: 'ACTION',    w: 68  },
+    { key: 'who',    label: 'WHO',       w: 88  },
+    { key: 'spike',  label: 'SPIKE',     w: 112 },
+    { key: 'notes',  label: 'NOTES',     w: 116 },
+  ];
+  // "SCENE CHANGE 12" -> "12". Falls back to the whole label so a change named
+  // something without digits still prints something.
+  const shortNum = v => {
+    const m = String(v || '').match(/(\d+[A-Za-z.]*)\s*$/);
+    return m ? m[1] : String(v || '').trim();
+  };
+  const X = []; { let x = M; for (const c of COLS) { X.push(x); x += c.w; } }
+  const TABLE_W = COLS.reduce((s, c) => s + c.w, 0);
+
+  let y = 0;
+
+  // Title left, timestamp beneath it, a rule tying the block to the table. Page
+  // numbers are stamped at the end, once the total is known.
+  function drawTitle() {
+    y = 52;
+    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(22,22,28);
+    doc.text(showName, M, y);
+    // Measure while the 15pt bold face is still active — getTextWidth reports
+    // against the current font, so doing this after the switch would size the
+    // gap off the wrong metrics.
+    const titleW = doc.getTextWidth(showName);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(120,120,132);
+    doc.text('Set Changes', M + titleW + 9, y);
+    y += 13;
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(150,150,160);
+    doc.text('Updated ' + exportedStr, M, y);
+    y += 7;
+    doc.setDrawColor(38,38,46); doc.setLineWidth(1.1);
+    doc.line(M, y, M + TABLE_W, y);
+    y += 13;
+  }
+  function drawHeader() {
+    const h = 18;
+    doc.setFillColor(...HEAD_BG); doc.rect(M, y, TABLE_W, h, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(90,90,105);
+    COLS.forEach((c,i) => doc.text(c.label, X[i] + PAD, y + 12));
+    doc.setDrawColor(...GRID); doc.setLineWidth(0.5);
+    COLS.forEach((c,i) => doc.line(X[i], y, X[i], y + h));
+    doc.line(M + TABLE_W, y, M + TABLE_W, y + h);
+    doc.setDrawColor(140,140,155); doc.setLineWidth(0.9);
+    doc.line(M, y + h, M + TABLE_W, y + h);
+    y += h;
+  }
+  // Whichever scene we're inside, so a page that opens mid-scene can say so
+  // rather than starting with unlabelled rows.
+  let curScene = '';
+
+  // withCont=false when a scene is being moved to this page deliberately — it's
+  // about to draw its own bar, and a "(cont.)" above it would be a lie.
+  function newPage(withCont) {
+    doc.addPage(); drawTitle(); drawHeader();
+    if (withCont !== false && curScene) drawSceneBar(curScene + ' (cont.)', true);
+  }
+  function ensureRoom(h) {
+    if (y + h > pageH - MARGIN_BOTTOM && y > 90) { newPage(true); return true; }
+    return false;
+  }
+  // isCont guards the recursion: a continuation bar is drawn immediately after
+  // a fresh header, so it must not call ensureRoom and spawn another page.
+  function drawSceneBar(label, isCont) {
+    const h = 18;
+    if (!isCont) ensureRoom(h + 26);   // never strand a scene bar at the foot of a page
+    doc.setFillColor(...SCENE_BAR); doc.rect(M, y, TABLE_W, h, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
+    doc.text(String(label || '').toUpperCase(), M + PAD, y + 12.5);
+    y += h;
+  }
+  function drawBreakRule() {
+    doc.setDrawColor(...BREAK_RULE); doc.setLineWidth(1.4);
+    doc.line(M, y, M + TABLE_W, y);
+    y += 1.4;
+  }
+
+  drawTitle();
+
+  // ── Before house opens ─────────────────────────────────────────────────────
+  // Its own short table ahead of the plot proper: what's onstage or standing by
+  // when the doors open. Every piece in the show prints unless it's been turned
+  // off in the Presets dialog — a blank location is a gap someone should fill,
+  // and hiding it would hide the gap. Presets written inside a scene change
+  // stay in that change; this section is about the state at top of show.
+  const presetRows = allPieces()
+    .map(({ key, piece }) => ({ ...(presets[key] || {}), piece }))
+    .filter(r => !r.hidden);
+
+  if (presetRows.length) {
+    const PC = [
+      { key: 'piece',    label: 'PIECE',           w: 180, bold: true },
+      { key: 'location', label: 'PRESET LOCATION', w: 244 },
+      { key: 'notes',    label: 'NOTES',           w: 280 },
+    ];
+    const PX = []; { let x = M; for (const c of PC) { PX.push(x); x += c.w; } }
+
+    const drawPresetHead = () => {
+      const hh = 18;
+      doc.setFillColor(...HEAD_BG); doc.rect(M, y, TABLE_W, hh, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(90,90,105);
+      PC.forEach((c, k) => doc.text(c.label, PX[k] + PAD, y + 12));
+      doc.setDrawColor(...GRID); doc.setLineWidth(0.5);
+      PC.forEach((c, k) => doc.line(PX[k], y, PX[k], y + hh));
+      doc.line(M + TABLE_W, y, M + TABLE_W, y + hh);
+      doc.setDrawColor(140,140,155); doc.setLineWidth(0.9);
+      doc.line(M, y + hh, M + TABLE_W, y + hh);
+      y += hh;
+    };
+
+    drawSceneBar('Before house opens');
+    drawPresetHead();
+
+    doc.setFontSize(FS);
+    let pShade = false;
+    presetRows.forEach(r => {
+      const cells = PC.map(c => doc.splitTextToSize(String(r[c.key] || ''), c.w - PAD*2));
+      const rowH = Math.max(MIN_ROW, Math.max(...cells.map(c => c.length), 1) * LEAD + PAD*2);
+      // A long piece list runs on, and the continuation needs its own bar and
+      // column header or the rows arrive unlabelled.
+      if (y + rowH > pageH - MARGIN_BOTTOM) {
+        doc.addPage(); drawTitle();
+        drawSceneBar('Before house opens (cont.)', true);
+        drawPresetHead();
+      }
+      if (pShade) { doc.setFillColor(...BLOCK_TINT); doc.rect(M, y, TABLE_W, rowH, 'F'); }
+      doc.setFontSize(FS); doc.setTextColor(30,30,30);
+      PC.forEach((c, k) => {
+        doc.setFont('helvetica', c.bold ? 'bold' : 'normal');
+        cells[k].forEach((ln, li) => doc.text(ln, PX[k] + PAD, y + PAD + LEAD - 3 + li * LEAD));
+      });
+      doc.setDrawColor(...GRID); doc.setLineWidth(0.4);
+      PC.forEach((c, k) => doc.line(PX[k], y, PX[k], y + rowH));
+      doc.line(M + TABLE_W, y, M + TABLE_W, y + rowH);
+      doc.line(M, y + rowH, M + TABLE_W, y + rowH);
+      y += rowH;
+      pShade = !pShade;
+    });
+
+    // The presets are a standing reference, not part of the running order — so
+    // they get the sheet to themselves and the plot opens on a clean page.
+    doc.addPage();
+    drawTitle();
+    curScene = '';
+  }
+
+  drawHeader();
+
+  const SCENE_LABELS = sceneLabels();
+  const SCENE_BAR_H = 18;
+
+  // ── Pass 1: measure ────────────────────────────────────────────────────────
+  // Row heights have to be known before anything is placed, because whether a
+  // scene fits on the current page depends on the height of the whole scene,
+  // not just its next row.
+  doc.setFontSize(FS);
+  const wrap = (txt, i) => doc.splitTextToSize(String(txt || ''), COLS[i].w - PAD*2);
+  // Spike: each colour from the map is a small drawing of the tape, its label,
+  // and the colours in words underneath (so it still reads in black and
+  // white); then anything typed. Lines carry how to draw themselves.
+  const SPK_IND = 20;
+  const spikeCell = m => {
+    const out = [];
+    spkOfMove(m, showId).forEach(e => {
+      if (!e) return;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(FS);
+      doc.splitTextToSize(spkLabel(e), COLS[6].w - PAD*2 - SPK_IND).forEach((t, i) => out.push({ t, ind: SPK_IND, bold: true, e: i === 0 ? e : null }));
+      if (e.label) {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(FS - 1.5);
+        doc.splitTextToSize(spkTapeName(e), COLS[6].w - PAD*2 - SPK_IND).forEach(t => out.push({ t, ind: SPK_IND, small: true }));
+      }
+    });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
+    wrap(m.spike, 6).forEach(t => out.push({ t, ind: 0 }));
+    return out;
+  };
+  const sections = [];
+  let cur = null;
+
+  ordered.forEach(c => {
+    if (isSceneCue(c)) {
+      cur = { label: SCENE_LABELS[c.id] || c.number || '', blocks: [] };
+      sections.push(cur);
+      return;
+    }
+    if (c.type !== SHIFT_TYPE_ID) return;   // LX/SFX/FLY belong on the cue sheet
+    // Changes placed above the first scene marker still need somewhere to live.
+    if (!cur) { cur = { label: '', blocks: [] }; sections.push(cur); }
+
+    // A change with nothing entered yet still prints, so a blank block on the
+    // page tells you it needs filling rather than silently vanishing.
+    const moves = (c.moves && c.moves.length) ? c.moves : [{}];
+    const built = moves.map((m, i) => {
+      const cells = {
+        num:    [i === 0 ? shortNum(c.number) : ''],
+        // m.trigger only survives on data a device hasn't migrated yet.
+        cue:    wrap(m.trigger || (i === 0 ? (c.cueLine || '') : ''), 1),
+        pg:     [i === 0 ? String(c.page || '') : ''],
+        piece:  wrap(m.piece,  3),
+        action: wrap(m.action, 4),
+        who:    wrap(m.who,    5),
+        spike:  spikeCell(m),
+        notes:  wrap(m.notes,  7),
+      };
+      const lines = Math.max(...COLS.map(col => cells[col.key].length), 1);
+      return { cells, h: Math.max(MIN_ROW, lines * LEAD + PAD*2) };
+    });
+    cur.blocks.push({ built, h: built.reduce((t, r) => t + r.h, 0) });
+  });
+
+  const anyScene = sections.some(sec => sec.label);
+
+  function drawRows(block, shaded) {
+    block.built.forEach(r => {
+      // A single row taller than a whole page: draw it and let it clip rather
+      // than loop forever adding empty pages.
+      if (y + r.h > pageH - MARGIN_BOTTOM && y > 90) newPage(true);
+      if (shaded) { doc.setFillColor(...BLOCK_TINT); doc.rect(M, y, TABLE_W, r.h, 'F'); }
+      doc.setFontSize(FS); doc.setTextColor(30,30,30);
+      COLS.forEach((col, i) => {
+        doc.setFont('helvetica', col.bold ? 'bold' : 'normal');
+        r.cells[col.key].forEach((ln, li) => {
+          const base = y + PAD + LEAD - 3 + li * LEAD;
+          if (typeof ln === 'string') { doc.text(ln, X[i] + PAD, base); return; }
+          if (ln.e) spkDrawPDF(doc, ln.e, X[i] + PAD, base - 8, 15, 9);
+          doc.setFont('helvetica', ln.bold ? 'bold' : 'normal');
+          doc.setFontSize(ln.small ? FS - 1.5 : FS);
+          if (ln.small) doc.setTextColor(90, 90, 98);
+          doc.text(ln.t, X[i] + PAD + ln.ind, base);
+          doc.setFontSize(FS); doc.setTextColor(30, 30, 30);
+          doc.setFont('helvetica', col.bold ? 'bold' : 'normal');
+        });
+      });
+      doc.setDrawColor(...GRID); doc.setLineWidth(0.4);
+      COLS.forEach((col, i) => doc.line(X[i], y, X[i], y + r.h));
+      doc.line(M + TABLE_W, y, M + TABLE_W, y + r.h);
+      doc.line(M, y + r.h, M + TABLE_W, y + r.h);
+      y += r.h;
+    });
+  }
+
+  // ── Pass 2: place ──────────────────────────────────────────────────────────
+  const TOP_Y = y;                                   // first row position on a fresh page
+  const USABLE = pageH - MARGIN_BOTTOM - TOP_Y;      // height a scene gets to itself
+
+  // Act number off the front of a typed scene name: "2-1" or "Act 2, Scene 1".
+  // Labels with no act in them — PRE-SHOW, INTERMISSION — return null and don't
+  // disturb the running act, so an intermission band sits at the end of the act
+  // it follows instead of triggering a break of its own.
+  const actOf = label => {
+    const t = String(label || '').trim();
+    let m = t.match(/^(\d+)\s*[-–—.:]/);
+    if (m) return m[1];
+    m = t.match(/^act\s*(\d+)/i);
+    return m ? m[1] : null;
+  };
+  let lastAct = null;
+
+  sections.forEach(sec => {
+    const barH = sec.label ? SCENE_BAR_H : 0;
+    const secH = barH + sec.blocks.reduce((t, b) => t + b.h, 0)
+                      + Math.max(0, sec.blocks.length - 1) * 1.4;
+
+    const act = actOf(sec.label);
+    // Only a move between two KNOWN acts counts. Going from an unnumbered
+    // PRE-SHOW into 1-1 isn't an act change and shouldn't burn a page.
+    const actBreak = act !== null && lastAct !== null && act !== lastAct;
+    if (act !== null) lastAct = act;
+
+    if (actBreak && y > TOP_Y) {
+      // A new act always opens a page, however much room is left below.
+      curScene = '';
+      newPage(false);
+    } else if (y > TOP_Y && y + secH > pageH - MARGIN_BOTTOM && secH <= USABLE) {
+      // Keep a scene whole. If it won't fit in what's left but would fit on a
+      // page of its own, start it on the next one — an orphaned row or two
+      // under a "(cont.)" bar is harder to read than the white space it saves.
+      // A scene genuinely taller than a page still has to break, and gets the bar.
+      curScene = '';
+      newPage(false);
+    }
+
+    if (sec.label) { curScene = sec.label; drawSceneBar(sec.label); }
+
+    let shade = false, first = true;
+    sec.blocks.forEach(b => {
+      if (!first) {
+        if (ensureRoom(b.h + 3)) first = true;
+        else drawBreakRule();
+      } else {
+        ensureRoom(b.h);
+      }
+      drawRows(b, shade);
+      shade = !shade;
+      first = false;
+    });
+  });
+
+  if (!anyScene) toast('No scene markers found — plot has no scene bars');
+
+  // Page N of M, right-aligned on the title baseline. Has to run after the last
+  // page exists, so it's a second pass rather than part of drawTitle.
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(150,150,160);
+    doc.text('Page ' + i + ' of ' + totalPages, M + TABLE_W, 52, { align: 'right' });
+  }
+
+  const safe = showName.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
+  doc.save(safe + '_Set_Changes.pdf');
+  toast('Set change plot exported');
+}
+
+// ── SHARED EXPORT HELPERS ────────────────────────────────────────────────────
+// The header reads off the uploaded script's filename, which carries junk the
+// audience for these documents doesn't care about: "The Will Rogers Follies
+// Script (1)" is a Drive de-duplication artifact, not a show title. Strip the
+// extension, any trailing "(2)", and the words that describe the file rather
+// than the production. Looped because they stack — "…Script (1).pdf".
+// cleanShowName: the cue sheet has its own (same rules).
+
+// "SCENE CHANGE 12" -> "12". Falls back to the whole label so a change named
+// something without digits still exports something.
+function changeShortNum(v) {
+  const m = String(v || '').match(/(\d+[A-Za-z.]*)\s*$/);
+  return m ? m[1] : String(v || '').trim();
+}
+
+// ── SET CHANGE PLOT → SPREADSHEET EXPORT ─────────────────────────────────────
+// The same document as the printed plot — same columns, same scene bars, same
+// block rules and shading, same act-per-page breaks — but as cells you can edit
+// after it leaves the dashboard. Deliberately mirrors exportSetChangePlot rather
+// than flattening to a database table: the plot's structure IS the information,
+// and a change that reads as one block on paper has to read as one block here.
+
+// Grouped exactly the way the PDF groups it: one section per scene marker
+// (including scenes with no changes yet — an empty scene bar on the page is how
+// you see the gap), one block per SHIFT cue, one row per move.
+function setChangeSections() {
+  const ordered = cuesInScriptOrder();
+  const SCENE_LABELS = sceneLabels();
+  const sections = [];
+  let cur = null;
+
+  ordered.forEach(c => {
+    if (isSceneCue(c)) {
+      cur = { label: SCENE_LABELS[c.id] || c.number || '', blocks: [] };
+      sections.push(cur);
+      return;
+    }
+    if (c.type !== SHIFT_TYPE_ID) return;   // LX/SFX/FLY belong on the cue sheet
+    // Changes placed above the first scene marker still need somewhere to live.
+    if (!cur) { cur = { label: '', blocks: [] }; sections.push(cur); }
+
+    // A change with nothing entered yet still exports, so a blank block in the
+    // sheet tells you it needs filling rather than silently vanishing.
+    const moves = (c.moves && c.moves.length) ? c.moves : [{}];
+    cur.blocks.push(moves.map((m, i) => ({
+      // Number, cue line and page belong to the change, not the move, so they
+      // print once at the top of the block — same as the PDF.
+      num:    i === 0 ? changeShortNum(c.number) : '',
+      // m.trigger only survives on data a device hasn't migrated yet.
+      cue:    String(m.trigger || (i === 0 ? (c.cueLine || '') : '')),
+      pg:     i === 0 ? String(c.page || '') : '',
+      piece:  String(m.piece  || ''),
+      action: String(m.action || ''),
+      who:    String(m.who    || ''),
+      spike:  spkMoveText(m, showId),
+      notes:  String(m.notes  || '')
+    })));
+  });
+  return sections;
+}
+
+// Every piece in the show and where it lives at top of show, unless it's been
+// turned off in the Presets dialog. A blank location is a gap someone should
+// fill, so it exports rather than being hidden.
+function presetRowData() {
+  return allPieces()
+    .map(({ key, piece }) => ({ ...(presets[key] || {}), piece }))
+    .filter(r => !r.hidden)
+    .map(r => ({ piece: String(r.piece || ''), location: String(r.location || ''), notes: String(r.notes || '') }));
+}
+
+// Act number off the front of a scene name: "2-1" or "Act 2, Scene 1". Labels
+// with no act in them — PRE-SHOW, INTERMISSION — return null and don't disturb
+// the running act, so an intermission bar sits at the end of the act it follows
+// instead of triggering a page break of its own.
+function actOfSceneLabel(label) {
+  const t = String(label || '').trim();
+  let m = t.match(/^(\d+)\s*[-–—.:]/);
+  if (m) return m[1];
+  m = t.match(/^act\s*(\d+)/i);
+  return m ? m[1] : null;
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  // Revoking immediately cancels the download in some browsers; give it a beat.
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+// ── On-demand library loaders ───────────────────────────────────────────────
+// Anything big and tab-specific loads the first time it's actually needed.
+
+function loadScriptOnce(src, check, cacheRef) {
+  if (check()) return Promise.resolve(check());
+  if (cacheRef.p) return cacheRef.p;
+  cacheRef.p = new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src;
+    el.onload = () => check() ? resolve(check()) : reject(new Error('loaded but missing: ' + src));
+    el.onerror = () => { cacheRef.p = null; reject(new Error('failed to load: ' + src)); };
+    document.head.appendChild(el);
+  });
+  return cacheRef.p;
+}
+
+// pdf.js — reading and rendering script PDFs (Scripts tab only).
+const _pdfjsRef = { p: null };
+function loadPdfJS() {
+  return loadScriptOnce(
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+    () => (typeof pdfjsLib !== 'undefined' ? pdfjsLib : null),
+    _pdfjsRef
+  ).then(lib => {
+    // Worker path used to be set at the top level; it belongs with the load.
+    try { lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch(e) {}
+    return lib;
+  });
+}
+
+// jsPDF — cue sheet, set change plot, and annotated script exports.
+const _jspdfRef = { p: null };
+function loadJsPDF() {
+  return loadScriptOnce(
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    () => (window.jspdf && window.jspdf.jsPDF) || window.jsPDF || null,
+    _jspdfRef
+  );
+}
+
+// Loaded on demand rather than in a <script> tag — it's most of a megabyte and
+// this export gets used once a production, not once a session.
+let _exceljsPromise = null;
+function loadExcelJS() {
+  if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  if (_exceljsPromise) return _exceljsPromise;
+  _exceljsPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+    s.onload = () => window.ExcelJS ? resolve(window.ExcelJS) : reject(new Error('ExcelJS missing'));
+    s.onerror = () => { _exceljsPromise = null; reject(new Error('ExcelJS failed to load')); };
+    document.head.appendChild(s);
+  });
+  return _exceljsPromise;
+}
+
+// Widths are sized to FILL a landscape Letter page rather than to mirror the
+// PDF's points. fitToWidth only ever shrinks, never enlarges, so a table
+// narrower than the paper just prints narrow — the old 114 units came to 8.7"
+// on a 10.2" printable width and left an inch and a half of white down the
+// right edge. 132 units lands at 10.04", filling the page with a hair of slack
+// so rounding can't trip fitToWidth into scaling the whole sheet down.
+//   pixels = round(w * 7) + 5 per column, at 96dpi.
+const XLSX_COLS = [
+  { key: 'num',    label: '#',      width: 6,  wrap: false, bold: true  },
+  { key: 'cue',    label: 'CUE',    width: 25, wrap: true,  bold: false },
+  { key: 'pg',     label: 'PG',     width: 6,  wrap: false, bold: false },
+  { key: 'piece',  label: 'PIECE',  width: 25, wrap: true,  bold: true  },
+  { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
+  { key: 'who',    label: 'WHO',    width: 16, wrap: true,  bold: false },
+  // Not 9: ExcelJS treats 9 as its default column width and drops the <col>
+  // element entirely, so the column would silently fall back to whatever the
+  // reading app defaults to instead of the width set here.
+  { key: 'spike',  label: 'SPIKE',  width: 24, wrap: true,  bold: false },
+  { key: 'notes',  label: 'NOTES',  width: 27, wrap: true,  bold: false },
+];
+
+// Body text. 9.5 came off the PDF, where it sits on a page held at reading
+// distance; the spreadsheet gets printed and taped up or carried on the deck,
+// so it goes up to 12. Everything else scales off it.
+const XL_FS      = 12;    // body cells
+const XL_FS_HEAD = 10;    // column headers
+const XL_FS_BAR  = 11;    // scene bars
+
+// Same palette as the PDF, as ARGB.
+const XL = {
+  GRID:   'FFCDCDD6',
+  HEAD:   'FFE8E8F0',
+  SCENE:  'FF26262E',   // black bar = scene
+  RULE:   'FF9696A2',   // grey rule = next change, same scene
+  TINT:   'FFEDEEF3',   // every other change, so blocks read as units
+  INK:    'FF16161C',
+  MUTED:  'FF9696A0',
+  HEADFG: 'FF5A5A69'
+};
+
+async function exportSetChangeXLSX() {
+  const sections = setChangeSections();
+  const hasChanges = sections.some(s => s.blocks.length);
+  if (!hasChanges) { toast('No set changes to export'); return; }
+
+  const showName = cleanShowName(document.getElementById('show-name').textContent || 'Untitled');
+  const safe = showName.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') || 'Show';
+  const now = new Date();
+  const exportedStr = now.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
+    + ' at ' + now.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+
+  let ExcelJS;
+  try {
+    toast('Building spreadsheet…');
+    ExcelJS = await loadExcelJS();
+  } catch (err) {
+    // No network, or the CDN is having a day. A CSV still opens in Excel and is
+    // still editable — better than sending someone away empty-handed.
+    exportSetChangeCSV(sections, safe);
+    return;
+  }
+
+  const thin   = { style: 'thin',   color: { argb: XL.GRID } };
+  const rule   = { style: 'medium', color: { argb: XL.RULE } };
+  const titleR = { style: 'medium', color: { argb: XL.INK  } };
+  const headB  = { style: 'thin',   color: { argb: 'FF8C8C9B' } };
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'MMT Dashboard';
+  wb.created = now;
+
+  // Title left, timestamp beneath it, a rule tying the block to the table —
+  // then the column header. All four rows repeat at the top of every printed
+  // page, the way drawTitle() runs again on each page of the PDF.
+  function titleBlock(ws, lastCol, heading, subheading) {
+    ws.mergeCells('A1:' + lastCol + '1');
+    ws.getCell('A1').value = {
+      richText: [
+        { font: { bold: true, size: 18, color: { argb: XL.INK }, name: 'Helvetica' }, text: heading },
+        { font: { size: 12, color: { argb: XL.MUTED }, name: 'Helvetica' }, text: '   ' + subheading }
+      ]
+    };
+    ws.getRow(1).height = 25;
+
+    ws.mergeCells('A2:' + lastCol + '2');
+    ws.getCell('A2').value = 'Updated ' + exportedStr;
+    ws.getCell('A2').font = { size: 10, color: { argb: XL.MUTED }, name: 'Helvetica' };
+    ws.getRow(2).height = 14;
+
+    // Row 3 is the rule under the title — an empty band carrying a bottom border.
+    ws.getRow(3).height = 5;
+    for (let i = 1; i <= XLSX_COLS.length; i++) {
+      const cell = ws.getRow(3).getCell(i);
+      if (cell.col > lastCol.charCodeAt(0) - 64) break;
+      cell.border = { bottom: titleR };
+    }
+  }
+
+  function headerRow(ws, rowNum, labels) {
+    const row = ws.getRow(rowNum);
+    labels.forEach((label, i) => {
+      const cell = row.getCell(i + 1);
+      cell.value = label;
+      cell.font = { bold: true, size: XL_FS_HEAD, color: { argb: XL.HEADFG }, name: 'Helvetica' };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.HEAD } };
+      cell.alignment = { vertical: 'middle' };
+      cell.border = { top: thin, left: thin, right: thin, bottom: headB };
+    });
+    row.height = 20;
+    return row;
+  }
+
+  // A scene bar: black band across the table, white bold caps. Merged, so it
+  // stays one band no matter how the columns get resized later.
+  function sceneBar(ws, rowNum, label, lastCol) {
+    ws.mergeCells('A' + rowNum + ':' + lastCol + rowNum);
+    const cell = ws.getCell('A' + rowNum);
+    cell.value = String(label || '').toUpperCase();
+    cell.font = { bold: true, size: XL_FS_BAR, color: { argb: 'FFFFFFFF' }, name: 'Helvetica' };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.SCENE } };
+    cell.alignment = { vertical: 'middle', indent: 1 };
+    ws.getRow(rowNum).height = 20;
+  }
+
+  // ── Sheet 1: the plot ──────────────────────────────────────────────────────
+  const LAST = String.fromCharCode(64 + XLSX_COLS.length);   // 'H'
+  const ws = wb.addWorksheet('Set Changes', {
+    views: [{ state: 'frozen', ySplit: 4 }],
+    pageSetup: {
+      orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+      printTitlesRow: '1:4',
+      margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 }
+    }
+  });
+  ws.columns = XLSX_COLS.map(c => ({ key: c.key, width: c.width }));
+  titleBlock(ws, LAST, showName, 'Set Changes');
+  headerRow(ws, 4, XLSX_COLS.map(c => c.label));
+
+  let r = 5;
+  let lastAct = null;
+  let firstSection = true;
+
+  sections.forEach(sec => {
+    const act = actOfSceneLabel(sec.label);
+    // Only a move between two KNOWN acts counts. Going from an unnumbered
+    // PRE-SHOW into 1-1 isn't an act change and shouldn't burn a page.
+    const actBreak = act !== null && lastAct !== null && act !== lastAct;
+    if (act !== null) lastAct = act;
+    if (actBreak && !firstSection) ws.getRow(r).addPageBreak();
+
+    if (sec.label) { sceneBar(ws, r, sec.label, LAST); r++; }
+    firstSection = false;
+
+    let tint = false;
+    sec.blocks.forEach((block, bi) => {
+      block.forEach((mv, mi) => {
+        const row = ws.getRow(r);
+        XLSX_COLS.forEach((c, i) => {
+          const cell = row.getCell(i + 1);
+          cell.value = mv[c.key] || null;
+          cell.font = { size: XL_FS, bold: c.bold, name: 'Helvetica' };
+          cell.alignment = { vertical: 'top', wrapText: c.wrap };
+          cell.border = {
+            left: thin, right: thin, bottom: thin,
+            // Grey rule between changes inside the same scene; plain grid
+            // everywhere else. This is what makes a block read as a block.
+            top: (mi === 0 && bi > 0) ? rule : thin
+          };
+          if (tint) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.TINT } };
+        });
+        r++;
+      });
+      tint = !tint;
+    });
+  });
+
+  // ── Sheet 2: before house opens ────────────────────────────────────────────
+  // The PDF gives the presets their own page because they're a standing
+  // reference, not part of the running order. Here they get their own tab — a
+  // sheet has one set of column widths, and a three-column table doesn't want
+  // the plot's eight.
+  const presetRows = presetRowData();
+  if (presetRows.length) {
+    const ps = wb.addWorksheet('Before House Opens', {
+      views: [{ state: 'frozen', ySplit: 5 }],
+      pageSetup: {
+        orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+        printTitlesRow: '1:5',
+        margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 }
+      }
+    });
+    ps.columns = [{ key:'piece', width:34 }, { key:'location', width:46 }, { key:'notes', width:52 }];
+    titleBlock(ps, 'C', showName, 'Set Changes');
+    sceneBar(ps, 4, 'Before house opens', 'C');
+    headerRow(ps, 5, ['PIECE', 'PRESET LOCATION', 'NOTES']);
+
+    presetRows.forEach((rec, idx) => {
+      const row = ps.getRow(6 + idx);
+      ['piece', 'location', 'notes'].forEach((k, i) => {
+        const cell = row.getCell(i + 1);
+        cell.value = rec[k] || null;
+        cell.font = { size: XL_FS, bold: i === 0, name: 'Helvetica' };
+        cell.alignment = { vertical: 'top', wrapText: i !== 0 };
+        cell.border = { top: thin, left: thin, right: thin, bottom: thin };
+        if (idx % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.TINT } };
+      });
+    });
+  }
+
+  try {
+    const buf = await wb.xlsx.writeBuffer();
+    downloadBlob(new Blob([buf], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    }), safe + '_Set_Changes.xlsx');
+    toast('Set changes exported to Excel');
+  } catch (err) {
+    exportSetChangeCSV(sections, safe);
+  }
+}
+
+// Fallback when ExcelJS can't be reached. No bars or shading — a CSV has no
+// formatting to give — so the scene rides along in its own column instead, and
+// the identifying columns repeat down the block to make up for the lost
+// grouping. Opens in Excel, Numbers and Sheets, every cell editable.
+function exportSetChangeCSV(sections, safe) {
+  const esc = v => {
+    const s = String(v == null ? '' : v);
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const lines = [['SCENE'].concat(XLSX_COLS.map(c => c.label)).map(esc).join(',')];
+  sections.forEach(sec => {
+    sec.blocks.forEach(block => {
+      const head = block[0] || {};
+      block.forEach(mv => {
+        const rec = { ...mv, num: head.num, cue: mv.cue || head.cue, pg: head.pg };
+        lines.push([sec.label].concat(XLSX_COLS.map(c => rec[c.key])).map(esc).join(','));
+      });
+    });
+  });
+  // BOM so Excel opens it as UTF-8 rather than mangling any curly quotes.
+  downloadBlob(new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }),
+    safe + '_Set_Changes.csv');
+  toast('Offline — exported as CSV instead');
+}
+
+async function exportCueSheet() {
+  const sorted = cuesInScriptOrder();
+  if (!sorted.length) { toast('No cues to export'); return; }
+  const showName = document.getElementById('show-name').textContent || 'Untitled';
+  const now = new Date();
+  const exportedStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    + ' at ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+  // Resolve jsPDF the same way the marked-script export does.
+  let jsPDFCtor = null;
+  try { jsPDFCtor = await loadJsPDF(); } catch (err) {}
+  if (!jsPDFCtor) { toast('Could not load PDF library'); return; }
+
+  toast('Building cue sheet PDF…');
+
+  // Preload every cue's line-crop image (Drive URL or local data URL) into a
+  // data URL jsPDF can embed, and grab its natural size so we can size the
+  // thumbnail without distorting it. Cues with no crop are skipped.
+  //
+  // NOTE: Google Drive's thumbnail/uc endpoints refuse cross-origin fetch()
+  // outright (no Access-Control-Allow-Origin header, confirmed via DevTools)
+  // — there is no client-side workaround for that. So remote crops are
+  // relayed through the Apps Script backend instead, which already has
+  // access to the file and can hand back the bytes as base64 with no CORS
+  // restriction (same pattern as loading a script PDF).
+  function loadImageAsDataUrl(src) {
+    return new Promise(resolve => {
+      if (!src) { resolve(null); return; }
+      if (src.startsWith('data:')) {
+        const img = new Image();
+        img.onload = () => resolve({ dataUrl: src, w: img.naturalWidth, h: img.naturalHeight });
+        img.onerror = () => resolve(null);
+        img.src = src;
+        return;
+      }
+      const fileId = (src.match(/[?&]id=([a-zA-Z0-9_-]+)/) || [])[1];
+      if (!fileId) { resolve(null); return; }
+      jsonp(SCRIPT_URL + '?action=getDriveImage&fileId=' + fileId + '&_=' + Date.now(), d => {
+        if (!d || !d.success || !d.base64) { resolve(null); return; }
+        const dataUrl = 'data:' + (d.mimeType || 'image/jpeg') + ';base64,' + d.base64;
+        const img = new Image();
+        img.onload = () => resolve({ dataUrl, w: img.naturalWidth, h: img.naturalHeight });
+        img.onerror = () => resolve(null);
+        img.src = dataUrl;
+      }, () => resolve(null));
+    });
+  }
+  const cropCache = {};
+  await Promise.all(sorted.filter(c => c.lineCrop).map(async c => {
+    cropCache[c.id] = await loadImageAsDataUrl(c.lineCrop);
+  }));
+
+  // ── Spreadsheet-style layout ───────────────────────────────────────────────
+  // Rebuilt from scratch. The old version drew content from two different
+  // origins (rowTop and y = rowTop+9) while only advancing one of them, so a
+  // row never reserved the height it actually occupied and tall crops leaked
+  // into the rows beneath. Here EVERY cell is measured from the row's top edge
+  // and rowH is the max of all cells + padding. One origin, no exceptions.
+  const doc = new jsPDFCtor({ orientation: 'p', unit: 'pt', format: 'letter' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+
+  const M = 44;                       // page margin
+  const PAD = 5;                      // cell padding
+  const LEAD = 11;                    // text line height
+  const FS = 8.5;                     // body font size
+  const MIN_ROW = 22;                 // fits chip + number + the p.NN under it
+  const BAND = [236, 236, 242];       // zebra: every other row
+  const GRID = [200, 200, 210];       // cell borders
+  const HEAD_BG = [232, 232, 240];
+  const PURPLE = [83, 74, 183];
+  const MARGIN_BOTTOM = 46;
+
+  const COLS = [
+    // CUE holds chip + number + page ("LX 12   p.47"), so it needs real width.
+    { key: 'number', label: 'CUE',      w: 84  },
+    { key: 'action', label: 'ACTION',   w: 92  },
+    { key: 'line',   label: 'CUE LINE', w: 186 },
+    { key: 'notes',  label: 'NOTES',    w: 162 },
+  ];
+  const X = []; { let x = M; for (const c of COLS) { X.push(x); x += c.w; } }
+  const TABLE_W = COLS.reduce((s, c) => s + c.w, 0);
+  // Crop thumbnails live inside the Cue Line cell, so they can never be wider
+  // than its inner width — that's what used to push images into Notes.
+  const THUMB_MAX_W = COLS[2].w - PAD * 2;
+  const THUMB_MAX_H = 84;
+
+  const hexToRgb = hex => {
+    const h = (hex || '#999999').replace('#', '');
+    return [parseInt(h.slice(0,2),16) || 153, parseInt(h.slice(2,4),16) || 153, parseInt(h.slice(4,6),16) || 153];
+  };
+  const tint = (rgb, amt) => rgb.map(v => Math.round(v + (255 - v) * amt));
+
+  let y = 0;
+  let bandOn = false;
+
+  function drawTitle() {
+    y = 54;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(20,20,20);
+    doc.text(showName + ' — Cue Sheet', M, y); y += 13;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(140,140,140);
+    doc.text('Updated ' + exportedStr, M, y); y += 16;
+  }
+  function drawHeader() {
+    const h = 17;
+    doc.setFillColor(...HEAD_BG); doc.rect(M, y, TABLE_W, h, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(90,90,105);
+    COLS.forEach((c, i) => doc.text(c.label, X[i] + PAD, y + 11));
+    doc.setDrawColor(...GRID); doc.setLineWidth(0.5);
+    COLS.forEach((c, i) => doc.line(X[i], y, X[i], y + h));
+    doc.line(M + TABLE_W, y, M + TABLE_W, y + h);
+    doc.setDrawColor(140,140,155); doc.setLineWidth(0.9);
+    doc.line(M, y + h, M + TABLE_W, y + h);
+    y += h;
+  }
+  // Reserve room before drawing. Anything taller than a full page draws anyway
+  // (clipped) rather than looping forever on an empty page.
+  function ensureRoom(rowH) {
+    if (y + rowH > pageH - MARGIN_BOTTOM && y > 90) {
+      doc.addPage();
+      drawTitle();
+      drawHeader();
+      bandOn = false;
+      return true;
+    }
+    return false;
+  }
+
+  drawTitle();
+  drawHeader();
+
+  // Cues are already in script order (page, then top-to-bottom). Walk them in
+  // that order and let SCENE markers divide the sheet: each scene marker draws
+  // a divider row, and every cue after it belongs to that scene until the next
+  // one. Script page is shown per-cue instead, next to the cue number.
+  function drawDivider(label) {
+    const h = 15;
+    ensureRoom(h + 20);
+    doc.setFillColor(...tint(PURPLE, 0.86)); doc.rect(M, y, TABLE_W, h, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...PURPLE);
+    doc.text(String(label || '').toUpperCase(), M + PAD, y + 10);
+    doc.setDrawColor(...GRID); doc.setLineWidth(0.5); doc.rect(M, y, TABLE_W, h);
+    y += h;
+    bandOn = false;
+  }
+
+  // Act/scene numbering is positional, so compute it once up front rather than
+  // trusting whatever label was stored when each marker was dropped.
+  const SCENE_LABELS = sceneLabels();
+
+  // Anything before the first scene marker still needs a home, otherwise those
+  // cues would print with no heading at all.
+  if (sorted.length && !isStructuralCue(sorted[0])) drawDivider('Top of Show');
+
+  {
+    sorted.forEach(c => {
+      if (isSceneCue(c)) { drawDivider(SCENE_LABELS[c.id] || c.number || ''); return; }
+      const t = cueTypes.find(x => x.id === c.type);
+      const chipColor = t ? hexToRgb(t.color) : [153,153,153];
+      const chipLabel = t ? t.name : (c.type || '');
+
+      // Cue Line is TEXT FIRST — the typed line is the source of truth. The
+      // cropped script photo is only a fallback for cues that never got one
+      // typed in, which is why LX 61/63 still show as images.
+      const rawCrop = cropCache[c.id];
+      const crop = (rawCrop && rawCrop.dataUrl && rawCrop.w > 0 && rawCrop.h > 0) ? rawCrop : null;
+      const useCrop = !c.cueLine && !!crop;
+
+      doc.setFontSize(FS);
+      const cells = {
+        number: [String(c.number || '')],
+        action: doc.splitTextToSize(String(c.action || ''), COLS[1].w - PAD * 2),
+        line:   useCrop ? [] : doc.splitTextToSize(String(c.cueLine || ''), COLS[2].w - PAD * 2),
+        notes:  doc.splitTextToSize(String(c.notes || c.description || ''), COLS[3].w - PAD * 2),
+      };
+
+      let thumbW = 0, thumbH = 0;
+      if (useCrop) {
+        const s = Math.min(THUMB_MAX_W / crop.w, THUMB_MAX_H / crop.h, 1);
+        thumbW = crop.w * s; thumbH = crop.h * s;
+      }
+
+      // Row height = tallest cell + padding. Text cells and the thumbnail are
+      // measured the same way, from the row top, so neither can overrun.
+      const textH = Math.max(
+        cells.action.length, cells.line.length, cells.notes.length, 1
+      ) * LEAD;
+      const rowH = Math.max(textH, thumbH, MIN_ROW) + PAD * 2;
+
+      ensureRoom(rowH);
+
+      if (bandOn) { doc.setFillColor(...BAND); doc.rect(M, y, TABLE_W, rowH, 'F'); }
+      bandOn = !bandOn;
+
+      // Cue column: type chip + number, both anchored to the row top.
+      // Chip is sized to its own text — a fixed box fits "LX" but not
+      // "SPOT OUT", which overran and printed on top of the number.
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5);
+      const chipW = Math.min(doc.getTextWidth(chipLabel) + 7, 40);
+      doc.setFillColor(...chipColor);
+      doc.roundedRect(X[0] + PAD, y + PAD, chipW, 9, 4.5, 4.5, 'F');
+      doc.setTextColor(255,255,255);
+      doc.text(chipLabel, X[0] + PAD + chipW / 2, y + PAD + 6.3, { align: 'center' });
+
+      // The chip already names the type, so drop it from the number itself:
+      // "SPOT OUT 2" -> "2". Keeps "SPOT OUT 2" (114pt of text) from being
+      // crammed into an 84pt column, where it wrapped onto the page number.
+      const shortNum = String(c.number || '').replace(
+        new RegExp('^' + String(chipLabel).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*', 'i'), ''
+      ) || String(c.number || '');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(FS); doc.setTextColor(20,20,20);
+      doc.text(shortNum, X[0] + PAD + chipW + 4, y + PAD + 7.5);
+      // Script page is greyed metadata under the number — scene dividers head
+      // the sheet now, so the page has to travel with each individual cue.
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(150,150,160);
+      doc.text('p.' + (c.page || '?'), X[0] + PAD, y + PAD + 17);
+
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
+      doc.setTextColor(40,40,40);
+      if (cells.action.length) doc.text(cells.action, X[1] + PAD, y + PAD + 7);
+
+      if (useCrop) {
+        const fmt = /^data:image\/png/i.test(crop.dataUrl) ? 'PNG' : 'JPEG';
+        try {
+          doc.addImage(crop.dataUrl, fmt, X[2] + PAD, y + PAD, thumbW, thumbH);
+        } catch (err) {
+          try { doc.addImage(crop.dataUrl, fmt === 'PNG' ? 'JPEG' : 'PNG', X[2] + PAD, y + PAD, thumbW, thumbH); }
+          catch (err2) { /* unreadable image — leave the cell empty, row is intact */ }
+        }
+      } else if (cells.line.length) {
+        doc.setTextColor(70,70,70);
+        doc.text(cells.line, X[2] + PAD, y + PAD + 7);
+      }
+
+      doc.setTextColor(60,60,60);
+      if (cells.notes.length) doc.text(cells.notes, X[3] + PAD, y + PAD + 7);
+
+      // Cell borders last, so they sit on top of the band fill.
+      doc.setDrawColor(...GRID); doc.setLineWidth(0.4);
+      COLS.forEach((col, i) => doc.line(X[i], y, X[i], y + rowH));
+      doc.line(M + TABLE_W, y, M + TABLE_W, y + rowH);
+      doc.line(M, y + rowH, M + TABLE_W, y + rowH);
+
+      y += rowH;
+    });
+  }
+
+  // Footer with page numbers
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(160,160,160);
+    doc.text('Music Mountain Theatre', M, pageH - 22);
+    doc.text('Page ' + i + ' of ' + pageCount, pageW - M, pageH - 22, { align: 'right' });
+  }
+
+  doc.save(showName.replace(/[^a-z0-9]/gi, '_') + '_cue_sheet.pdf');
+  toast('Cue sheet PDF downloaded');
+}
+
+
+
 // ── EDIT MODE ───────────────────────────────────────────────────────────────
 // This page is a backstage reference first, so editing is off by default and
 // has to be switched on. While it's on, polling stops — a 15-second refresh
@@ -1547,6 +2718,7 @@ function saveMoveEdits(){
       if (el){ el.className = 'edit-state error'; el.textContent = 'Could not reach the Sheet — your edits are kept on this device'; }
       return;
     }
+    saveSnap(d.cueData, 'before a cue sheet save');
     const { data, applied, conflicts } = mergeMoveEdits(d.cueData, editBaseline, ours);
     data._rev = (d.cueData._rev || 0) + 1;
     data._savedAt = new Date().toISOString();
