@@ -6171,7 +6171,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.12 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.12 v3</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -12751,6 +12751,7 @@ function ivApply(d, src) {
   if (d.nextId) iv.nextId = d.nextId;
   iv.writesOn = !!d.writesOn;
   iv.src = src; iv.loaded = true; iv.err = ''; iv.syncedAt = Date.now();
+  ivReplayOutbox();
 }
 
 function loadInventoryData() {
@@ -12896,7 +12897,7 @@ function ivRender() {
   const synced = iv.syncedAt ? (Math.round((Date.now() - iv.syncedAt) / 60000) < 1 ? 'just now' : Math.round((Date.now() - iv.syncedAt) / 60000) + ' min ago') : '';
   const sub = iv.loading && !iv.loaded ? 'loading…' : allItems.length + ' item' + (allItems.length === 1 ? '' : 's') + (synced ? ' · synced ' + synced : '') + (iv.loading ? ' · refreshing…' : '');
 
-  let notes = '';
+  let notes = ivOutboxNote();
   if (iv.err) notes += `<div class="iv-note warn"><span><b>${ivE(iv.err)}</b> ${iv.loaded ? 'Showing the last copy on this device.' : ''}</span><button class="iv-btn sm" onclick="loadInventoryData()">Try again</button></div>`;
   if (iv.loaded && iv.src === 'csv') notes += `<div class="iv-note warn"><span>Using the old connection: the list can be a few minutes behind the Sheet. Check in/out still saves.</span><button class="iv-btn sm" onclick="ivOpen({v:'setup'})">Connect</button></div>`;
   if (iv.loaded && iv.src === 'api' && !iv.writesOn) notes += `<div class="iv-note"><span><b>Read-only check.</b> This is your real Sheet, read live. Saving is switched off in the inventory script until you turn it on.</span></div>`;
@@ -13186,6 +13187,13 @@ async function ivSubmitCheckIn() {
     iv.undo = { before: before.filter(b => done.map(x => x.toUpperCase()).includes(b.assetId.toUpperCase())), status: 'IN' };
     const names = done.length === 1 ? ivE((ivItem(done[0]) || {}).name || done[0]) : done.length + ' items';
     ivToast(done.length ? `✓ ${names} checked in · <span class="ok">saved to Sheet</span>${ivSkipNote(res)}` : 'Nothing changed.' + ivSkipNote(res), { undo: done.length > 0 });
+  }, () => {
+    sessionStaffName = c.staff.trim(); try { localStorage.setItem('mmt_inv_staff', sessionStaffName); } catch (e) {}
+    ivAfterMove({ updated: c.ids.filter(id => ivIsOut(ivItem(id))) }, 'IN', body);
+    iv.ci = null; iv.stack = iv.stack.filter(s => s.v !== 'checkin');
+    c.ids.forEach(id => iv.sel.delete(id));
+    ivRenderOv(); ivRender();
+    ivToast('✓ Checked in on this phone · <b>sends to the Sheet when you have signal</b>', { ms: 6000 });
   });
 }
 
@@ -13196,7 +13204,7 @@ function ivSkipNote(res) {
 
 // Mirror a successful move locally: the script returns the fresh rows; the old
 // route doesn't, so fill them in by hand.
-function ivAfterMove(res, status, body) {
+function ivAfterMove(res, status, body, replay) {
   if (res.items && res.items.length) ivMergeItems(res.items);
   else (res.updated || []).forEach(id => {
     const i = ivItem(id); if (!i) return;
@@ -13204,28 +13212,99 @@ function ivAfterMove(res, status, body) {
     if (status === 'OUT') { i.currentShow = body.who; i.dueBack = body.dueBack; i.type = body.type; i.lastShow = body.who; i.lastDate = ivISO(new Date()); }
     else { i.currentShow = ''; i.dueBack = ''; i.type = ''; }
   });
-  const now = new Date().toISOString();
+  if (replay) return;
+  const now = body.at || new Date().toISOString();
   (res.updated || []).forEach(id => historyData.push({ when: now, assetId: id, action: status, who: status === 'OUT' ? body.who : '', dueBack: body.dueBack || '', condition: [body.condition, body.note].filter(Boolean).join(': '), staff: body.staffName, type: body.type || '' }));
 }
 
-async function ivRun(btnId, label, body, onOk) {
+// onQueued: for check in/out only. With no signal the move is kept on this
+// phone and sent later (see the outbox below) instead of failing.
+async function ivRun(btnId, label, body, onOk, onQueued) {
   if (iv.busy) return;
   iv.busy = true;
   const btn = document.getElementById(btnId);
   const old = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = label; }
   try {
+    if (onQueued && (navigator.onLine === false || ivOutbox().length)) throw new Error('offline');
     const res = await ivPost(body);
     if (res && res.success) onOk(res);
     else ivToast(ivE((res && res.error) || 'The Sheet said no.') + ' Nothing was saved.', { err: true, ms: 7000 });
   } catch (e) {
-    ivToast('Could not reach the Sheet. Nothing was saved, try again.', { err: true, ms: 7000 });
+    if (onQueued) { ivQueue(body); onQueued(); }
+    else ivToast('Could not reach the Sheet. Nothing was saved, try again.', { err: true, ms: 7000 });
   } finally {
     iv.busy = false;
     const b2 = document.getElementById(btnId);
     if (b2) { b2.disabled = false; b2.innerHTML = old; }
   }
 }
+
+// ── Outbox: check in/out made with no signal ───────────────────────────────
+// Kept in this phone's storage, in order, each with the time it was made.
+// Sent as soon as there's a connection; the script skips any item that's
+// already in that state, so a resend can't double anything up.
+function ivOutbox() { try { return JSON.parse(localStorage.getItem('mmt_inv_outbox') || '[]'); } catch (e) { return []; } }
+function ivOutboxSet(q) { try { if (q.length) localStorage.setItem('mmt_inv_outbox', JSON.stringify(q)); else localStorage.removeItem('mmt_inv_outbox'); } catch (e) {} }
+function ivQueue(body) {
+  const q = ivOutbox();
+  q.push({ id: Date.now() + '_' + Math.floor(Math.random() * 1e4), at: new Date().toISOString(), body: { ...body, at: new Date().toISOString() } });
+  ivOutboxSet(q);
+  ivDrainSoon(navigator.onLine === false ? 15000 : 2000);
+}
+// After a reload the Sheet doesn't know these yet, so lay them over its copy.
+function ivReplayOutbox() {
+  ivOutbox().forEach(e => {
+    const b = e.body;
+    const ids = (b.assetIds || []).filter(id => { const i = ivItem(id); return i && (b.status === 'OUT' ? !ivIsOut(i) : ivIsOut(i)); });
+    if (ids.length) ivAfterMove({ updated: ids }, b.status, b, true);
+  });
+}
+let _ivDrainT = null, _ivDraining = false;
+function ivDrainSoon(ms) { clearTimeout(_ivDrainT); _ivDrainT = setTimeout(ivDrain, ms || 0); }
+async function ivDrain() {
+  if (_ivDraining) return;
+  let q = ivOutbox();
+  if (!q.length) return;
+  if (navigator.onLine === false) { ivDrainSoon(30000); return; }
+  _ivDraining = true;
+  let sent = 0, skipped = 0, refused = [];
+  try {
+    while (q.length) {
+      const e = q[0];
+      let res;
+      try { res = await ivPost(e.body); }
+      catch (err) { ivDrainSoon(30000); break; }            // still no signal: try again later
+      if (res && res.success) { sent++; skipped += (res.skipped || []).length; if (res.items) ivMergeItems(res.items); }
+      else refused.push({ e, why: (res && res.error) || 'refused' });
+      q.shift(); ivOutboxSet(q);
+    }
+  } finally { _ivDraining = false; }
+  if (sent || refused.length) {
+    if (refused.length) {
+      const failed = JSON.parse(localStorage.getItem('mmt_inv_failed') || '[]').concat(refused.map(r => ({ at: r.e.at, body: r.e.body, why: r.why })));
+      try { localStorage.setItem('mmt_inv_failed', JSON.stringify(failed.slice(-50))); } catch (e) {}
+    }
+    ivToast(sent ? `<span class="ok">✓ Sent ${sent} saved check ${sent === 1 ? 'in/out' : 'ins/outs'} to the Sheet</span>${skipped ? ' · ' + skipped + ' item' + (skipped === 1 ? ' was' : 's were') + ' already moved by someone else' : ''}${refused.length ? ' · ' + refused.length + ' couldn\'t be saved, see the note at the top' : ''}` : refused.length + ' saved check in/out couldn\'t be saved, see the note at the top', { err: !!refused.length && !sent, ms: 6000 });
+    loadInventoryData();
+  }
+  ivRender();
+}
+function ivOutboxNote() {
+  const q = ivOutbox(), failed = (() => { try { return JSON.parse(localStorage.getItem('mmt_inv_failed') || '[]'); } catch (e) { return []; } })();
+  let h = '';
+  if (q.length) {
+    const n = q.reduce((a, e) => a + (e.body.assetIds || []).length, 0);
+    h += `<div class="iv-note warn"><span><b>${q.length} check ${q.length === 1 ? 'in/out' : 'ins/outs'} waiting to send</b> (${n} item${n === 1 ? '' : 's'}). They're saved on this phone and go to the Sheet when there's signal.</span><button class="iv-btn sm" onclick="ivDrain()">Send now</button></div>`;
+  }
+  if (failed.length) {
+    h += `<div class="iv-note warn"><span><b>${failed.length} saved check in/out ${failed.length === 1 ? 'was' : 'were'} refused by the Sheet:</b> ${failed.slice(-3).map(f => ivE((f.body.status === 'OUT' ? 'out ' : 'in ') + (f.body.assetIds || []).join(', ') + ' (' + f.why + ')')).join('; ')}. Please redo ${failed.length === 1 ? 'it' : 'them'}.</span><button class="iv-btn sm" onclick="try{localStorage.removeItem('mmt_inv_failed')}catch(e){};ivRender()">OK</button></div>`;
+  }
+  return h;
+}
+window.addEventListener('online', () => ivDrainSoon(1500));
+document.addEventListener('visibilitychange', () => { if (!document.hidden && ivOutbox().length) ivDrainSoon(1000); });
+setTimeout(() => { if (ivOutbox().length) ivDrainSoon(3000); }, 0);
 
 async function ivDoUndo() {
   const u = iv.undo; ivToastHide();
@@ -13325,6 +13404,13 @@ async function ivSubmitCheckOut() {
     iv.undo = { before: before.filter(b => done.map(x => x.toUpperCase()).includes(b.assetId.toUpperCase())), status: 'OUT' };
     const names = done.length === 1 ? ivE((ivItem(done[0]) || {}).name || done[0]) : done.length + ' items';
     ivToast(done.length ? `↗ ${names} out to ${ivE(who)} · <span class="ok">saved to Sheet</span>${ivSkipNote(res)}` : 'Nothing changed.' + ivSkipNote(res), { undo: done.length > 0 });
+  }, () => {
+    sessionStaffName = c.staff.trim(); try { localStorage.setItem('mmt_inv_staff', sessionStaffName); } catch (e) {}
+    ivAfterMove({ updated: ids }, 'OUT', body);
+    iv.co = null; iv.stack = iv.stack.filter(s => s.v !== 'checkout');
+    ids.forEach(id => iv.sel.delete(id));
+    ivRenderOv(); ivRender();
+    ivToast('↗ Checked out to ' + ivE(who) + ' on this phone · <b>sends to the Sheet when you have signal</b>', { ms: 6000 });
   });
 }
 
