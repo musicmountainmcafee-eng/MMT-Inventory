@@ -457,7 +457,7 @@
 
   /* ── Spike chips (from the spike map) ── */
   .spk-line { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-family: 'DM Sans', sans-serif; }
-  .spk-inh { opacity: .7; }
+  .spk-inh { opacity: 1; }
   .pr-addspike { color: var(--purple, #534AB7); font-weight: 600; font-size: .9em; }
   @media print { .pr-addspike { display: none; } }
   .spk-chip { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
@@ -1506,7 +1506,7 @@ function spkOfMove(m, sid){
 function spkChipsHTML(m, sid){
   m = spkEff(m);
   const chips = spkOfMove(m, sid).map(e => e
-    ? `<span class="spk-chip" title="${spkEsc(spkTapeName(e))}">${spkSVG(e, 30, 15)}<span>${spkEsc(spkLabel(e))}</span></span>`
+    ? `<span class="spk-chip" title="${spkEsc(e.label || '')}">${spkSVG(e, 36, 18)}<span>${spkEsc(spkTapeName(e) || spkLabel(e))}</span></span>`
     : `<span class="spk-chip spk-gone">removed spike</span>`).join('');
   const html = chips + (m && m.spike ? `<span class="spk-typed">${spkEsc(m.spike)}</span>` : '');
   return m && m._inh && html ? `<span class="spk-inh" title="From Before House">${html}</span>` : html;
