@@ -1,21 +1,26 @@
 /**
- * MMT Show Notes — DEV backend   (10.14 v2)
+ * MMT Show Notes — DEV backend   (10.14 v3)
  *
  * A standalone Apps Script project. It does NOT touch the live dashboard
  * backend, the live Sheet, or any existing show notes workbook. Everything it
  * makes lives in its own Drive folder, "MMT Show Notes (dev)".
  *
- * FIRST-TIME SETUP (from a laptop):
- *   1. script.google.com → New project. Name it "MMT Show Notes DEV".
- *   2. Delete the starter code, paste this whole file, save.
- *   3. Deploy → New deployment → type "Web app".
- *        Execute as: Me      Who has access: Anyone
- *   4. Authorize when asked (Drive + Sheets).
- *   5. Copy the Web app URL (ends in /exec) into the dev page's Connect box.
+ * IT UPDATES ITSELF. When the notes page needs a newer backend, it asks this
+ * script to pull apps-script/ShowNotesDev.gs from the MMT-Inventory GitHub
+ * repo, replace its own code, and redeploy at the same URL. It only ever
+ * moves forward (higher BUILD_NO), and only from that one file.
  *
- * UPDATING (keeps the same URL):
- *   Paste the new file over the old one, save, then
- *   Deploy → Manage deployments → ✎ (edit) → Version: "New version" → Deploy.
+ * ONE-TIME SETUP (from a laptop) — after this, no more pasting:
+ *   1. script.google.com/home/usersettings → "Google Apps Script API" → On.
+ *   2. In this project: Project Settings (gear) → tick
+ *      "Show 'appsscript.json' manifest file in editor". Open appsscript.json
+ *      and replace it with apps-script/appsscript.json from the repo. Save.
+ *   3. Replace the code file with this whole file. Save.
+ *   4. In the toolbar's function menu pick "setup", click Run, and allow the
+ *      permissions. The log should end with "Ready".
+ *   5. Deploy → Manage deployments → ✎ → Version: "New version" → Deploy.
+ *      (First time ever? Deploy → New deployment → Web app, Execute as Me,
+ *      access Anyone, then paste the /exec URL into the page.)
  *
  * HOW THE DATA LOOKS IN SHEETS
  *   One spreadsheet per show, one tab per section. Each tab:
@@ -32,8 +37,13 @@
  *   Sheets get an ID the next time the page loads that show.
  */
 
-var VERSION = '10.14 v2';
+var VERSION = '10.14 v3';
+var BUILD_NO = 3;          // bump on every backend change; self-update only moves up
 var API_LEVEL = 2;
+var SOURCE_URLS = [
+  'https://api.github.com/repos/musicmountainmcafee-eng/MMT-Inventory/contents/apps-script/ShowNotesDev.gs?ref=main',
+  'https://raw.githubusercontent.com/musicmountainmcafee-eng/MMT-Inventory/main/apps-script/ShowNotesDev.gs'
+];
 var FOLDER_NAME = 'MMT Show Notes (dev)';
 var INDEX_NAME = 'MMT Show Notes (dev) — Index';
 var DEFAULT_COLUMNS = ['Item', 'Notes', 'Scenes', 'Where', 'Status'];
@@ -66,7 +76,7 @@ function respond_(obj, callback) {
 }
 
 // getBook can write (it stamps IDs on rows typed in Sheets), so it locks too.
-var READS = { ping: 1, listBooks: 1 };
+var READS = { ping: 1, listBooks: 1, selfUpdate: 1 };   // selfUpdate takes its own lock
 
 function handle_(req) {
   var action = req.action || 'ping';
@@ -86,7 +96,9 @@ function handle_(req) {
 }
 
 var ACTIONS = {
-  ping: function () { return { version: VERSION, api: API_LEVEL }; },
+  ping: function () { return { version: VERSION, api: API_LEVEL, build: BUILD_NO, selfUpdate: true }; },
+
+  selfUpdate: function () { return selfUpdate_(); },
 
   listBooks: function () { return { books: readIndex_() }; },
 
@@ -537,4 +549,86 @@ function newId_() { return 'n' + Utilities.getUuid().replace(/-/g, '').slice(0, 
 function cell_(v) {
   v = v == null ? '' : String(v);
   return /^[=+\-@]/.test(v) ? "'" + v : v;
+}
+
+// ── self-update ─────────────────────────────────────────────────────────────
+// Pull the newest ShowNotesDev.gs from GitHub, swap it in as this project's
+// code, save a version, and point every web-app deployment at it. Same URL,
+// new code. Needs the Apps Script API turned on and the scopes in
+// appsscript.json (see setup above).
+function selfUpdate_() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) return { updated: false, reason: 'An update is already running' };
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var src = fetchSource_();
+    var m = src.match(/var BUILD_NO = (\d+);/);
+    var remote = m ? Number(m[1]) : 0;
+    if (!remote) throw new Error('Downloaded file has no BUILD_NO; not updating');
+    if (remote <= BUILD_NO) return { updated: false, reason: 'Already up to date', build: BUILD_NO };
+    if (src.indexOf('function doGet(') === -1 || src.indexOf('function selfUpdate_(') === -1) {
+      throw new Error('Downloaded file does not look like this backend; not updating');
+    }
+    // Refuse code that doesn't even parse, so a bad push can't break the backend.
+    new Function(src);
+
+    var id = ScriptApp.getScriptId();
+    var base = 'https://script.googleapis.com/v1/projects/' + id;
+    var content = scriptApi_('get', base + '/content');
+    var files = (content.files || []).filter(function (f) { return f.type !== 'SERVER_JS'; });
+    var codeName = ((content.files || []).filter(function (f) { return f.type === 'SERVER_JS'; })[0] || {}).name || 'Code';
+    files.push({ name: codeName, type: 'SERVER_JS', source: src });
+    scriptApi_('put', base + '/content', { scriptId: id, files: files });
+
+    var ver = scriptApi_('post', base + '/versions', { description: 'Self-update to build ' + remote });
+    var deps = (scriptApi_('get', base + '/deployments').deployments || []).filter(function (d) {
+      return d.deploymentConfig && d.deploymentConfig.versionNumber &&
+        (d.entryPoints || []).some(function (e) { return e.entryPointType === 'WEB_APP'; });
+    });
+    deps.forEach(function (d) {
+      scriptApi_('put', base + '/deployments/' + d.deploymentId, { deploymentConfig: {
+        scriptId: id, versionNumber: ver.versionNumber, manifestFileName: 'appsscript',
+        description: 'Show Notes backend build ' + remote } });
+    });
+    props.setProperty('LAST_UPDATE', JSON.stringify({ from: BUILD_NO, to: remote, at: new Date().toISOString() }));
+    return { updated: true, from: BUILD_NO, to: remote, version: ver.versionNumber, deployments: deps.length };
+  } finally { lock.releaseLock(); }
+}
+
+function fetchSource_() {
+  var last = '';
+  for (var i = 0; i < SOURCE_URLS.length; i++) {
+    try {
+      var r = UrlFetchApp.fetch(SOURCE_URLS[i] + (SOURCE_URLS[i].indexOf('?') === -1 ? '?' : '&') + 't=' + Date.now(), {
+        muteHttpExceptions: true, headers: { Accept: 'application/vnd.github.raw' } });
+      if (r.getResponseCode() === 200) return r.getContentText();
+      last = 'HTTP ' + r.getResponseCode();
+    } catch (e) { last = String(e.message || e); }
+  }
+  throw new Error("Couldn't download the update from GitHub (" + last + ')');
+}
+
+function scriptApi_(method, url, body) {
+  var opt = { method: method, muteHttpExceptions: true, contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } };
+  if (body) opt.payload = JSON.stringify(body);
+  var r = UrlFetchApp.fetch(url, opt);
+  var code = r.getResponseCode(), text = r.getContentText();
+  if (code >= 300) {
+    if (/has not been used|is disabled|SERVICE_DISABLED|User has not enabled the Apps Script API/i.test(text)) {
+      throw new Error('Turn on "Google Apps Script API" at script.google.com/home/usersettings, then try again');
+    }
+    throw new Error('Apps Script API ' + code + ': ' + text.slice(0, 200));
+  }
+  return text ? JSON.parse(text) : {};
+}
+
+// Run once from the editor (pick "setup" in the toolbar, click Run). It asks
+// for the permissions the backend needs and checks self-update can work.
+function setup() {
+  index_(); folder_();
+  var id = ScriptApp.getScriptId();
+  var deps = scriptApi_('get', 'https://script.googleapis.com/v1/projects/' + id + '/deployments').deployments || [];
+  UrlFetchApp.fetch(SOURCE_URLS[1], { muteHttpExceptions: true });
+  Logger.log('Found ' + deps.length + ' deployment(s). Ready: this backend can now update itself.');
 }

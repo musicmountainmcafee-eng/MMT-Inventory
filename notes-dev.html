@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png" />
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <!--
-  MMT Show Notes — DEV build 10.14 v2
+  MMT Show Notes — DEV build 10.14 v3
 
   A sandbox for the show-notes page before it goes into app.html.
   It READS the live show list (to know which shows exist) and never writes to
@@ -115,6 +115,7 @@ button { cursor: pointer; }
 .devnote b { color: var(--amber); font-weight: 600; }
 .banner { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: var(--red-light); color: var(--red); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 14px; }
 .banner .spacer { flex: 1; }
+.banner a { color: inherit; font-weight: 600; }
 
 /* ── show list ── */
 .shows { padding: 8px; align-self: start; position: sticky; top: 78px; max-height: calc(100vh - 96px); overflow: auto; }
@@ -324,8 +325,9 @@ mark { background: color-mix(in srgb, var(--amber) 28%, transparent); color: inh
 
 <script>
 'use strict';
-const BUILD = '10.14 v2';
-const NEED_API = 2;
+const BUILD = '10.14 v3';
+const NEED_API = 2;      // features the page can't work without
+const NEED_BUILD = 3;    // newest backend; an older one is told to update itself
 // Live dashboard backend — used ONLY for reads (show list, existing notes links).
 const LIVE_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
 const STATUS_CYCLE = ['Idea', 'Planned', 'Building', 'Done'];
@@ -475,12 +477,12 @@ function jsonp(url, timeoutMs) {
     document.head.appendChild(s);
   });
 }
-async function api(req) {
+async function api(req, timeoutMs) {
   if (S.api === 'demo') return Demo.call(req);
   if (!S.api) throw new Error('Not connected');
   const payload = JSON.stringify(req);
   let res;
-  if (payload.length < 1500) res = await jsonp(S.api + '?payload=' + encodeURIComponent(payload) + '&_=' + Date.now());
+  if (payload.length < 1500) res = await jsonp(S.api + '?payload=' + encodeURIComponent(payload) + '&_=' + Date.now(), timeoutMs);
   else {
     // Long text: POST. Long ops are cell saves, which are safe to repeat.
     const r = await fetch(S.api, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: payload });
@@ -544,6 +546,13 @@ window.addEventListener('online', () => { retryDelay = 2000; flush(); });
 function pendingIds() { return new Set(queue.filter(q => q.action === 'saveItem').map(q => q.id)); }
 function showBanner() {
   const b = document.getElementById('banner');
+  if (S.api && S.api !== 'demo' && S.backend && !S.backend.selfUpdate) {
+    b.hidden = false;
+    const gh = 'https://github.com/musicmountainmcafee-eng/MMT-Inventory/blob/main/apps-script/';
+    b.innerHTML = `<span><b>One last paste, then the backend updates itself.</b>${S.apiLevel < NEED_API ? ' Your edits are kept on this device until it’s done.' : ''} On a laptop, in the MMT Show Notes DEV script:<br>① turn on “Google Apps Script API” at <a href="https://script.google.com/home/usersettings" target="_blank" rel="noopener">script.google.com/home/usersettings</a><br>② Project Settings → tick “Show appsscript.json”, then replace it with <a href="${gh}appsscript.json" target="_blank" rel="noopener">appsscript.json</a><br>③ replace the code with <a href="${gh}ShowNotesDev.gs" target="_blank" rel="noopener">ShowNotesDev.gs</a>, save<br>④ pick <b>setup</b> in the function menu → Run → allow<br>⑤ Deploy → Manage deployments → ✎ → New version → Deploy.</span>
+      <span class="spacer"></span><button class="btn sm" onclick="checkApi(true)">Check again</button>`;
+    return;
+  }
   if (S.apiLevel != null && S.apiLevel < NEED_API && S.api !== 'demo') {
     b.hidden = false;
     b.innerHTML = `<span><b>The Apps Script needs updating</b> for this version of the page. Paste the new <a href="https://github.com/musicmountainmcafee-eng/MMT-Inventory/blob/main/apps-script/ShowNotesDev.gs" target="_blank" rel="noopener">ShowNotesDev.gs</a>, then Deploy → Manage deployments → ✎ → Version: New version → Deploy. Your edits are kept until then.</span>
@@ -551,6 +560,12 @@ function showBanner() {
     return;
   }
   const bad = queue.find(q => q.failed);
+  if (!bad && S.updateErr) {
+    b.hidden = false;
+    b.innerHTML = `<span>The backend couldn't update itself: <b>${esc(S.updateErr)}</b> Everything still saves; this only matters for new features.</span>
+      <span class="spacer"></span><button class="btn sm" onclick="selfUpdate()">Try again</button>`;
+    return;
+  }
   if (!bad) { b.hidden = true; return; }
   b.hidden = false;
   b.innerHTML = `<span>A change couldn't be saved to the sheet: <b>${esc(bad.failed)}</b></span><span class="spacer"></span>
@@ -568,6 +583,7 @@ function renderSync() {
   if (S.api === 'demo') { el.classList.add('demo'); tx.textContent = 'Demo — not saved'; return; }
   if (!S.api) { el.classList.add('err'); tx.textContent = 'Not connected'; return; }
   const n = queue.length;
+  if (S.updating) { el.classList.add('busy'); tx.textContent = 'Updating backend…'; return; }
   if (S.apiLevel != null && S.apiLevel < NEED_API) { el.classList.add('err'); tx.textContent = n ? `Update script · ${n} waiting` : 'Update script'; return; }
   if (queue.some(q => q.failed)) { el.classList.add('err'); tx.textContent = 'Save problem'; return; }
   if (n && (!navigator.onLine || queue.some(q => q.tries))) { el.classList.add('err'); tx.textContent = `Can't reach sheet · ${n} waiting`; el.title = 'Edits are kept on this device and retried automatically. Tap to retry now.'; return; }
@@ -576,12 +592,35 @@ function renderSync() {
   tx.textContent = 'Saved to sheet';
 }
 function onSyncClick() { if (queue.length) { retryDelay = 2000; flush(); } else if (S.book) loadBook(S.book.sheetId, true); }
+async function ping() { const r = await api({ action: 'ping' }); S.apiLevel = r.api || 1; S.backend = { build: r.build || 0, selfUpdate: !!r.selfUpdate, version: r.version }; return r; }
 async function checkApi(manual) {
   if (!S.api || S.api === 'demo') return;
-  try { const r = await api({ action: 'ping' }); S.apiLevel = r.api || 1; }
+  try { await ping(); }
   catch (e) { if (manual) toast("Couldn't reach the script: " + e.message); flush(); return; }   // flush keeps retrying
+  if (S.backend.selfUpdate && S.backend.build < NEED_BUILD) await selfUpdate();
   showBanner(); renderSync();
   if (S.apiLevel >= NEED_API) { flush(); if (manual) toast('Script is up to date'); if (S.book) loadBook(S.book.sheetId, true); }
+}
+// The backend pulls its newest code from GitHub and redeploys itself (same URL).
+async function selfUpdate() {
+  if (S.updating) return;
+  S.updating = true; S.updateErr = ''; renderSync();
+  try {
+    const r = await api({ action: 'selfUpdate' }, 90000);
+    if (r.updated) {
+      for (let i = 0; i < 4; i++) {           // the new deployment is live within a few seconds
+        await new Promise(res => setTimeout(res, 1500 * (i + 1)));
+        try { await ping(); } catch (e) {}
+        if (S.backend.build >= r.to) break;
+      }
+      toast('Backend updated itself to build ' + S.backend.build);
+    } else if (S.backend.build < NEED_BUILD) {
+      // GitHub can take a few minutes to serve a fresh push; try again later.
+      S.updateErr = (r.reason || 'Not updated') + '. Will try again shortly.';
+      setTimeout(() => checkApi(), 5 * 60000);
+    }
+  } catch (e) { S.updateErr = e.message; }
+  finally { S.updating = false; renderSync(); showBanner(); }
 }
 
 // ── live show list (read-only) ──
@@ -1306,11 +1345,12 @@ async function saveConnect() {
   err.textContent = 'Checking…';
   S.api = url;
   try {
-    const r = await api({ action: 'ping' });
-    S.apiLevel = r.api || 1;
+    const r = await ping();
     lsSet(LS.api, url); S.connectErr = ''; S._prevApi = '';
     toast('Connected · backend ' + r.version);
-    await loadIndex(); flush();
+    await loadIndex();
+    if (S.backend.selfUpdate && S.backend.build < NEED_BUILD) await selfUpdate();
+    flush(); showBanner();
     if (S.slug) pickShow(S.slug);
   } catch (e) { S.api = ''; err.textContent = 'Couldn’t reach it: ' + e.message + '. Check the deployment allows “Anyone”.'; }
 }
@@ -1359,7 +1399,7 @@ const Demo = (() => {
     books: () => index.slice(),
     call(r) {
       switch (r.action) {
-        case 'ping': return reply({ version: 'demo', api: NEED_API });
+        case 'ping': return reply({ version: 'demo', api: NEED_API, build: NEED_BUILD, selfUpdate: true });
         case 'listBooks': return reply({ books: index });
         case 'createBook': {
           const id = 'demo-' + r.slug;
