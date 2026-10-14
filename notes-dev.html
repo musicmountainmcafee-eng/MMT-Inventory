@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png" />
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <!--
-  MMT Show Notes — DEV build 10.14 v4
+  MMT Show Notes — DEV build 10.14 v5
 
   A sandbox for the show-notes page before it goes into app.html.
   It READS the live show list (to know which shows exist) and never writes to
@@ -324,15 +324,18 @@ mark { background: color-mix(in srgb, var(--amber) 28%, transparent); color: inh
 </div>
 <datalist id="statuses"><option value="Idea"><option value="Planned"><option value="Building"><option value="Done"><option value="Cut"></datalist>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<div id="build-tag">10.14 v4</div>
+<div id="build-tag">10.14 v5</div>
 
 <script>
 'use strict';
-const BUILD = '10.14 v4';
+const BUILD = '10.14 v5';
 const NEED_API = 2;      // features the page can't work without
 const NEED_BUILD = 3;    // newest backend; an older one is told to update itself
 // Live dashboard backend — used ONLY for reads (show list, existing notes links).
 const LIVE_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
+// The dev notes backend (its own Apps Script project). Built in so every device
+// connects without setup; ⚙ can still point a device somewhere else.
+const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbzKRs8fDvx_gs-aX2ZIeJ6LCKOUJIvmsrcVczhcJWzWgjs0Chseb_xwH0fHpjOHAPEe/exec';
 const STATUS_CYCLE = ['Idea', 'Planned', 'Building', 'Done'];
 const PRACTICE = { slug: '_practice', name: 'Practice notebook', type: 'Practice' };
 const LS = {
@@ -383,7 +386,7 @@ function applyWide() {
 
 // ── state ──
 const S = {
-  api: lsGet(LS.api, ''), apiLevel: null,
+  api: lsGet(LS.api, '') || DEFAULT_API, apiLevel: null,
   shows: [], legacy: {}, books: lsGet(LS.books, []),
   slug: '', book: null, tabGid: null, editing: null,
   filter: 'all', q: '', showDone: {}, view: lsGet(LS.view, innerWidth >= 880 ? 'grid' : 'list'),
@@ -1333,7 +1336,7 @@ function connectHTML() {
       <li>Paste in <a href="https://github.com/musicmountainmcafee-eng/MMT-Inventory/blob/main/apps-script/ShowNotesDev.gs" target="_blank" rel="noopener">apps-script/ShowNotesDev.gs</a> and save.</li>
       <li>Deploy → New deployment → Web app. Execute as <b>Me</b>, access <b>Anyone</b>. Authorize.</li>
       <li>Paste the Web app URL (ends in <span class="mono">/exec</span>) below.</li></ol>
-    <div class="row"><input type="url" id="api-url" placeholder="https://script.google.com/macros/s/…/exec" value="${S._prevApi && S._prevApi !== 'demo' ? esc(S._prevApi) : ''}">
+    <div class="row"><input type="url" id="api-url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(S._prevApi && S._prevApi !== 'demo' ? S._prevApi : DEFAULT_API)}">
       <button class="btn primary" id="connect-btn" onclick="saveConnect()">Connect</button></div>
     <div class="row" style="margin-top:10px"><button class="btn ghost" onclick="useDemo()">Or try it with sample notes (nothing saved)</button>
       ${S._prevApi ? '<button class="btn ghost" onclick="cancelConnect()">Cancel</button>' : ''}</div>
