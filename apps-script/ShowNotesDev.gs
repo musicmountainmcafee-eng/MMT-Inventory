@@ -1,42 +1,45 @@
 /**
- * MMT Show Notes — DEV backend   (10.14 v1)
+ * MMT Show Notes — DEV backend   (10.14 v2)
  *
  * A standalone Apps Script project. It does NOT touch the live dashboard
  * backend, the live Sheet, or any existing show notes workbook. Everything it
  * makes lives in its own Drive folder, "MMT Show Notes (dev)".
  *
- * SETUP (once, from a laptop):
+ * FIRST-TIME SETUP (from a laptop):
  *   1. script.google.com → New project. Name it "MMT Show Notes DEV".
  *   2. Delete the starter code, paste this whole file, save.
  *   3. Deploy → New deployment → type "Web app".
  *        Execute as: Me      Who has access: Anyone
  *   4. Authorize when asked (Drive + Sheets).
- *   5. Copy the Web app URL (ends in /exec) and paste it into the dev page's
- *      "Connect" box.
+ *   5. Copy the Web app URL (ends in /exec) into the dev page's Connect box.
+ *
+ * UPDATING (keeps the same URL):
+ *   Paste the new file over the old one, save, then
+ *   Deploy → Manage deployments → ✎ (edit) → Version: "New version" → Deploy.
  *
  * HOW THE DATA LOOKS IN SHEETS
- *   One spreadsheet per show. One tab per section (a setting, a list, a
- *   meeting…). Every tab has the same shape, so it reads fine in Sheets and you
- *   can type straight into it there too:
+ *   One spreadsheet per show, one tab per section. Each tab:
  *
- *     A1  About    | B1  description of this section
- *     A2  Scenes   | B2  A1S5, A2S6
+ *     About    | description of this section      ← "fields": any label/value
+ *     Scenes   | A1S5, A2S6                          rows above the table
  *     (blank)
- *     A4  Item | Notes | Scenes | Where | Status | ID   ← header row
- *     A5… one row per item
+ *     Item | Notes | Status | …any columns… | ID    ← header row (ID is last)
+ *     one row per item
  *
- *   The ID column is hidden; it lets the dashboard find a row again after you
- *   sort or insert rows in Sheets. Rows you type in Sheets get an ID the next
- *   time the page loads that show.
+ *   Fields and columns are whatever you make them. The header row is the one
+ *   whose last filled cell says "ID". That column is hidden; it lets the page
+ *   find a row again after you sort or insert rows in Sheets. Rows typed in
+ *   Sheets get an ID the next time the page loads that show.
  */
 
-var VERSION = '10.14 v1';
+var VERSION = '10.14 v2';
+var API_LEVEL = 2;
 var FOLDER_NAME = 'MMT Show Notes (dev)';
 var INDEX_NAME = 'MMT Show Notes (dev) — Index';
-var HEADERS = ['Item', 'Notes', 'Scenes', 'Where', 'Status', 'ID'];
+var DEFAULT_COLUMNS = ['Item', 'Notes', 'Scenes', 'Where', 'Status'];
+var DEFAULT_FIELDS = ['About', 'Scenes'];
 var STATUSES = ['Idea', 'Planned', 'Building', 'Done', 'Cut'];
 var STARTER_TABS = ['General', 'Build To-Do', 'Production Meetings'];
-var NCOL = HEADERS.length;
 
 // ── entry points ────────────────────────────────────────────────────────────
 function doGet(e) {
@@ -68,13 +71,10 @@ var READS = { ping: 1, listBooks: 1 };
 function handle_(req) {
   var action = req.action || 'ping';
   var fn = ACTIONS[action];
-  if (!fn) return { ok: false, error: 'Unknown action: ' + action };
+  if (!fn) return { ok: false, error: 'Unknown action: ' + action + ' (is the Apps Script up to date?)' };
   var lock = null;
   try {
-    if (!READS[action]) {
-      lock = LockService.getScriptLock();
-      lock.waitLock(20000);
-    }
+    if (!READS[action]) { lock = LockService.getScriptLock(); lock.waitLock(20000); }
     var out = fn(req) || {};
     out.ok = true;
     return out;
@@ -86,24 +86,21 @@ function handle_(req) {
 }
 
 var ACTIONS = {
-  ping: function () { return { version: VERSION }; },
+  ping: function () { return { version: VERSION, api: API_LEVEL }; },
 
   listBooks: function () { return { books: readIndex_() }; },
 
   createBook: function (req) {
-    var slug = String(req.slug || '').trim();
-    var name = String(req.name || '').trim();
+    var slug = String(req.slug || '').trim(), name = String(req.name || '').trim();
     if (!slug || !name) throw new Error('slug and name are required');
     var existing = readIndex_().filter(function (b) { return b.slug === slug; })[0];
     if (existing) return { book: existing, existed: true };
-
     var ss = SpreadsheetApp.create(name + ' — Show Notes');
     DriveApp.getFileById(ss.getId()).moveTo(folder_());
     var first = ss.getSheets()[0];
     first.setName(STARTER_TABS[0]);
     initTab_(first);
     for (var i = 1; i < STARTER_TABS.length; i++) initTab_(ss.insertSheet(STARTER_TABS[i]));
-
     var book = { slug: slug, name: name, sheetId: ss.getId(), url: ss.getUrl(), created: new Date().toISOString() };
     index_().getSheets()[0].appendRow([book.slug, book.name, book.sheetId, book.url, book.created]);
     return { book: book };
@@ -116,12 +113,14 @@ var ACTIONS = {
     return { sheetId: ss.getId(), url: ss.getUrl(), name: ss.getName(), tabs: tabs };
   },
 
+  // ── tabs ──
+  // columns/fields: copy the layout of the tab you were on (optional).
   addTab: function (req) {
     var ss = openBook_(req.sheetId);
     var title = uniqueTitle_(ss, String(req.title || 'New tab').trim() || 'New tab');
-    var sh = ss.insertSheet(title, ss.getSheets().length);
-    initTab_(sh);
-    if (req.description || req.scenes) writeMeta_(sh, req.description, req.scenes);
+    var at = req.index != null ? visiblePos_(ss, req.index) : ss.getSheets().length;
+    var sh = ss.insertSheet(title, at);
+    initTab_(sh, req.columns, req.fields);
     return { tab: readTab_(sh) };
   },
 
@@ -129,7 +128,7 @@ var ACTIONS = {
     var sh = tabByGid_(openBook_(req.sheetId), req.gid);
     var title = String(req.title || '').trim();
     if (!title) throw new Error('Title is empty');
-    if (title !== sh.getName()) sh.setName(uniqueTitle_(sh.getParent(), title));
+    if (title !== sh.getName()) sh.setName(uniqueTitle_(sh.getParent(), title, sh));
     return { title: sh.getName() };
   },
 
@@ -140,128 +139,325 @@ var ACTIONS = {
     return {};
   },
 
-  setTabMeta: function (req) {
-    var sh = tabByGid_(openBook_(req.sheetId), req.gid);
-    writeMeta_(sh, req.description, req.scenes);
+  moveTab: function (req) {
+    var ss = openBook_(req.sheetId);
+    var sh = tabByGid_(ss, req.gid);
+    ss.setActiveSheet(sh);
+    ss.moveActiveSheet(visiblePos_(ss, req.index, sh) + 1);
     return {};
   },
 
-  // Insert or update one item, matched by ID.
+  // ── fields (label/value rows above the table) ──
+  setField: function (req) {
+    var sh = tabByGid_(openBook_(req.sheetId), req.gid);
+    var L = layout_(sh);
+    var f = fieldRow_(sh, L, req.label);
+    if (!f) f = insertField_(sh, L, req.label);
+    sh.getRange(f, 2).setValue(cell_(req.value));
+    return {};
+  },
+
+  renameField: function (req) {
+    var sh = tabByGid_(openBook_(req.sheetId), req.gid);
+    var L = layout_(sh);
+    var f = fieldRow_(sh, L, req.from);
+    var to = String(req.to || '').trim();
+    if (!to) throw new Error('Field name is empty');
+    if (f) sh.getRange(f, 1).setValue(cell_(to)); else insertField_(sh, L, to);
+    return {};
+  },
+
+  deleteField: function (req) {
+    var sh = tabByGid_(openBook_(req.sheetId), req.gid);
+    var f = fieldRow_(sh, layout_(sh), req.label);
+    if (f) { sh.deleteRow(f); refreeze_(sh); }
+    return {};
+  },
+
+  // ── columns ──
+  addColumn: function (req) {
+    var sh = tabByGid_(openBook_(req.sheetId), req.gid);
+    var L = layout_(sh);
+    var name = uniqueCol_(L.columns, String(req.name || 'New column').trim() || 'New column');
+    addColumn_(sh, L, name);
+    if (req.index != null) moveColumn_(sh, layout_(sh), name, req.index);
+    return { name: name };
+  },
+
+  renameColumn: function (req) {
+    var sh = tabByGid_(openBook_(req.sheetId), req.gid);
+    var L = layout_(sh);
+    var c = colIndex_(L, req.from);
+    if (c < 0) throw new Error('Column "' + req.from + '" not found');
+    var others = L.columns.filter(function (x, i) { return i !== c; });
+    var name = uniqueCol_(others, String(req.to || '').trim() || 'Column');
+    sh.getRange(L.header, c + 1).setValue(cell_(name));
+    if (/^status$/i.test(name) || /^status$/i.test(L.columns[c])) {
+      var cols = L.columns.slice(); cols[c] = name;
+      sh.getRange(L.header + 1, 1, Math.max(sh.getMaxRows() - L.header, 1), L.idCol).clearDataValidations();
+      statusRule_(sh, L.header, cols);
+    }
+    return { name: name };
+  },
+
+  deleteColumn: function (req) {
+    var sh = tabByGid_(openBook_(req.sheetId), req.gid);
+    var L = layout_(sh);
+    var c = colIndex_(L, req.name);
+    if (c < 0) return {};
+    if (L.columns.length < 2) throw new Error("Can't delete the last column");
+    deleteColumn_(sh, L, c);
+    return {};
+  },
+
+  moveColumn: function (req) {
+    var sh = tabByGid_(openBook_(req.sheetId), req.gid);
+    moveColumn_(sh, layout_(sh), req.name, req.index);
+    return {};
+  },
+
+  // ── rows ──
+  // values: {columnName: text}. Only the columns sent are written, so two
+  // edits to different cells of the same row can't overwrite each other.
+  // New rows go before beforeId (if given) or at the end.
   saveItem: function (req) {
     var sh = tabByGid_(openBook_(req.sheetId), req.gid);
-    var it = req.item || {};
-    if (!it.id) it.id = newId_();
-    var h = headerRow_(sh);
-    if (!h) throw new Error('Tab "' + sh.getName() + '" is not in notes format');
-    var row = findRow_(sh, h, it.id);
-    var vals = [[s_(it.item), s_(it.notes), s_(it.scenes), s_(it.where), s_(it.status), it.id]];
-    if (row) sh.getRange(row, 1, 1, NCOL).setValues(vals);
-    else sh.getRange(Math.max(sh.getLastRow(), h) + 1, 1, 1, NCOL).setValues(vals);
-    return { id: it.id };
+    var L = layout_(sh);
+    var id = req.id || newId_();
+    var values = req.values || {};
+    L = ensureColumns_(sh, L, values);
+    var row = findRow_(sh, L, id);
+    if (!row) row = newRow_(sh, L, req.beforeId, id);
+    Object.keys(values).forEach(function (k) {
+      var c = colIndex_(L, k);
+      if (c >= 0) sh.getRange(row, c + 1).setValue(cell_(values[k]));
+    });
+    return { id: id };
   },
 
   deleteItem: function (req) {
     var sh = tabByGid_(openBook_(req.sheetId), req.gid);
-    var h = headerRow_(sh);
-    var row = h && findRow_(sh, h, req.id);
+    var row = findRow_(sh, layout_(sh), req.id);
     if (row) sh.deleteRow(row);
     return { deleted: !!row };
   },
 
-  // Move an item to another tab (keeps its ID).
+  // Reorder within a tab, or move to another tab (toGid). Lands before
+  // beforeId, or at the end. Columns are matched by name; a column the
+  // target doesn't have is added, so nothing is dropped.
   moveItem: function (req) {
     var ss = openBook_(req.sheetId);
-    var from = tabByGid_(ss, req.gid), to = tabByGid_(ss, req.toGid);
-    var hf = headerRow_(from), ht = headerRow_(to);
-    if (!ht) throw new Error('Target tab is not in notes format');
-    var row = hf && findRow_(from, hf, req.id);
-    if (!row) throw new Error('Item not found');
-    var vals = from.getRange(row, 1, 1, NCOL).getValues();
-    to.getRange(Math.max(to.getLastRow(), ht) + 1, 1, 1, NCOL).setValues(vals);
-    from.deleteRow(row);
+    var from = tabByGid_(ss, req.gid);
+    var Lf = layout_(from);
+    var r = findRow_(from, Lf, req.id);
+    if (!r) throw new Error('Row not found (it may have been deleted in Sheets)');
+    var toGid = req.toGid == null ? req.gid : req.toGid;
+    if (String(toGid) === String(req.gid)) {
+      var dest = req.beforeId ? findRow_(from, Lf, req.beforeId) : Math.max(from.getLastRow(), Lf.header) + 1;
+      if (!dest) dest = Math.max(from.getLastRow(), Lf.header) + 1;
+      if (dest !== r && dest !== r + 1) from.moveRows(from.getRange(r, 1), dest);
+      return {};
+    }
+    var to = tabByGid_(ss, toGid);
+    var vals = from.getRange(r, 1, 1, Lf.idCol).getDisplayValues()[0];
+    var values = {};
+    Lf.columns.forEach(function (c, i) { if (vals[i] !== '') values[c] = vals[i]; });
+    var Lt = ensureColumns_(to, layout_(to), values);
+    var row = newRow_(to, Lt, req.beforeId, req.id);
+    Object.keys(values).forEach(function (k) { to.getRange(row, colIndex_(Lt, k) + 1).setValue(cell_(values[k])); });
+    from.deleteRow(r);
     return {};
   }
 };
 
-// ── tabs ────────────────────────────────────────────────────────────────────
-function initTab_(sh) {
-  // Plain-text format so "1/2" or "3-4" stay as typed instead of becoming dates.
-  sh.getRange(1, 1, sh.getMaxRows(), NCOL - 1).setNumberFormat('@');
-  sh.getRange(1, 1, 2, 2).setValues([['About', ''], ['Scenes', '']]);
-  sh.getRange(1, 1, 2, 1).setFontWeight('bold').setFontColor('#57534e');
-  try { sh.getRange(1, 2, 1, NCOL - 2).merge(); sh.getRange(2, 2, 1, NCOL - 2).merge(); } catch (e) {}
-  sh.getRange(1, 2, 2, 1).setWrap(true);
-  sh.getRange(4, 1, 1, NCOL).setValues([HEADERS])
+// ── layout ──────────────────────────────────────────────────────────────────
+// header: row number of the header row. columns: names before ID.
+// idCol: 1-based column of ID. fields: [{label, value, row}].
+function layout_(sh) {
+  var last = sh.getLastRow();
+  var n = Math.min(Math.max(last, 1), 40);
+  var w = Math.max(sh.getLastColumn(), 1);
+  var v = sh.getRange(1, 1, n, w).getDisplayValues();
+  for (var r = 0; r < v.length; r++) {
+    var k = -1;
+    for (var c = v[r].length - 1; c >= 0; c--) if (String(v[r][c]).trim() !== '') { k = c; break; }
+    if (k > 0 && String(v[r][k]).trim().toUpperCase() === 'ID') {
+      var fields = [];
+      for (var f = 0; f < r; f++) {
+        if (String(v[f][0]).trim()) fields.push({ label: String(v[f][0]).trim(), value: v[f][1] || '', row: f + 1 });
+      }
+      return { header: r + 1, idCol: k + 1, columns: v[r].slice(0, k).map(function (x, i) { return String(x).trim() || ('Column ' + (i + 1)); }), fields: fields };
+    }
+  }
+  return null;
+}
+
+function initTab_(sh, columns, fields) {
+  columns = (columns && columns.length ? columns : DEFAULT_COLUMNS).map(String);
+  fields = (fields || DEFAULT_FIELDS).map(String);
+  var nf = fields.length;
+  var header = nf + 2;              // fields, one blank row, header
+  var ncol = columns.length + 1;
+  sh.getRange(1, 1, sh.getMaxRows(), Math.max(ncol - 1, 1)).setNumberFormat('@');
+  if (nf) {
+    sh.getRange(1, 1, nf, 1).setValues(fields.map(function (f) { return [cell_(f)]; }))
+      .setFontWeight('bold').setFontColor('#57534e');
+    sh.getRange(1, 2, nf, 1).setWrap(true);
+  }
+  sh.getRange(header, 1, 1, ncol).setValues([columns.map(cell_).concat(['ID'])])
     .setFontWeight('bold').setBackground('#eeedfb').setFontColor('#3a3390');
-  sh.setFrozenRows(4);
-  sh.setColumnWidth(1, 220); sh.setColumnWidth(2, 360); sh.setColumnWidth(3, 110);
-  sh.setColumnWidth(4, 90); sh.setColumnWidth(5, 90);
-  sh.getRange(5, 1, Math.max(sh.getMaxRows() - 4, 1), 2).setWrap(true);
-  sh.getRange(5, 1, Math.max(sh.getMaxRows() - 4, 1), NCOL).setVerticalAlignment('top');
-  var rule = SpreadsheetApp.newDataValidation().requireValueInList(STATUSES, true).setAllowInvalid(true).build();
-  sh.getRange(5, 5, Math.max(sh.getMaxRows() - 4, 1), 1).setDataValidation(rule);
-  sh.hideColumns(NCOL);
+  sh.setFrozenRows(header);
+  for (var c = 1; c < ncol; c++) sh.setColumnWidth(c, c === 1 ? 220 : (/notes/i.test(columns[c - 1]) ? 360 : 120));
+  sh.getRange(header + 1, 1, Math.max(sh.getMaxRows() - header, 1), ncol).setVerticalAlignment('top').setWrap(true);
+  statusRule_(sh, header, columns);
+  sh.hideColumns(ncol);
   return sh;
 }
 
-// Header row = first row in the top 15 whose first and last cells read Item / ID.
-function headerRow_(sh) {
-  var n = Math.min(Math.max(sh.getLastRow(), 1), 15);
-  var v = sh.getRange(1, 1, n, NCOL).getValues();
-  for (var r = 0; r < v.length; r++) {
-    if (String(v[r][0]).trim().toLowerCase() === 'item' && String(v[r][NCOL - 1]).trim().toUpperCase() === 'ID') return r + 1;
-  }
-  return 0;
+function refreeze_(sh) { var L = layout_(sh); if (L) sh.setFrozenRows(L.header); }
+
+function fieldRow_(sh, L, label) {
+  if (!L) throw new Error('Tab "' + sh.getName() + '" is not in notes format');
+  var want = String(label || '').trim().toLowerCase();
+  var f = L.fields.filter(function (x) { return x.label.toLowerCase() === want; })[0];
+  return f ? f.row : 0;
 }
 
-function findRow_(sh, h, id) {
+// New field goes after the last field (or at the top), keeping the blank row
+// between fields and the table.
+function insertField_(sh, L, label) {
+  var after = L.fields.length ? L.fields[L.fields.length - 1].row : 0;
+  if (after) sh.insertRowAfter(after); else sh.insertRowBefore(1);
+  var row = after + 1;
+  sh.getRange(row, 1).setValue(cell_(String(label).trim())).setFontWeight('bold').setFontColor('#57534e');
+  sh.getRange(row, 2).setWrap(true);
+  refreeze_(sh);
+  return row;
+}
+
+function colIndex_(L, name) {
+  var want = String(name || '').trim().toLowerCase();
+  for (var i = 0; i < L.columns.length; i++) if (L.columns[i].toLowerCase() === want) return i;
+  return -1;
+}
+
+function uniqueCol_(existing, name) {
+  var low = existing.map(function (x) { return String(x).toLowerCase(); });
+  var t = name, n = 2;
+  while (low.indexOf(t.toLowerCase()) !== -1 || t.toUpperCase() === 'ID') t = name + ' ' + (n++);
+  return t;
+}
+
+// Column edits rewrite only the table (header row and below). Whole-column
+// operations would also shift the fields above the table, which share
+// columns A and B with it.
+//   spec: [{name, from}] — from is the old 0-based column, or -1 for new.
+function rewriteTable_(sh, L, spec) {
+  var last = Math.max(sh.getLastRow(), L.header);
+  var n = last - L.header + 1;
+  var old = sh.getRange(L.header, 1, n, L.idCol).getValues();
+  var w = spec.length + 1;
+  var rows = old.map(function (r, i) {
+    var out = spec.map(function (c) { return i === 0 ? c.name : (c.from >= 0 ? r[c.from] : ''); });
+    out.push(r[L.idCol - 1]);
+    return out.map(function (v) { return typeof v === 'string' ? cell_(v) : v; });
+  });
+  var wide = Math.max(w, L.idCol);
+  var data = Math.max(sh.getMaxRows() - L.header, 1);
+  sh.getRange(L.header + 1, 1, data, wide).clearDataValidations();
+  sh.getRange(L.header + 1, 1, data, w - 1).setNumberFormat('@');
+  if (w < L.idCol) sh.getRange(L.header, w + 1, n, L.idCol - w).clearContent();
+  sh.getRange(L.header, 1, n, w).setValues(rows);
+  sh.getRange(L.header, 1, 1, w).setFontWeight('bold').setBackground('#eeedfb').setFontColor('#3a3390');
+  if (w < L.idCol) sh.getRange(L.header, w + 1, 1, L.idCol - w).setBackground(null);
+  sh.showColumns(1, wide);
+  sh.hideColumns(w);
+  statusRule_(sh, L.header, spec.map(function (c) { return c.name; }));
+}
+
+function specOf_(L) { return L.columns.map(function (c, i) { return { name: c, from: i }; }); }
+
+function statusRule_(sh, header, columns) {
+  var si = columns.map(function (x) { return String(x).toLowerCase(); }).indexOf('status');
+  if (si < 0) return;
+  var rule = SpreadsheetApp.newDataValidation().requireValueInList(STATUSES, true).setAllowInvalid(true).build();
+  sh.getRange(header + 1, si + 1, Math.max(sh.getMaxRows() - header, 1), 1).setDataValidation(rule);
+}
+
+function addColumn_(sh, L, name) {
+  var spec = specOf_(L);
+  spec.push({ name: name, from: -1 });
+  rewriteTable_(sh, L, spec);
+  sh.setColumnWidth(spec.length, 140);
+  return spec.length;
+}
+
+function deleteColumn_(sh, L, c) {
+  rewriteTable_(sh, L, specOf_(L).filter(function (x, i) { return i !== c; }));
+}
+
+function ensureColumns_(sh, L, values) {
+  if (!L) throw new Error('Tab "' + sh.getName() + '" is not in notes format');
+  Object.keys(values).forEach(function (k) {
+    if (colIndex_(L, k) < 0 && String(values[k]) !== '') { addColumn_(sh, L, k); L = layout_(sh); }
+  });
+  return L;
+}
+
+// index: final 0-based position among the columns.
+function moveColumn_(sh, L, name, index) {
+  var from = colIndex_(L, name);
+  if (from < 0) throw new Error('Column "' + name + '" not found');
+  var to = Math.max(0, Math.min(Number(index) || 0, L.columns.length - 1));
+  if (to === from) return;
+  var spec = specOf_(L);
+  var moving = spec.splice(from, 1)[0];
+  spec.splice(to, 0, moving);
+  rewriteTable_(sh, L, spec);
+}
+
+function findRow_(sh, L, id) {
+  if (!L) throw new Error('Tab "' + sh.getName() + '" is not in notes format');
   var last = sh.getLastRow();
-  if (last <= h || !id) return 0;
-  var ids = sh.getRange(h + 1, NCOL, last - h, 1).getValues();
-  for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === String(id)) return h + 1 + i;
+  if (last <= L.header || !id) return 0;
+  var ids = sh.getRange(L.header + 1, L.idCol, last - L.header, 1).getValues();
+  for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === String(id)) return L.header + 1 + i;
   return 0;
 }
 
-function writeMeta_(sh, description, scenes) {
-  var h = headerRow_(sh) || 4;
-  if (h < 2) return;
-  var labels = sh.getRange(1, 1, h - 1, 1).getValues();
-  for (var r = 0; r < labels.length; r++) {
-    var k = String(labels[r][0]).trim().toLowerCase();
-    if (k === 'about' && description != null) sh.getRange(r + 1, 2).setValue(s_(description));
-    if (k === 'scenes' && scenes != null) sh.getRange(r + 1, 2).setValue(s_(scenes));
-  }
+function newRow_(sh, L, beforeId, id) {
+  var before = beforeId ? findRow_(sh, L, beforeId) : 0;
+  var row;
+  if (before) { sh.insertRowBefore(before); row = before; }
+  else row = Math.max(sh.getLastRow(), L.header) + 1;
+  sh.getRange(row, L.idCol).setValue(id);
+  return row;
 }
 
 function readTab_(sh) {
-  var tab = { gid: sh.getSheetId(), title: sh.getName(), description: '', scenes: '', items: [], format: 'notes' };
-  var last = sh.getLastRow();
-  if (last === 0) { initTab_(sh); return tab; }   // a blank tab added in Sheets
-  var h = headerRow_(sh);
-  if (!h) {
+  var tab = { gid: sh.getSheetId(), title: sh.getName(), fields: [], columns: [], items: [], format: 'notes' };
+  if (sh.getLastRow() === 0) initTab_(sh);   // a blank tab added in Sheets
+  var L = layout_(sh);
+  if (!L) {
     // Freeform tab typed in Sheets: hand back the text so nothing is hidden.
-    var raw = sh.getRange(1, 1, last, Math.max(sh.getLastColumn(), 1)).getDisplayValues();
+    var raw = sh.getRange(1, 1, sh.getLastRow(), Math.max(sh.getLastColumn(), 1)).getDisplayValues();
     tab.format = 'freeform';
     tab.lines = raw.map(function (r) { return r.filter(String).join(' · '); }).filter(String);
     return tab;
   }
-  var top = sh.getRange(1, 1, h - 1 || 1, 2).getDisplayValues();
-  top.forEach(function (r) {
-    var k = String(r[0]).trim().toLowerCase();
-    if (k === 'about') tab.description = r[1];
-    if (k === 'scenes') tab.scenes = r[1];
-  });
-  if (last > h) {
-    var rows = sh.getRange(h + 1, 1, last - h, NCOL).getDisplayValues();
+  tab.fields = L.fields.map(function (f) { return { label: f.label, value: f.value }; });
+  tab.columns = L.columns.slice();
+  var last = sh.getLastRow();
+  if (last > L.header) {
+    var rows = sh.getRange(L.header + 1, 1, last - L.header, L.idCol).getDisplayValues();
     for (var i = 0; i < rows.length; i++) {
-      var r = rows[i];
-      if (!r.slice(0, NCOL - 1).join('').trim()) continue;
-      var id = r[NCOL - 1];
-      if (!id) {                       // typed in Sheets — give it an ID
-        id = newId_();
-        sh.getRange(h + 1 + i, NCOL).setValue(id);
-      }
-      tab.items.push({ id: id, item: r[0], notes: r[1], scenes: r[2], where: r[3], status: r[4] });
+      var r = rows[i], id = r[L.idCol - 1];
+      var empty = !r.slice(0, L.idCol - 1).join('').trim();
+      if (empty && !id) continue;
+      if (!id) { id = newId_(); sh.getRange(L.header + 1 + i, L.idCol).setValue(id); }
+      var v = {};
+      tab.columns.forEach(function (c, j) { v[c] = r[j]; });
+      tab.items.push({ id: id, v: v });
     }
   }
   return tab;
@@ -273,8 +469,20 @@ function tabByGid_(ss, gid) {
   return sh;
 }
 
-function uniqueTitle_(ss, title) {
-  var names = ss.getSheets().map(function (x) { return x.getName().toLowerCase(); });
+// Position among all sheets of the index-th visible sheet.
+function visiblePos_(ss, index, moving) {
+  var all = ss.getSheets();
+  var vis = all.filter(function (x) { return !x.isSheetHidden() && x !== moving; });
+  var i = Math.max(0, Math.min(Number(index) || 0, vis.length));
+  if (i >= vis.length) return all.length - (moving ? 1 : 0);
+  var target = vis[i];
+  var pos = all.indexOf(target);
+  if (moving && all.indexOf(moving) < pos) pos -= 1;
+  return pos;
+}
+
+function uniqueTitle_(ss, title, self) {
+  var names = ss.getSheets().filter(function (x) { return x !== self; }).map(function (x) { return x.getName().toLowerCase(); });
   var t = title.slice(0, 90), n = 2;
   while (names.indexOf(t.toLowerCase()) !== -1) t = title.slice(0, 85) + ' ' + (n++);
   return t;
@@ -322,10 +530,11 @@ function folder_() {
 }
 
 function newId_() { return 'n' + Utilities.getUuid().replace(/-/g, '').slice(0, 10); }
+
 // Text going into a cell. A leading = + - @ would make Sheets parse it as a
 // formula ("- big old wheelchair" → #ERROR!), so those get a ' prefix, which
 // Sheets hides.
-function s_(v) {
+function cell_(v) {
   v = v == null ? '' : String(v);
   return /^[=+\-@]/.test(v) ? "'" + v : v;
 }

@@ -9,12 +9,15 @@
 <link rel="icon" href="icon-192.png" />
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <!--
-  MMT Show Notes — DEV build 10.14 v1
+  MMT Show Notes — DEV build 10.14 v2
 
-  A sandbox for the structured show-notes page before it goes into app.html.
+  A sandbox for the show-notes page before it goes into app.html.
   It READS the live show list (to know which shows exist) and never writes to
   the live backend. Everything it saves goes through a separate Apps Script
   project (apps-script/ShowNotesDev.gs) into its own Drive folder.
+
+  Every tab is flexible: its fields (About, Scenes…) and its columns are
+  whatever you make them. Rows, columns and tabs can be dragged to reorder.
 -->
 <style>
 :root {
@@ -27,6 +30,7 @@
   --amber: #a85c07; --amber-light: #fbf1e3;
   --red: #b02a20; --red-light: #fbeceb;
   --grey-light: #efeeea;
+  --on-accent: #fff;
   --radius: 14px; --radius-sm: 10px;
   --ring: 0 0 0 3px rgba(79,70,184,0.28);
   --shadow: 0 1px 2px rgba(28,25,23,0.06), 0 4px 16px rgba(28,25,23,0.05);
@@ -42,7 +46,7 @@
     --green: #8fcf6a; --green-light: #1d3318;
     --amber: #f0b25e; --amber-light: #3a2a14;
     --red: #f08a80; --red-light: #3d1d1b;
-    --grey-light: #2a2a38;
+    --grey-light: #2a2a38; --on-accent: #16161f;
     --shadow: none; color-scheme: dark;
   }
 }
@@ -55,7 +59,7 @@
   --green: #8fcf6a; --green-light: #1d3318;
   --amber: #f0b25e; --amber-light: #3a2a14;
   --red: #f08a80; --red-light: #3d1d1b;
-  --grey-light: #2a2a38;
+  --grey-light: #2a2a38; --on-accent: #16161f;
   --shadow: none; color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -84,57 +88,40 @@ button { cursor: pointer; }
 .back { color: var(--text-muted); text-decoration: none; font-size: 14px; padding: 8px 4px; white-space: nowrap; }
 .back:hover { color: var(--text); }
 .topbar h1 { font-size: 17px; font-weight: 600; margin: 0; white-space: nowrap; }
-.dev-badge {
-  font: 500 11px 'DM Mono', monospace; letter-spacing: .04em;
-  background: var(--amber-light); color: var(--amber);
-  padding: 3px 7px; border-radius: 6px;
-}
+.dev-badge { font: 500 11px 'DM Mono', monospace; letter-spacing: .04em; background: var(--amber-light); color: var(--amber); padding: 3px 7px; border-radius: 6px; }
 .spacer { flex: 1; }
-.sync {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 13px; color: var(--text-muted); white-space: nowrap;
-  background: none; border: 0; padding: 8px 6px; border-radius: 8px;
-}
+.sync { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); white-space: nowrap; background: none; border: 0; padding: 8px 6px; border-radius: 8px; min-width: 0; flex: 0 1 auto; }
+#sync-text { overflow: hidden; text-overflow: ellipsis; }
 .sync .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex: none; }
 .sync.busy .dot { background: var(--amber); animation: pulse 1s infinite; }
 .sync.err .dot { background: var(--red); }
 .sync.demo .dot { background: var(--text-faint); }
 @keyframes pulse { 50% { opacity: .35; } }
-.sync { min-width: 0; flex: 0 1 auto; }
-#sync-text { overflow: hidden; text-overflow: ellipsis; }
+.icon-btn { min-width: 40px; height: 40px; border-radius: 10px; border: 1px solid transparent; background: none; color: var(--text-muted); display: inline-grid; place-items: center; font-size: 17px; }
+.icon-btn:hover { background: var(--surface); border-color: var(--border); color: var(--text); }
 @media (max-width: 520px) {
   .topbar { gap: 6px; padding-left: 12px; padding-right: 10px; }
   .back .lbl { display: none; }
   .back { font-size: 18px; padding: 8px 6px; }
   .icon-btn { min-width: 36px; }
 }
-.icon-btn {
-  min-width: 40px; height: 40px; border-radius: 10px; border: 1px solid transparent;
-  background: none; color: var(--text-muted); display: inline-grid; place-items: center; font-size: 17px;
-}
-.icon-btn:hover { background: var(--surface); border-color: var(--border); color: var(--text); }
 
 /* ── layout ── */
-.wrap { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 20px; max-width: 1240px; margin: 0 auto; padding: 18px 16px 80px; }
+.wrap { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 20px; max-width: 1400px; margin: 0 auto; padding: 18px 16px 80px; }
+.wrap.wide { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 879px) { .wrap { grid-template-columns: minmax(0, 1fr); padding-top: 12px; } }
-
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
-
-.devnote {
-  grid-column: 1 / -1;
-  font-size: 13px; color: var(--text-muted);
-  background: var(--amber-light); border-radius: var(--radius-sm); padding: 9px 12px;
-}
+.devnote { grid-column: 1 / -1; font-size: 13px; color: var(--text-muted); background: var(--amber-light); border-radius: var(--radius-sm); padding: 9px 12px; }
 .devnote b { color: var(--amber); font-weight: 600; }
+.banner { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: var(--red-light); color: var(--red); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 14px; }
+.banner .spacer { flex: 1; }
 
 /* ── show list ── */
 .shows { padding: 8px; align-self: start; position: sticky; top: 78px; max-height: calc(100vh - 96px); overflow: auto; }
+.wrap.wide .shows { display: none; }
 .shows h3 { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); margin: 12px 10px 4px; }
 .shows h3:first-child { margin-top: 6px; }
-.show-btn {
-  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
-  background: none; border: 0; border-radius: 10px; padding: 9px 10px; min-height: 44px;
-}
+.show-btn { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: 0; border-radius: 10px; padding: 9px 10px; min-height: 44px; }
 .show-btn:hover { background: var(--surface-2); }
 .show-btn.on { background: var(--purple-light); color: var(--purple-dark); }
 .show-btn .nm { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -144,146 +131,148 @@ button { cursor: pointer; }
 .tag.ms { background: var(--blue-light); color: var(--blue); }
 .tag.ct { background: var(--green-light); color: var(--green); }
 .legacy { font-size: 12.5px; color: var(--text-faint); padding: 4px 10px 8px; }
-.legacy a { color: var(--text-muted); }
 details.legacy-list summary { cursor: pointer; list-style: none; }
 details.legacy-list summary::-webkit-details-marker { display: none; }
 .legacy-row { display: flex; gap: 8px; padding: 6px 10px; font-size: 13px; color: var(--text-muted); }
 .legacy-row span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .legacy-row a { color: var(--purple); text-decoration: none; white-space: nowrap; }
-
 .show-select { display: none; }
 @media (max-width: 879px) {
   .shows { display: none; }
   .show-select { display: block; width: 100%; margin-bottom: 14px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); font-size: 16px; font-weight: 500; }
 }
 
-/* ── notebook ── */
+/* ── notebook head / toolbar ── */
 .main { min-width: 0; }
 .nb-head { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin: 4px 2px 14px; }
 .nb-head h2 { font-size: 26px; line-height: 1.15; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
 .nb-head .sub { color: var(--text-muted); font-size: 14px; margin-top: 3px; }
 .nb-head .acts { margin-left: auto; display: flex; gap: 8px; }
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  min-height: 40px; padding: 0 14px; border-radius: 10px;
-  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
-  font-weight: 500; font-size: 14px; text-decoration: none; white-space: nowrap;
-}
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-weight: 500; font-size: 14px; text-decoration: none; white-space: nowrap; }
 .btn:hover { border-color: var(--purple); }
-.btn.primary { background: var(--purple); border-color: var(--purple); color: #fff; }
-:root[data-theme="dark"] .btn.primary { color: #16161f; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #16161f; } }
+.btn.primary { background: var(--purple); border-color: var(--purple); color: var(--on-accent); }
 .btn.danger { color: var(--red); }
 .btn.ghost { border-color: transparent; background: none; color: var(--text-muted); }
 .btn.ghost:hover { color: var(--text); background: var(--surface); border-color: var(--border); }
 .btn.sm { min-height: 34px; padding: 0 10px; font-size: 13px; }
-
 .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
-.search {
-  flex: 1 1 220px; min-width: 0; display: flex; align-items: center; gap: 8px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0 12px; min-height: 42px;
-}
+.search { flex: 1 1 220px; min-width: 0; display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0 12px; min-height: 42px; }
 .search input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font-size: 16px; padding: 9px 0; }
 .search .x { border: 0; background: none; color: var(--text-faint); font-size: 18px; padding: 4px; }
 .seg { display: inline-flex; background: var(--grey-light); border-radius: 10px; padding: 3px; }
 .seg button { border: 0; background: none; padding: 7px 12px; border-radius: 8px; font-size: 13.5px; color: var(--text-muted); font-weight: 500; min-height: 36px; }
 .seg button.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 
+/* ── tabs ── */
 .tabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 10px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
-.tab {
-  flex: none; display: inline-flex; align-items: center; gap: 7px;
-  min-height: 40px; padding: 0 13px; border-radius: 999px;
-  border: 1px solid var(--border); background: var(--surface); color: var(--text-muted);
-  font-weight: 500; font-size: 14px; white-space: nowrap;
-}
+.tab { flex: none; display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-weight: 500; font-size: 14px; white-space: nowrap; touch-action: pan-x; user-select: none; -webkit-user-select: none; }
 .tab:hover { color: var(--text); border-color: var(--border-strong); }
 .tab.on { background: var(--text); color: var(--bg); border-color: var(--text); }
 .tab .n { font: 500 11px 'DM Mono', monospace; opacity: .7; }
 .tab.add { border-style: dashed; color: var(--purple); }
+.tab.drop-hover { outline: 2px dashed var(--purple); outline-offset: 2px; color: var(--purple); }
 
-.panel { padding: 18px 18px 8px; }
-@media (max-width: 560px) { .panel { padding: 14px 12px 6px; } }
-.panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.panel-head h3 { margin: 0; font-size: 19px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* ── panel ── */
+.panel { padding: 16px 18px 10px; }
+@media (max-width: 560px) { .panel { padding: 14px 12px 8px; } }
+@media (max-width: 879px) { #wide-btn { display: none; } }
+.panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.panel-head h3 { margin: 0; font-size: 19px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
 
-.meta { display: grid; grid-template-columns: 70px minmax(0,1fr); gap: 8px 12px; align-items: start; margin-bottom: 14px; }
-.meta label { font-size: 12px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: .05em; padding-top: 9px; }
-.about {
-  width: 100%; resize: none; border: 1px solid transparent; border-radius: 10px;
-  background: var(--surface-2); padding: 8px 10px; min-height: 40px; font-size: 15px; line-height: 1.45; overflow: hidden;
-}
-.about:hover { border-color: var(--border); }
-.about:focus { border-color: var(--purple); background: var(--surface); outline: none; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 40px; }
-.chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  font: 500 12.5px 'DM Mono', monospace; padding: 4px 8px; border-radius: 7px;
-  background: var(--blue-light); color: var(--blue);
-}
-.chip button { border: 0; background: none; color: inherit; opacity: .6; padding: 0 0 0 2px; font-size: 14px; line-height: 1; }
-.chip button:hover { opacity: 1; }
-.chip-in { border: 1px dashed var(--border-strong); border-radius: 7px; background: none; padding: 5px 8px; width: 92px; font: 500 13px 'DM Mono', monospace; }
-.chip-in:focus { border-style: solid; border-color: var(--purple); outline: none; }
+/* fields */
+.fields { display: grid; grid-template-columns: 140px minmax(0, 1fr) 30px; gap: 4px 10px; align-items: start; margin-bottom: 8px; }
+.f-label { border: 1px solid transparent; background: none; border-radius: 8px; padding: 8px 6px; width: 100%; min-width: 0; text-overflow: ellipsis; font-size: 12px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: .05em; }
+.f-label:hover { border-color: var(--border); }
+.f-label:focus { border-color: var(--purple); outline: none; color: var(--text); }
+.f-val { width: 100%; resize: none; border: 1px solid transparent; border-radius: 10px; background: var(--surface-2); padding: 7px 10px; min-height: 38px; font-size: 15px; line-height: 1.45; overflow: hidden; }
+.f-val:hover { border-color: var(--border); }
+.f-val:focus { border-color: var(--purple); background: var(--surface); outline: none; }
+.f-x { border: 0; background: none; color: var(--text-faint); width: 30px; height: 36px; border-radius: 8px; font-size: 16px; opacity: 0; }
+.fields > div:hover .f-x, .f-x:focus, .touch .f-x { opacity: 1; }
+.f-row { display: contents; }
+.f-row:hover .f-x { opacity: 1; }
+.add-link { border: 0; background: none; color: var(--purple); font-size: 13.5px; font-weight: 500; padding: 6px 4px; border-radius: 8px; }
+.add-link:hover { background: var(--purple-light); }
+.panel-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 4px 0 10px; }
 
-.quick { display: flex; gap: 8px; margin: 4px 0 8px; }
-.quick input {
-  flex: 1; min-width: 0; border: 1px solid var(--border-strong); border-radius: 10px;
-  background: var(--surface); padding: 10px 12px; font-size: 16px; min-height: 44px;
-}
+/* ── grid view ── */
+.grid-wrap { overflow-x: auto; margin: 0 -18px; padding: 0 18px 4px; -webkit-overflow-scrolling: touch; }
+@media (max-width: 560px) { .grid-wrap { margin: 0 -12px; padding: 0 12px 4px; } }
+table.grid { border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+table.grid th, table.grid td { border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); padding: 0; vertical-align: top; }
+table.grid tr > :last-child { border-right: 0; }
+table.grid th { background: var(--surface-2); text-align: left; position: relative; border-top: 1px solid var(--border); }
+table.grid th:first-child { border-top-left-radius: 8px; }
+table.grid th:last-child { border-top-right-radius: 8px; }
+.th-btn { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 8px 10px; font-size: 12.5px; font-weight: 600; color: var(--text-muted); text-align: left; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; min-height: 36px; }
+.th-btn:hover { color: var(--text); }
+.th-btn .caret { margin-left: auto; opacity: 0; font-size: 10px; }
+.th-btn:hover .caret, .touch .th-btn .caret { opacity: .6; }
+.add-col { width: 44px; }
+.add-col button { width: 100%; min-height: 36px; border: 0; background: none; color: var(--purple); font-size: 18px; }
+td.handle { width: 30px; text-align: center; color: var(--text-faint); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+td.handle span { display: block; padding: 9px 0; opacity: .35; font-size: 13px; letter-spacing: -2px; }
+tr:hover td.handle span, .touch td.handle span { opacity: 1; }
+th.handle-h { width: 30px; }
+textarea.cell, input.cell { display: block; width: 100%; border: 0; background: transparent; resize: none; padding: 8px 10px; font-size: 14.5px; line-height: 1.4; min-height: 37px; overflow: hidden; border-radius: 0; }
+textarea.cell:focus, input.cell:focus { outline: none; box-shadow: inset 0 0 0 2px var(--purple); background: var(--surface); }
+td.st input.cell { font-weight: 600; font-size: 13px; }
+td.st-Idea, td.st-, td.st-x { background: transparent; }
+td.st-Idea input, td.st- input, td.st-x input { color: var(--text-muted); }
+td.st-Planned { background: var(--blue-light); } td.st-Planned input { color: var(--blue); }
+td.st-Building { background: var(--amber-light); } td.st-Building input { color: var(--amber); }
+td.st-Done { background: var(--green-light); } td.st-Done input { color: var(--green); }
+td.st-Cut input { color: var(--text-faint); text-decoration: line-through; }
+tr.closed textarea.cell { color: var(--text-faint); }
+tr.flash td, li.flash { animation: flash 1.6s; }
+@keyframes flash { from { background: var(--amber-light); } }
+.add-row { display: block; width: 100%; text-align: left; border: 0; background: none; color: var(--purple); font-weight: 500; font-size: 14px; padding: 10px 8px; border-radius: 8px; margin-top: 2px; }
+.add-row:hover { background: var(--purple-light); }
+.hint { color: var(--text-faint); font-size: 12.5px; padding: 2px 4px 6px; }
+.dragging { opacity: .4; }
+.drop-line { position: fixed; z-index: 70; background: var(--purple); border-radius: 2px; pointer-events: none; }
+
+/* ── list view ── */
+.quick { display: flex; gap: 8px; margin: 2px 0 8px; }
+.quick input { flex: 1; min-width: 0; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); padding: 10px 12px; font-size: 16px; min-height: 44px; }
 .quick input:focus { border-color: var(--purple); outline: none; box-shadow: var(--ring); }
-
-/* items */
 .items { list-style: none; margin: 0; padding: 0; }
 .item { border-top: 1px solid var(--border); }
-.item-row { display: flex; gap: 10px; align-items: flex-start; padding: 11px 2px; cursor: pointer; }
-.item-row:hover .it-title { color: var(--purple); }
-.it-body { flex: 1; min-width: 0; }
+.item-row { display: flex; gap: 8px; align-items: flex-start; padding: 10px 0; }
+.grip { flex: none; width: 24px; align-self: stretch; display: grid; place-items: start center; padding-top: 4px; color: var(--text-faint); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; font-size: 13px; letter-spacing: -2px; opacity: .45; }
+.item:hover .grip, .touch .grip { opacity: 1; }
+.it-body { flex: 1; min-width: 0; cursor: pointer; }
 .it-title { font-weight: 500; overflow-wrap: anywhere; }
-.it-notes { color: var(--text-muted); font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px; }
-.it-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
-.it-meta:empty { display: none; }
-.where { font: 500 12px 'DM Mono', monospace; padding: 3px 7px; border-radius: 7px; background: var(--grey-light); color: var(--text-muted); }
-.item.done .it-title { color: var(--text-faint); text-decoration: line-through; }
-.item.done .it-notes { color: var(--text-faint); }
+.it-body:hover .it-title { color: var(--purple); }
+.it-line { color: var(--text-muted); font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px; }
+.it-line b { font-weight: 600; color: var(--text-faint); font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; margin-right: 6px; }
+.item.closed .it-title { color: var(--text-faint); text-decoration: line-through; }
+.item.closed .it-line { color: var(--text-faint); }
 .it-tab { font-size: 12px; color: var(--purple); font-weight: 500; }
-
-.status {
-  flex: none; min-width: 74px; height: 28px; border-radius: 8px; border: 0;
-  font-size: 12px; font-weight: 600; padding: 0 8px; margin-top: -2px;
-}
-.st-Idea, .st- { background: var(--grey-light); color: var(--text-muted); }
+.status { flex: none; min-width: 74px; height: 28px; border-radius: 8px; border: 0; font-size: 12px; font-weight: 600; padding: 0 8px; }
+.st-Idea, .st-, .st-x { background: var(--grey-light); color: var(--text-muted); }
 .st-Planned { background: var(--blue-light); color: var(--blue); }
 .st-Building { background: var(--amber-light); color: var(--amber); }
 .st-Done { background: var(--green-light); color: var(--green); }
 .st-Cut { background: var(--grey-light); color: var(--text-faint); text-decoration: line-through; }
 .pending { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); flex: none; margin-top: 9px; }
-
-.editor { padding: 4px 2px 14px 2px; display: grid; gap: 10px; }
-.editor .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-@media (max-width: 560px) { .editor .row2 { grid-template-columns: 1fr; } }
+.editor { padding: 2px 0 14px 32px; display: grid; gap: 10px; }
+@media (max-width: 560px) { .editor { padding-left: 0; } }
 .field { display: grid; gap: 4px; }
 .field > span { font-size: 12px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: .05em; }
-.field input, .field textarea, .field select {
-  width: 100%; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface);
-  padding: 9px 11px; font-size: 16px; min-height: 42px;
-}
-.field textarea { resize: vertical; min-height: 84px; line-height: 1.45; }
+.field input, .field textarea, .field select { width: 100%; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); padding: 9px 11px; font-size: 16px; min-height: 42px; }
+.field textarea { resize: none; min-height: 42px; line-height: 1.45; overflow: hidden; }
 .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--purple); outline: none; box-shadow: var(--ring); }
-.stat-pick { display: flex; flex-wrap: wrap; gap: 6px; }
-.stat-pick button { min-height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid transparent; font-size: 13px; font-weight: 600; }
-.stat-pick button.on { box-shadow: 0 0 0 2px var(--text) inset; }
-.ed-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-
+.ed-acts { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
 .done-toggle { display: block; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--border); background: none; padding: 12px 2px; color: var(--text-muted); font-size: 13.5px; font-weight: 500; }
-.empty { color: var(--text-faint); padding: 18px 2px 20px; font-size: 14px; border-top: 1px solid var(--border); }
+.empty { color: var(--text-faint); padding: 16px 2px 18px; font-size: 14px; border-top: 1px solid var(--border); }
 .freeform { white-space: pre-wrap; color: var(--text-muted); font-size: 14px; border-top: 1px solid var(--border); padding: 12px 2px; }
-
 .search-group { margin-bottom: 14px; }
 .search-group h4 { margin: 0 0 2px; font-size: 13px; color: var(--purple); font-weight: 600; }
 mark { background: color-mix(in srgb, var(--amber) 28%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
 
 /* start / connect */
-.hero { padding: 28px 24px; text-align: left; }
+.hero { padding: 28px 24px; }
 .hero h2 { margin: 0 0 6px; font-size: 22px; }
 .hero p { margin: 0 0 16px; color: var(--text-muted); max-width: 58ch; }
 .hero ol { color: var(--text-muted); padding-left: 20px; margin: 0 0 16px; }
@@ -294,26 +283,19 @@ mark { background: color-mix(in srgb, var(--amber) 28%, transparent); color: inh
 .preview-tabs span { font-size: 13px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); }
 .err-text { color: var(--red); font-size: 13.5px; margin-top: 10px; }
 
-/* menus / toast / banner */
-.menu {
-  position: fixed; z-index: 50; min-width: 180px; padding: 6px;
-  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.18);
-}
+/* menus / toast */
+.menu { position: fixed; z-index: 80; min-width: 190px; max-height: 70vh; overflow: auto; padding: 6px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
 .menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 10px 12px; border-radius: 8px; font-size: 14px; }
 .menu button:hover { background: var(--surface-2); }
 .menu button.danger { color: var(--red); }
-.toast {
-  position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px);
-  background: var(--text); color: var(--bg); padding: 10px 14px; border-radius: 10px; font-size: 14px;
-  opacity: 0; pointer-events: none; transition: .2s; z-index: 60; max-width: calc(100vw - 32px);
-}
+.menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 6px; }
+.menu .mh { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); padding: 8px 12px 2px; }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg); padding: 10px 14px; border-radius: 10px; font-size: 14px; opacity: 0; pointer-events: none; transition: .2s; z-index: 90; max-width: calc(100vw - 32px); }
 .toast.show { opacity: 1; transform: translateX(-50%); pointer-events: auto; }
 .toast button { background: none; border: 0; color: inherit; font-weight: 600; text-decoration: underline; margin-left: 10px; }
-.banner { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: var(--red-light); color: var(--red); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 14px; }
-.banner .spacer { flex: 1; }
 .loading { color: var(--text-faint); padding: 30px 4px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+@media (max-width: 560px) { .fields { grid-template-columns: 92px minmax(0, 1fr) 28px; gap: 4px 6px; } }
 </style>
 </head>
 <body>
@@ -323,11 +305,12 @@ mark { background: color-mix(in srgb, var(--amber) 28%, transparent); color: inh
   <span class="dev-badge">DEV</span>
   <span class="spacer"></span>
   <button class="sync" id="sync" onclick="onSyncClick()"><span class="dot"></span><span id="sync-text">…</span></button>
+  <button class="icon-btn" id="wide-btn" title="Hide show list" aria-label="Hide show list" onclick="toggleWide()">⇔</button>
   <button class="icon-btn" title="Connection settings" aria-label="Connection settings" onclick="openConnect()">⚙</button>
   <button class="icon-btn" title="Light / dark" aria-label="Toggle dark mode" onclick="toggleTheme()">◐</button>
 </header>
 
-<div class="wrap">
+<div class="wrap" id="wrap">
   <div class="devnote" id="devnote"></div>
   <div id="banner" class="banner" hidden></div>
   <aside class="card shows" id="shows" aria-label="Shows"></aside>
@@ -336,26 +319,26 @@ mark { background: color-mix(in srgb, var(--amber) 28%, transparent); color: inh
     <div id="view"><div class="loading">Loading…</div></div>
   </main>
 </div>
-
+<datalist id="statuses"><option value="Idea"><option value="Planned"><option value="Building"><option value="Done"><option value="Cut"></datalist>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 'use strict';
-const BUILD = '10.14 v1';
+const BUILD = '10.14 v2';
+const NEED_API = 2;
 // Live dashboard backend — used ONLY for reads (show list, existing notes links).
 const LIVE_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
-const STATUSES = ['Idea', 'Planned', 'Building', 'Done', 'Cut'];
-const PLACES = ['SL', 'SR', 'CS', 'US', 'DS', 'USL', 'USR', 'DSL', 'DSR', 'Fly', 'Pit', 'In 1', 'Lobby'];
+const STATUS_CYCLE = ['Idea', 'Planned', 'Building', 'Done'];
 const PRACTICE = { slug: '_practice', name: 'Practice notebook', type: 'Practice' };
 const LS = {
-  api: 'mmt_notesdev_api', books: 'mmt_notesdev_books', book: id => 'mmt_notesdev_book_' + id,
-  queue: 'mmt_notesdev_queue', last: 'mmt_notesdev_last', tab: 'mmt_notesdev_tab',
+  api: 'mmt_notesdev_api', books: 'mmt_notesdev_books', book: id => 'mmt_notesdev2_book_' + id,
+  queue: 'mmt_notesdev_q2', last: 'mmt_notesdev_last', tab: 'mmt_notesdev_tab', view: 'mmt_notesdev_view', wide: 'mmt_notesdev_wide',
 };
+if ('ontouchstart' in window) document.documentElement.classList.add('touch');
 
-// ── storage helpers (browser storage can throw in private mode) ──
+// ── small helpers ──
 function lsGet(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
-function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function uid() { return 'n' + Date.now().toString(36).slice(-5) + Math.random().toString(36).slice(2, 7); }
 function slugify(n) { return String(n || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
@@ -366,28 +349,117 @@ function fmtDates(a, b) {
   const d1 = new Date(a + 'T12:00'), d2 = b ? new Date(b + 'T12:00') : null;
   return d1.toLocaleDateString(undefined, o) + (d2 ? '–' + d2.toLocaleDateString(undefined, o) : '');
 }
+const lc = s => String(s || '').trim().toLowerCase();
+function colName(tab, k) { return tab.columns.find(c => lc(c) === lc(k)) || null; }
+function uniqueName(list, name, skip) {
+  const low = list.filter(x => x !== skip).map(lc); let t = name, n = 2;
+  while (low.includes(lc(t)) || lc(t) === 'id') t = name + ' ' + (n++);
+  return t;
+}
+function statusCol(tab) { return colName(tab, 'status'); }
+// Columns other than Status, in order. The first one is the row's title in list view.
+function textCols(tab) { const sc = statusCol(tab); return tab.columns.filter(c => c !== sc); }
+function isClosed(tab, it) { const s = statusCol(tab); const v = s ? lc(it.v[s]) : ''; return v === 'done' || v === 'cut'; }
+function stClass(v) { const m = { idea: 'Idea', planned: 'Planned', building: 'Building', done: 'Done', cut: 'Cut' }; return 'st-' + (m[lc(v)] || (v ? 'x' : '')); }
 
-// ── theme (shares the dashboard's setting) ──
+// ── theme / layout prefs ──
 (function () { try { const t = localStorage.getItem('mmt_theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
 function toggleTheme() {
-  const cur = document.documentElement.getAttribute('data-theme') ||
-    (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const cur = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   const next = cur === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
   try { localStorage.setItem('mmt_theme', next); } catch (e) {}
 }
+function toggleWide() { S.wide = !S.wide; lsSet(LS.wide, S.wide); applyWide(); }
+function applyWide() {
+  document.getElementById('wrap').classList.toggle('wide', !!S.wide);
+  const b = document.getElementById('wide-btn'); b.title = S.wide ? 'Show the show list' : 'Hide show list (more room for the grid)';
+}
 
 // ── state ──
 const S = {
-  api: lsGet(LS.api, ''),          // dev backend URL, or 'demo'
-  shows: [], legacy: {},           // from live (read-only)
-  books: lsGet(LS.books, []),      // dev index
-  slug: '', book: null,            // current notebook {sheetId,url,tabs}
-  tabGid: null, editing: null, filter: 'open', q: '', showDone: {},
-  loadingBook: false, connectErr: '',
+  api: lsGet(LS.api, ''), apiLevel: null,
+  shows: [], legacy: {}, books: lsGet(LS.books, []),
+  slug: '', book: null, tabGid: null, editing: null,
+  filter: 'all', q: '', showDone: {}, view: lsGet(LS.view, innerWidth >= 880 ? 'grid' : 'list'),
+  wide: lsGet(LS.wide, false), loadingBook: false, connectErr: '', bookErr: '', needsReload: false,
 };
-let queue = lsGet(LS.queue, []);   // pending writes, survives reloads
+let queue = lsGet(LS.queue, []);
 let flushing = false, retryTimer = null, retryDelay = 2000;
+
+// ════════════════════════════════════════════════════════════════════════════
+// The one place that knows how each change alters a notebook. The page uses it
+// to show an edit instantly; the demo backend uses it as its "server".
+// It mirrors what ShowNotesDev.gs does to the real sheet.
+// ════════════════════════════════════════════════════════════════════════════
+function applyOp(book, op) {
+  const tab = book.tabs.find(t => String(t.gid) === String(op.gid));
+  const find = id => tab && tab.items.findIndex(i => i.id === id);
+  const insertAt = (t, item, beforeId) => {
+    const b = beforeId ? t.items.findIndex(i => i.id === beforeId) : -1;
+    if (b === -1) t.items.push(item); else t.items.splice(b, 0, item);
+  };
+  const ensureCols = (t, values) => Object.keys(values).forEach(k => { if (!colName(t, k) && String(values[k]) !== '') { t.columns.push(k); t.items.forEach(i => { i.v[k] = ''; }); } });
+  switch (op.action) {
+    case 'saveItem': {
+      ensureCols(tab, op.values || {});
+      let i = find(op.id), it;
+      if (i === -1) { it = { id: op.id, v: {} }; tab.columns.forEach(c => it.v[c] = ''); insertAt(tab, it, op.beforeId); }
+      else it = tab.items[i];
+      Object.keys(op.values || {}).forEach(k => { const c = colName(tab, k); if (c) it.v[c] = op.values[k]; });
+      break;
+    }
+    case 'deleteItem': { const i = find(op.id); if (i > -1) tab.items.splice(i, 1); break; }
+    case 'moveItem': {
+      const i = find(op.id); if (i === -1) break;
+      const it = tab.items.splice(i, 1)[0];
+      const to = op.toGid == null ? tab : book.tabs.find(t => String(t.gid) === String(op.toGid));
+      if (to === tab) { insertAt(tab, it, op.beforeId); break; }
+      const vals = {}; tab.columns.forEach(c => { if (it.v[c] !== '' && it.v[c] != null) vals[c] = it.v[c]; });
+      ensureCols(to, vals);
+      const n = { id: it.id, v: {} }; to.columns.forEach(c => n.v[c] = ''); Object.keys(vals).forEach(k => n.v[colName(to, k)] = vals[k]);
+      insertAt(to, n, op.beforeId);
+      break;
+    }
+    case 'addColumn': {
+      const name = uniqueName(tab.columns, op.name);
+      tab.columns.splice(op.index == null ? tab.columns.length : op.index, 0, name);
+      tab.items.forEach(i => i.v[name] = '');
+      break;
+    }
+    case 'renameColumn': {
+      const from = colName(tab, op.from); if (!from) break;
+      const to = uniqueName(tab.columns, op.to, from);
+      tab.columns[tab.columns.indexOf(from)] = to;
+      tab.items.forEach(i => { const v = i.v[from]; delete i.v[from]; i.v[to] = v == null ? '' : v; });
+      break;
+    }
+    case 'deleteColumn': {
+      const c = colName(tab, op.name); if (!c || tab.columns.length < 2) break;
+      tab.columns.splice(tab.columns.indexOf(c), 1); tab.items.forEach(i => delete i.v[c]);
+      break;
+    }
+    case 'moveColumn': {
+      const c = colName(tab, op.name); if (!c) break;
+      tab.columns.splice(tab.columns.indexOf(c), 1); tab.columns.splice(Math.min(op.index, tab.columns.length), 0, c);
+      break;
+    }
+    case 'setField': {
+      const f = tab.fields.find(x => lc(x.label) === lc(op.label));
+      if (f) f.value = op.value; else tab.fields.push({ label: op.label, value: op.value });
+      break;
+    }
+    case 'renameField': {
+      const f = tab.fields.find(x => lc(x.label) === lc(op.from));
+      if (f) f.label = op.to; else tab.fields.push({ label: op.to, value: '' });
+      break;
+    }
+    case 'deleteField': tab.fields = tab.fields.filter(x => lc(x.label) !== lc(op.label)); break;
+    case 'moveTab': { const i = book.tabs.indexOf(tab); book.tabs.splice(i, 1); book.tabs.splice(op.index, 0, tab); break; }
+    case 'renameTab': tab.title = op.title; break;
+    case 'deleteTab': book.tabs.splice(book.tabs.indexOf(tab), 1); break;
+  }
+}
 
 // ── transport ──
 function jsonp(url, timeoutMs) {
@@ -408,10 +480,9 @@ async function api(req) {
   if (!S.api) throw new Error('Not connected');
   const payload = JSON.stringify(req);
   let res;
-  if (payload.length < 1500) {
-    res = await jsonp(S.api + '?payload=' + encodeURIComponent(payload) + '&_=' + Date.now());
-  } else {
-    // Long notes: POST. Every long op is an idempotent save, so a retry is safe.
+  if (payload.length < 1500) res = await jsonp(S.api + '?payload=' + encodeURIComponent(payload) + '&_=' + Date.now());
+  else {
+    // Long text: POST. Long ops are cell saves, which are safe to repeat.
     const r = await fetch(S.api, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: payload });
     res = await r.json();
   }
@@ -419,55 +490,66 @@ async function api(req) {
   return res;
 }
 
-// ── write queue ──
-// Edits show up instantly, go into a queue saved on this device, and are sent
-// to the sheet one at a time. If the network drops they wait and retry; they
-// are never thrown away silently.
+// ── change queue ──
+// Every edit shows instantly, is saved on this device, and is sent to the
+// sheet in order. If the network drops, edits wait and retry. Nothing is
+// thrown away without asking.
+function change(op) {
+  op.sheetId = S.book.sheetId;
+  applyOp(S.book, op);
+  enqueue(op);
+  cacheBook();
+}
 function enqueue(op) {
-  op.qid = uid(); op.t = Date.now();
-  if (op.action === 'saveItem') {
-    // A newer save of the same item replaces a waiting one.
-    // Only if nothing after it (a move/delete) depends on that earlier save.
-    const i = queue.findIndex(q => !q.sending && q.action === 'saveItem' && q.item.id === op.item.id && q.sheetId === op.sheetId);
-    if (i !== -1 && !queue.slice(i + 1).some(q => q.id === op.item.id || (q.item && q.item.id === op.item.id))) queue.splice(i, 1);
-  }
-  if (op.action === 'setTabMeta') {
-    const i = queue.findIndex(q => !q.sending && q.action === 'setTabMeta' && q.gid === op.gid && q.sheetId === op.sheetId);
-    if (i !== -1) { const old = queue.splice(i, 1)[0]; if (op.description == null) op.description = old.description; if (op.scenes == null) op.scenes = old.scenes; }
-  }
-  queue.push(op); saveQueue(); flush();
+  op.qid = uid();
+  const last = queue[queue.length - 1];
+  // Typing into the same row: fold into the waiting save instead of queueing another.
+  if (op.action === 'saveItem' && last && !last.sending && last.action === 'saveItem' && last.id === op.id &&
+      last.gid === op.gid && last.sheetId === op.sheetId) {
+    Object.assign(last.values, op.values);
+  } else queue.push(op);
+  saveQueue(); flush();
 }
 function saveQueue() {
-  // Demo edits are never persisted, so they can't leak into the real queue.
   lsSet(LS.queue, queue.filter(q => !String(q.sheetId).startsWith('demo-')).map(q => { const c = { ...q }; delete c.sending; return c; }));
   renderSync();
 }
+const STRUCTURAL = new Set(['renameTab', 'deleteTab', 'moveItem', 'addColumn', 'renameColumn', 'deleteColumn', 'moveColumn', 'renameField', 'deleteField', 'moveTab', 'deleteItem']);
 async function flush() {
   if (flushing || !queue.length || !S.api) return;
+  if (S.apiLevel != null && S.apiLevel < NEED_API) { renderSync(); return; }
   flushing = true; clearTimeout(retryTimer); renderSync();
   while (queue.length) {
     const op = queue[0];
     if (op.failed) break;
     op.sending = true;
-    const req = { ...op }; delete req.qid; delete req.t; delete req.sending; delete req.failed; delete req.tries;
+    const req = { ...op }; ['qid', 'sending', 'failed', 'tries'].forEach(k => delete req[k]);
     try {
       await api(req);
-      queue.shift(); retryDelay = 2000; saveQueue();
+      queue.shift(); retryDelay = 2000;
+      if (STRUCTURAL.has(op.action)) S.needsReload = true;
+      saveQueue();
     } catch (e) {
-      op.sending = false;
-      op.tries = (op.tries || 0) + 1;
+      op.sending = false; op.tries = (op.tries || 0) + 1;
       if (e.server && op.tries >= 3) { op.failed = String(e.message); saveQueue(); showBanner(); }
       else { saveQueue(); retryTimer = setTimeout(flush, retryDelay); retryDelay = Math.min(retryDelay * 2, 30000); }
       break;
     }
   }
   flushing = false; renderSync(); refreshPendingDots();
+  // After moves/renames, re-read the sheet once so the page matches it exactly.
+  if (!queue.length && S.needsReload && S.book && S.api !== 'demo') { S.needsReload = false; loadBook(S.book.sheetId); }
 }
 window.addEventListener('online', () => { retryDelay = 2000; flush(); });
-function pendingIds() { return new Set(queue.filter(q => q.action === 'saveItem').map(q => q.item.id)); }
-
+function pendingIds() { return new Set(queue.filter(q => q.action === 'saveItem').map(q => q.id)); }
 function showBanner() {
   const b = document.getElementById('banner');
+  if (S.apiLevel != null && S.apiLevel < NEED_API && S.api !== 'demo') {
+    b.hidden = false;
+    b.innerHTML = `<span><b>The Apps Script needs updating</b> for this version of the page. Paste the new <a href="https://github.com/musicmountainmcafee-eng/MMT-Inventory/blob/main/apps-script/ShowNotesDev.gs" target="_blank" rel="noopener">ShowNotesDev.gs</a>, then Deploy → Manage deployments → ✎ → Version: New version → Deploy. Your edits are kept until then.</span>
+      <span class="spacer"></span><button class="btn sm" onclick="checkApi(true)">Check again</button>`;
+    return;
+  }
   const bad = queue.find(q => q.failed);
   if (!bad) { b.hidden = true; return; }
   b.hidden = false;
@@ -477,15 +559,16 @@ function showBanner() {
 function retryFailed() { queue.forEach(q => { delete q.failed; q.tries = 0; }); saveQueue(); showBanner(); flush(); }
 function discardFailed() {
   if (!confirm('Throw away the change that failed to save? The sheet keeps its current version.')) return;
-  queue = queue.filter(q => !q.failed); saveQueue(); showBanner(); flush(); if (S.book) loadBook(S.book.sheetId, true);
+  queue = queue.filter(q => !q.failed); saveQueue(); showBanner(); flush();
+  if (S.book) loadBook(S.book.sheetId, true);
 }
-
 function renderSync() {
   const el = document.getElementById('sync'), tx = document.getElementById('sync-text');
-  el.className = 'sync';
+  el.className = 'sync'; el.title = '';
   if (S.api === 'demo') { el.classList.add('demo'); tx.textContent = 'Demo — not saved'; return; }
   if (!S.api) { el.classList.add('err'); tx.textContent = 'Not connected'; return; }
   const n = queue.length;
+  if (S.apiLevel != null && S.apiLevel < NEED_API) { el.classList.add('err'); tx.textContent = n ? `Update script · ${n} waiting` : 'Update script'; return; }
   if (queue.some(q => q.failed)) { el.classList.add('err'); tx.textContent = 'Save problem'; return; }
   if (n && (!navigator.onLine || queue.some(q => q.tries))) { el.classList.add('err'); tx.textContent = `Can't reach sheet · ${n} waiting`; el.title = 'Edits are kept on this device and retried automatically. Tap to retry now.'; return; }
   if (n) { el.classList.add('busy'); tx.textContent = `Saving ${n}…`; return; }
@@ -493,38 +576,40 @@ function renderSync() {
   tx.textContent = 'Saved to sheet';
 }
 function onSyncClick() { if (queue.length) { retryDelay = 2000; flush(); } else if (S.book) loadBook(S.book.sheetId, true); }
+async function checkApi(manual) {
+  if (!S.api || S.api === 'demo') return;
+  try { const r = await api({ action: 'ping' }); S.apiLevel = r.api || 1; }
+  catch (e) { if (manual) toast("Couldn't reach the script: " + e.message); flush(); return; }   // flush keeps retrying
+  showBanner(); renderSync();
+  if (S.apiLevel >= NEED_API) { flush(); if (manual) toast('Script is up to date'); if (S.book) loadBook(S.book.sheetId, true); }
+}
 
 // ── live show list (read-only) ──
 function readShows() {
-  const st = lsGet('mmt_shows', null);
-  const d = lsGet('mmt_data', null);
+  const st = lsGet('mmt_shows', null), d = lsGet('mmt_data', null);
   if (d && d.showNotes) S.legacy = d.showNotes;
   if (st && Array.isArray(st.mainstage)) setShows(st);
   jsonp(LIVE_URL + '?action=getKV&key=showlist&_=' + Date.now()).then(r => {
     let v = r && r.value; if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
-    if (v && Array.isArray(v.mainstage)) { setShows(v); render(); }
+    if (v && Array.isArray(v.mainstage)) { setShows(v); renderShows(); }
   }).catch(() => {});
   jsonp(LIVE_URL + '?action=getTasks&_=' + Date.now(), 25000).then(r => {
-    if (r && r.showNotes && Object.keys(r.showNotes).length) { S.legacy = r.showNotes; render(); }
+    if (r && r.showNotes && Object.keys(r.showNotes).length) { S.legacy = r.showNotes; renderShows(); }
   }).catch(() => {});
 }
 function setShows(v) {
-  S.shows = [
-    ...(v.mainstage || []).map(s => ({ ...s, type: 'Mainstage' })),
-    ...(v.childrens || []).map(s => ({ ...s, type: "Children's" })),
-  ].filter(s => s && s.name).map(s => ({ ...s, slug: slugify(s.name) }))
-   .sort((a, b) => String(a.start).localeCompare(String(b.start)));
+  S.shows = [...(v.mainstage || []).map(s => ({ ...s, type: 'Mainstage' })), ...(v.childrens || []).map(s => ({ ...s, type: "Children's" }))]
+    .filter(s => s && s.name).map(s => ({ ...s, slug: slugify(s.name) }))
+    .sort((a, b) => String(a.start).localeCompare(String(b.start)));
 }
 function showFor(slug) {
   if (slug === PRACTICE.slug) return PRACTICE;
   const s = S.shows.find(x => x.slug === slug); if (s) return s;
-  // A notebook whose show isn't in the list (renamed, removed, list not loaded yet).
   const b = S.books.find(x => x.slug === slug);
   return b ? { slug, name: b.name, type: 'Notebook' } : null;
 }
 function bookFor(slug) { return S.books.find(b => b.slug === slug) || null; }
-function legacyUrl(sh) { return sh && sh.type !== 'Practice' ? S.legacy[legacyKey(sh)] || '' : ''; }
-
+function legacyUrl(sh) { return sh && S.legacy[legacyKey(sh)] || ''; }
 async function loadIndex() {
   if (!S.api) return;
   try { const r = await api({ action: 'listBooks' }); S.books = r.books || []; lsSet(LS.books, S.books); S.connectErr = ''; }
@@ -540,7 +625,7 @@ function pickShow(slug) {
   S.book = null;
   if (b) {
     const cached = lsGet(LS.book(b.sheetId), null);
-    if (cached) { S.book = applyQueue(cached); pickDefaultTab(); }
+    if (cached && cached.tabs && cached.tabs.every(t => Array.isArray(t.columns))) { S.book = cached; pickDefaultTab(); }
     loadBook(b.sheetId);
   }
   render();
@@ -552,45 +637,28 @@ function pickDefaultTab() {
   if (!S.book.tabs.some(t => t.gid === S.tabGid)) S.tabGid = S.book.tabs.some(t => t.gid === saved) ? saved : (S.book.tabs[0] || {}).gid;
 }
 async function loadBook(sheetId, force) {
+  if (S.apiLevel != null && S.apiLevel < NEED_API) return;
   S.loadingBook = true; renderSync();
   try {
     const r = await api({ action: 'getBook', sheetId });
-    const fresh = { sheetId: r.sheetId, url: r.url, name: r.name, tabs: r.tabs };
-    lsSet(LS.book(sheetId), fresh);
     const want = bookFor(S.slug);
-    if (!want || want.sheetId !== sheetId) return;   // user moved to another show meanwhile
-    S.book = applyQueue(fresh); pickDefaultTab();
-    if (busyTyping()) { S._dirtyRender = true; } else render();
+    if (!want || want.sheetId !== sheetId) return;           // moved to another show meanwhile
+    // Unsaved edits for this notebook: keep what's on screen; re-read once they land.
+    if (queue.some(q => q.sheetId === sheetId) || Object.keys(_pend).length || Object.keys(_pendF).length) { S.needsReload = true; return; }
+    S.book = { sheetId: r.sheetId, url: r.url, name: r.name, tabs: r.tabs };
+    cacheBook(); pickDefaultTab();
+    if (busyTyping()) S._dirtyRender = true; else render();
   } catch (e) {
     const want = bookFor(S.slug);
     if (!want || want.sheetId !== sheetId) return;
     if (!S.book) { S.bookErr = e.message; render(); }
-    else toast("Couldn't refresh from the sheet: " + e.message);
+    else if (force) toast("Couldn't refresh from the sheet: " + e.message);
   } finally { S.loadingBook = false; renderSync(); }
 }
-// Lay any not-yet-saved edits over what the server sent, so they don't flicker away.
-function applyQueue(book) {
-  book = JSON.parse(JSON.stringify(book));
-  queue.filter(q => q.sheetId === book.sheetId).forEach(q => {
-    const tab = book.tabs.find(t => t.gid === q.gid);
-    if (q.action === 'saveItem' && tab) {
-      book.tabs.forEach(t => { if (t !== tab) t.items = t.items.filter(i => i.id !== q.item.id); });
-      const i = tab.items.findIndex(x => x.id === q.item.id);
-      if (i === -1) tab.items.push({ ...q.item }); else tab.items[i] = { ...q.item };
-    } else if (q.action === 'deleteItem' && tab) tab.items = tab.items.filter(i => i.id !== q.id);
-    else if (q.action === 'moveItem' && tab) {
-      const it = tab.items.find(i => i.id === q.id), to = book.tabs.find(t => t.gid === q.toGid);
-      if (it && to) { tab.items = tab.items.filter(i => i.id !== q.id); to.items.push(it); }
-    } else if (q.action === 'setTabMeta' && tab) {
-      if (q.description != null) tab.description = q.description;
-      if (q.scenes != null) tab.scenes = q.scenes;
-    }
-  });
-  return book;
-}
-function cacheBook() { if (S.book) { const raw = lsGet(LS.book(S.book.sheetId), null); if (!raw) lsSet(LS.book(S.book.sheetId), S.book); } }
-function busyTyping() { const a = document.activeElement; return a && /INPUT|TEXTAREA/.test(a.tagName) && a.closest('#view'); }
-document.addEventListener('focusout', () => setTimeout(() => { if (S._dirtyRender && !busyTyping()) { S._dirtyRender = false; render(); } }, 50));
+let _cacheT;
+function cacheBook() { clearTimeout(_cacheT); _cacheT = setTimeout(() => { if (S.book && !String(S.book.sheetId).startsWith('demo-')) lsSet(LS.book(S.book.sheetId), S.book); }, 250); }
+function busyTyping() { const a = document.activeElement; return a && /INPUT|TEXTAREA/.test(a.tagName) && a.closest('#view') && a.id !== 'q'; }
+document.addEventListener('focusout', () => setTimeout(() => { if (S._dirtyRender && !busyTyping()) { S._dirtyRender = false; render(); } }, 60));
 
 async function createBook() {
   const sh = showFor(S.slug); if (!sh) return;
@@ -604,128 +672,231 @@ async function createBook() {
   } catch (e) { toast("Couldn't create it: " + e.message); if (btn) { btn.disabled = false; btn.textContent = 'Start notes for this show'; } }
   render();
 }
-
 function curTab() { return S.book && S.book.tabs.find(t => t.gid === S.tabGid); }
 function setTab(gid) {
-  S.tabGid = gid; S.editing = null; S.q = '';
-  const m = lsGet(LS.tab, {}); m[S.book.sheetId] = gid; lsSet(LS.tab, m);
+  S.tabGid = Number(gid); S.editing = null; S.q = '';
+  const m = lsGet(LS.tab, {}); m[S.book.sheetId] = S.tabGid; lsSet(LS.tab, m);
   render();
 }
-async function addTab() {
-  const title = prompt('New tab name (a setting, a list, a meeting…)');
+
+// ── tabs ──
+async function addTab(index) {
+  const title = prompt('New tab name (a setting, a list, a meeting…)\nIt starts with the same columns and fields as the tab you\'re on.');
   if (!title || !title.trim()) return;
-  try {
-    const r = await api({ action: 'addTab', sheetId: S.book.sheetId, title: title.trim() });
-    S.book.tabs.push(r.tab); lsDel(LS.book(S.book.sheetId)); setTab(r.tab.gid);
-  } catch (e) { toast("Couldn't add the tab: " + e.message + (navigator.onLine ? '' : ' (offline)')); }
-}
-async function renameTab() {
-  const t = curTab(); const title = prompt('Rename tab', t.title);
-  if (!title || !title.trim() || title.trim() === t.title) return;
-  try { const r = await api({ action: 'renameTab', sheetId: S.book.sheetId, gid: t.gid, title: title.trim() }); t.title = r.title; render(); }
-  catch (e) { toast("Couldn't rename: " + e.message); }
-}
-async function deleteTab() {
   const t = curTab();
-  if (!confirm(`Delete the "${t.title}" tab and its ${t.items.length} item(s) from the sheet?`)) return;
   try {
-    await api({ action: 'deleteTab', sheetId: S.book.sheetId, gid: t.gid });
-    S.book.tabs = S.book.tabs.filter(x => x !== t); S.tabGid = (S.book.tabs[0] || {}).gid; render();
-  } catch (e) { toast("Couldn't delete: " + e.message); }
+    const r = await api({ action: 'addTab', sheetId: S.book.sheetId, title: title.trim(), index,
+      columns: t && t.format === 'notes' ? t.columns : null, fields: t && t.format === 'notes' ? t.fields.map(f => f.label) : null });
+    if (index == null) S.book.tabs.push(r.tab); else S.book.tabs.splice(index, 0, r.tab);
+    cacheBook(); setTab(r.tab.gid);
+  } catch (e) { toast("Couldn't add the tab: " + e.message); }
+}
+function renameTab(gid) {
+  const t = S.book.tabs.find(x => x.gid === gid) || curTab();
+  const title = prompt('Rename tab', t.title);
+  if (!title || !title.trim() || title.trim() === t.title) return;
+  change({ action: 'renameTab', gid: t.gid, title: uniqueName(S.book.tabs.map(x => x.title), title.trim(), t.title) });
+  render();
+}
+async function deleteTab(gid) {
+  const t = S.book.tabs.find(x => x.gid === gid);
+  if (S.book.tabs.length < 2) return toast("Can't delete the last tab");
+  if (!confirm(`Delete the "${t.title}" tab and its ${t.items ? t.items.length : 0} row(s) from the sheet?`)) return;
+  change({ action: 'deleteTab', gid: t.gid });
+  if (S.tabGid === gid) S.tabGid = (S.book.tabs[0] || {}).gid;
+  render();
+}
+function moveTab(gid, index) {
+  index = Math.max(0, Math.min(index, S.book.tabs.length - 1));
+  change({ action: 'moveTab', gid, index }); render();
+}
+function tabMenu(anchor, gid) {
+  const i = S.book.tabs.findIndex(t => t.gid === gid);
+  showMenu(anchor, [
+    { label: 'Rename tab', fn: () => renameTab(gid) },
+    { label: 'Move left', fn: () => moveTab(gid, i - 1), off: i === 0 },
+    { label: 'Move right', fn: () => moveTab(gid, i + 1), off: i === S.book.tabs.length - 1 },
+    { label: 'New tab after this', fn: () => { S.tabGid = gid; addTab(i + 1); } },
+    '-',
+    { label: 'Delete tab…', fn: () => deleteTab(gid), danger: true },
+  ]);
 }
 
-// ── items ──
-function quickAdd(ev) {
-  ev.preventDefault();
-  const inp = ev.target.querySelector('input'); const text = inp.value.trim();
-  if (!text) return;
-  const t = curTab();
-  // "Railing — sturdy, matches drop" → item + notes
-  const m = text.match(/^(.+?)\s+[—–-]\s+(.+)$/) || text.match(/^(.+?):\s+(.+)$/);
-  const item = { id: uid(), item: m ? m[1] : text, notes: m ? m[2] : '', scenes: '', where: '', status: 'Idea' };
-  t.items.push(item);
-  enqueue({ action: 'saveItem', sheetId: S.book.sheetId, gid: t.gid, item: { ...item } });
-  inp.value = '';
-  render(); const again = document.querySelector('.quick input'); if (again) again.focus();
+// ── rows ──
+function addRow(beforeId, values, focusCol) {
+  const t = curTab(); const id = uid();
+  change({ action: 'saveItem', gid: t.gid, id, values: values || {}, beforeId: beforeId || null });
+  S.flash = values ? id : null;
+  if (S.view === 'list' && !values) S.editing = id;
+  render();
+  if (focusCol === 'first') focusCol = Math.max(0, t.columns.indexOf(textCols(t)[0]));
+  if (focusCol != null) focusCell(id, focusCol);
+  return id;
 }
-function findItem(id) { for (const t of S.book.tabs) { const it = t.items.find(i => i.id === id); if (it) return { t, it }; } return {}; }
-function saveItemNow(id) {
-  const { t, it } = findItem(id); if (!it) return;
-  enqueue({ action: 'saveItem', sheetId: S.book.sheetId, gid: t.gid, item: { ...it } });
+function nextId(t, id) { const i = t.items.findIndex(x => x.id === id); return (t.items[i + 1] || {}).id || null; }
+const _pend = {}; const _deb = {};
+function editCell(id, col, val) {
+  const t = curTab(); const it = t.items.find(i => i.id === id); if (!it) return;
+  it.v[col] = val;
+  (_pend[id] = _pend[id] || { gid: t.gid, values: {} }).values[col] = val;
+  clearTimeout(_deb[id]); _deb[id] = setTimeout(() => flushCell(id), 600);
+  cacheBook();
 }
-const _deb = {};
-function editField(id, key, val) {
-  const { it } = findItem(id); if (!it || it[key] === val) return;
-  it[key] = val;
-  clearTimeout(_deb[id]); _deb[id] = setTimeout(() => saveItemNow(id), 700);
-  refreshRowPreview(id);
+function flushCell(id) {
+  clearTimeout(_deb[id]); const p = _pend[id]; if (!p) return; delete _pend[id];
+  enqueue({ action: 'saveItem', sheetId: S.book.sheetId, gid: p.gid, id, values: p.values });
 }
-function flushEdit(id) { if (_deb[id]) { clearTimeout(_deb[id]); delete _deb[id]; saveItemNow(id); } }
-function setStatus(id, st) {
-  const { it } = findItem(id); if (!it) return;
-  it.status = st; flushEdit(id); saveItemNow(id); render();
-}
-function cycleStatus(ev, id) {
-  ev.stopPropagation();
-  const { it } = findItem(id); if (!it) return;
-  const order = ['Idea', 'Planned', 'Building', 'Done'];
-  const i = order.indexOf(it.status || 'Idea');
-  const prev = it.status;
-  setStatus(id, order[(i + 1) % order.length]);
-  if (it.status === 'Done') toast('Marked done', () => setStatus(id, prev));
-}
-function toggleEdit(id) {
-  if (S.editing && S.editing !== id) flushEdit(S.editing);
-  S.editing = S.editing === id ? null : id; render();
-  if (S.editing) { const f = document.querySelector(`[data-ed="${id}"] [data-k="item"]`); if (f && !('ontouchstart' in window)) f.focus(); }
-}
-function deleteItem(id) {
-  const { t, it } = findItem(id); if (!it) return;
-  clearTimeout(_deb[id]);
-  t.items = t.items.filter(i => i.id !== id);
-  queue = queue.filter(q => !(q.action === 'saveItem' && q.item.id === id && !q.sending));
-  enqueue({ action: 'deleteItem', sheetId: S.book.sheetId, gid: t.gid, id });
-  S.editing = null; render();
-  toast('Item deleted', () => {
-    t.items.push(it); enqueue({ action: 'saveItem', sheetId: S.book.sheetId, gid: t.gid, item: { ...it } }); render();
+function flushAllCells() { Object.keys(_pend).forEach(flushCell); flushFields(); }
+window.addEventListener('pagehide', flushAllCells);
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushAllCells(); });
+function deleteRow(id) {
+  flushCell(id);
+  const t = curTab(); const i = t.items.findIndex(x => x.id === id); const it = t.items[i];
+  const before = (t.items[i + 1] || {}).id || null;
+  change({ action: 'deleteItem', gid: t.gid, id });
+  if (S.editing === id) S.editing = null;
+  render();
+  toast('Row deleted', () => {
+    const vals = {}; t.columns.forEach(c => { if (it.v[c]) vals[c] = it.v[c]; });
+    change({ action: 'saveItem', gid: t.gid, id: it.id, values: vals, beforeId: before }); render();
   });
 }
-function moveItem(id, toGid) {
-  toGid = Number(toGid);
-  const { t, it } = findItem(id); if (!it || t.gid === toGid) return;
-  flushEdit(id);
-  const to = S.book.tabs.find(x => x.gid === toGid);
-  t.items = t.items.filter(i => i.id !== id); to.items.push(it);
-  enqueue({ action: 'moveItem', sheetId: S.book.sheetId, gid: t.gid, toGid, id });
-  S.editing = null; render(); toast('Moved to ' + to.title);
+function moveRow(id, beforeId, toGid) {
+  flushCell(id);
+  const t = curTab();
+  if (toGid != null && Number(toGid) !== t.gid) {
+    change({ action: 'moveItem', gid: t.gid, id, toGid: Number(toGid), beforeId: null });
+    const to = S.book.tabs.find(x => x.gid === Number(toGid));
+    S.editing = null; render(); toast('Moved to ' + to.title);
+    return;
+  }
+  change({ action: 'moveItem', gid: t.gid, id, beforeId: beforeId || null });
+  render();
+}
+function setStatus(id, val) {
+  const t = curTab(); const sc = statusCol(t); if (!sc) return;
+  flushCell(id);
+  change({ action: 'saveItem', gid: t.gid, id, values: { [sc]: val } });
+  render();
+}
+function cycleStatus(id) {
+  const t = curTab(); const it = t.items.find(i => i.id === id); const sc = statusCol(t);
+  const prev = it.v[sc] || '';
+  const i = STATUS_CYCLE.findIndex(s => lc(s) === lc(prev));
+  const next = STATUS_CYCLE[(i + 1) % STATUS_CYCLE.length];
+  setStatus(id, next);
+  if (next === 'Done') toast('Marked done', () => setStatus(id, prev));
+}
+function rowMenu(anchor, id) {
+  const t = curTab();
+  const others = S.book.tabs.filter(x => x.gid !== t.gid && x.format === 'notes');
+  showMenu(anchor, [
+    { label: 'Insert row above', fn: () => addRow(id, null, 'first') },
+    { label: 'Insert row below', fn: () => addRow(nextId(t, id), null, 'first') },
+    ...(others.length ? ['-', { head: 'Move to tab' }, ...others.map(o => ({ label: o.title, fn: () => moveRow(id, null, o.gid) }))] : []),
+    '-',
+    { label: 'Delete row', fn: () => deleteRow(id), danger: true },
+  ]);
 }
 
-// ── tab meta ──
-function editAbout(val) {
-  const t = curTab(); if (t.description === val) return;
-  t.description = val;
-  clearTimeout(_deb.about); _deb.about = setTimeout(() => enqueue({ action: 'setTabMeta', sheetId: S.book.sheetId, gid: t.gid, description: val }), 700);
+// ── columns ──
+function addColumn(index) {
+  const t = curTab();
+  const name = prompt('New column name', 'New column');
+  if (!name || !name.trim()) return;
+  change({ action: 'addColumn', gid: t.gid, name: uniqueName(t.columns, name.trim()), index: index == null ? null : index });
+  render();
 }
-function sceneList(s) { return String(s || '').split(/[,;]+/).map(x => x.trim()).filter(Boolean); }
-function addScene(ev) {
-  if (ev.key !== 'Enter' && ev.key !== ',' && ev.type !== 'blur') return;
-  ev.preventDefault && ev.key && ev.preventDefault();
-  const v = ev.target.value.replace(/,/g, '').trim(); if (!v) return;
-  const t = curTab(); const list = sceneList(t.scenes);
-  v.split(/\s+(?=A\d)/i).forEach(x => { x = x.toUpperCase().replace(/\s+/g, ''); if (!list.includes(x)) list.push(x); });
-  t.scenes = list.join(', ');
-  enqueue({ action: 'setTabMeta', sheetId: S.book.sheetId, gid: t.gid, scenes: t.scenes });
-  ev.target.value = ''; render(); const i = document.querySelector('.chip-in'); if (i && ev.type !== 'blur') i.focus();
+function renameColumn(col) {
+  const t = curTab(); const name = prompt('Rename column', col);
+  if (!name || !name.trim() || name.trim() === col) return;
+  flushAllCells();
+  change({ action: 'renameColumn', gid: t.gid, from: col, to: uniqueName(t.columns, name.trim(), col) });
+  render();
 }
-function removeScene(idx) {
-  const t = curTab(); t.scenes = sceneList(t.scenes).filter((x, i) => i !== idx).join(', ');
-  enqueue({ action: 'setTabMeta', sheetId: S.book.sheetId, gid: t.gid, scenes: t.scenes }); render();
+function deleteColumn(col) {
+  const t = curTab();
+  if (t.columns.length < 2) return toast("Can't delete the last column");
+  const filled = t.items.filter(i => String(i.v[col] || '').trim()).length;
+  if (!confirm(`Delete the "${col}" column${filled ? ` and what's written in it on ${filled} row(s)` : ''}?`)) return;
+  flushAllCells();
+  change({ action: 'deleteColumn', gid: t.gid, name: col });
+  render();
+}
+function moveColumn(col, index) {
+  const t = curTab(); index = Math.max(0, Math.min(index, t.columns.length - 1));
+  flushAllCells();
+  change({ action: 'moveColumn', gid: t.gid, name: col, index }); render();
+}
+function colMenu(anchor, col) {
+  const t = curTab(); const i = t.columns.indexOf(col);
+  showMenu(anchor, [
+    { label: 'Rename column', fn: () => renameColumn(col) },
+    { label: 'Insert column left', fn: () => addColumn(i) },
+    { label: 'Insert column right', fn: () => addColumn(i + 1) },
+    { label: 'Move left', fn: () => moveColumn(col, i - 1), off: i === 0 },
+    { label: 'Move right', fn: () => moveColumn(col, i + 1), off: i === t.columns.length - 1 },
+    '-',
+    { label: 'Delete column…', fn: () => deleteColumn(col), danger: true },
+  ]);
 }
 
-// ── rendering ──
-function render() {
-  renderDevnote(); renderShows(); renderView(); renderSync(); showBanner();
+// ── fields ──
+// Field text waits here (like cell text in _pend) until typing pauses.
+const _pendF = {};
+function editFieldVal(i, val) {
+  const t = curTab(); const f = t.fields[i]; if (!f || f.value === val) return;
+  f.value = val; cacheBook();
+  const key = t.gid + '|' + lc(f.label);
+  _pendF[key] = { gid: t.gid, label: f.label, value: val };
+  clearTimeout(_deb[key]); _deb[key] = setTimeout(() => flushField(key), 600);
 }
+function flushField(key) {
+  clearTimeout(_deb[key]); const p = _pendF[key]; if (!p) return; delete _pendF[key];
+  enqueue({ action: 'setField', sheetId: S.book.sheetId, gid: p.gid, label: p.label, value: p.value });
+}
+function flushFields() { Object.keys(_pendF).forEach(flushField); }
+function renameField(i, val) {
+  const t = curTab(); const f = t.fields[i]; val = val.trim();
+  if (!val) { render(); return; }
+  if (lc(val) === lc(f.label)) return;
+  if (t.fields.some((x, j) => j !== i && lc(x.label) === lc(val))) { toast('There\'s already a field called ' + val); render(); return; }
+  flushFields();
+  change({ action: 'renameField', gid: t.gid, from: f.label, to: val });
+}
+function addField() {
+  const t = curTab(); const name = prompt('New field (e.g. Paint, Look, Who\'s building it)');
+  if (!name || !name.trim()) return;
+  if (t.fields.some(x => lc(x.label) === lc(name))) return toast('That field already exists');
+  change({ action: 'setField', gid: t.gid, label: name.trim(), value: '' });
+  render();
+  const inputs = document.querySelectorAll('.f-val'); if (inputs.length) inputs[inputs.length - 1].focus();
+}
+function deleteField(i) {
+  const t = curTab(); const f = t.fields[i];
+  if (f.value && !confirm(`Remove the "${f.label}" field and its text?`)) return;
+  flushFields();
+  change({ action: 'deleteField', gid: t.gid, label: f.label }); render();
+}
+
+// ── list-view quick add ──
+function quickAdd(ev) {
+  ev.preventDefault();
+  const inp = ev.target.querySelector('input'); const text = inp.value.trim(); if (!text) return;
+  const t = curTab();
+  const m = text.match(/^(.+?)\s+[—–-]\s+(.+)$/);
+  const tc = textCols(t);
+  const values = { [tc[0] || t.columns[0]]: m ? m[1] : text };
+  if (m && tc[1]) values[tc[1]] = m[2];
+  const sc = statusCol(t); if (sc && tc.length) values[sc] = 'Idea';
+  addRow(null, values);
+  const again = document.querySelector('.quick input'); if (again) again.focus();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Rendering
+// ════════════════════════════════════════════════════════════════════════════
+function render() { applyWide(); renderDevnote(); renderShows(); renderView(); renderSync(); showBanner(); }
 function renderDevnote() {
   document.getElementById('devnote').innerHTML = S.api === 'demo'
     ? `<b>Demo mode.</b> Sample notes, kept in this browser tab only. Nothing goes to Google. <a href="#" onclick="openConnect();return false">Connect the dev backend</a>`
@@ -744,7 +915,7 @@ function groupShows() {
 }
 function showBtn(s) {
   const tag = s.type === 'Practice' ? '<span class="tag">TRY</span>' : s.type === 'Notebook' ? '<span class="tag">NB</span>' : s.type === 'Mainstage' ? '<span class="tag ms">MS</span>' : '<span class="tag ct">CT</span>';
-  return `<button class="show-btn ${S.slug === s.slug ? 'on' : ''}" onclick="pickShow('${esc(s.slug)}')">${tag}<span class="nm">${esc(s.name)}</span><span class="dt">${esc(fmtDates(s.start, s.end))}</span></button>`;
+  return `<button class="show-btn ${S.slug === s.slug ? 'on' : ''}" data-act="show" data-slug="${esc(s.slug)}">${tag}<span class="nm">${esc(s.name)}</span><span class="dt">${esc(fmtDates(s.start, s.end))}</span></button>`;
 }
 function renderShows() {
   const g = groupShows();
@@ -752,18 +923,16 @@ function renderShows() {
   if (g.withBook.length) h += '<h3>Notebooks</h3>' + g.withBook.map(showBtn).join('');
   h += '<h3>Try it out</h3>' + showBtn(PRACTICE);
   h += '<h3>New shows</h3>' + (g.fresh.length ? g.fresh.map(showBtn).join('') : '<div class="legacy">No upcoming shows without notes.</div>');
-  if (g.legacy.length) {
-    h += `<details class="legacy-list"><summary><h3>Existing sheets (${g.legacy.length}) ▾</h3></summary>
+  if (g.legacy.length) h += `<details class="legacy-list"><summary><h3>Existing sheets (${g.legacy.length}) ▾</h3></summary>
       <div class="legacy">These keep their current notes sheet for now.</div>
       ${g.legacy.map(s => `<div class="legacy-row"><span>${esc(s.name)}</span><a href="${esc(legacyUrl(s))}" target="_blank" rel="noopener">Open ↗</a></div>`).join('')}</details>`;
-  }
-  document.getElementById('shows').innerHTML = h;
+  const side = document.getElementById('shows'); side.innerHTML = h;
+  side.onclick = e => { const b = e.target.closest('[data-act="show"]'); if (b) pickShow(b.dataset.slug); };
   const sel = document.getElementById('show-select');
   const opt = s => `<option value="${esc(s.slug)}" ${S.slug === s.slug ? 'selected' : ''}>${esc(s.name)}${s.start ? ' · ' + esc(fmtDates(s.start, s.end)) : ''}</option>`;
   sel.innerHTML = (S.slug ? '' : '<option value="">Choose a show…</option>') +
     (g.withBook.length ? `<optgroup label="Notebooks">${g.withBook.map(opt).join('')}</optgroup>` : '') +
-    `<optgroup label="Try it out">${opt(PRACTICE)}</optgroup>` +
-    `<optgroup label="New shows">${g.fresh.map(opt).join('')}</optgroup>`;
+    `<optgroup label="Try it out">${opt(PRACTICE)}</optgroup>` + `<optgroup label="New shows">${g.fresh.map(opt).join('')}</optgroup>`;
 }
 
 function renderView() {
@@ -774,10 +943,9 @@ function renderView() {
   const b = bookFor(S.slug);
   if (!b) {
     const lu = legacyUrl(sh);
-    v.innerHTML = `<div class="card hero">
-      <h2>${esc(sh.name)}</h2>
-      <p>${lu ? 'This show already has a notes sheet. In the dev build, existing sheets stay as they are. ' : ''}Start a notebook and it becomes a Google Sheet in <b>MMT Show Notes (dev)</b>, with a tab for each section of the show.</p>
-      <div class="preview-tabs"><span>General</span><span>Build To-Do</span><span>Production Meetings</span><span>+ add your own (one per setting works well)</span></div>
+    v.innerHTML = `<div class="card hero"><h2>${esc(sh.name)}</h2>
+      <p>${lu ? 'This show already has a notes sheet. In the dev build, existing sheets stay as they are. ' : ''}Start a notebook and it becomes a Google Sheet in <b>MMT Show Notes (dev)</b>, with a tab for each section of the show. Every tab's fields and columns can be changed.</p>
+      <div class="preview-tabs"><span>General</span><span>Build To-Do</span><span>Production Meetings</span><span>+ add your own</span></div>
       <div class="row"><button class="btn primary" id="create-btn" onclick="createBook()">Start notes for this show</button>
       ${lu ? `<a class="btn" href="${esc(lu)}" target="_blank" rel="noopener">Open existing sheet ↗</a>` : ''}</div>
       ${S.connectErr ? `<div class="err-text">Backend problem: ${esc(S.connectErr)}</div>` : ''}</div>`;
@@ -787,149 +955,326 @@ function renderView() {
     v.innerHTML = S.bookErr ? `<div class="card hero"><h2>Couldn't open the notebook</h2><p>${esc(S.bookErr)}</p><button class="btn" onclick="S.bookErr='';loadBook('${esc(b.sheetId)}',true)">Try again</button></div>` : '<div class="loading">Opening notebook…</div>';
     return;
   }
+  pickDefaultTab();
   const t = curTab();
-  const counts = tab => tab.items.filter(i => !isClosed(i)).length;
+  const hasStatus = t && t.format === 'notes' && statusCol(t);
+  const count = x => x.format === 'notes' ? x.items.filter(i => !isClosed(x, i)).length : '';
   let h = `<div class="nb-head"><div><h2>${esc(sh.name)}</h2><div class="sub">${esc(sh.type === 'Practice' ? 'Practice notebook' : sh.start ? sh.type + ' · ' + fmtDates(sh.start, sh.end) : 'Notebook')}</div></div>
     <div class="acts"><a class="btn" href="${esc(S.book.url)}" target="_blank" rel="noopener">Open in Sheets ↗</a></div></div>
     <div class="toolbar">
-      <label class="search"><span aria-hidden="true">⌕</span><span class="sr">Search</span><input id="q" type="search" placeholder="Search every tab" value="${esc(S.q)}" oninput="onSearch(this.value)">${S.q ? '<button class="x" aria-label="Clear search" onclick="onSearch(\'\')">×</button>' : ''}</label>
-      <div class="seg" role="group" aria-label="Filter">
-        <button class="${S.filter === 'open' ? 'on' : ''}" onclick="setFilter('open')">Open</button>
-        <button class="${S.filter === 'all' ? 'on' : ''}" onclick="setFilter('all')">All</button>
-      </div>
+      <label class="search"><span aria-hidden="true">⌕</span><span class="sr">Search</span><input id="q" type="search" placeholder="Search every tab" value="${esc(S.q)}" data-act="search">${S.q ? '<button class="x" aria-label="Clear search" data-act="clear-search">×</button>' : ''}</label>
+      ${hasStatus || S.q ? `<div class="seg" role="group" aria-label="Filter"><button class="${S.filter === 'all' ? 'on' : ''}" data-act="filter" data-f="all">All</button><button class="${S.filter === 'open' ? 'on' : ''}" data-act="filter" data-f="open">Open</button></div>` : ''}
+      <div class="seg" role="group" aria-label="View"><button class="${S.view === 'grid' ? 'on' : ''}" data-act="view" data-v="grid" title="Spreadsheet view">Grid</button><button class="${S.view === 'list' ? 'on' : ''}" data-act="view" data-v="list" title="Card view">List</button></div>
     </div>
-    <nav class="tabs" aria-label="Tabs">${S.book.tabs.map(x => `<button class="tab ${!S.q && x.gid === S.tabGid ? 'on' : ''}" onclick="setTab(${x.gid})">${esc(x.title)}${x.format === 'notes' ? `<span class="n">${counts(x)}</span>` : ''}</button>`).join('')}
-      <button class="tab add" onclick="addTab()">+ Tab</button></nav>`;
+    <nav class="tabs" id="tabs" aria-label="Tabs">${S.book.tabs.map(x => `<button class="tab ${!S.q && x.gid === S.tabGid ? 'on' : ''}" data-act="tab" data-gid="${x.gid}">${esc(x.title)}${count(x) !== '' ? `<span class="n">${count(x)}</span>` : ''}</button>`).join('')}
+      <button class="tab add" data-act="add-tab">+ Tab</button></nav>`;
   h += S.q ? searchHTML() : (t ? tabHTML(t) : '');
   v.innerHTML = h;
-  v.querySelectorAll('.about').forEach(autosize);
-  // Keep the active tab visible in the strip without scrolling the page.
+  v.querySelectorAll('textarea').forEach(autosize);
   const on = v.querySelector('.tab.on'), strip = v.querySelector('.tabs');
   if (on && strip && (on.offsetLeft + on.offsetWidth > strip.clientWidth)) strip.scrollLeft = on.offsetLeft - 16;
-  v.querySelectorAll('textarea[data-k]').forEach(autosize);
-}
-function isClosed(i) { return i.status === 'Done' || i.status === 'Cut'; }
-function setFilter(f) { S.filter = f; render(); }
-let _qt;
-function onSearch(v) {
-  S.q = v; clearTimeout(_qt);
-  _qt = setTimeout(() => { const pos = document.getElementById('q'); const sel = pos && pos.selectionStart; render(); const q = document.getElementById('q'); if (q) { q.focus(); try { q.setSelectionRange(sel, sel); } catch (e) {} } }, v ? 120 : 0);
+  bindDrags();
+  if (S.flash) { const el = v.querySelector(`[data-id="${CSS.escape(S.flash)}"]`); if (el) { el.classList.add('flash'); el.scrollIntoView({ block: 'nearest' }); } S.flash = null; }
 }
 
+function fieldsHTML(t) {
+  return `<div class="fields">${t.fields.map((f, i) => `<div class="f-row">
+      <input class="f-label" value="${esc(f.label)}" data-act="flabel" data-i="${i}" aria-label="Field name">
+      <textarea class="f-val" rows="1" data-act="fval" data-i="${i}" aria-label="${esc(f.label)}" placeholder="…">${esc(f.value)}</textarea>
+      <button class="f-x" data-act="del-field" data-i="${i}" aria-label="Remove field ${esc(f.label)}" title="Remove field">×</button></div>`).join('')}</div>`;
+}
 function tabHTML(t) {
-  const pend = pendingIds();
-  let h = `<section class="card panel"><div class="panel-head"><h3>${esc(t.title)}</h3>
-    <button class="icon-btn" aria-label="Tab options" onclick="tabMenu(event)">⋯</button></div>`;
+  let h = `<section class="card panel"><div class="panel-head"><h3 data-act="rename-tab" title="Click to rename">${esc(t.title)}</h3>
+    <button class="icon-btn" aria-label="Tab options" data-act="tab-menu">⋯</button></div>`;
   if (t.format !== 'notes') {
-    return h + `<p class="legacy" style="padding:0">This tab was typed freeform in Sheets, so it's shown as text. Edit it in Sheets, or move its lines into a new tab here.</p>
+    return h + `<p class="legacy" style="padding:0">This tab was typed freeform in Sheets, so it's shown as text. Edit it in Sheets, or add a row with "ID" as its last header cell to turn it into a table.</p>
       <div class="freeform">${esc((t.lines || []).join('\n'))}</div></section>`;
   }
-  h += `<div class="meta">
-      <label for="about">About</label>
-      <textarea id="about" class="about" rows="1" placeholder="What this section is: look, feel, placement, references…" oninput="autosize(this);editAbout(this.value)">${esc(t.description)}</textarea>
-      <label>Scenes</label>
-      <div class="chips">${sceneList(t.scenes).map((s, i) => `<span class="chip">${esc(s)}<button aria-label="Remove ${esc(s)}" onclick="removeScene(${i})">×</button></span>`).join('')}
-        <input class="chip-in" placeholder="+ A1S5" aria-label="Add scene" onkeydown="addScene(event)" onblur="addScene(event)" autocapitalize="characters"></div>
-    </div>
-    <form class="quick" onsubmit="quickAdd(event)"><input placeholder="Add an item…  (try “Railing — sturdy, matches drop”)" aria-label="Add an item" enterkeyhint="done"><button class="btn primary">Add</button></form>`;
-  const open = t.items.filter(i => !isClosed(i)), closed = t.items.filter(isClosed);
-  const list = S.filter === 'all' ? t.items : open;
-  h += `<ul class="items">${list.map(i => itemHTML(i, pend)).join('')}</ul>`;
-  if (!t.items.length) h += `<div class="empty">Nothing here yet. Add the first item above.</div>`;
-  else if (!list.length) h += `<div class="empty">Everything on this tab is done.</div>`;
-  if (S.filter === 'open' && closed.length) {
-    const showing = S.showDone[t.gid];
-    h += `<button class="done-toggle" onclick="S.showDone[${t.gid}]=!S.showDone[${t.gid}];render()">${showing ? '▾' : '▸'} Done or cut (${closed.length})</button>`;
-    if (showing) h += `<ul class="items">${closed.map(i => itemHTML(i, pend)).join('')}</ul>`;
-  }
+  h += fieldsHTML(t) + `<div class="panel-actions"><button class="add-link" data-act="add-field">+ Field</button>${S.view === 'list' ? '<button class="add-link" data-act="add-col-end">+ Column</button>' : ''}</div>`;
+  h += S.view === 'grid' ? gridHTML(t) : listHTML(t);
   return h + '</section>';
 }
-function itemHTML(i, pend, tabTitle, q) {
+function colWidth(c, i) { return i === 0 ? 210 : /note|detail|description|comment/i.test(c) ? 300 : lc(c) === 'status' ? 110 : 140; }
+function visibleItems(t) { return S.filter === 'open' && statusCol(t) ? t.items.filter(i => !isClosed(t, i)) : t.items; }
+function gridHTML(t) {
+  const items = visibleItems(t);
+  const sc = statusCol(t);
+  // Fixed column widths that add up past the card scroll sideways instead of squashing.
+  const total = 30 + 44 + t.columns.reduce((n, c, i) => n + colWidth(c, i), 0);
+  let h = `<div class="grid-wrap"><table class="grid" id="grid" style="width:max(100%, ${total}px)"><colgroup><col style="width:30px">${t.columns.map((c, i) => `<col style="width:${colWidth(c, i)}px">`).join('')}<col style="width:44px"></colgroup>
+    <thead><tr><th class="handle-h"></th>${t.columns.map((c, i) => `<th data-col="${i}"><button class="th-btn" title="Drag to move · tap for options">${esc(c)}<span class="caret">▾</span></button></th>`).join('')}
+    <th class="add-col"><button data-act="add-col-end" title="Add column" aria-label="Add column">+</button></th></tr></thead><tbody>`;
+  items.forEach(it => {
+    h += `<tr data-id="${esc(it.id)}" class="${isClosed(t, it) ? 'closed' : ''}"><td class="handle" title="Drag to move · tap for options"><span>⋮⋮</span></td>`;
+    t.columns.forEach((c, ci) => {
+      const v = it.v[c] || '';
+      if (c === sc) h += `<td class="st ${stClass(v)}"><input class="cell" list="statuses" value="${esc(v)}" data-act="cell" data-id="${esc(it.id)}" data-ci="${ci}" aria-label="${esc(c)}"></td>`;
+      else h += `<td><textarea class="cell" rows="1" data-act="cell" data-id="${esc(it.id)}" data-ci="${ci}" aria-label="${esc(c)}">${esc(v)}</textarea></td>`;
+    });
+    h += '<td></td></tr>';
+  });
+  h += `</tbody></table></div><button class="add-row" data-act="add-row">+ Add row</button>`;
+  if (!t.items.length) h += `<div class="hint">Type in a cell to start. Enter moves down (and adds a row at the bottom), Shift+Enter for a new line, Tab moves across.</div>`;
+  else if (S.filter === 'open' && items.length < t.items.length) h += `<div class="hint">${t.items.length - items.length} done/cut row(s) hidden. <a href="#" data-act="filter" data-f="all">Show all</a></div>`;
+  return h;
+}
+function listHTML(t) {
+  const pend = pendingIds();
+  const open = t.items.filter(i => !isClosed(t, i)), closed = t.items.filter(i => isClosed(t, i));
+  const list = S.filter === 'open' ? open : t.items;
+  let h = `<form class="quick" data-act="quick"><input placeholder="Add a row…  (“Railing — sturdy, matches drop” fills two columns)" aria-label="Add a row" enterkeyhint="done"><button class="btn primary">Add</button></form>`;
+  h += `<ul class="items" id="list">${list.map(i => cardHTML(t, i, pend)).join('')}</ul>`;
+  if (!t.items.length) h += `<div class="empty">Nothing here yet. Add the first row above.</div>`;
+  if (S.filter === 'open' && closed.length) {
+    const showing = S.showDone[t.gid];
+    h += `<button class="done-toggle" data-act="toggle-done">${showing ? '▾' : '▸'} Done or cut (${closed.length})</button>`;
+    if (showing) h += `<ul class="items">${closed.map(i => cardHTML(t, i, pend)).join('')}</ul>`;
+  }
+  return h;
+}
+function cardHTML(t, it, pend, tabTitle, q) {
   const hl = s => q ? highlight(s, q) : esc(s);
-  const meta = sceneList(i.scenes).map(s => `<span class="chip">${esc(s)}</span>`).join('') + (i.where ? `<span class="where">${esc(i.where)}</span>` : '');
-  let h = `<li class="item ${isClosed(i) ? 'done' : ''}" data-id="${esc(i.id)}">
-    <div class="item-row" onclick="toggleEdit('${esc(i.id)}')">
-      <button class="status st-${esc(i.status || '')}" onclick="cycleStatus(event,'${esc(i.id)}')" title="Tap to advance status">${esc(i.status || 'Idea')}</button>
-      <div class="it-body">${tabTitle ? `<div class="it-tab">${esc(tabTitle)}</div>` : ''}<div class="it-title">${hl(i.item || '(untitled)')}</div>${i.notes ? `<div class="it-notes">${hl(i.notes)}</div>` : ''}<div class="it-meta">${meta}</div></div>
-      ${pend.has(i.id) ? '<span class="pending" title="Saving…"></span>' : ''}
-    </div>`;
-  if (S.editing === i.id) h += editorHTML(i);
+  const sc = statusCol(t);
+  const tc = textCols(t);
+  const title = it.v[tc[0]] || '';
+  const lines = tc.slice(1).filter(c => String(it.v[c] || '').trim())
+    .map(c => `<div class="it-line"><b>${esc(c)}</b>${hl(it.v[c])}</div>`).join('');
+  let h = `<li class="item ${isClosed(t, it) ? 'closed' : ''}" data-id="${esc(it.id)}"><div class="item-row">
+    ${tabTitle ? '' : '<span class="grip" title="Drag to move">⋮⋮</span>'}
+    ${sc ? `<button class="status ${stClass(it.v[sc])}" data-act="${tabTitle ? 'noop' : 'status'}" data-id="${esc(it.id)}" title="Tap to advance">${esc(it.v[sc] || 'Idea')}</button>` : ''}
+    <div class="it-body" data-act="${tabTitle ? 'goto' : 'card'}" data-id="${esc(it.id)}" data-gid="${t.gid}">${tabTitle ? `<div class="it-tab">${esc(tabTitle)}</div>` : ''}<div class="it-title">${title ? hl(title) : '<span style="color:var(--text-faint)">(empty)</span>'}</div>${lines}</div>
+    ${pend && pend.has(it.id) ? '<span class="pending" title="Saving…"></span>' : ''}</div>`;
+  if (!tabTitle && S.editing === it.id) h += editorHTML(t, it);
   return h + '</li>';
 }
-function editorHTML(i) {
-  const id = esc(i.id);
-  const tabs = S.book.tabs.filter(t => t.format === 'notes');
-  const cur = findItem(i.id).t;
-  return `<div class="editor" data-ed="${id}">
-    <label class="field"><span>Item</span><input data-k="item" value="${esc(i.item)}" oninput="editField('${id}','item',this.value)" onblur="flushEdit('${id}')"></label>
-    <label class="field"><span>Notes</span><textarea data-k="notes" oninput="autosize(this);editField('${id}','notes',this.value)" onblur="flushEdit('${id}')">${esc(i.notes)}</textarea></label>
-    <div class="row2">
-      <label class="field"><span>Scenes</span><input data-k="scenes" value="${esc(i.scenes)}" placeholder="A1S5, A2S3" autocapitalize="characters" oninput="editField('${id}','scenes',this.value)" onblur="flushEdit('${id}')"></label>
-      <label class="field"><span>Where</span><input data-k="where" list="places" value="${esc(i.where)}" placeholder="SL, US, Fly…" oninput="editField('${id}','where',this.value)" onblur="flushEdit('${id}')"></label>
-    </div>
-    <div class="field"><span>Status</span><div class="stat-pick">${STATUSES.map(s => `<button type="button" class="st-${s} ${i.status === s ? 'on' : ''}" onclick="setStatus('${id}','${s}')">${s}</button>`).join('')}</div></div>
+function editorHTML(t, it) {
+  const id = esc(it.id); const sc = statusCol(t);
+  const tabs = S.book.tabs.filter(x => x.format === 'notes');
+  return `<div class="editor">
+    ${t.columns.map((c, ci) => `<label class="field"><span>${esc(c)}</span>${c === sc
+      ? `<input data-act="cell" data-id="${id}" data-ci="${ci}" list="statuses" value="${esc(it.v[c] || '')}">`
+      : `<textarea rows="1" data-act="cell" data-id="${id}" data-ci="${ci}">${esc(it.v[c] || '')}</textarea>`}</label>`).join('')}
     <div class="ed-acts">
-      <label class="field" style="flex:1 1 200px"><span>Tab</span><select onchange="moveItem('${id}',this.value)">${tabs.map(t => `<option value="${t.gid}" ${t === cur ? 'selected' : ''}>${esc(t.title)}</option>`).join('')}</select></label>
-      <span class="spacer" style="flex:1"></span>
-      <button class="btn danger sm" onclick="deleteItem('${id}')">Delete</button>
-      <button class="btn sm" onclick="toggleEdit('${id}')">Done editing</button>
-    </div>
-    <datalist id="places">${PLACES.map(p => `<option value="${p}">`).join('')}</datalist>
-  </div>`;
-}
-function refreshRowPreview(id) {
-  const li = document.querySelector(`.item[data-id="${CSS.escape(id)}"]`); if (!li) return;
-  const { it } = findItem(id);
-  const t = li.querySelector('.it-title'); if (t) t.textContent = it.item || '(untitled)';
-  let n = li.querySelector('.it-notes');
-  if (it.notes) { if (!n) { n = document.createElement('div'); n.className = 'it-notes'; t.after(n); } n.textContent = it.notes; } else if (n) n.remove();
-  const m = li.querySelector('.it-meta');
-  if (m) m.innerHTML = sceneList(it.scenes).map(s => `<span class="chip">${esc(s)}</span>`).join('') + (it.where ? `<span class="where">${esc(it.where)}</span>` : '');
-}
-function refreshPendingDots() {
-  if (!S.book || busyTyping()) return;
-  const pend = pendingIds();
-  document.querySelectorAll('.item[data-id]').forEach(li => {
-    const has = pend.has(li.dataset.id), dot = li.querySelector('.pending');
-    if (!has && dot) dot.remove();
-  });
+      <label class="field" style="flex:1 1 200px"><span>Tab</span><select data-act="ed-move" data-id="${id}">${tabs.map(x => `<option value="${x.gid}" ${x.gid === t.gid ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select></label>
+      <button class="btn danger sm" data-act="del-row" data-id="${id}">Delete</button>
+      <button class="btn sm" data-act="card" data-id="${id}">Done</button>
+    </div></div>`;
 }
 function highlight(s, q) {
   const e = esc(s); const qe = esc(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return qe ? e.replace(new RegExp('(' + qe + ')', 'ig'), '<mark>$1</mark>') : e;
 }
 function searchHTML() {
-  const q = S.q.trim().toLowerCase(); const pend = pendingIds();
+  const q = S.q.trim(), ql = q.toLowerCase();
   let n = 0, h = '<section class="card panel">';
   S.book.tabs.forEach(t => {
-    const hitsTab = (t.title + ' ' + t.description + ' ' + t.scenes).toLowerCase().includes(q);
-    const items = (t.items || []).filter(i => (S.filter === 'all' || !isClosed(i)) &&
-      [i.item, i.notes, i.scenes, i.where, i.status].join(' ').toLowerCase().includes(q));
-    const lines = (t.lines || []).filter(l => l.toLowerCase().includes(q));
-    if (!items.length && !hitsTab && !lines.length) return;
-    n += items.length + lines.length + (hitsTab ? 1 : 0);
-    h += `<div class="search-group"><h4><a href="#" onclick="setTab(${t.gid});return false" style="color:inherit">${esc(t.title)} →</a></h4>`;
-    if (hitsTab && t.description) h += `<div class="it-notes" style="padding:4px 2px 8px">${highlight(t.description, S.q.trim())}</div>`;
-    h += `<ul class="items">${items.map(i => itemHTML(i, pend, null, S.q.trim())).join('')}</ul>`;
-    if (lines.length) h += `<div class="freeform">${lines.map(l => highlight(l, S.q.trim())).join('\n')}</div>`;
+    const fieldHits = (t.fields || []).filter(f => (f.label + ' ' + f.value).toLowerCase().includes(ql));
+    const items = (t.items || []).filter(i => (S.filter === 'all' || !isClosed(t, i)) && Object.values(i.v).join(' ').toLowerCase().includes(ql));
+    const lines = (t.lines || []).filter(l => l.toLowerCase().includes(ql));
+    const titleHit = t.title.toLowerCase().includes(ql);
+    if (!items.length && !fieldHits.length && !lines.length && !titleHit) return;
+    n += items.length + lines.length + fieldHits.length + (titleHit ? 1 : 0);
+    h += `<div class="search-group"><h4><a href="#" data-act="tab" data-gid="${t.gid}" style="color:inherit">${highlight(t.title, q)} →</a></h4>`;
+    fieldHits.forEach(f => { h += `<div class="it-line" style="padding:4px 2px"><b>${esc(f.label)}</b>${highlight(f.value, q)}</div>`; });
+    h += `<ul class="items">${items.map(i => cardHTML(t, i, null, t.title, q)).join('')}</ul>`;
+    if (lines.length) h += `<div class="freeform">${lines.map(l => highlight(l, q)).join('\n')}</div>`;
     h += '</div>';
   });
-  if (!n) h += `<div class="empty" style="border:0">No matches for “${esc(S.q)}”${S.filter === 'open' ? ' in open items. <a href="#" onclick="setFilter(\'all\');return false">Search done items too</a>' : ''}.</div>`;
+  if (!n) h += `<div class="empty" style="border:0">No matches for “${esc(S.q)}”.</div>`;
   return h + '</section>';
 }
-function autosize(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px'; }
+function autosize(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight + 1) + 'px'; }
+function refreshPendingDots() {
+  if (!S.book) return;
+  const pend = pendingIds();
+  document.querySelectorAll('.item[data-id] .pending').forEach(d => { if (!pend.has(d.closest('.item').dataset.id)) d.remove(); });
+}
+function focusCell(id, ci) {
+  const el = document.querySelector(`[data-act="cell"][data-id="${CSS.escape(id)}"][data-ci="${ci}"]`);
+  if (el) { el.focus(); try { const n = el.value.length; el.setSelectionRange(n, n); } catch (e) {} }
+}
+
+// ── event delegation for the notebook view ──
+const view = document.getElementById('view');
+view.addEventListener('click', e => {
+  const a = e.target.closest('[data-act]'); if (!a) return;
+  const d = a.dataset, t = curTab();
+  switch (d.act) {
+    case 'tab': e.preventDefault(); if (a._dragged) return; setTab(d.gid); break;
+    case 'add-tab': addTab(); break;
+    case 'tab-menu': tabMenu(a, t.gid); break;
+    case 'rename-tab': renameTab(t.gid); break;
+    case 'view': S.view = d.v; lsSet(LS.view, S.view); S.editing = null; render(); break;
+    case 'filter': e.preventDefault(); S.filter = d.f; render(); break;
+    case 'clear-search': S.q = ''; render(); break;
+    case 'add-col-end': addColumn(); break;
+    case 'add-row': addRow(null, null, 'first'); break;
+    case 'add-field': addField(); break;
+    case 'del-field': deleteField(Number(d.i)); break;
+    case 'card': flushCell(d.id); S.editing = S.editing === d.id ? null : d.id; render();
+      if (S.editing && !document.documentElement.classList.contains('touch')) focusCell(d.id, 0); break;
+    case 'status': e.stopPropagation(); cycleStatus(d.id); break;
+    case 'del-row': deleteRow(d.id); break;
+    case 'toggle-done': S.showDone[t.gid] = !S.showDone[t.gid]; render(); break;
+    case 'goto': S.q = ''; S.tabGid = Number(d.gid); S.flash = d.id; render(); break;
+  }
+});
+view.addEventListener('dblclick', e => { const a = e.target.closest('[data-act="tab"]'); if (a) renameTab(Number(a.dataset.gid)); });
+view.addEventListener('input', e => {
+  const a = e.target, d = a.dataset;
+  if (a.tagName === 'TEXTAREA') autosize(a);
+  if (d.act === 'cell') {
+    const t = curTab(); editCell(d.id, t.columns[Number(d.ci)], a.value);
+    const td = a.closest('td.st'); if (td) td.className = 'st ' + stClass(a.value);
+  } else if (d.act === 'fval') editFieldVal(Number(d.i), a.value);
+  else if (d.act === 'search') {
+    S.q = a.value; clearTimeout(view._qt);
+    view._qt = setTimeout(() => { const pos = a.selectionStart; render(); const q = document.getElementById('q'); if (q) { q.focus(); try { q.setSelectionRange(pos, pos); } catch (er) {} } }, 150);
+  }
+});
+view.addEventListener('change', e => {
+  const a = e.target, d = a.dataset;
+  if (d.act === 'flabel') renameField(Number(d.i), a.value);
+  else if (d.act === 'ed-move') moveRow(d.id, null, a.value);
+});
+view.addEventListener('focusout', e => { const d = e.target.dataset; if (d && d.act === 'cell') flushCell(d.id); if (d && d.act === 'fval') flushFields(); });
+view.addEventListener('submit', e => { if (e.target.dataset.act === 'quick') quickAdd(e); });
+view.addEventListener('keydown', e => {
+  const a = e.target, d = a.dataset;
+  if (d.act === 'flabel' && e.key === 'Enter') { e.preventDefault(); a.blur(); return; }
+  if (d.act !== 'cell' || !a.closest('#grid')) return;
+  const t = curTab(); const items = visibleItems(t); const ri = items.findIndex(i => i.id === d.id); const ci = Number(d.ci);
+  const go = (r, c) => { const it = items[r]; if (it) { focusCell(it.id, c); return true; } return false; };
+  if (e.key === 'Enter' && !e.shiftKey && !e.altKey) {
+    e.preventDefault(); flushCell(d.id);
+    if (e.metaKey || e.ctrlKey) { addRow(nextId(t, d.id), null, ci); return; }
+    if (!go(ri + 1, ci)) addRow(null, null, ci);
+  } else if (e.key === 'ArrowDown' && (a.tagName === 'INPUT' || a.selectionEnd === a.value.length)) { if (go(ri + 1, ci)) e.preventDefault(); }
+  else if (e.key === 'ArrowUp' && (a.tagName === 'INPUT' || a.selectionStart === 0)) { if (go(ri - 1, ci)) e.preventDefault(); }
+  else if (e.key === 'Escape') a.blur();
+  else if (e.key === 'Backspace' && !a.value && (e.metaKey || e.ctrlKey)) { e.preventDefault(); const prev = items[ri - 1]; deleteRow(d.id); if (prev) focusCell(prev.id, ci); }
+});
+
+// ── drag to reorder (mouse and touch) ──
+// Press on a handle and move: a line shows where it will land. Press and
+// release without moving: the handle's menu opens instead.
+function sortable({ container, items, handle, axis, onMove, onTap, targets, onTarget }) {
+  if (!container) return;
+  container.addEventListener('pointerdown', e => {
+    if (e.button > 0) return;
+    const h = e.target.closest(handle); if (!h || !container.contains(h)) return;
+    const el = h.closest(items); if (!el) return;
+    const list = [...container.querySelectorAll(items)];
+    const from = list.indexOf(el);
+    const sx = e.clientX, sy = e.clientY;
+    let dragging = false, ins = from, target = null, line = null, timer = null;
+    const isTouch = e.pointerType === 'touch';
+    // On touch, hold briefly before dragging so a swipe still scrolls.
+    let armed = !isTouch;
+    if (isTouch) timer = setTimeout(() => { armed = true; if (navigator.vibrate) navigator.vibrate(10); el.classList.add('dragging'); }, 220);
+    try { h.setPointerCapture(e.pointerId); } catch (er) {}
+    const move = ev => {
+      const dx = ev.clientX - sx, dy = ev.clientY - sy;
+      if (!dragging) {
+        if (Math.hypot(dx, dy) < 6) return;
+        if (!armed) { cleanup(); return; }      // touch moved before hold: it's a scroll
+        dragging = true; el.classList.add('dragging');
+        line = document.createElement('div'); line.className = 'drop-line'; document.body.appendChild(line);
+      }
+      ev.preventDefault();
+      if (axis === 'y') { if (ev.clientY < 70) scrollBy(0, -14); else if (ev.clientY > innerHeight - 50) scrollBy(0, 14); }
+      target = null;
+      if (targets) {
+        const over = document.elementFromPoint(ev.clientX, ev.clientY);
+        const tg = over && over.closest(targets);
+        document.querySelectorAll('.drop-hover').forEach(x => x.classList.remove('drop-hover'));
+        if (tg && !tg.classList.contains('on')) { target = tg; tg.classList.add('drop-hover'); line.style.display = 'none'; return; }
+      }
+      line.style.display = '';
+      const rects = list.map(x => x.getBoundingClientRect());
+      const p = axis === 'y' ? ev.clientY : ev.clientX;
+      ins = rects.length;
+      for (let i = 0; i < rects.length; i++) { const r = rects[i]; const mid = axis === 'y' ? r.top + r.height / 2 : r.left + r.width / 2; if (p < mid) { ins = i; break; } }
+      const box = container.getBoundingClientRect();
+      if (axis === 'y') {
+        const y = ins < rects.length ? rects[ins].top : rects[rects.length - 1].bottom;
+        Object.assign(line.style, { top: (y - 1.5) + 'px', left: box.left + 'px', width: box.width + 'px', height: '3px' });
+      } else {
+        const x = ins < rects.length ? rects[ins].left - 3 : rects[rects.length - 1].right + 1;
+        const r0 = rects[Math.min(ins, rects.length - 1)];
+        Object.assign(line.style, { left: (x - 1) + 'px', top: r0.top + 'px', height: (axis === 'col' ? box.height : r0.height) + 'px', width: '3px' });
+      }
+    };
+    const up = ev => {
+      const wasDrag = dragging; cleanup();
+      if (!wasDrag) { if (onTap) onTap(el, h, ev); return; }
+      el._dragged = true; setTimeout(() => { el._dragged = false; }, 50);
+      if (target && onTarget) { onTarget(el, target); return; }
+      const to = ins > from ? ins - 1 : ins;
+      if (to !== from) onMove(from, to, el, list);
+    };
+    function cleanup() {
+      clearTimeout(timer);
+      h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', cleanup);
+      el.classList.remove('dragging'); if (line) line.remove();
+      document.querySelectorAll('.drop-hover').forEach(x => x.classList.remove('drop-hover'));
+      dragging = false;
+    }
+    h.addEventListener('pointermove', move); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', cleanup);
+  });
+}
+function bindDrags() {
+  const t = curTab();
+  // tabs: drag to reorder, tap to open
+  sortable({ container: document.getElementById('tabs'), items: '.tab[data-gid]', handle: '.tab[data-gid]', axis: 'x',
+    onMove: (from, to) => moveTab(S.book.tabs[from].gid, to) });   // taps are handled by the click listener
+  if (!t || t.format !== 'notes' || S.q) return;
+  const vis = visibleItems(t);
+  const rowMove = (from, to) => {
+    const ids = vis.map(i => i.id); const id = ids.splice(from, 1)[0];
+    moveRow(id, ids[to] || (to >= ids.length ? nextAfterVisible(t, vis) : null));
+  };
+  const rowTarget = (el, tg) => moveRow(el.dataset.id, null, tg.dataset.gid);
+  const grid = document.getElementById('grid');
+  if (grid) {
+    sortable({ container: grid.tBodies[0], items: 'tr[data-id]', handle: 'td.handle', axis: 'y', onMove: rowMove,
+      onTap: (el, h) => rowMenu(h, el.dataset.id), targets: '.tab[data-gid]', onTarget: rowTarget });
+    sortable({ container: grid.tHead.rows[0], items: 'th[data-col]', handle: '.th-btn', axis: 'col',
+      onMove: (from, to) => moveColumn(t.columns[from], to), onTap: (el, h) => colMenu(h, t.columns[Number(el.dataset.col)]) });
+  }
+  const list = document.getElementById('list');
+  if (list) sortable({ container: list, items: 'li.item', handle: '.grip', axis: 'y', onMove: (from, to) => {
+      const shown = S.filter === 'open' ? t.items.filter(i => !isClosed(t, i)) : t.items;
+      const ids = shown.map(i => i.id); const id = ids.splice(from, 1)[0]; moveRow(id, ids[to] || null);
+    }, onTap: (el, h) => rowMenu(h, el.dataset.id), targets: '.tab[data-gid]', onTarget: rowTarget });
+}
+// When rows are hidden by the filter, "the end" means just before the next hidden row, if any.
+function nextAfterVisible(t, vis) { const last = vis[vis.length - 1]; return last ? nextId(t, last.id) : null; }
 
 // ── menus / toast ──
-function tabMenu(ev) {
-  ev.stopPropagation(); closeMenu();
-  const m = document.createElement('div'); m.className = 'menu'; m.id = 'menu';
-  m.innerHTML = `<button onclick="closeMenu();renameTab()">Rename tab</button><button class="danger" onclick="closeMenu();deleteTab()">Delete tab…</button>`;
+let _menuFns = [];
+function showMenu(anchor, entries) {
+  closeMenu();
+  const m = document.createElement('div'); m.className = 'menu'; m.id = 'menu'; m.setAttribute('role', 'menu');
+  _menuFns = [];
+  m.innerHTML = entries.map(x => {
+    if (x === '-') return '<hr>';
+    if (x.head) return `<div class="mh">${esc(x.head)}</div>`;
+    if (x.off) return '';
+    _menuFns.push(x.fn);
+    return `<button role="menuitem" class="${x.danger ? 'danger' : ''}" data-mi="${_menuFns.length - 1}">${esc(x.label)}</button>`;
+  }).join('');
   document.body.appendChild(m);
-  const r = ev.currentTarget.getBoundingClientRect();
-  m.style.top = (r.bottom + 6) + 'px'; m.style.left = Math.max(8, Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 8)) + 'px';
+  const r = anchor.getBoundingClientRect();
+  let top = r.bottom + 6; if (top + m.offsetHeight > innerHeight - 8) top = Math.max(8, r.top - m.offsetHeight - 6);
+  m.style.top = top + 'px';
+  m.style.left = Math.max(8, Math.min(r.left, innerWidth - m.offsetWidth - 8)) + 'px';
+  m.addEventListener('click', e => { const b = e.target.closest('[data-mi]'); if (!b) return; const fn = _menuFns[Number(b.dataset.mi)]; closeMenu(); fn(); });
+  setTimeout(() => { const f = m.querySelector('button'); if (f) f.focus({ preventScroll: true }); }, 0);
 }
 function closeMenu() { const m = document.getElementById('menu'); if (m) m.remove(); }
-document.addEventListener('click', e => { if (!e.target.closest('#menu')) closeMenu(); });
+document.addEventListener('pointerdown', e => { if (!e.target.closest('#menu') && !e.target.closest('.th-btn, td.handle, .grip, [data-act="tab-menu"]')) closeMenu(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
 let _tt;
 function toast(msg, undo) {
   const t = document.getElementById('toast');
@@ -940,22 +1285,20 @@ function toast(msg, undo) {
 
 // ── connect ──
 function connectHTML() {
-  return `<div class="card hero">
-    <h2>Connect the dev backend</h2>
+  return `<div class="card hero"><h2>Connect the dev backend</h2>
     <p>This page saves to its own Apps Script project, so the live dashboard backend is never touched. One-time setup from a laptop:</p>
-    <ol>
-      <li>Go to <b>script.google.com</b> → New project, name it “MMT Show Notes DEV”.</li>
+    <ol><li>Go to <b>script.google.com</b> → New project, name it “MMT Show Notes DEV”.</li>
       <li>Paste in <a href="https://github.com/musicmountainmcafee-eng/MMT-Inventory/blob/main/apps-script/ShowNotesDev.gs" target="_blank" rel="noopener">apps-script/ShowNotesDev.gs</a> and save.</li>
       <li>Deploy → New deployment → Web app. Execute as <b>Me</b>, access <b>Anyone</b>. Authorize.</li>
-      <li>Paste the Web app URL (ends in <span class="mono">/exec</span>) below.</li>
-    </ol>
-    <div class="row"><input type="url" id="api-url" placeholder="https://script.google.com/macros/s/…/exec" value="${S.api && S.api !== 'demo' ? esc(S.api) : ''}">
-      <button class="btn primary" onclick="saveConnect()">Connect</button></div>
-    <div class="row" style="margin-top:10px"><button class="btn ghost" onclick="useDemo()">Or try it with sample notes (nothing saved)</button></div>
-    <div class="err-text" id="connect-err">${esc(S.connectErr || '')}</div>
-  </div>`;
+      <li>Paste the Web app URL (ends in <span class="mono">/exec</span>) below.</li></ol>
+    <div class="row"><input type="url" id="api-url" placeholder="https://script.google.com/macros/s/…/exec" value="${S._prevApi && S._prevApi !== 'demo' ? esc(S._prevApi) : ''}">
+      <button class="btn primary" id="connect-btn" onclick="saveConnect()">Connect</button></div>
+    <div class="row" style="margin-top:10px"><button class="btn ghost" onclick="useDemo()">Or try it with sample notes (nothing saved)</button>
+      ${S._prevApi ? '<button class="btn ghost" onclick="cancelConnect()">Cancel</button>' : ''}</div>
+    <div class="err-text" id="connect-err">${esc(S.connectErr || '')}</div></div>`;
 }
-function openConnect() { const prev = S.api; S.api = ''; S._prevApi = prev; render(); }
+function openConnect() { S._prevApi = S.api; S.api = ''; render(); }
+function cancelConnect() { S.api = S._prevApi; S._prevApi = ''; render(); }
 async function saveConnect() {
   const url = document.getElementById('api-url').value.trim();
   const err = document.getElementById('connect-err');
@@ -964,76 +1307,72 @@ async function saveConnect() {
   S.api = url;
   try {
     const r = await api({ action: 'ping' });
-    lsSet(LS.api, url); S.connectErr = '';
+    S.apiLevel = r.api || 1;
+    lsSet(LS.api, url); S.connectErr = ''; S._prevApi = '';
     toast('Connected · backend ' + r.version);
     await loadIndex(); flush();
+    if (S.slug) pickShow(S.slug);
   } catch (e) { S.api = ''; err.textContent = 'Couldn’t reach it: ' + e.message + '. Check the deployment allows “Anyone”.'; }
 }
-function useDemo() { S.api = 'demo'; S.books = Demo.books(); if (!S.slug) S.slug = 'its-a-wonderful-life'; pickShow(S.slug === PRACTICE.slug || bookFor(S.slug) ? S.slug : 'its-a-wonderful-life'); }
+function useDemo() { S.api = 'demo'; S._prevApi = ''; S.apiLevel = NEED_API; S.books = Demo.books(); queue = queue.filter(q => !String(q.sheetId).startsWith('demo-')); pickShow('its-a-wonderful-life'); }
 
-// ── demo backend: same actions, in memory, seeded with sample notes ──
+// ── demo backend: same actions, in memory, using applyOp ──
 const Demo = (() => {
   let gid = 1;
-  const it = (item, notes = '', scenes = '', where = '', status = 'Idea') => ({ id: uid(), item, notes, scenes, where, status });
-  const tab = (title, description, scenes, items) => ({ gid: gid++, title, description, scenes, items, format: 'notes' });
+  const COLS = ['Item', 'Notes', 'Scenes', 'Where', 'Status'];
+  const row = (Item, Notes = '', Scenes = '', Where = '', Status = 'Idea') => ({ id: uid(), v: { Item, Notes, Scenes, Where, Status } });
+  const tab = (title, about, scenes, items, cols) => ({ gid: gid++, title, fields: [{ label: 'About', value: about }, { label: 'Scenes', value: scenes }], columns: (cols || COLS).slice(), items, format: 'notes' });
   const books = {
     'demo-iawl': { sheetId: 'demo-iawl', url: 'https://docs.google.com/spreadsheets/', name: "It's a Wonderful Life — Show Notes", tabs: [
       tab('Build To-Do', 'Shop list for the build.', '', [
-        it('Bridge piece', 'Sturdy railing that matches the drop', 'A2S6, A2S7, A2S9', 'DS', 'Planned'),
-        it('3 sleds on wheels', '', '', '', 'Building'),
-        it('Bailey loan counter', 'Use Matilda table with windows + forced perspective. How many windows?', 'A1S9', 'SR'),
-        it('Back wall for office', 'Urinetown style, with forced perspective', '', 'US'),
-        it('2 fly-in banner signs', '“Bedford Hall High Class of 1928” and “Welcome to Bailey Park”', '', 'Fly'),
-        it('New letters for bank unit'),
-        it('Two Christmas trees', 'One for the square, one for the house'),
-        it('Get 3D printer working', '', '', '', 'Done'),
+        row('Bridge piece', 'Sturdy railing that matches the drop', 'A2S6, A2S7, A2S9', 'DS', 'Planned'),
+        row('3 sleds on wheels', '', '', '', 'Building'),
+        row('Bailey loan counter', 'Use Matilda table with windows + forced perspective. How many windows?', 'A1S9', 'SR'),
+        row('Back wall for office', 'Urinetown style, with forced perspective', '', 'US'),
+        row('2 fly-in banner signs', '“Bedford Hall High Class of 1928” and “Welcome to Bailey Park”', '', 'Fly'),
+        row('New letters for bank unit'), row('Two Christmas trees', 'One for the square, one for the house'),
+        row('Get 3D printer working', '', '', '', 'Done'),
       ]),
       tab('Production Meetings', 'Questions and answers from production meetings.', '', [
-        it('Snow', 'Only during the bridge setups'),
-        it('Working bike', '', '', '', 'Planned'),
-        it('Fly in Christmas swag'),
-        it('Town drop ties into pieces', 'Play with forced perspective on all pieces'),
-        it('Prologues', 'Both in front of main curtain. Fog. All heaven in front of main, SL if possible', 'A1S1A, A1S5A, A1S9A', 'In 1'),
+        row('Snow', 'Only during the bridge setups'), row('Working bike', '', '', '', 'Planned'), row('Fly in Christmas swag'),
+        row('Town drop ties into pieces', 'Play with forced perspective on all pieces'),
+        row('Prologues', 'Both in front of main curtain. Fog. All heaven in front of main, SL if possible', 'A1S1A, A1S5A, A1S9A', 'In 1'),
       ]),
       tab('Bridge', 'Feel small and alone. Railing like he’s on a bridge, big feeling. The only time it snows.', 'A2S6, A2S7, A2S9', [
-        it('Railing', 'Sturdy', '', 'DS', 'Planned'),
-        it('Bench', '“A hut outside bridge”, same drop. Not needed A2S9; set it when we set the bridge.', 'A2S7', ''),
+        row('Railing', 'Sturdy', '', 'DS', 'Planned'),
+        row('Bench', '“A hut outside bridge”, same drop. Not needed A2S9; set it when we set the bridge.', 'A2S7'),
       ]),
       tab("Potter's Office", 'Should feel like Scrooge in the 1930s. Play with perspective so the wall isn’t flat across the top.', 'A1S11, A2S5', [
-        it('Partner desk', 'On wheels?'), it('Big old wheelchair', 'John Dwyer'), it('Guest chair', 'On wheels or bentwood'),
-        it('Rolling wall', 'Urinetown style with perspective', '', 'US'),
+        row('Partner desk', 'On wheels?'), row('Big old wheelchair', 'John Dwyer'), row('Guest chair', 'On wheels or bentwood'),
+        row('Rolling wall', 'Urinetown style with perspective', '', 'US'),
       ]),
       tab('Upstage Unit', 'Could be drop, back wall, or LED wall. Act 1 looks like still moving in; lived-in by Act 2.', 'A1S12, A2S4, A2S10', [
-        it('Landing with stairs', 'Center stairs facing center, small platform, stairs off SR (à la Annie)'),
-        it('Upright piano', 'Maybe covered with a drop for Act 1'), it('Couch', 'Covered with boxes for Act 1'), it('Christmas tree', 'Act 2 only'),
+        row('Landing with stairs', 'Center stairs facing center, small platform, stairs off SR (à la Annie)'),
+        row('Upright piano', 'Maybe covered with a drop for Act 1'), row('Couch', 'Covered with boxes for Act 1'), row('Christmas tree', 'Act 2 only'),
       ]),
     ] },
   };
   const index = [{ slug: 'its-a-wonderful-life', name: "It's a Wonderful Life", sheetId: 'demo-iawl', url: books['demo-iawl'].url }];
-  const delay = v => new Promise(r => setTimeout(() => r(JSON.parse(JSON.stringify({ ok: true, ...v }))), 220));
+  const reply = v => new Promise(r => setTimeout(() => r(JSON.parse(JSON.stringify({ ok: true, ...v }))), 200));
   const B = id => { if (!books[id]) throw Object.assign(new Error('Not found'), { server: true }); return books[id]; };
-  const T = (id, g) => B(id).tabs.find(t => t.gid === Number(g));
   return {
     books: () => index.slice(),
     call(r) {
       switch (r.action) {
-        case 'ping': return delay({ version: 'demo' });
-        case 'listBooks': return delay({ books: index });
+        case 'ping': return reply({ version: 'demo', api: NEED_API });
+        case 'listBooks': return reply({ books: index });
         case 'createBook': {
           const id = 'demo-' + r.slug;
           books[id] = { sheetId: id, url: 'https://docs.google.com/spreadsheets/', name: r.name, tabs: ['General', 'Build To-Do', 'Production Meetings'].map(t => tab(t, '', '', [])) };
-          const b = { slug: r.slug, name: r.name, sheetId: id, url: books[id].url }; index.push(b); return delay({ book: b });
+          const b = { slug: r.slug, name: r.name, sheetId: id, url: books[id].url }; index.push(b); return reply({ book: b });
         }
-        case 'getBook': return delay(B(r.sheetId));
-        case 'addTab': { const t = tab(r.title, '', '', []); B(r.sheetId).tabs.push(t); return delay({ tab: t }); }
-        case 'renameTab': T(r.sheetId, r.gid).title = r.title; return delay({ title: r.title });
-        case 'deleteTab': B(r.sheetId).tabs = B(r.sheetId).tabs.filter(t => t.gid !== Number(r.gid)); return delay({});
-        case 'setTabMeta': { const t = T(r.sheetId, r.gid); if (r.description != null) t.description = r.description; if (r.scenes != null) t.scenes = r.scenes; return delay({}); }
-        case 'saveItem': { const t = T(r.sheetId, r.gid); const i = t.items.findIndex(x => x.id === r.item.id); if (i === -1) t.items.push({ ...r.item }); else t.items[i] = { ...r.item }; return delay({ id: r.item.id }); }
-        case 'deleteItem': { const t = T(r.sheetId, r.gid); t.items = t.items.filter(x => x.id !== r.id); return delay({}); }
-        case 'moveItem': { const f = T(r.sheetId, r.gid), to = T(r.sheetId, r.toGid); const x = f.items.find(i => i.id === r.id); f.items = f.items.filter(i => i.id !== r.id); to.items.push(x); return delay({}); }
+        case 'getBook': return reply(B(r.sheetId));
+        case 'addTab': {
+          const t = tab(r.title, '', '', [], r.columns); t.fields = (r.fields || ['About', 'Scenes']).map(l => ({ label: l, value: '' }));
+          const bk = B(r.sheetId); if (r.index == null) bk.tabs.push(t); else bk.tabs.splice(r.index, 0, t); return reply({ tab: t });
+        }
+        default: applyOp(B(r.sheetId), r); return reply({});
       }
-      return Promise.reject(new Error('Unknown action'));
     },
   };
 })();
@@ -1042,13 +1381,13 @@ const Demo = (() => {
 (function boot() {
   const qs = new URLSearchParams(location.search);
   if (qs.get('demo') === '1') S.api = 'demo';
-  if (S.api === 'demo') { S.books = Demo.books(); queue = []; }
+  if (S.api === 'demo') { S.books = Demo.books(); S.apiLevel = NEED_API; }
   readShows();
   const last = qs.get('show') || lsGet(LS.last, '') || (S.api === 'demo' ? 'its-a-wonderful-life' : '');
-  if (last && (S.shows.some(s => s.slug === last) || last === PRACTICE.slug || bookFor(last))) pickShow(last); else render();
-  if (S.api && S.api !== 'demo') { loadIndex().then(() => { if (S.slug && !S.book && bookFor(S.slug)) pickShow(S.slug); }); flush(); }
-  // If the show list wasn't cached yet, a show may only become pickable once it arrives.
-  if (S.api === 'demo' && !S.slug) pickShow('its-a-wonderful-life');
+  if (S.api === 'demo') pickShow(bookFor(last) || last === PRACTICE.slug ? last : 'its-a-wonderful-life');
+  else if (last && (S.shows.some(s => s.slug === last) || last === PRACTICE.slug || bookFor(last))) pickShow(last);
+  else render();
+  if (S.api && S.api !== 'demo') { checkApi(); loadIndex().then(() => { if (S.slug && !S.book && bookFor(S.slug)) pickShow(S.slug); }); }
 })();
 </script>
 </body>
