@@ -6,10 +6,14 @@
 <title>Show Notes · DEV</title>
 <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#16161f" media="(prefers-color-scheme: dark)">
-<link rel="icon" href="icon-192.png" />
+<link rel="icon" href="notes-icon-192.png" />
+<link rel="manifest" href="notes.webmanifest" />
+<link rel="apple-touch-icon" href="notes-icon-192.png" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="MMT Notes" />
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <!--
-  MMT Show Notes — DEV build 10.14 v5
+  MMT Show Notes — DEV build 10.14 v6
 
   A sandbox for the show-notes page before it goes into app.html.
   It READS the live show list (to know which shows exist) and never writes to
@@ -308,6 +312,7 @@ mark { background: color-mix(in srgb, var(--amber) 28%, transparent); color: inh
   <span class="dev-badge">DEV</span>
   <span class="spacer"></span>
   <button class="sync" id="sync" onclick="onSyncClick()"><span class="dot"></span><span id="sync-text">…</span></button>
+  <button class="btn sm primary" id="install-btn" hidden onclick="installApp()">Install app</button>
   <button class="icon-btn" id="wide-btn" title="Hide show list" aria-label="Hide show list" onclick="toggleWide()">⇔</button>
   <button class="icon-btn" title="Connection settings" aria-label="Connection settings" onclick="openConnect()">⚙</button>
   <button class="icon-btn" title="Light / dark" aria-label="Toggle dark mode" onclick="toggleTheme()">◐</button>
@@ -316,6 +321,7 @@ mark { background: color-mix(in srgb, var(--amber) 28%, transparent); color: inh
 <div class="wrap" id="wrap">
   <div class="devnote" id="devnote"></div>
   <div id="banner" class="banner" hidden></div>
+  <div id="app-hint" class="devnote" hidden></div>
   <aside class="card shows" id="shows" aria-label="Shows"></aside>
   <main class="main" id="main">
     <select class="show-select" id="show-select" aria-label="Show" onchange="pickShow(this.value)"></select>
@@ -324,11 +330,11 @@ mark { background: color-mix(in srgb, var(--amber) 28%, transparent); color: inh
 </div>
 <datalist id="statuses"><option value="Idea"><option value="Planned"><option value="Building"><option value="Done"><option value="Cut"></datalist>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<div id="build-tag">10.14 v5</div>
+<div id="build-tag">10.14 v6</div>
 
 <script>
 'use strict';
-const BUILD = '10.14 v5';
+const BUILD = '10.14 v6';
 const NEED_API = 2;      // features the page can't work without
 const NEED_BUILD = 3;    // newest backend; an older one is told to update itself
 // Live dashboard backend — used ONLY for reads (show list, existing notes links).
@@ -658,7 +664,16 @@ function legacyUrl(sh) { return sh && S.legacy[legacyKey(sh)] || ''; }
 async function loadIndex() {
   if (!S.api) return;
   try { const r = await api({ action: 'listBooks' }); S.books = r.books || []; lsSet(LS.books, S.books); S.connectErr = ''; }
-  catch (e) { S.connectErr = e.message; }
+  catch (e) {
+    // A link saved on this device that no longer works: fall back to the built-in one.
+    if (!e.server && S.api !== DEFAULT_API && S.api !== 'demo') {
+      S.api = DEFAULT_API; try { localStorage.removeItem(LS.api); } catch (er) {}
+      return checkApi().then(loadIndex);
+    }
+    S.connectErr = e.message === 'Network' || e.message === 'Timed out'
+      ? "Couldn't reach the notes backend (" + e.message + '). Check the connection, then tap Try again.'
+      : e.message;
+  }
   render();
 }
 
@@ -993,7 +1008,7 @@ function renderView() {
       <div class="preview-tabs"><span>General</span><span>Build To-Do</span><span>Production Meetings</span><span>+ add your own</span></div>
       <div class="row"><button class="btn primary" id="create-btn" onclick="createBook()">Start notes for this show</button>
       ${lu ? `<a class="btn" href="${esc(lu)}" target="_blank" rel="noopener">Open existing sheet ↗</a>` : ''}</div>
-      ${S.connectErr ? `<div class="err-text">Backend problem: ${esc(S.connectErr)}</div>` : ''}</div>`;
+      ${S.connectErr ? `<div class="err-text">${esc(S.connectErr)} <button class="btn sm" onclick="S.connectErr='';checkApi().then(loadIndex)">Try again</button></div>` : ''}</div>`;
     return;
   }
   if (!S.book) {
@@ -1423,9 +1438,46 @@ const Demo = (() => {
   };
 })();
 
+// ── home-screen app ──
+// The notes page has its own manifest (notes.webmanifest), so it installs as
+// "MMT Notes" with its own icon, separate from the dashboard app.
+let _installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); _installEvt = e; document.getElementById('install-btn').hidden = false; });
+window.addEventListener('appinstalled', () => { document.getElementById('install-btn').hidden = true; hideAppHint(true); toast('Installed. Open “MMT Notes” from your home screen.'); });
+async function installApp() {
+  if (!_installEvt) return;
+  _installEvt.prompt();
+  try { await _installEvt.userChoice; } catch (e) {}
+  _installEvt = null; document.getElementById('install-btn').hidden = true;
+}
+// Opened as the notes app (its start_url has ?app=notes) — remember for this session.
+function inNotesApp() {
+  try {
+    if (new URLSearchParams(location.search).get('app') === 'notes') sessionStorage.setItem('mmt_notes_app', '1');
+    return sessionStorage.getItem('mmt_notes_app') === '1';
+  } catch (e) { return false; }
+}
+// Running full-screen but not as the notes app means a link opened us inside the
+// dashboard app. Offer a way out to Chrome, where "Install app" works.
+function showAppHint() {
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (!standalone || inNotesApp() || lsGet('mmt_notes_hint_off', false)) return;
+  const el = document.getElementById('app-hint');
+  const android = /Android/i.test(navigator.userAgent);
+  const here = location.host + location.pathname;
+  el.hidden = false;
+  el.innerHTML = `<b>Want Notes as its own app?</b> This opened inside the dashboard app. ` +
+    (android ? `<a href="intent://${esc(here)}#Intent;scheme=https;package=com.android.chrome;end">Open in Chrome</a>, then tap <b>Install app</b> at the top.`
+             : `Open <span class="mono">${esc(here)}</span> in your browser, then use its “Add to Home Screen”.`) +
+    ` <a href="#" onclick="hideAppHint(true);return false" style="margin-left:8px">Dismiss</a>`;
+}
+function hideAppHint(forever) { document.getElementById('app-hint').hidden = true; if (forever) lsSet('mmt_notes_hint_off', true); }
+if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
+
 // ── boot ──
 (function boot() {
   document.getElementById('build-tag').textContent = BUILD;   // one source for the version
+  showAppHint();
   const qs = new URLSearchParams(location.search);
   if (qs.get('demo') === '1') S.api = 'demo';
   if (S.api === 'demo') { S.books = Demo.books(); S.apiLevel = NEED_API; }
