@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png" />
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <!--
-  MMT Show Notes — DEV build 10.14 v3
+  MMT Show Notes — DEV build 10.14 v4
 
   A sandbox for the show-notes page before it goes into app.html.
   It READS the live show list (to know which shows exist) and never writes to
@@ -297,6 +297,8 @@ mark { background: color-mix(in srgb, var(--amber) 28%, transparent); color: inh
 .loading { color: var(--text-faint); padding: 30px 4px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 @media (max-width: 560px) { .fields { grid-template-columns: 92px minmax(0, 1fr) 28px; gap: 4px 6px; } }
+#build-tag { position: fixed; bottom: calc(4px + env(safe-area-inset-bottom)); right: 8px; z-index: 999; pointer-events: none;
+  font-size: 11px; color: var(--text-faint); background: var(--surface); padding: 2px 6px; border-radius: 4px; }
 </style>
 </head>
 <body>
@@ -322,10 +324,11 @@ mark { background: color-mix(in srgb, var(--amber) 28%, transparent); color: inh
 </div>
 <datalist id="statuses"><option value="Idea"><option value="Planned"><option value="Building"><option value="Done"><option value="Cut"></datalist>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div id="build-tag">10.14 v4</div>
 
 <script>
 'use strict';
-const BUILD = '10.14 v3';
+const BUILD = '10.14 v4';
 const NEED_API = 2;      // features the page can't work without
 const NEED_BUILD = 3;    // newest backend; an older one is told to update itself
 // Live dashboard backend — used ONLY for reads (show list, existing notes links).
@@ -1419,6 +1422,7 @@ const Demo = (() => {
 
 // ── boot ──
 (function boot() {
+  document.getElementById('build-tag').textContent = BUILD;   // one source for the version
   const qs = new URLSearchParams(location.search);
   if (qs.get('demo') === '1') S.api = 'demo';
   if (S.api === 'demo') { S.books = Demo.books(); S.apiLevel = NEED_API; }
