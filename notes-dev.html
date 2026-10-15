@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="MMT Notes" />
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <!--
-  MMT Show Notes — DEV build 10.14 v7
+  MMT Show Notes — DEV build 10.14 v8
 
   A sandbox for the show-notes page before it goes into app.html.
   It READS the live show list (to know which shows exist) and never writes to
@@ -330,11 +330,11 @@ mark { background: color-mix(in srgb, var(--amber) 28%, transparent); color: inh
 </div>
 <datalist id="statuses"><option value="Idea"><option value="Planned"><option value="Building"><option value="Done"><option value="Cut"></datalist>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<div id="build-tag">10.14 v7</div>
+<div id="build-tag">10.14 v8</div>
 
 <script>
 'use strict';
-const BUILD = '10.14 v7';
+const BUILD = '10.14 v8';
 const NEED_API = 2;      // features the page can't work without
 const NEED_BUILD = 3;    // newest backend; an older one is told to update itself
 // Live dashboard backend — used ONLY for reads (show list, existing notes links).
@@ -489,15 +489,38 @@ function jsonp(url, timeoutMs) {
     document.head.appendChild(s);
   });
 }
+// Requests go out WITHOUT Google sign-in cookies (credentials: 'omit'). The
+// backend is open to "Anyone", and a browser signed into several Google
+// accounts otherwise gets "Sorry, unable to open the file at this time".
+// JSONP (which always sends cookies) is the fallback, chosen once per page
+// load by a harmless read, so a write is never sent twice by two methods.
+async function getJSON(url, timeoutMs) {
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), timeoutMs || 20000);
+  try {
+    const r = await fetch(url, { credentials: 'omit', cache: 'no-store', redirect: 'follow', signal: ctl.signal });
+    return await r.json();
+  } catch (e) { throw new Error(e.name === 'AbortError' ? 'Timed out' : 'Network'); }
+  finally { clearTimeout(t); }
+}
+const SAFE_TO_RETRY = new Set(['ping', 'listBooks', 'getBook']);
 async function api(req, timeoutMs) {
   if (S.api === 'demo') return Demo.call(req);
   if (!S.api) throw new Error('Not connected');
   const payload = JSON.stringify(req);
   let res;
-  if (payload.length < 1500) res = await jsonp(S.api + '?payload=' + encodeURIComponent(payload) + '&_=' + Date.now(), timeoutMs);
-  else {
+  if (payload.length < 1500) {
+    const url = S.api + '?payload=' + encodeURIComponent(payload) + '&_=' + Date.now();
+    if (S.via === 'jsonp') res = await jsonp(url, timeoutMs);
+    else {
+      try { res = await getJSON(url, timeoutMs); S.via = 'fetch'; }
+      catch (e) {
+        if (S.via === 'fetch' || !SAFE_TO_RETRY.has(req.action) || e.message === 'Timed out') throw e;
+        res = await jsonp(url, timeoutMs); S.via = 'jsonp';
+      }
+    }
+  } else {
     // Long text: POST. Long ops are cell saves, which are safe to repeat.
-    const r = await fetch(S.api, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: payload });
+    const r = await fetch(S.api, { method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: payload });
     res = await r.json();
   }
   if (!res || !res.ok) { const e = new Error((res && res.error) || 'Server error'); e.server = true; throw e; }
