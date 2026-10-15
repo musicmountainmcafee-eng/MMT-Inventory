@@ -6179,7 +6179,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.14 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.14 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -15177,7 +15177,7 @@ drawCanvas.addEventListener('pointerdown', e => {
     isDrawing = true;
     const color = currentTool === 'eraser' ? 'erase' : penColor;
     const size = currentTool === 'eraser' ? 20 : (parseInt((document.getElementById('pen-size') || {}).value) || 2);
-    currentStroke = { type: 'stroke', points: [pos], color, size };
+    currentStroke = { type: 'stroke', id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), points: [pos], color, size };
     drawCanvas.setPointerCapture(e.pointerId);
   }
 });
@@ -15368,7 +15368,7 @@ drawCanvas.addEventListener('pointerup', e => {
       const action = '';
       const cueLine = '';
       const notes = '';
-      const cueId = Date.now().toString();
+      const cueId = Date.now().toString() + Math.random().toString(36).slice(2, 6);
 
       // Instantly crop the script image under the box (zero delay — no OCR, no
       // network) so the actual line is visible even though it's not typed text.
@@ -15832,12 +15832,16 @@ function redrawAnnotations() {
   anns.forEach(a => drawAnnotation(ctx, a));
 }
 
+// Takes back this device's last stroke on the page, never someone else's.
 function undo() {
-  const anns = annotations[currentPage];
-  if (!anns || !anns.length) return;
-  anns.pop();
-  redrawAnnotations();
-  saveShowData();
+  const mine = undoStack[currentPage] || [];
+  const anns = annotations[currentPage] || [];
+  while (mine.length) {
+    const s = mine.pop();
+    const i = anns.findIndex(a => a === s || (s && s.id && a && a.id === s.id));
+    if (i >= 0) { anns.splice(i, 1); redrawAnnotations(); saveShowData(); return; }
+  }
+  toast('Nothing of yours to undo on this page');
 }
 
 function clearPage() {
@@ -16899,6 +16903,7 @@ function editCue(id) {
   const c = cues.find(c => c.id === id);
   if (!c) return;
   editingCueId = id;
+  _ceShown = { type: c.type || '', number: c.number || '', action: c.action || '', cueLine: c.cueLine || '', notes: c.notes || c.description || '', page: String(c.page || 1) };
   document.getElementById('ce-title').textContent = 'Edit ' + (c.number || 'Cue');
   document.getElementById('ce-type').innerHTML = cueTypes.map(t => `<option value="${t.id}"${t.id===c.type?' selected':''}>${t.name}</option>`).join('');
   document.getElementById('ce-num').value = c.number || '';
@@ -16915,14 +16920,18 @@ function editCue(id) {
 function saveCueEdit() {
   const c = cues.find(c => c.id === editingCueId);
   if (!c) return;
-  c.type = document.getElementById('ce-type').value;
-  c.number = document.getElementById('ce-num').value.trim();
+  // Only what was changed here is written, so a box someone else changed on
+  // another device while this was open isn't put back.
+  const sh = _ceShown || {};
+  const val = id => document.getElementById(id).value;
+  if (val('ce-type') !== sh.type) c.type = val('ce-type');
+  if (val('ce-num') !== sh.number) c.number = val('ce-num').trim();
   // act/unnumbered were only ever inputs to the old derived numbering.
   delete c.act; delete c.unnumbered;
-  c.action = document.getElementById('ce-action').value.trim();
-  c.cueLine = document.getElementById('ce-line').value.trim();
-  c.notes = document.getElementById('ce-notes').value.trim();
-  c.page = parseInt(document.getElementById('ce-page').value) || c.page;
+  if (val('ce-action') !== sh.action) c.action = val('ce-action').trim();
+  if (val('ce-line') !== sh.cueLine) c.cueLine = val('ce-line').trim();
+  if (val('ce-notes') !== sh.notes) { c.notes = val('ce-notes').trim(); c.description = c.notes; }
+  if (val('ce-page') !== sh.page) c.page = parseInt(val('ce-page')) || c.page;
   // Update annotation label if exists
   const t = cueTypes.find(t => t.id === c.type);
   Object.values(annotations).forEach(pageAnns => {
@@ -16954,6 +16963,7 @@ function deleteCue(id) {
   toast('Cue deleted');
 }
 
+let _ceShown = null;
 function closeCueEdit() {
   document.getElementById('cue-edit-overlay').classList.remove('open');
   editingCueId = null;
@@ -16973,6 +16983,7 @@ function loadCueIntoForm(cueId, focusNum) {
   document.getElementById('cue-action').value = c.action || '';
   document.getElementById('cue-line').value = c.cueLine || '';
   document.getElementById('cue-desc').value = c.notes || c.description || '';
+  _cfShown = cfValues(c);
   const cropImg = document.getElementById('cue-line-crop');
   if (cropImg) {
     if (c.lineCrop) { cropImg.src = c.lineCrop; cropImg.style.display = ''; }
@@ -17015,18 +17026,36 @@ function clearCueSelection() {
   clearCueForm();
 }
 
+// The form's boxes and the cue fields they show. Only a box that was changed
+// here is written back, so another device's change to the same cue isn't
+// put back by typing in a different box.
+const CF_FIELDS = { 'cue-type-sel': 'type', 'cue-num': 'number', 'cue-action': 'action', 'cue-line': 'cueLine', 'cue-desc': 'notes' };
+let _cfShown = {};
+function cfValues(c) { return { type: c.type || '', number: c.number || '', action: c.action || '', cueLine: c.cueLine || '', notes: c.notes || c.description || '' }; }
+// Another device changed the cue on screen: show it, except in the box being typed in.
+function cfRefresh(c) {
+  const v = cfValues(c);
+  Object.keys(CF_FIELDS).forEach(id => {
+    const el = document.getElementById(id), f = CF_FIELDS[id];
+    if (!el || el === document.activeElement) return;
+    if (el.value !== v[f]) el.value = v[f];
+    _cfShown[f] = v[f];
+  });
+  if (document.getElementById('cue-type-sel') !== document.activeElement) applyFormLabels(c.type);
+}
+
 // Called on every keystroke in the form
 function onCueFormInput() {
   if (!selectedCueId) return; // adding new — nothing to live-save
   const c = cues.find(x => x.id === selectedCueId);
   if (!c) return;
-  c.type = document.getElementById('cue-type-sel').value;
+  Object.keys(CF_FIELDS).forEach(id => {
+    const el = document.getElementById(id), f = CF_FIELDS[id];
+    if (!el || el.value === _cfShown[f]) return;
+    c[f] = el.value; _cfShown[f] = el.value;
+    if (f === 'notes') c.description = c.notes;
+  });
   applyFormLabels(c.type);
-  c.number = document.getElementById('cue-num').value;
-  c.action = document.getElementById('cue-action').value;
-  c.cueLine = document.getElementById('cue-line').value;
-  c.notes = document.getElementById('cue-desc').value;
-  c.description = c.notes;
   // Update the marker label + color on the page to match
   const t = cueTypes.find(x => x.id === c.type);
   Object.keys(annotations).forEach(pg => {
@@ -17328,151 +17357,634 @@ function setCueSaveState(state, detail) {
     : '';
 }
 
+// ── CUE DATA MERGE (shared: app.html and cue-list.html — keep in step) ──────
+// Three-way merge of a script's data: what this device last synced (base),
+// what it has now (mine) and what the Sheet has now (theirs). Each cue, mark,
+// move, cue type and Before House piece is merged on its own, field by field,
+// so two people only collide on the very same box. Then the later save (mine)
+// wins for that box and the clash is reported, the other value is kept in the
+// result's conflicts list. Something deleted on one side and changed on the
+// other is kept, never lost.
+function csStable(v) {
+  if (v === undefined) return 'undefined';
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) return '[' + v.map(csStable).join(',') + ']';
+  return '{' + Object.keys(v).filter(k => v[k] !== undefined).sort().map(k => JSON.stringify(k) + ':' + csStable(v[k])).join(',') + '}';
+}
+function csEq(a, b) { return csStable(a) === csStable(b); }
+function csClone(v) { return v === undefined ? undefined : JSON.parse(JSON.stringify(v)); }
+
+// One value: unchanged on one side → take the other; both changed alike → it;
+// both changed differently → mine, noted.
+function csPick(b, m, t, where, conf) {
+  if (csEq(m, b)) return csClone(t);
+  if (csEq(t, b)) return csClone(m);
+  if (csEq(m, t)) return csClone(m);
+  conf.push({ where, mine: csClone(m), theirs: csClone(t) });
+  return csClone(m);
+}
+
+// An object field by field. `deep` maps a field name to its own merge.
+function csMergeObj(b, m, t, where, conf, deep) {
+  b = b || {}; m = m || {}; t = t || {};
+  const out = {};
+  const keys = new Set([...Object.keys(t), ...Object.keys(m), ...Object.keys(b)]);
+  keys.forEach(k => {
+    const v = (deep && deep[k]) ? deep[k](b[k], m[k], t[k], where + '.' + k, conf) : csPick(b[k], m[k], t[k], where + '.' + k, conf);
+    if (v !== undefined) out[k] = v;
+  });
+  return out;
+}
+
+// A list of items with keys. Order follows whichever side reordered, with the
+// other side's new items placed after the item they followed.
+function csMergeList(bArr, mArr, tArr, keyOf, mergeItem, where, conf) {
+  // Two items with the same key (a repeated mark, an old duplicate id) are
+  // told apart by count, so neither is dropped.
+  const keyed = arr => { const seen = {}; return (Array.isArray(arr) ? arr : []).map(x => { const k0 = keyOf(x); const n = seen[k0] = (seen[k0] || 0) + 1; return [n > 1 ? k0 + '#' + n : k0, x]; }); };
+  const bK = keyed(bArr), mK = keyed(mArr), tK = keyed(tArr);
+  const bm = new Map(bK), mm = new Map(mK), tm = new Map(tK);
+  const result = new Map();
+  new Set([...tm.keys(), ...mm.keys(), ...bm.keys()]).forEach(k => {
+    const b = bm.get(k), m = mm.get(k), t = tm.get(k);
+    if (m === undefined && t === undefined) return;                       // gone on both
+    if (b === undefined) {                                                 // new
+      result.set(k, m === undefined ? csClone(t) : t === undefined ? csClone(m) : mergeItem(undefined, m, t, where + '[' + k + ']', conf));
+      return;
+    }
+    if (m === undefined) {                                                 // I deleted it
+      if (csEq(t, b)) return;
+      conf.push({ where: where + '[' + k + ']', mine: '(deleted)', theirs: csClone(t), kept: 'theirs' });
+      result.set(k, csClone(t)); return;
+    }
+    if (t === undefined) {                                                 // they deleted it
+      if (csEq(m, b)) return;
+      conf.push({ where: where + '[' + k + ']', mine: csClone(m), theirs: '(deleted)', kept: 'mine' });
+      result.set(k, csClone(m)); return;
+    }
+    result.set(k, mergeItem(b, m, t, where + '[' + k + ']', conf));
+  });
+  // Order
+  const keysOf = K => K.map(e => e[0]);
+  const bOrder = keysOf(bK).filter(k => result.has(k));
+  const mOrder = keysOf(mK).filter(k => result.has(k) && bm.has(k));
+  const sameAsBase = (o) => { const bb = bOrder.filter(k => o.includes(k)); return csEq(o, bb); };
+  const skeleton = (sameAsBase(mOrder) ? keysOf(tK) : keysOf(mK)).filter(k => result.has(k));
+  const order = skeleton.slice();
+  const place = (K) => K.forEach((e, i) => {
+    const k = e[0];
+    if (!result.has(k) || order.includes(k)) return;
+    let at = -1;
+    for (let j = i - 1; j >= 0; j--) { const p = order.indexOf(K[j][0]); if (p >= 0) { at = p; break; } }
+    order.splice(at + 1, 0, k);
+  });
+  place(mK); place(tK);
+  result.forEach((v, k) => { if (!order.includes(k)) order.push(k); });
+  return order.map(k => result.get(k));
+}
+
+// Keys for things that may predate ids.
+function csMoveKey() { return mv => mv && mv.id ? 'id:' + mv.id : 'h:' + csStable(mv); }
+function csAnnKey(a) {
+  if (a && a.type === 'cue' && a.cueId != null) return 'cue:' + a.cueId;
+  if (a && a.id) return 'id:' + a.id;
+  return 'h:' + csStable(a);
+}
+
+function csMergeCue(b, m, t, where, conf) {
+  return csMergeObj(b, m, t, where, conf, {
+    moves: (bb, mm, tt, w, c) => {
+      if (mm === undefined && tt === undefined) return undefined;
+      return csMergeList(bb, mm, tt, csMoveKey(), (x, y, z, w2, c2) => csMergeObj(x, y, z, w2, c2), w, c);
+    },
+  });
+}
+
+// Marks on the page: one flat list across pages, merged mark by mark.
+function csFlatAnn(ann) {
+  const out = [];
+  Object.keys(ann || {}).forEach(p => (Array.isArray(ann[p]) ? ann[p] : []).forEach(a => out.push({ page: p, a })));
+  return out;
+}
+function csMergeAnn(b, m, t, where, conf) {
+  const key = x => csAnnKey(x.a);
+  const merged = csMergeList(csFlatAnn(b), csFlatAnn(m), csFlatAnn(t), key,
+    (x, y, z, w, c) => csPick(x, y, z, w, c), where, conf);
+  const out = {};
+  merged.forEach(x => { (out[x.page] = out[x.page] || []).push(x.a); });
+  return out;
+}
+
+function csMergeVocab(b, m, t, where, conf) {
+  if (csEq(m, b)) return csClone(t);
+  if (csEq(t, b)) return csClone(m);
+  // Both added names: keep every name from both.
+  const out = {};
+  new Set([...Object.keys(m || {}), ...Object.keys(t || {})]).forEach(k => {
+    const a = Array.isArray((m || {})[k]) ? m[k] : [], z = Array.isArray((t || {})[k]) ? t[k] : [];
+    out[k] = [...new Set([...z, ...a])];
+  });
+  return out;
+}
+
+// The whole script. Returns { doc, conflicts }.
+function csMergeDoc(base, mine, theirs) {
+  base = base || {}; mine = mine || {}; theirs = theirs || {};
+  const conf = [];
+  const doc = csMergeObj(base, mine, theirs, 'script', conf, {
+    cues: (b, m, t, w, c) => csMergeList(b, m, t, x => 'id:' + x.id, csMergeCue, w, c),
+    cueTypes: (b, m, t, w, c) => (m === undefined && t === undefined) ? undefined
+      : csMergeList(b, m, t, x => 'id:' + x.id, (x, y, z, w2, c2) => csMergeObj(x, y, z, w2, c2), w, c),
+    annotations: csMergeAnn,
+    presets: (b, m, t, w, c) => {
+      const out = {};
+      b = b || {}; m = m || {}; t = t || {};
+      new Set([...Object.keys(t), ...Object.keys(m), ...Object.keys(b)]).forEach(k => {
+        const bb = b[k], mm = m[k], tt = t[k];
+        if (mm === undefined && tt === undefined) return;
+        if (bb === undefined) { out[k] = mm === undefined ? csClone(tt) : tt === undefined ? csClone(mm) : csMergeObj({}, mm, tt, w + '.' + k, c); return; }
+        if (mm === undefined) { if (!csEq(tt, bb)) out[k] = csClone(tt); return; }
+        if (tt === undefined) { if (!csEq(mm, bb)) out[k] = csClone(mm); return; }
+        out[k] = csMergeObj(bb, mm, tt, w + '.' + k, c);
+      });
+      return out;
+    },
+    setVocab: csMergeVocab,
+    _rev: (b, m, t) => t,
+    _log: (b, m, t) => t,
+    _sv: (b, m, t) => t,
+    _from: (b, m, t) => t,
+    _savedAt: (b, m, t) => t,
+  });
+  return { doc, conflicts: conf };
+}
+
 // ── Save ────────────────────────────────────────────────────────────────────
+// Every edit is written to this device first (that copy survives a crash, a
+// closed tab or no signal), then sent to the Sheet a moment later.
 function saveShowData() {
   if (!showId) return;
-
   const st = getCueSync();
   const rev = (st.rev || 0) + 1;
-  const data = {
-    cueTypes, cues, annotations, setVocab, presets,
-    _rev: rev,
-    _savedAt: new Date().toISOString(),
-  };
-
-  // Local write is synchronous and happens first — this is the copy that
-  // survives a crash, a closed tab, or a dead connection.
+  const data = { cueTypes, cues, annotations, setVocab, presets, _rev: rev, _savedAt: new Date().toISOString() };
   try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(data)); } catch(e) {}
   setCueSync({ ...st, rev, savedAt: data._savedAt });
   saveCueSnapshot(data, 'edit');
   setCueSaveState('saving');
-
   clearTimeout(saveShowData._t);
-  saveShowData._t = setTimeout(() => pushCueData(data), 2000);
+  saveShowData._t = setTimeout(csPush, 1200);
 }
 
-// ── Sharing the show with the cue sheet ─────────────────────────────────────
-// The cue sheet page edits Before House and set changes in the same Sheet
-// record. The editor used to save its whole copy over it, so anything done on
-// the cue sheet while a script was open here was put back to the old version.
-// Now a save takes the Sheet's Before House as it is (Before House is edited
-// on the cue sheet), and for each set change takes the Sheet's moves unless
-// this editor changed that set change since it last synced.
-let _srvPresets = null;      // Before House as the Sheet last had it
-let _cueBase = {};           // cue id -> moves JSON as of the last sync
-function cueNoteSynced(d) {
-  if (!d) return;
-  _srvPresets = d.presets && typeof d.presets === 'object' ? JSON.parse(JSON.stringify(d.presets)) : {};
-  _cueBase = {};
-  (d.cues || []).forEach(c => { if (c && c.type === SHIFT_TYPE_ID) _cueBase[c.id] = JSON.stringify(c.moves || []); });
+// ── EDITING TOGETHER ────────────────────────────────────────────────────────
+// Several phones and computers can have the same script open. Each one:
+//   • checks the Sheet every few seconds and folds in what others saved;
+//   • saves with the version it last saw. If someone saved in between, the
+//     Sheet says no and sends its copy back; this device merges and tries
+//     again. Nothing is ever saved over work it hasn't seen.
+//   • merges cue by cue, move by move, mark by mark, field by field
+//     (csMergeDoc), so two people only collide when they change the very same
+//     box. Then the later save wins and the other is kept in History.
+// The copy this device last agreed with the Sheet on (the "base") is what the
+// merge measures changes against, and is kept on the device so a reload
+// doesn't lose track.
+let _cs = { sid: '', base: null, baseRev: null, safe: null, loaded: false, inflight: false, again: false, timer: null, fails: 0, loops: 0, tick: 0, seq: 0 };
+
+function csBaseKey(id) { return 'mmt_cuebase_' + id; }
+function csSyncGet(id) { try { return JSON.parse(localStorage.getItem('mmt_cues_sync_' + id) || '{}') || {}; } catch(e) { return {}; } }
+function csSyncSet(id, o) { try { localStorage.setItem('mmt_cues_sync_' + id, JSON.stringify(o)); } catch(e) {} }
+function csLoadBase(id) {
+  try { const v = JSON.parse(localStorage.getItem(csBaseKey(id)) || 'null'); if (v && v.doc && typeof v.rev === 'number') return v; } catch(e) {}
+  return null;
 }
-function cueMergeFresh(data, fresh) {
-  const out = { ...data };
-  out.presets = fresh && fresh.presets && typeof fresh.presets === 'object' ? fresh.presets : (_srvPresets || data.presets || {});
-  const fById = {};
-  ((fresh && fresh.cues) || []).forEach(c => { if (c && c.type === SHIFT_TYPE_ID) fById[c.id] = c.moves || []; });
-  out.cues = (data.cues || []).map(c => {
-    if (!c || c.type !== SHIFT_TYPE_ID || !(c.id in fById)) return c;
-    const mine = JSON.stringify(c.moves || []);
-    // Not seen at a sync yet: it's this editor's work, keep it.
-    const changedHere = (c.id in _cueBase) ? _cueBase[c.id] !== mine : true;
-    return changedHere ? c : { ...c, moves: JSON.parse(JSON.stringify(fById[c.id])) };
+function csSetBase(doc, rev) {
+  _cs.base = csClone(doc || {}); _cs.baseRev = rev;
+  try { csRemember(_cs.base); } catch(e) {}
+  try { localStorage.setItem(csBaseKey(_cs.sid), JSON.stringify({ rev, doc: _cs.base })); }
+  catch(e) { try { localStorage.removeItem(csBaseKey(_cs.sid)); } catch(e2) {} }   // too big: kept in memory only
+}
+
+// Saves whose answer never came back (no signal, page closed). The Sheet keeps
+// a list of the last saves it took; finding ours there means it went in, and
+// what we sent is then the right starting point for the next merge (otherwise
+// something deleted here since would look new on the Sheet's side).
+function csPendKey(id) { return 'mmt_cuepend_' + id; }
+function csPendGet(id) { try { const v = JSON.parse(localStorage.getItem(csPendKey(id)) || '[]'); return Array.isArray(v) ? v : []; } catch(e) { return []; } }
+function csPendSet(id, list) {
+  list = list.slice(-3);
+  for (;;) {
+    try { if (list.length) localStorage.setItem(csPendKey(id), JSON.stringify(list)); else localStorage.removeItem(csPendKey(id)); return; }
+    catch(e) { if (!list.length) return; list = list.slice(1); }
+  }
+}
+function csPendAdd(id, saveId, baseRev, doc) { const l = csPendGet(id); l.push({ id: saveId, baseRev, doc }); csPendSet(id, l); }
+function csPendDrop(id, saveId) { csPendSet(id, csPendGet(id).filter(p => p.id !== saveId)); }
+function csNewSaveId() { return 'sv' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+// Old Sheet script only: copies seen or sent, by save id.
+const csHist = new Map();
+function csRemember(doc) { if (doc && doc._sv) { csHist.set(doc._sv, csClone(doc)); while (csHist.size > 12) csHist.delete(csHist.keys().next().value); } }
+function csLegacyBase(t) { return t && t._from && csHist.has(t._from) ? csHist.get(t._from) : null; }
+function csLegacyNew(t) { return !_cs.base || (t._sv || '') !== (_cs.base._sv || '') || (t._rev || 0) !== _cs.baseRev; }
+
+// Look for our lost saves in the Sheet's copy. Moves the base forward when one
+// went in; forgets the ones that never can.
+function csResolvePending(theirs, rev) {
+  const sid = _cs.sid, list = csPendGet(sid);
+  if (!list.length || !theirs) return;
+  const log = Array.isArray(theirs._log) ? theirs._log : [];
+  let best = null;
+  const keep = [];
+  list.forEach(p => {
+    const hit = log.find(x => x && x.id === p.id);
+    if (hit) { if (!best || hit.rev > best.rev) best = { rev: hit.rev, doc: p.doc }; }
+    else if (!(rev > p.baseRev)) keep.push(p);     // could still go in
   });
-  out._rev = Math.max(data._rev || 0, (fresh && fresh._rev) || 0) + 1;
-  return out;
-}
-// Bring what the cue sheet saved into this editor without losing local work.
-function cueAdoptFresh(fresh) {
-  if (!fresh) return;
-  const merged = cueMergeFresh({ cues, presets, _rev: 0 }, fresh);
-  presets = normalizePresets(merged.presets);
-  const byId = {}; merged.cues.forEach(c => { if (c) byId[c.id] = c; });
-  cues.forEach(c => { if (c && c.type === SHIFT_TYPE_ID && byId[c.id]) c.moves = byId[c.id].moves; });
-  cueNoteSynced(merged);
-  try { renderCueList(); } catch (e) {}
+  csPendSet(sid, keep);
+  if (best && (_cs.baseRev == null || best.rev > _cs.baseRev)) { const d = csClone(best.doc); d._rev = best.rev; csSetBase(d, best.rev); }
 }
 
-// Coming back to the editor: pick up anything the cue sheet saved meanwhile.
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible' || !showId) return;
-  const ed = document.getElementById('scripts-editor');
-  if (!ed || !ed.classList.contains('open')) return;
-  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(showId) + '&_=' + Date.now(), d => {
-    if (d && d.success && d.cueData) cueAdoptFresh(d.cueData);
-  }, () => {});
-});
-
-function pushCueData(data, viaBeacon) {
-  // Local (not-yet-uploaded) crop images are huge data: URLs — never send those
-  // to the Sheet; only synced Drive links go. The crop finishes its own
-  // background upload and re-saves once done.
-  const syncCues = (data.cues || []).map(c => {
-    if (c && typeof c.lineCrop === 'string' && c.lineCrop.startsWith('data:')) {
-      const { lineCrop, ...rest } = c; return rest;
-    }
+// This device's copy, and the same tidy-up applied to every copy before
+// merging, so a field one copy fills with a default ('' or []) isn't taken as
+// an edit.
+function csMine() { return csClone({ cueTypes, cues, annotations, setVocab, presets }); }
+function csNorm(d) {
+  d = csClone(d || {});
+  d.cueTypes = mergeCueTypes(d.cueTypes);
+  d.presets = normalizePresets(d.presets);
+  d.setVocab = normalizeVocab(d.setVocab);
+  d.cues = Array.isArray(d.cues) ? d.cues.filter(Boolean) : [];
+  d.cues.forEach(c => (Array.isArray(c.moves) ? c.moves : []).forEach(m => {
+    if (!m || !m.trigger) { if (m) delete m.trigger; return; }
+    const t = String(m.trigger).trim();
+    if (t) m.notes = m.notes ? (m.notes + ' — ' + t) : t;
+    delete m.trigger;
+  }));
+  if (!d.annotations || typeof d.annotations !== 'object' || Array.isArray(d.annotations)) d.annotations = {};
+  return d;
+}
+// What goes to the Sheet: crop images still waiting to upload stay here.
+function csStrip(d) {
+  const out = { ...d };
+  out.cues = (d.cues || []).map(c => {
+    if (c && typeof c.lineCrop === 'string' && c.lineCrop.startsWith('data:')) { const { lineCrop, ...rest } = c; return rest; }
     return c;
   });
-  if (viaBeacon) {
-    // Page is going away: no time to re-read, so use the Sheet's copy as last seen.
-    const merged = cueMergeFresh({ ...data, cues: syncCues }, _srvPresets ? { presets: _srvPresets, cues: [] , _rev: 0 } : null);
-    const body = JSON.stringify({ action: 'saveCueData', scriptId: showId, cueData: merged });
-    try { navigator.sendBeacon(SCRIPT_URL, new Blob([body], { type: 'text/plain' })); } catch(e) {}
+  delete out._rev; delete out._savedAt; delete out._log; delete out._sv; delete out._from;
+  return out;
+}
+function csSame(a, b) { return csEq(csStrip(csNorm(a)), csStrip(csNorm(b))); }
+
+// Hands off while a finger or mouse is mid-stroke or mid-drag on the page.
+function csBusyUI() {
+  try { return !!(isDrawing || draggingCue !== null || cueRect); } catch(e) { return false; }
+}
+
+// Put a merged copy on screen, keeping the objects that are already there so
+// anything holding on to a cue keeps working.
+function csAssign(target, src) {
+  Object.keys(target).forEach(k => { if (!(k in src)) delete target[k]; });
+  Object.keys(src).forEach(k => {
+    if (k === 'moves' && Array.isArray(src.moves) && Array.isArray(target.moves)) {
+      const old = new Map(); target.moves.forEach(m => { if (m && m.id && !old.has(m.id)) old.set(m.id, m); });
+      target.moves = src.moves.map(m => { const o = m && m.id && old.get(m.id); if (!o) return m; old.delete(m.id); csAssign(o, m); return o; });
+    } else target[k] = src[k];
+  });
+}
+function csApply(doc) {
+  doc = csClone(doc);
+  const old = new Map(); cues.forEach(c => { if (c && !old.has(c.id)) old.set(c.id, c); });
+  cues = (doc.cues || []).map(nc => { const oc = old.get(nc.id); if (!oc) return nc; old.delete(nc.id); csAssign(oc, nc); return oc; });
+  cueTypes = mergeCueTypes(doc.cueTypes);
+  presets = normalizePresets(doc.presets);
+  setVocab = normalizeVocab(doc.setVocab);
+  annotations = doc.annotations || {};
+  try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify({ cueTypes, cues, annotations, setVocab, presets, _rev: getCueSync().rev || 0 })); } catch(e) {}
+  csRepaint();
+}
+function csRepaint() {
+  try { redrawAnnotations(); } catch(e) {}
+  try { renderCueTypes(); } catch(e) {}
+  try { renderCueList(); } catch(e) {}
+  try { renderColorSwatches(); } catch(e) {}
+  try { const pb = document.getElementById('preset-body'); if (pb && !pb.contains(document.activeElement)) renderPresets(); } catch(e) {}
+  // The cue being edited: fill in other people's changes, but never the box
+  // the cursor is in.
+  try {
+    if (selectedCueId) {
+      const c = cues.find(x => x.id === selectedCueId);
+      if (!c) { clearCueSelection(); toast('That cue was deleted on another device'); }
+      else cfRefresh(c);
+    }
+    if (mvDrawerCueId) {
+      const c = cues.find(x => x.id === mvDrawerCueId);
+      if (!c) closeMoveDrawer();
+      else if ((c.moves || []).length) {
+        const ae = document.activeElement, body = document.getElementById('mvd-body');
+        let keep = null;
+        if (ae && body && body.contains(ae) && ae.dataset && ae.dataset.move) keep = { move: ae.dataset.move, key: ae.dataset.key, val: ae.value, s: ae.selectionStart, e: ae.selectionEnd };
+        renderMoveDrawer(false);
+        if (keep) {
+          const el = body.querySelector(`input[data-move="${keep.move}"][data-key="${keep.key}"]`);
+          if (el) { el.value = keep.val; el.focus(); try { el.setSelectionRange(keep.s, keep.e); } catch(e) {} }
+        }
+      }
+    }
+    if (editingCueId && !cues.find(x => x.id === editingCueId)) { closeCueEdit(); toast('That cue was deleted on another device'); }
+  } catch(e) {}
+}
+
+// Two people changed the same box: the later one is kept, the other copy goes
+// into History so it can be brought back.
+function csReportClash(conflicts, theirs) {
+  if (!conflicts || !conflicts.length) return;
+  try { saveCueSnapshot(theirs, 'another device’s version (' + conflicts.length + ' box' + (conflicts.length > 1 ? 'es' : '') + ' changed on both)', true); } catch(e) {}
+  toast('Someone changed the same ' + (conflicts.length > 1 ? conflicts.length + ' boxes' : 'box') + ' you did. Yours was kept; theirs is in History.');
+}
+
+// Fold the Sheet's copy into this device's. Returns true when this device has
+// changes the Sheet doesn't.
+function csTakeTheirs(theirs, rev, from) {
+  csResolvePending(theirs, rev);
+  if (from) { _cs.base = csClone(from); }
+  csRemember(theirs);
+  const T = csNorm(theirs || {});
+  const r = csMergeDoc(csNorm(_cs.base || {}), csNorm(csMine()), T);
+  const changed = !csEq(csStrip(csNorm(csMine())), csStrip(csNorm(r.doc)));
+  if (changed) csApply(r.doc);
+  csSetBase(theirs || {}, rev);
+  csReportClash(r.conflicts, theirs);
+  return !csSame(r.doc, T);
+}
+function csMarkSynced(sentRev) {
+  const st = getCueSync();
+  setCueSync({ ...st, syncedRev: Math.max(st.syncedRev || 0, sentRev), syncedAt: new Date().toISOString() });
+}
+function csAfterMerge(ahead) {
+  const st = getCueSync();
+  if (ahead) { setCueSync({ ...st, rev: (st.rev || 0) + 1 }); return true; }
+  setCueSync({ ...st, syncedRev: st.rev || 0 });
+  return false;
+}
+
+function csRetry(msg) {
+  _cs.fails++;
+  setCueSaveState('error', msg);
+  clearTimeout(_cs.timer);
+  _cs.timer = setTimeout(csPush, Math.min(4000 * Math.pow(2, _cs.fails - 1), 60000));
+}
+function csSaved() {
+  _cs.fails = 0; _cs.loops = 0;
+  setCueSaveState('saved');
+  setTimeout(() => { if (_cueSaveState === 'saved') setCueSaveState('idle'); }, 2500);
+}
+
+function csPost(body) {
+  const ac = typeof AbortController === 'function' ? new AbortController() : null;
+  const t = setTimeout(() => { try { ac && ac.abort(); } catch(e) {} }, 45000);
+  return fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body), signal: ac ? ac.signal : undefined })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+    .then(t => { try { return JSON.parse(t); } catch(e) { return { unknown: true }; } })
+    .finally(() => clearTimeout(t));
+}
+// A read that doesn't light up the busy bar (these run every few seconds).
+function csGet(action, sid) {
+  return new Promise((res, rej) => {
+    const cb = 'cs_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+    const el = document.createElement('script');
+    let done = false;
+    const end = () => { if (done) return false; done = true; clearTimeout(to); delete window[cb]; if (el.parentNode) el.parentNode.removeChild(el); return true; };
+    const to = setTimeout(() => { if (end()) rej('timeout'); }, 15000);
+    window[cb] = d => { if (end()) res(d); };
+    el.onerror = () => { if (end()) rej('error'); };
+    el.src = SCRIPT_URL + '?action=' + action + '&scriptId=' + encodeURIComponent(sid) + '&_=' + Date.now() + '&callback=' + cb;
+    document.head.appendChild(el);
+  });
+}
+function csRevOf(d) { return d && typeof d.rev === 'number' ? d.rev : ((d && d.cueData && d.cueData._rev) || 0); }
+
+// Send what's here.
+function csPush() {
+  const cs = _cs, sid = showId;
+  if (!sid || cs.sid !== sid) return;
+  clearTimeout(saveShowData._t);
+  if (cs.inflight) { cs.again = true; return; }
+  if (!cueHasUnsaved()) { if (_cueSaveState === 'saving') setCueSaveState('idle'); return; }
+  if (!cs.loaded || cs.baseRev == null) { csRefresh(true); return; }   // find out where the Sheet is first
+  if (csBusyUI()) { clearTimeout(cs.timer); cs.timer = setTimeout(csPush, 400); return; }
+  if (++cs.loops > 8) { cs.loops = 0; csRetry('Busy — several people saving, retrying'); return; }
+  const sentRev = getCueSync().rev || 0;
+  cs.inflight = true; cs.again = false;
+  setCueSaveState('saving');
+  const next = () => { if (cs.again || cueHasUnsaved()) { cs.again = false; csPush(); } else cs.loops = 0; };
+  const fail = () => { cs.inflight = false; if (cs === _cs) csRetry(); };
+
+  if (cs.safe === false) {
+    // The Sheet's script hasn't been updated yet, so it can't refuse a save
+    // made on top of an old copy. Read, merge, save, then read again to check
+    // nobody saved over it in between (if they did, merge and go again).
+    // Each save carries an id (_sv) and the id of the copy it was made on
+    // (_from), so the right copy to measure changes against is known.
+    csGet('getCueData', sid).then(d => {
+      if (cs !== _cs) return;
+      if (!d || !d.success) return fail();
+      if (typeof d.rev === 'number') { cs.safe = true; cs.inflight = false; return csPush(); }
+      if (csBusyUI()) { cs.inflight = false; cs.timer = setTimeout(csPush, 400); return; }
+      const fresh = d.cueData || {};
+      if (csLegacyNew(fresh)) csTakeTheirs(fresh, fresh._rev || 0, csLegacyBase(fresh));
+      const doc = csStrip(csMine());
+      const saveId = csNewSaveId();
+      doc._rev = Math.max(fresh._rev || 0, cs.baseRev || 0) + 1;
+      doc._savedAt = new Date().toISOString();
+      doc._sv = saveId; doc._from = fresh._sv || '';
+      csRemember(doc);
+      return csPost({ action: 'saveCueData', scriptId: sid, baseRev: cs.baseRev, saveId, cueData: doc }).then(res => {
+        if (cs !== _cs) { cs.inflight = false; return; }
+        if (res.success && typeof res.rev === 'number') { cs.inflight = false; cs.safe = true; doc._rev = res.rev; csSetBase(doc, res.rev); csMarkSynced(sentRev); csSaved(); return next(); }
+        if (res.conflict) { cs.inflight = false; cs.safe = true; if (csTakeTheirs(res.cueData, res.rev)) csAfterMerge(true); cs.again = true; return next(); }
+        if (!res.success && !res.unknown) { cs.inflight = false; return csRetry(/50000|maximum/i.test(res.error || '') ? 'Too big for the Sheet — install the Sheet update' : 'Not saved — retrying'); }
+        // Check it stuck.
+        return new Promise(r => setTimeout(r, 1200)).then(() => csGet('getCueData', sid)).then(v => {
+          cs.inflight = false;
+          if (cs !== _cs) return;
+          const got = (v && v.success && v.cueData) || null;
+          if (got && got._sv === saveId) { csSetBase(doc, doc._rev); csMarkSynced(sentRev); csSaved(); return next(); }
+          if (got) { if (csTakeTheirs(got, got._rev || 0, csLegacyBase(got))) csAfterMerge(true); }
+          cs.again = true; next();
+        });
+      });
+    }).catch(fail);
     return;
   }
 
-  const send = fresh => {
-  const merged = cueMergeFresh({ ...data, cues: syncCues }, fresh);
-  const body = JSON.stringify({ action: 'saveCueData', scriptId: showId, cueData: merged });
-  fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body })
-    .then(r => {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      // What the Sheet has now is what we just sent; show it here too.
-      if (fresh) cueAdoptFresh(merged);
-      else cueNoteSynced(merged);
-      const st = getCueSync();
-      setCueSync({ ...st, syncedRev: data._rev, syncedAt: new Date().toISOString() });
-      _cueRetryDelay = 4000;
-      setCueSaveState('saved');
-      setTimeout(() => { if (_cueSaveState === 'saved') setCueSaveState('idle'); }, 2500);
-    })
-    .catch(() => {
-      // Loudly, and keep trying. The work is already safe locally.
-      setCueSaveState('error');
-      clearTimeout(_cueRetryTimer);
-      _cueRetryTimer = setTimeout(() => pushCueData(data), _cueRetryDelay);
-      _cueRetryDelay = Math.min(_cueRetryDelay * 2, 60000);
-    });
-  };
-  // Read the Sheet first so the cue sheet's work is kept. If it can't be
-  // read, nothing is sent (sending blind is what overwrote it); try again.
-  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(showId) + '&_=' + Date.now(), d => {
-    if (d && d.success && d.cueData) send(d.cueData);
-    else if (d && d.success && !d.cueData) send(null);   // nothing there yet
-    else { setCueSaveState('error'); clearTimeout(_cueRetryTimer); _cueRetryTimer = setTimeout(() => pushCueData(data), _cueRetryDelay); _cueRetryDelay = Math.min(_cueRetryDelay * 2, 60000); }
-  }, () => { setCueSaveState('error'); clearTimeout(_cueRetryTimer); _cueRetryTimer = setTimeout(() => pushCueData(data), _cueRetryDelay); _cueRetryDelay = Math.min(_cueRetryDelay * 2, 60000); });
+  const doc = csStrip(csMine());
+  const saveId = csNewSaveId();
+  csPendAdd(sid, saveId, cs.baseRev, doc);
+  csPost({ action: 'saveCueData', scriptId: sid, baseRev: cs.baseRev, saveId, cueData: doc }).then(res => {
+    cs.inflight = false;
+    if (!res.unknown) csPendDrop(sid, saveId);
+    if (cs !== _cs) return;
+    if (res.success && typeof res.rev === 'number') {
+      doc._rev = res.rev; doc._savedAt = res.savedAt;
+      csSetBase(doc, res.rev);
+      csMarkSynced(sentRev);
+      csSaved();
+    } else if (res.conflict) {
+      // Someone saved first. Merge theirs in and go again.
+      if (csBusyUI()) { setTimeout(() => csRefresh(true), 500); return; }
+      if (csTakeTheirs(res.cueData, res.rev)) csAfterMerge(true);
+      cs.again = true;
+    } else if (res.unknown) {
+      // Couldn't read the answer: look at the Sheet and carry on from there.
+      csRefresh(true); return;
+    } else if (res.success) {
+      // An old Sheet script answered after all. Use the careful way from now on.
+      cs.safe = false; doc._rev = (cs.baseRev || 0) + 1; csSetBase(doc, doc._rev); csMarkSynced(sentRev); csSaved();
+    } else {
+      csRetry(res.busy ? 'Sheet busy — retrying' : res.reload ? 'Reload this page to save' : 'Not saved — retrying');
+      return;
+    }
+    next();
+  }).catch(fail);
 }
 
-// Anything pending goes out before the page is hidden or closed.
+// Look at the Sheet; fold in anything new. push: carry on saving afterwards.
+function csRefresh(push) {
+  const cs = _cs, sid = showId;
+  if (!sid || cs.sid !== sid || cs.inflight) return;
+  cs.inflight = true;
+  csGet('getCueData', sid).then(d => {
+    cs.inflight = false;
+    if (cs !== _cs) return;
+    if (!d || !d.success) { if (push) csRetry(); else if (!cs.loaded) setCueSaveState('error', 'Offline — working from this device'); return; }
+    if (csBusyUI()) { setTimeout(() => csRefresh(push), 500); return; }
+    if (!cs.loaded) { csFirstLoad(d); return; }
+    cs.safe = typeof d.rev === 'number' ? true : !!d.safeSaves;
+    const rev = csRevOf(d);
+    let ahead;
+    if (cs.safe === false) { const t = d.cueData || {}; ahead = csLegacyNew(t) ? csTakeTheirs(t, rev, csLegacyBase(t)) : cueHasUnsaved(); }
+    else if (rev !== cs.baseRev || !cs.base) ahead = csTakeTheirs(d.cueData || {}, rev);
+    else ahead = cueHasUnsaved();
+    if (csAfterMerge(ahead) || push) csPush();
+    else if (_cueSaveState !== 'error') setCueSaveState('idle');
+    else csSaved();
+  }).catch(() => { cs.inflight = false; if (cs !== _cs) return; if (push) csRetry(); else if (!cs.loaded) setCueSaveState('error', 'Offline — working from this device'); });
+}
+
+// First answer from the Sheet after opening a script.
+function csFirstLoad(d) {
+  const cs = _cs, sid = showId;
+  const theirs = d.cueData || null, rev = csRevOf(d);
+  cs.safe = typeof d.rev === 'number' ? true : !!d.safeSaves;
+  const st = getCueSync();
+  const unsaved = (st.rev || 0) > (st.syncedRev || 0);
+  let local = null; try { local = JSON.parse(localStorage.getItem('mmt_cues_' + sid) || 'null'); } catch(e) {}
+  let ahead = false;
+  if (!theirs) {
+    // Nothing on the Sheet for this script yet: anything here goes up.
+    ahead = !!(local && ((local.cues || []).length || Object.keys(local.annotations || {}).length));
+    csSetBase({}, rev);
+  } else if (!unsaved) {
+    // Nothing waiting here: show the Sheet's copy (keeping this one in History).
+    if (local && !csSame(local, theirs)) saveCueSnapshot(local, 'replaced by the Sheet copy', true);
+    csApply(csNorm(theirs));
+    csSetBase(theirs, rev);
+  } else {
+    // This device has work the Sheet hasn't got: merge the two.
+    csResolvePending(theirs, rev);
+    const known = cs.base && cs.baseRev != null;
+    if (!known) saveCueSnapshot(theirs, 'Sheet copy, merged with unsaved work from this device', true);
+    const r = csMergeDoc(csNorm(known ? cs.base : {}), csNorm(csMine()), csNorm(theirs));
+    csApply(r.doc);
+    csSetBase(theirs, rev);
+    csReportClash(r.conflicts, theirs);
+    ahead = !csSame(r.doc, theirs);
+  }
+  setCueSync({ rev: rev + (ahead ? 1 : 0), syncedRev: rev, savedAt: (theirs && theirs._savedAt) || '' });
+  cs.loaded = true;
+  const cleaned = migrateMoveTriggers() | purgeRetiredTypes();
+  if (cleaned) saveShowData();
+  else if (ahead) csPush();
+  else setCueSaveState('idle');
+}
+
+// Opening a script.
+function loadShowData() {
+  const prev = _cs.sid;
+  clearTimeout(saveShowData._t); clearTimeout(_cs.timer);
+  if (prev && prev !== showId) csSendLeftBehind(prev);
+  const sid = showId;
+  _cs = { sid, base: null, baseRev: null, safe: null, loaded: false, inflight: false, again: false, timer: null, fails: 0, loops: 0, tick: 0 };
+  const b = csLoadBase(sid);
+  if (b) { _cs.base = b.doc; _cs.baseRev = b.rev; }
+  // This device's copy first, so the script opens straight away (and offline).
+  let L = null;
+  try { L = JSON.parse(localStorage.getItem('mmt_cues_' + sid) || 'null'); } catch(e) {}
+  L = L || {};
+  cueTypes = csClone(mergeCueTypes(L.cueTypes));
+  cues = Array.isArray(L.cues) ? L.cues : [];
+  annotations = (L.annotations && typeof L.annotations === 'object') ? L.annotations : {};
+  setVocab = normalizeVocab(L.setVocab);
+  presets = normalizePresets(L.presets);
+  try { undoStack = {}; } catch(e) {}
+  migrateMoveTriggers();
+  purgeRetiredTypes();
+  csRefresh(false);
+}
+
+// Every few seconds while the script is open and on screen: anything new?
+function csPoll() {
+  const cs = _cs, sid = showId;
+  const ed = document.getElementById('scripts-editor');
+  if (!sid || cs.sid !== sid || cs.inflight || cs.polling || document.visibilityState !== 'visible' || !ed || !ed.classList.contains('open')) return;
+  if (!cs.loaded) { if (++cs.tick % 3 === 0) csRefresh(false); return; }
+  cs.tick++;
+  if (cs.safe === false) { if (cs.tick % 4 === 0) csRefresh(false); return; }   // old Sheet script: a full read every 12s
+  cs.polling = true;
+  csGet('getCueRev', sid).then(d => {
+    cs.polling = false;
+    if (cs !== _cs || cs.inflight) return;
+    if (!d || typeof d.rev !== 'number') { if (d && d.success) cs.safe = false; return; }
+    cs.safe = true;
+    if (d.rev !== cs.baseRev) csRefresh(false);
+  }).catch(() => { cs.polling = false; });
+}
+setInterval(csPoll, 3000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') csPoll(); });
+
+// Anything pending goes out before the page is hidden or closed. Only with the
+// updated Sheet script, which refuses it if someone saved meanwhile (then it
+// waits here, safe, and goes next time).
 function flushCueData() {
-  if (!showId || !cueHasUnsaved()) return;
-  clearTimeout(saveShowData._t);
+  if (!showId || !cueHasUnsaved() || _cs.sid !== showId || _cs.safe !== true || _cs.baseRev == null) return;
   try {
-    const data = JSON.parse(localStorage.getItem('mmt_cues_' + showId) || 'null');
-    if (data) pushCueData(data, true);
+    const doc = csStrip(csMine()), saveId = csNewSaveId();
+    csPendAdd(showId, saveId, _cs.baseRev, doc);
+    const body = JSON.stringify({ action: 'saveCueData', scriptId: showId, baseRev: _cs.baseRev, saveId, cueData: doc });
+    navigator.sendBeacon(SCRIPT_URL, new Blob([body], { type: 'text/plain' }));
   } catch(e) {}
 }
 window.addEventListener('pagehide', flushCueData);
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') flushCueData();
-});
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushCueData(); });
 window.addEventListener('beforeunload', e => {
-  if (showId && cueHasUnsaved()) {
-    flushCueData();
-    e.preventDefault();
-    e.returnValue = '';
-    return '';
-  }
+  if (showId && cueHasUnsaved()) { flushCueData(); e.preventDefault(); e.returnValue = ''; return ''; }
 });
+
+// Leaving a script with saves still waiting: send them in the background.
+function csSendLeftBehind(sid) {
+  const st = csSyncGet(sid), b = csLoadBase(sid);
+  if (!((st.rev || 0) > (st.syncedRev || 0)) || !b) return;
+  let doc; try { doc = JSON.parse(localStorage.getItem('mmt_cues_' + sid) || 'null'); } catch(e) {}
+  if (!doc) return;
+  const sentRev = st.rev || 0;
+  const send = csStrip(doc), saveId = csNewSaveId();
+  csPendAdd(sid, saveId, b.rev, send);
+  csPost({ action: 'saveCueData', scriptId: sid, baseRev: b.rev, saveId, cueData: send }).then(res => {
+    if (res && !res.unknown) csPendDrop(sid, saveId);
+    if (!(res && res.success && typeof res.rev === 'number')) return;   // stays waiting here; merged next time it's opened
+    send._rev = res.rev;
+    try { localStorage.setItem(csBaseKey(sid), JSON.stringify({ rev: res.rev, doc: send })); } catch(e) {}
+    const s2 = csSyncGet(sid); csSyncSet(sid, { ...s2, syncedRev: Math.max(s2.syncedRev || 0, sentRev) });
+  }).catch(() => {});
+}
 
 // ── Version history ─────────────────────────────────────────────────────────
 function openCueHistory() {
@@ -17553,73 +18065,6 @@ function cueLoadDecision(localRev, syncedRev, serverRev, serverHasData) {
   if (serverRev == null) return { take: 'server', why: 'no revision on either side, nothing local at risk' };
   if ((serverRev || 0) < (localRev || 0)) return { take: 'local', why: 'the Sheet copy is older than this one' };
   return { take: 'server', why: 'the Sheet copy is the same or newer' };
-}
-
-function loadShowData() {
-  let localData = null;
-  try {
-    localData = JSON.parse(localStorage.getItem('mmt_cues_' + showId) || 'null');
-    if (localData) {
-      if (localData.cueTypes) cueTypes = mergeCueTypes(localData.cueTypes);
-      if (localData.cues) cues = localData.cues;
-      if (localData.annotations) annotations = localData.annotations;
-      setVocab = normalizeVocab(localData.setVocab);
-      presets = normalizePresets(localData.presets);
-      migrateMoveTriggers();
-      purgeRetiredTypes();
-    }
-  } catch(e) {}
-
-  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(showId) + '&_=' + Date.now(), d => {
-    const serverHasData = !!(d && d.success && d.cueData);
-    const st = getCueSync();
-    const decision = cueLoadDecision(
-      st.rev || (localData && localData._rev) || 0,
-      st.syncedRev || 0,
-      serverHasData ? d.cueData._rev : null,
-      serverHasData
-    );
-
-    if (decision.take === 'local') {
-      if (serverHasData) {
-        // Keep the Sheet's copy anyway, so nothing is ever simply discarded.
-        saveCueSnapshot(d.cueData, 'sheet copy not used: ' + decision.why, true);
-        // Before House always comes from the Sheet; it's edited on the cue sheet.
-        _srvPresets = d.cueData.presets || {};
-        presets = normalizePresets(d.cueData.presets);
-        console.warn('Kept local cue data —', decision.why);
-        if (typeof toast === 'function') {
-          toast('Kept this device\u2019s set changes \u2014 ' + decision.why);
-        }
-        if (cueHasUnsaved() && localData) pushCueData(localData);
-      }
-      return;
-    }
-
-    // Taking the Sheet's copy: snapshot what we're about to replace first.
-    if (localData) saveCueSnapshot(localData, 'replaced by the Sheet copy', true);
-
-    if (d.cueData.cueTypes) cueTypes = mergeCueTypes(d.cueData.cueTypes);
-    if (d.cueData.cues) cues = d.cueData.cues;
-    if (d.cueData.annotations) annotations = d.cueData.annotations;
-    setVocab = normalizeVocab(d.cueData.setVocab);
-    presets = normalizePresets(d.cueData.presets);
-    const migrated = migrateMoveTriggers();
-    const cleaned = purgeRetiredTypes() || migrated;
-    try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(d.cueData)); } catch(e) {}
-    cueNoteSynced(d.cueData);
-    setCueSync({
-      rev: d.cueData._rev || 0,
-      syncedRev: d.cueData._rev || 0,
-      savedAt: d.cueData._savedAt || '',
-    });
-    redrawAnnotations(); renderCueTypes(); renderCueList(); renderColorSwatches();
-    if (cleaned) saveShowData();
-  }, () => {
-    // Sheet unreachable. Local data already loaded above; say so rather than
-    // letting it look like everything is in sync.
-    if (localData) setCueSaveState('error', 'Offline — working from this device');
-  });
 }
 
 function goHome() {

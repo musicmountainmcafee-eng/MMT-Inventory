@@ -713,7 +713,9 @@ try {
 
    Data comes from the Apps Script backend (listScripts / getCueData), not
    localStorage, so it works on a device that has never opened the dashboard.
-   This page never writes to the Sheet. No saveCueData, ever.
+   It writes only set changes and Before House, and only the careful way:
+   each save names the version it was made on, so it can't go over anyone
+   else's work (saveMoveEdits).
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
@@ -905,9 +907,28 @@ function start(){
   setInterval(tickStatus, 1000);
 }
 
+// Every few seconds: has anyone saved? (A tiny check; the whole script is
+// only fetched when something changed.) While editing, other people's changes
+// come in too, except to the set changes and pieces being edited here.
+let _pollN = 0, _polling = false;
 function schedulePoll(){
   if (pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(() => { if (document.visibilityState === 'visible') fetchCues(); }, POLL_MS);
+  pollTimer = setInterval(() => {
+    if (document.visibilityState !== 'visible' || !scriptId || _polling || editSaving) return;
+    _pollN++;
+    if (_clSafe === false) { if (_pollN % 4 === 0 && !editMode) fetchCues(); return; }   // old Sheet script
+    _polling = true;
+    jsonp(SCRIPT_URL + '?action=getCueRev&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), d => {
+      _polling = false;
+      if (!d || typeof d.rev !== 'number') { if (d && d.success) _clSafe = false; return; }
+      _clSafe = true;
+      if (d.rev === loadedRev || editSaving) return;
+      if (!editMode) { fetchCues(); return; }
+      jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), f => {
+        if (f && f.success && f.cueData && editMode && !editSaving) clAdopt(f.cueData);
+      }, () => {});
+    }, () => { _polling = false; });
+  }, 4000);
 }
 
 // Drive de-dupes filenames, so "…Script (1)" is a file artifact, not a title.
@@ -1054,6 +1075,9 @@ function fetchCues(showLoading){
   if (showLoading) setStatus('loading…', 'stale');
   jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(),
     d => {
+      // Editing started while this was on its way: it's older than what's
+      // being edited, so it mustn't replace it.
+      if (editMode || editSaving || Object.keys(editedCues).length || Object.keys(editedPresets).length) return;
       if (!d || !d.success || !d.cueData){ setStatus('no cue data', 'stale'); render(); return; }
       const hash = JSON.stringify([d.cueData.cues, d.cueData.cueTypes, d.cueData.presets]);
       const same = hash === lastHash;
@@ -1755,11 +1779,11 @@ function restoreSnapPresets(idx){
   if (!wasEditing) setEditMode(false); else render();
   toast('Putting back ' + keys.length + ' piece' + (keys.length === 1 ? '' : 's'));
 }
-function restoreSnap(idx){
+function restoreSnap(idx, _try){
   if (editMode){ toast('Finish editing first (tap Done)'); return; }
   const sn = getSnaps()[idx];
   if (!sn || !sn.data){ toast('That snapshot is missing'); return; }
-  if (!confirm('Put back the set changes from this snapshot (' + sn.moveCount + ' moves)?\n\nCue positions and other cues are left as they are. The current version is saved to History first, so this can be undone.')) return;
+  if (!_try && !confirm('Put back the set changes from this snapshot (' + sn.moveCount + ' moves)?\n\nCue positions and other cues are left as they are. The current version is saved to History first, so this can be undone.')) return;
   jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), d => {
     if (!d || !d.success || !d.cueData){ toast('Could not reach the Sheet'); return; }
     const fresh = d.cueData;
@@ -1768,11 +1792,19 @@ function restoreSnap(idx){
     (sn.data.cues || []).forEach(c => { if (c && c.type === SHIFT_TYPE_ID) byId[c.id] = c.moves || []; });
     let n = 0;
     (fresh.cues || []).forEach(c => { if (c.id in byId){ c.moves = JSON.parse(JSON.stringify(byId[c.id])); n++; } });
-    fresh._rev = (fresh._rev || 0) + 1;
+    const baseRev = typeof d.rev === 'number' ? d.rev : (fresh._rev || 0);
+    fresh._rev = baseRev + 1;
     fresh._savedAt = new Date().toISOString();
+    delete fresh._log;
     fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'saveCueData', scriptId, cueData: fresh }) })
-      .then(r => { if (!r.ok) throw new Error(); closeHistory(); toast('Restored ' + n + ' set changes'); fetchCues(true); })
+      body: JSON.stringify({ action: 'saveCueData', scriptId, baseRev, saveId: 'cr' + Date.now().toString(36), cueData: fresh }) })
+      .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+      .then(t => {
+        let res; try { res = JSON.parse(t); } catch(e) { res = { unknown: true }; }
+        if (res.conflict || res.busy || res.unknown) { if ((_try || 0) < 6) return restoreSnap(idx, (_try || 0) + 1); throw new Error(); }
+        if (!res.success) throw new Error();
+        closeHistory(); toast('Restored ' + n + ' set changes'); fetchCues(true);
+      })
       .catch(() => toast('Restore failed — nothing was changed'));
   }, () => toast('Could not reach the Sheet'));
 }
@@ -2875,9 +2907,9 @@ function setEditMode(on){
   document.body.classList.toggle('editing', editMode);
 
   if (editMode){
-    // Starting again while the last save is still going: keep what that save
-    // is carrying (and its starting point), so a failed save can be retried.
-    const keepC = editSaving ? editedCues : {}, keepP = editSaving ? editedPresets : {};
+    // Anything not saved yet (a save still going, or one that failed) is kept,
+    // with its starting point, so it still goes to the Sheet.
+    const keepC = editedCues, keepP = editedPresets;
     const oldB = editBaseline, oldPB = presetBaseline;
     editBaseline = {};
     editedCues = Object.assign({}, keepC);
@@ -2885,7 +2917,7 @@ function setEditMode(on){
     cues.forEach(c => { if (c.type === SHIFT_TYPE_ID) editBaseline[c.id] = (c.id in keepC && oldB[c.id]) ? oldB[c.id] : JSON.parse(JSON.stringify(c.moves || [])); });
     presetBaseline = {}; editedPresets = Object.assign({}, keepP);
     Object.keys(presets).forEach(k => { presetBaseline[k] = (k in keepP && oldPB[k]) ? oldPB[k] : JSON.stringify(presets[k]); });
-    if (pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+    if (!pollTimer) schedulePoll();
     render();
   } else {
     if (Object.keys(editedCues).length || Object.keys(editedPresets).length) saveMoveEdits();
@@ -2931,27 +2963,215 @@ function markDirty(){
   measureHeader();
 }
 
+// ── CUE DATA MERGE (shared: app.html and cue-list.html — keep in step) ──────
+// Three-way merge of a script's data: what this device last synced (base),
+// what it has now (mine) and what the Sheet has now (theirs). Each cue, mark,
+// move, cue type and Before House piece is merged on its own, field by field,
+// so two people only collide on the very same box. Then the later save (mine)
+// wins for that box and the clash is reported, the other value is kept in the
+// result's conflicts list. Something deleted on one side and changed on the
+// other is kept, never lost.
+function csStable(v) {
+  if (v === undefined) return 'undefined';
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) return '[' + v.map(csStable).join(',') + ']';
+  return '{' + Object.keys(v).filter(k => v[k] !== undefined).sort().map(k => JSON.stringify(k) + ':' + csStable(v[k])).join(',') + '}';
+}
+function csEq(a, b) { return csStable(a) === csStable(b); }
+function csClone(v) { return v === undefined ? undefined : JSON.parse(JSON.stringify(v)); }
+
+// One value: unchanged on one side → take the other; both changed alike → it;
+// both changed differently → mine, noted.
+function csPick(b, m, t, where, conf) {
+  if (csEq(m, b)) return csClone(t);
+  if (csEq(t, b)) return csClone(m);
+  if (csEq(m, t)) return csClone(m);
+  conf.push({ where, mine: csClone(m), theirs: csClone(t) });
+  return csClone(m);
+}
+
+// An object field by field. `deep` maps a field name to its own merge.
+function csMergeObj(b, m, t, where, conf, deep) {
+  b = b || {}; m = m || {}; t = t || {};
+  const out = {};
+  const keys = new Set([...Object.keys(t), ...Object.keys(m), ...Object.keys(b)]);
+  keys.forEach(k => {
+    const v = (deep && deep[k]) ? deep[k](b[k], m[k], t[k], where + '.' + k, conf) : csPick(b[k], m[k], t[k], where + '.' + k, conf);
+    if (v !== undefined) out[k] = v;
+  });
+  return out;
+}
+
+// A list of items with keys. Order follows whichever side reordered, with the
+// other side's new items placed after the item they followed.
+function csMergeList(bArr, mArr, tArr, keyOf, mergeItem, where, conf) {
+  // Two items with the same key (a repeated mark, an old duplicate id) are
+  // told apart by count, so neither is dropped.
+  const keyed = arr => { const seen = {}; return (Array.isArray(arr) ? arr : []).map(x => { const k0 = keyOf(x); const n = seen[k0] = (seen[k0] || 0) + 1; return [n > 1 ? k0 + '#' + n : k0, x]; }); };
+  const bK = keyed(bArr), mK = keyed(mArr), tK = keyed(tArr);
+  const bm = new Map(bK), mm = new Map(mK), tm = new Map(tK);
+  const result = new Map();
+  new Set([...tm.keys(), ...mm.keys(), ...bm.keys()]).forEach(k => {
+    const b = bm.get(k), m = mm.get(k), t = tm.get(k);
+    if (m === undefined && t === undefined) return;                       // gone on both
+    if (b === undefined) {                                                 // new
+      result.set(k, m === undefined ? csClone(t) : t === undefined ? csClone(m) : mergeItem(undefined, m, t, where + '[' + k + ']', conf));
+      return;
+    }
+    if (m === undefined) {                                                 // I deleted it
+      if (csEq(t, b)) return;
+      conf.push({ where: where + '[' + k + ']', mine: '(deleted)', theirs: csClone(t), kept: 'theirs' });
+      result.set(k, csClone(t)); return;
+    }
+    if (t === undefined) {                                                 // they deleted it
+      if (csEq(m, b)) return;
+      conf.push({ where: where + '[' + k + ']', mine: csClone(m), theirs: '(deleted)', kept: 'mine' });
+      result.set(k, csClone(m)); return;
+    }
+    result.set(k, mergeItem(b, m, t, where + '[' + k + ']', conf));
+  });
+  // Order
+  const keysOf = K => K.map(e => e[0]);
+  const bOrder = keysOf(bK).filter(k => result.has(k));
+  const mOrder = keysOf(mK).filter(k => result.has(k) && bm.has(k));
+  const sameAsBase = (o) => { const bb = bOrder.filter(k => o.includes(k)); return csEq(o, bb); };
+  const skeleton = (sameAsBase(mOrder) ? keysOf(tK) : keysOf(mK)).filter(k => result.has(k));
+  const order = skeleton.slice();
+  const place = (K) => K.forEach((e, i) => {
+    const k = e[0];
+    if (!result.has(k) || order.includes(k)) return;
+    let at = -1;
+    for (let j = i - 1; j >= 0; j--) { const p = order.indexOf(K[j][0]); if (p >= 0) { at = p; break; } }
+    order.splice(at + 1, 0, k);
+  });
+  place(mK); place(tK);
+  result.forEach((v, k) => { if (!order.includes(k)) order.push(k); });
+  return order.map(k => result.get(k));
+}
+
+// Keys for things that may predate ids.
+function csMoveKey() { return mv => mv && mv.id ? 'id:' + mv.id : 'h:' + csStable(mv); }
+function csAnnKey(a) {
+  if (a && a.type === 'cue' && a.cueId != null) return 'cue:' + a.cueId;
+  if (a && a.id) return 'id:' + a.id;
+  return 'h:' + csStable(a);
+}
+
+function csMergeCue(b, m, t, where, conf) {
+  return csMergeObj(b, m, t, where, conf, {
+    moves: (bb, mm, tt, w, c) => {
+      if (mm === undefined && tt === undefined) return undefined;
+      return csMergeList(bb, mm, tt, csMoveKey(), (x, y, z, w2, c2) => csMergeObj(x, y, z, w2, c2), w, c);
+    },
+  });
+}
+
+// Marks on the page: one flat list across pages, merged mark by mark.
+function csFlatAnn(ann) {
+  const out = [];
+  Object.keys(ann || {}).forEach(p => (Array.isArray(ann[p]) ? ann[p] : []).forEach(a => out.push({ page: p, a })));
+  return out;
+}
+function csMergeAnn(b, m, t, where, conf) {
+  const key = x => csAnnKey(x.a);
+  const merged = csMergeList(csFlatAnn(b), csFlatAnn(m), csFlatAnn(t), key,
+    (x, y, z, w, c) => csPick(x, y, z, w, c), where, conf);
+  const out = {};
+  merged.forEach(x => { (out[x.page] = out[x.page] || []).push(x.a); });
+  return out;
+}
+
+function csMergeVocab(b, m, t, where, conf) {
+  if (csEq(m, b)) return csClone(t);
+  if (csEq(t, b)) return csClone(m);
+  // Both added names: keep every name from both.
+  const out = {};
+  new Set([...Object.keys(m || {}), ...Object.keys(t || {})]).forEach(k => {
+    const a = Array.isArray((m || {})[k]) ? m[k] : [], z = Array.isArray((t || {})[k]) ? t[k] : [];
+    out[k] = [...new Set([...z, ...a])];
+  });
+  return out;
+}
+
+// The whole script. Returns { doc, conflicts }.
+function csMergeDoc(base, mine, theirs) {
+  base = base || {}; mine = mine || {}; theirs = theirs || {};
+  const conf = [];
+  const doc = csMergeObj(base, mine, theirs, 'script', conf, {
+    cues: (b, m, t, w, c) => csMergeList(b, m, t, x => 'id:' + x.id, csMergeCue, w, c),
+    cueTypes: (b, m, t, w, c) => (m === undefined && t === undefined) ? undefined
+      : csMergeList(b, m, t, x => 'id:' + x.id, (x, y, z, w2, c2) => csMergeObj(x, y, z, w2, c2), w, c),
+    annotations: csMergeAnn,
+    presets: (b, m, t, w, c) => {
+      const out = {};
+      b = b || {}; m = m || {}; t = t || {};
+      new Set([...Object.keys(t), ...Object.keys(m), ...Object.keys(b)]).forEach(k => {
+        const bb = b[k], mm = m[k], tt = t[k];
+        if (mm === undefined && tt === undefined) return;
+        if (bb === undefined) { out[k] = mm === undefined ? csClone(tt) : tt === undefined ? csClone(mm) : csMergeObj({}, mm, tt, w + '.' + k, c); return; }
+        if (mm === undefined) { if (!csEq(tt, bb)) out[k] = csClone(tt); return; }
+        if (tt === undefined) { if (!csEq(mm, bb)) out[k] = csClone(mm); return; }
+        out[k] = csMergeObj(bb, mm, tt, w + '.' + k, c);
+      });
+      return out;
+    },
+    setVocab: csMergeVocab,
+    _rev: (b, m, t) => t,
+    _log: (b, m, t) => t,
+    _sv: (b, m, t) => t,
+    _from: (b, m, t) => t,
+    _savedAt: (b, m, t) => t,
+  });
+  return { doc, conflicts: conf };
+}
+
 // ── The merge ───────────────────────────────────────────────────────────────
-// Pure so it can be tested on its own. Applies our edited moves onto whatever
-// the Sheet currently holds, one set change at a time, skipping any that
-// someone else has altered since we started editing.
+// Pure so it can be tested on its own. Folds our edited moves into whatever the
+// Sheet holds now, move by move and box by box (csMergeList), so someone else's
+// change to another move of the same set change is kept too. Where both
+// changed the very same box, ours is kept and it's listed in clashes.
 function mergeMoveEdits(fresh, baseline, ours){
   const out = JSON.parse(JSON.stringify(fresh));
-  const applied = [], conflicts = [];
+  const applied = [], conflicts = [], clashes = [];
   out.cues = out.cues || [];
   Object.keys(ours).forEach(id => {
     const target = out.cues.find(c => String(c.id) === String(id));
     if (!target){ conflicts.push({ id, why: 'the set change no longer exists on the Sheet' }); return; }
-    const theirs = JSON.stringify(target.moves || []);
-    const base   = JSON.stringify(baseline[id] || []);
-    if (theirs !== base){ conflicts.push({ id, why: 'someone else changed this set change' }); return; }
-    target.moves = JSON.parse(JSON.stringify(ours[id]));
+    target.moves = csMergeList(baseline[id] || [], ours[id] || [], target.moves || [], csMoveKey(),
+      (b, m, t, w, cf) => csMergeObj(b, m, t, w, cf), 'moves', clashes);
     applied.push(id);
   });
-  return { data: out, applied, conflicts };
+  return { data: out, applied, conflicts, clashes };
 }
 
-let _saveAgain = false;
+let _saveAgain = false, _saveLoops = 0, _clSafe = null;
+// Bring what's on the Sheet into view without touching what's being edited
+// here: those set changes and pieces keep this page's version.
+function clAdopt(data){
+  if (!data) return;
+  const sheetOpen = (document.getElementById('move-sheet') || {}).classList;
+  if (editMode && sheetOpen && sheetOpen.contains('open')) { _clAdoptLater = data; return; }
+  _clAdoptLater = null;
+  const keepMoves = {}, keepP = {};
+  Object.keys(editedCues).forEach(id => { const c = cues.find(x => String(x.id) === String(id)); if (c) keepMoves[id] = JSON.parse(JSON.stringify(c.moves || [])); });
+  Object.keys(editedPresets).forEach(k => { if (presets[k]) keepP[k] = JSON.parse(JSON.stringify(presets[k])); });
+  applyPayload(JSON.parse(JSON.stringify(data)));
+  cues.forEach(c => { if (c.id in keepMoves) c.moves = keepMoves[c.id]; });
+  Object.keys(keepP).forEach(k => { presets[k] = keepP[k]; });
+  if (editMode) {
+    cues.forEach(c => { if (c.type === SHIFT_TYPE_ID && !(c.id in keepMoves)) editBaseline[c.id] = JSON.parse(JSON.stringify(c.moves || [])); });
+    Object.keys(presets).forEach(k => { if (!(k in keepP)) presetBaseline[k] = JSON.stringify(presets[k]); });
+  }
+  loadedRev = data._rev != null ? data._rev : loadedRev;
+  lastHash = JSON.stringify([data.cues, data.cueTypes, data.presets]);
+  try { lsSet('mmt_cuelist_cache_' + scriptId, JSON.stringify(data)); } catch(e){}
+  render();
+}
+let _clAdoptLater = null, _clRetryT = null, _clRetryN = 0;
+function clRetrySave(){
+  clearTimeout(_clRetryT);
+  _clRetryT = setTimeout(() => { if (!editSaving) saveMoveEdits(); }, Math.min(5000 * Math.pow(2, _clRetryN++), 60000));
+}
 function saveMoveEdits(){
   if (editSaving) { _saveAgain = true; return; }
   _saveAgain = false;
@@ -2963,40 +3183,66 @@ function saveMoveEdits(){
   const el = document.getElementById('edit-state');
   if (el){ el.className = 'edit-state saving'; el.textContent = 'Saving…'; }
 
-  const ours = {};
+  const ours = {}, oursP = {};
   ids.forEach(id => {
     const c = cues.find(x => String(x.id) === String(id));
     if (c) ours[id] = JSON.parse(JSON.stringify(c.moves || []));
   });
+  pKeys.forEach(k => { oursP[k] = JSON.parse(JSON.stringify(presets[k] || {})); });
 
   jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), d => {
     if (!d || !d.success || !d.cueData){
       editSaving = false;
-      if (el){ el.className = 'edit-state error'; el.textContent = 'Could not reach the Sheet — your edits are kept on this device'; }
+      if (el){ el.className = 'edit-state error'; el.textContent = 'Could not reach the Sheet — your edits are kept on this device; trying again.'; }
+      clRetrySave();
       return;
     }
     saveSnap(d.cueData, 'before a cue sheet save');
-    const { data, applied, conflicts } = mergeMoveEdits(d.cueData, editBaseline, ours);
+    const mergeOut = mergeMoveEdits(d.cueData, editBaseline, ours);
+    const { data, applied, conflicts } = mergeOut;
     // Presets: each edited piece goes over the Sheet's copy only if nobody
     // else changed that piece since editing began.
     const pApplied = [];
     data.presets = (data.presets && typeof data.presets === 'object') ? data.presets : {};
+    const clashes = mergeOut.clashes;
     pKeys.forEach(k => {
-      const theirs = data.presets[k] ? JSON.stringify(normalizePresets({ [k]: data.presets[k] })[k]) : 'null';
-      const base = presetBaseline[k] || 'null';
-      if (theirs !== base && theirs !== 'null' && base !== 'null'){ conflicts.push({ id: k, why: 'someone else changed the preset for ' + (presets[k] && presets[k].piece || k) }); return; }
-      data.presets[k] = JSON.parse(JSON.stringify(presets[k]));
+      // Box by box: someone else's change to another box of this piece stays.
+      const theirs = data.presets[k] ? normalizePresets({ [k]: data.presets[k] })[k] : {};
+      const base = JSON.parse(presetBaseline[k] || 'null') || {};
+      data.presets[k] = csMergeObj(base, oursP[k], theirs, 'presets.' + k, clashes);
       pApplied.push(k);
     });
-    data._rev = (d.cueData._rev || 0) + 1;
+    const baseRev = typeof d.rev === 'number' ? d.rev : (d.cueData._rev || 0);
+    data._rev = baseRev + 1;
     data._savedAt = new Date().toISOString();
+    delete data._log;
 
     fetch(SCRIPT_URL, {
       method:'POST', headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({ action:'saveCueData', scriptId, cueData: data })
+      body: JSON.stringify({ action:'saveCueData', scriptId, baseRev, saveId: 'cl' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8), cueData: data })
     }).then(r => {
       if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    }).then(t => {
+      let res; try { res = JSON.parse(t); } catch(e) { res = { unknown: true }; }
       editSaving = false;
+      if (res.conflict || res.unknown || res.busy) {
+        // Someone saved first (or the answer got lost): read again, merge again.
+        if (++_saveLoops > 8) { _saveLoops = 0; if (el){ el.className = 'edit-state error'; el.textContent = 'Busy — retrying'; } setTimeout(saveMoveEdits, 5000); return; }
+        saveMoveEdits(); return;
+      }
+      if (!res.success) {
+        if (el){ el.className = 'edit-state error'; el.textContent = res.reload ? 'Reload this page to save — your edits are safe on this device'
+          : /50000|maximum/i.test(res.error || '') ? 'Too big for the Sheet — the Sheet script needs its update. Edits are safe here.'
+          : 'Not saved — retrying. Your edits are safe on this device'; }
+        if (!res.reload) setTimeout(saveMoveEdits, 8000);
+        return;
+      }
+      _saveLoops = 0; _clRetryN = 0;
+      if (typeof res.rev === 'number') { data._rev = res.rev; _clSafe = true; }
+      if (clashes.length) {
+        toast('Someone changed the same ' + (clashes.length > 1 ? clashes.length + ' boxes' : 'box') + ' you did. Yours was kept; theirs is in History.');
+      }
       // What we saved is now the starting point. Anything changed again while
       // this save was out stays marked, so the next save picks it up.
       applied.forEach(id => {
@@ -3004,10 +3250,11 @@ function saveMoveEdits(){
         editBaseline[id] = JSON.parse(JSON.stringify(ours[id]));
         if (!c || JSON.stringify(c.moves || []) === JSON.stringify(ours[id])) delete editedCues[id];
       });
+      // What this page sent is the new starting point for its own changes;
+      // anything changed again meanwhile stays marked for the next save.
       pApplied.forEach(k => {
-        const saved = data.presets[k];
-        presetBaseline[k] = JSON.stringify(normalizePresets({ [k]: saved })[k]);
-        if (JSON.stringify(presets[k]) === JSON.stringify(saved)) delete editedPresets[k];
+        presetBaseline[k] = JSON.stringify(oursP[k]);
+        if (JSON.stringify(presets[k] || {}) === JSON.stringify(oursP[k])) delete editedPresets[k];
       });
       if (conflicts.length){
         // Our version of the clashing changes stays in the draft, so nothing
@@ -3033,16 +3280,19 @@ function saveMoveEdits(){
       loadedRev = data._rev;
       saveSnap(data, 'saved from the cue sheet');
       prGuardRemember(data.presets);
+      clAdopt(data);
       if (_saveAgain) { saveMoveEdits(); return; }
       if (!editMode) schedulePoll();
       render();
     }).catch(() => {
       editSaving = false; _saveAgain = false;
-      if (el){ el.className = 'edit-state error'; el.textContent = 'Save failed — your edits are safe on this device, try Done again'; }
+      if (el){ el.className = 'edit-state error'; el.textContent = 'Not saved yet — no signal. Your edits are safe on this device; trying again.'; }
+      clRetrySave();
     });
   }, () => {
     editSaving = false;
-    if (el){ el.className = 'edit-state error'; el.textContent = 'Could not reach the Sheet — your edits are kept on this device'; }
+    if (el){ el.className = 'edit-state error'; el.textContent = 'Could not reach the Sheet — your edits are kept on this device; trying again.'; }
+    clRetrySave();
   });
 }
 
@@ -3087,6 +3337,7 @@ function closePresetSheet(silent){
   presetSheet = null;
   document.getElementById('move-sheet').classList.remove('open');
   document.body.classList.remove('sheet-open');
+  if (_clAdoptLater) clAdopt(_clAdoptLater);
   if (quick && !silent && editMode) { setEditMode(false); return; }
   if (!silent) render();
 }
@@ -3208,6 +3459,7 @@ function closeMoveSheet(silent){
   const el = document.getElementById('move-sheet');
   if (el) el.classList.remove('open');
   document.body.classList.remove('sheet-open');
+  if (_clAdoptLater) clAdopt(_clAdoptLater);
   if (!silent) render();
 }
 
