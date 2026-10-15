@@ -6180,7 +6180,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.14 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.15 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -14458,13 +14458,26 @@ function normalizeVocab(v) {
   };
 }
 
-function vocabList(kind) {
+// "Kyle, Tristan, Ally" is three people. Also splits on / & + and "and".
+function whoNames(s){
+  const seen = new Set(), out = [];
+  String(s || '').split(/\s*(?:,|\/|&|\+|;|\band\b)\s*/i).forEach(v => {
+    v = v.trim(); if (!v) return;
+    const k = v.toLowerCase(); if (seen.has(k)) return;
+    seen.add(k); out.push(v);
+  });
+  return out;
+}
+// skipMove: the move being typed in, whose half-typed value isn't a suggestion.
+function vocabList(kind, skipMove) {
   const stored = Array.isArray(setVocab[kind]) ? setVocab[kind] : [];
   const used = [];
   const field = kind === 'people' ? 'who' : 'piece';
   cues.forEach(c => (c.moves || []).forEach(m => {
-    // "ASM/Crew" is two assignments sharing a cell — offer each on its own.
-    String(m[field] || '').split('/').forEach(v => {
+    if (skipMove && m.id === skipMove) return;
+    // "Kyle, Tristan" (or "ASM/Crew") is several people — offer each on its own.
+    // A piece only splits on "/".
+    (field === 'who' ? whoNames(m[field]) : String(m[field] || '').split('/')).forEach(v => {
       v = v.trim();
       if (v) used.push(v);
     });
@@ -14480,7 +14493,7 @@ function vocabList(kind) {
 }
 
 function vocabRemember(kind, raw) {
-  String(raw || '').split('/').forEach(v => {
+  (kind === 'people' ? whoNames(raw) : String(raw || '').split('/')).forEach(v => {
     v = v.trim();
     if (v.length < 2) return;   // don't learn abandoned single keystrokes
     if (!Array.isArray(setVocab[kind])) setVocab[kind] = [];
@@ -16334,8 +16347,8 @@ const MOVE_COLS = [
 // unconditionally would turn a finished "Main" into "Main Curtian" on Enter.
 let _acInput = null, _acItems = [], _acIdx = -1;
 
-function acSource(kind) {
-  if (kind === 'pieces' || kind === 'people') return vocabList(kind);
+function acSource(kind, skipMove) {
+  if (kind === 'pieces' || kind === 'people') return vocabList(kind, skipMove);
   if (kind === 'actions') {
     const used = [];
     cues.forEach(c => (c.moves || []).forEach(m => { if (m.action) used.push(String(m.action).trim()); }));
@@ -16368,8 +16381,17 @@ function acPop() {
 function acOpen(input) {
   const kind = input.dataset.src;
   if (!kind) return acClose();
-  const typed = String(input.value || '').trim().toLowerCase();
-  const all = acSource(kind);
+  // Who holds several people: suggest for the one being typed after the last
+  // comma, and leave out the ones already there.
+  _acPrefix = '';
+  let typed = String(input.value || '').trim().toLowerCase();
+  let all = acSource(kind, input.dataset.move);
+  if (kind === 'people') {
+    const v = String(input.value || ''), m = v.match(/^(.*(?:,|\/|&|\+|;)\s*)([^,\/&+;]*)$/);
+    if (m) { _acPrefix = m[1]; typed = m[2].trim().toLowerCase(); }
+    const have = new Set(whoNames(_acPrefix).map(x => x.toLowerCase()));
+    all = all.filter(x => !have.has(x.toLowerCase()));
+  }
   // Startswith first, then contains — what you began typing ranks above an
   // incidental substring match.
   // Offering back the exact string already in the cell is a suggestion that
@@ -16401,6 +16423,7 @@ function acOpen(input) {
   el.classList.add('open');
 }
 
+let _acPrefix = '';
 function acClose() {
   const el = document.getElementById('ac-pop');
   if (el) el.classList.remove('open');
@@ -16417,7 +16440,7 @@ function acHighlight() {
 
 function acAccept() {
   if (!_acInput || _acIdx < 0 || !_acItems[_acIdx]) return false;
-  const input = _acInput, val = _acItems[_acIdx];
+  const input = _acInput, val = _acPrefix + _acItems[_acIdx];
   input.value = val;
   moveEdit(input.dataset.cue, input.dataset.move, input.dataset.key, val);
   moveCommit(input.dataset.vocab || '', val);

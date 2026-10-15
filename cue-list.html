@@ -1140,14 +1140,21 @@ function allPieces(){
     .sort((a,b) => a.piece.localeCompare(b.piece));
 }
 
-// Everyone named on a move, for the who filter.
+// "Kyle, Tristan, Ally" is three people. Also splits on / & + and "and".
+function whoNames(s){
+  const seen = new Set(), out = [];
+  String(s || '').split(/\s*(?:,|\/|&|\+|;|\band\b)\s*/i).forEach(v => {
+    v = v.trim(); if (!v) return;
+    const k = v.toLowerCase(); if (seen.has(k)) return;
+    seen.add(k); out.push(v);
+  });
+  return out;
+}
+// Everyone named on any move, each person once, for the who filter.
 function allWho(){
   const seen = new Map();
   cues.forEach(c => (c.moves || []).forEach(m => {
-    const v = String(m.who || '').trim();
-    if (!v) return;
-    const k = v.toLowerCase();
-    if (!seen.has(k)) seen.set(k, v);
+    whoNames(m.who).forEach(v => { const k = v.toLowerCase(); if (!seen.has(k)) seen.set(k, v); });
   }));
   return [...seen.values()].sort((a,b) => a.localeCompare(b));
 }
@@ -1253,7 +1260,7 @@ function haystack(c){
   (c.moves || []).forEach(m => parts.push(m.piece, m.action, m.who, spkMoveText(m, scriptId), m.notes));
   return parts.filter(Boolean).join(' ').toLowerCase();
 }
-const onMove = (m, who) => String(m.who || '').trim().toLowerCase() === who;
+const onMove = (m, who) => whoNames(m.who).some(v => v.toLowerCase() === who);
 
 function matches(c){
   if (activeType && c.type !== activeType) return false;
@@ -3715,6 +3722,15 @@ function sheetSpike(id){
 function sheetPick(field, value){
   const input = document.getElementById('ms-' + field);
   if (!input) return;
+  if (field === 'who') {
+    // Adds or takes off that one person, keeping the others typed there.
+    const names = whoNames(input.value), k = String(value).toLowerCase();
+    const i = names.findIndex(v => v.toLowerCase() === k);
+    if (i >= 0) names.splice(i, 1); else names.push(value);
+    input.value = names.join(', ');
+    sheetField('who', input.value);
+    return;
+  }
   // Tapping the one that's already set clears it.
   const v = input.value.trim().toLowerCase() === String(value).toLowerCase() ? '' : value;
   input.value = v;
@@ -3725,8 +3741,8 @@ function syncActionPills(v){
   document.querySelectorAll('#ms-actions .ms-pill').forEach(b => b.classList.toggle('on', b.dataset.v.toLowerCase() === k));
 }
 function syncWhoPills(v){
-  const k = String(v || '').trim().toLowerCase();
-  document.querySelectorAll('#ms-whos .ms-pill').forEach(b => b.classList.toggle('on', b.dataset.v.toLowerCase() === k));
+  const on = new Set(whoNames(v).map(x => x.toLowerCase()));
+  document.querySelectorAll('#ms-whos .ms-pill').forEach(b => b.classList.toggle('on', on.has(b.dataset.v.toLowerCase())));
 }
 
 function renderMoveSheet(){
@@ -3743,7 +3759,7 @@ function renderMoveSheet(){
   const pill = (field, v, on) => `<button type="button" class="ms-pill${on ? ' on' : ''}" data-v="${esc(v)}"
       onclick="sheetPick('${field}', this.dataset.v)">${esc(v)}</button>`;
   const actKey = String(m.action || '').trim().toLowerCase();
-  const whoKey = String(m.who || '').trim().toLowerCase();
+  const whoOn = new Set(whoNames(m.who).map(x => x.toLowerCase()));
 
   document.getElementById('ms-body').innerHTML = `
     <div class="ms-head">
@@ -3763,10 +3779,10 @@ function renderMoveSheet(){
     <datalist id="ms-pieces">${pieces}</datalist>
     <div class="ms-pills" id="ms-actions">${MOVE_ACTIONS.map(v => pill('action', v, v.toLowerCase() === actKey)).join('')}</div>
     <div class="ms-grid ms-g2 ms-even">
-      <label class="ms-f"><span>Who</span>${inp('who', 'Who', ' strong')}</label>
+      <label class="ms-f"><span>Who</span>${inp('who', 'e.g. Kyle, Tristan, Ally', ' strong')}</label>
       <label class="ms-f"><span>Note</span>${inp('notes', 'Note')}</label>
     </div>
-    ${whos.length ? `<div class="ms-pills" id="ms-whos">${whos.map(v => pill('who', v, v.toLowerCase() === whoKey)).join('')}</div>` : ''}
+    ${whos.length ? `<div class="ms-pills" id="ms-whos">${whos.map(v => pill('who', v, whoOn.has(v.toLowerCase()))).join('')}</div>` : ''}
     <div class="ms-spike-head"><span>Spike</span><a href="${spkMapURL(scriptId, scriptName)}" target="_blank" rel="noopener">Edit spike map ›</a></div>
     <div id="ms-spikes">${spkPickerHTML(scriptId, m.spikeIds, 'sheetSpike')}</div>
     <input id="ms-spike" class="ms-in" style="margin:8px 0 6px" value="${esc(m.spike || '')}" placeholder="Other spike, typed (optional)"
@@ -3995,6 +4011,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.14 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.15 v1</div>
 </body>
 </html>
