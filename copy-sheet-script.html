@@ -1,0 +1,1530 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sheet Script Update</title>
+<style>body{font-family:-apple-system,system-ui,sans-serif;margin:16px;background:#fff;color:#222}
+button{font-size:18px;padding:12px 22px;border:0;border-radius:8px;background:#534ab7;color:#fff;cursor:pointer}
+#ok{margin-left:12px;color:#1a7f37;font-weight:600}textarea{width:100%;height:60vh;margin-top:14px;font:12px ui-monospace,monospace;box-sizing:border-box}</style></head>
+<body><h2>Main Sheet script update (safe editing together)</h2>
+<p>Tap Copy, then in Apps Script select everything in Code.gs and paste over it.</p>
+<button onclick="cp()">Copy the code</button><span id="ok"></span>
+<textarea id="c" readonly>const PHOTO_FOLDER_ID = &#x27;1lHOzK17bJfXGHfCeVaopghbrjUKIs61Ur2r5aYy8naYKcTjyB0uiv-XNVKsQpFWo02AlSMtG&#x27;;
+const SPREADSHEET_ID = &#x27;1ZC6eyjym1wLtPNG9G_rNFP_Txke1-VJtt7mrPsL0WOA&#x27;;
+
+// ⚠️ EDIT THIS — your email for daily overdue/due-today task notifications:
+const NOTIFICATION_EMAIL = &#x27;musicmountainmcafee@gmail.com&#x27;;
+
+// Optional — Drive folder for uploaded PDF scripts. Leave &#x27;&#x27; to auto-create:
+const SCRIPTS_FOLDER_ID = &#x27;&#x27;;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REQUEST ROUTING
+// ═══════════════════════════════════════════════════════════════════════════
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    if (data.action === &#x27;checkInOut&#x27;)   return checkInOut(data);
+    if (data.action === &#x27;addAsset&#x27;)     return addAsset(data);
+    if (data.action === &#x27;editAsset&#x27;)    return editAsset(data);
+    if (data.action === &#x27;getHistory&#x27;)   return getHistory();
+    if (data.action === &#x27;savePaint&#x27;)    return savePaint(data);
+    if (data.action === &#x27;deletePaint&#x27;)  return deletePaint(data);
+    if (data.action === &#x27;saveTasks&#x27;)    return saveTasks(data);
+    if (data.action === &#x27;saveTask&#x27;)     return saveTask(data);
+    if (data.action === &#x27;saveShopping&#x27;) return saveShopping(e, data);
+    if (data.action === &#x27;saveTeamConfig&#x27;) return saveTeamConfig(e, data);
+    if (data.action === &#x27;saveDrops&#x27;)     return saveDrops(e, data);
+    if (data.action === &#x27;saveLinks&#x27;)     return saveLinks(e, data);
+    if (data.action === &#x27;saveCueData&#x27;)   return saveCueData(e, data);
+    if (data.action === &#x27;uploadScript&#x27;)  return uploadScript(data);
+    if (data.action === &#x27;uploadDropPhoto&#x27;) return uploadDropPhoto(data);
+    if (data.action === &#x27;uploadRefPhoto&#x27;) return uploadRefPhoto(data);
+    if (data.action === &#x27;saveShowNote&#x27;) return saveShowNote(data);
+    if (data.action === &#x27;saveCleaning&#x27;) return saveCleaning(e, data);
+    if (data.action === &#x27;saveKV&#x27;)       return saveKV(data);
+    return response({ success: false, error: &#x27;Unknown action&#x27; });
+  } catch(err) {
+    return response({ success: false, error: err.message });
+  }
+}
+
+function doGet(e) {
+  const action = e.parameter.action;
+  const callback = e.parameter.callback;
+
+  function wrap(result) {
+    if (callback) {
+      return ContentService.createTextOutput(callback + &#x27;(&#x27; + result.getContent() + &#x27;)&#x27;)
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+    return result;
+  }
+
+  if (action === &#x27;getNextId&#x27;)     return wrap(getNextId());
+  if (action === &#x27;getPaints&#x27;)     return wrap(getPaints());
+  if (action === &#x27;getTasks&#x27;)      return wrap(getTasks(e));
+  if (action === &#x27;createDoc&#x27;)     return wrap(createShowDoc(e));
+  if (action === &#x27;getHistory&#x27;)    return wrap(getHistory());
+  if (action === &#x27;getShopping&#x27;)   return wrap(getShopping());
+  if (action === &#x27;saveShopping&#x27;)  return wrap(saveShopping(e, null));
+  if (action === &#x27;getTeamConfig&#x27;) return wrap(getTeamConfig());
+  if (action === &#x27;saveTeamConfig&#x27;) return wrap(saveTeamConfig(e, null));
+  if (action === &#x27;getDrops&#x27;)      return wrap(getDrops());
+  if (action === &#x27;saveDrops&#x27;)     return wrap(saveDrops(e, null));
+  if (action === &#x27;getLinks&#x27;)      return wrap(getLinks());
+  if (action === &#x27;saveLinks&#x27;)     return wrap(saveLinks(e, null));
+  if (action === &#x27;listScripts&#x27;)   return wrap(listScripts());
+  if (action === &#x27;loadScript&#x27;)    return wrap(loadScript(e));
+  if (action === &#x27;getDriveImage&#x27;) return getDriveImage(e);
+  if (action === &#x27;searchDrive&#x27;)   return wrap(searchDrive(e));
+  if (action === &#x27;importScript&#x27;)  return wrap(importScript(e));
+  if (action === &#x27;getCleaning&#x27;)    return wrap(getCleaning());
+  if (action === &#x27;saveCleaning&#x27;)   return wrap(saveCleaning(e, null));
+  if (action === &#x27;readDropsSheet&#x27;)  return wrap(readDropsSheet(e));
+  if (action === &#x27;listFolderPhotos&#x27;) return wrap(listFolderPhotos(e));
+  if (action === &#x27;getCueData&#x27;)    return wrap(getCueData(e));
+  if (action === &#x27;getCueRev&#x27;)     return wrap(getCueRev(e));
+  if (action === &#x27;saveCueData&#x27;)   return wrap(saveCueData(e, null));
+  if (action === &#x27;saveShowNote&#x27;) return wrap(saveShowNote(e.parameter));
+  if (action === &#x27;getKV&#x27;)         return wrap(getKV(e));
+  if (action === &#x27;saveKV&#x27;)        return wrap(saveKV(e.parameter));
+  if (action === &#x27;saveTask&#x27;)      return wrap(saveTask(e.parameter));
+  if (action === &#x27;saveTasksGet&#x27;) {
+    try {
+      const data = JSON.parse(decodeURIComponent(e.parameter.data));
+      return wrap(saveTasks(data));
+    } catch(err) {
+      return wrap(response({ success: false, error: err.message }));
+    }
+  }
+  return wrap(response({ success: true, message: &#x27;MMT Script running&#x27; }));
+}
+
+function response(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INVENTORY
+// ═══════════════════════════════════════════════════════════════════════════
+
+function getNextId() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(&#x27;Inventory&#x27;);
+  const rows = sheet.getDataRange().getValues();
+  const headers = rows[0];
+  const colAssetId = headers.indexOf(&#x27;Asset ID&#x27;);
+  let max = 0;
+  for (let i = 1; i &lt; rows.length; i++) {
+    const val = String(rows[i][colAssetId] || &#x27;&#x27;);
+    const match = val.match(/^S(\d+)$/);
+    if (match) max = Math.max(max, parseInt(match[1]));
+  }
+  return response({ success: true, nextId: &#x27;S&#x27; + String(max + 1).padStart(4, &#x27;0&#x27;) });
+}
+
+function addAsset(data) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(&#x27;Inventory&#x27;);
+  const rows = sheet.getDataRange().getValues();
+  const headers = rows[0];
+
+  const assetId = data.assetId;
+  for (let i = 1; i &lt; rows.length; i++) {
+    if (rows[i][headers.indexOf(&#x27;Asset ID&#x27;)] === assetId)
+      return response({ success: false, error: &#x27;Asset ID already exists.&#x27; });
+  }
+
+  let targetRow = -1;
+  for (let i = 1; i &lt; rows.length; i++) {
+    if (!rows[i][headers.indexOf(&#x27;Asset ID&#x27;)] &amp;&amp; !rows[i][headers.indexOf(&#x27;Name&#x27;)]) {
+      targetRow = i + 1; break;
+    }
+  }
+  if (targetRow === -1) targetRow = rows.length + 1;
+
+  const rowNum = targetRow;
+  const numCols = headers.length;
+  const newRow = new Array(numCols).fill(&#x27;&#x27;);
+
+  headers.forEach((h, i) =&gt; {
+    const header = h.trim();
+    if (header === &#x27;Asset ID&#x27;)          newRow[i] = data.assetId;
+    if (header === &#x27;Tag ID&#x27;)            newRow[i] = data.tagId;
+    if (header === &#x27;Name&#x27;)              newRow[i] = data.name;
+    if (header === &#x27;Category&#x27;)          newRow[i] = data.category;
+    if (header === &#x27;Subcatagorey&#x27;)      newRow[i] = data.subcategory || &#x27;&#x27;;
+    if (header === &#x27;Storage Location&#x27;)  newRow[i] = data.location || &#x27;&#x27;;
+    if (header === &#x27;Status&#x27;)            newRow[i] = &#x27;IN&#x27;;
+    if (header === &#x27;Rental Value&#x27;)      newRow[i] = data.rentalValue || &#x27;&#x27;;
+    if (header === &#x27;Replacement Value&#x27;) newRow[i] = data.replacementValue || &#x27;&#x27;;
+    if (header === &#x27;Notes&#x27;)             newRow[i] = data.notes || &#x27;&#x27;;
+    if (header === &#x27;Quantity&#x27;)          newRow[i] = data.quantity || 1;
+    if (header === &#x27;Subcat Code&#x27;)       newRow[i] = data.subcatCode || &#x27;&#x27;;
+    if (header === &#x27;Photo&#x27;)             newRow[i] = data.photoUrl || &#x27;&#x27;;
+    if (header === &#x27;Photo Preview&#x27;)     newRow[i] = data.photoUrl || &#x27;&#x27;;
+    if (header === &#x27;Label Text&#x27;)        newRow[i] = data.tagId + &#x27;\n&#x27; + data.name + &#x27;\n────────\n&#x27; + (data.location || &#x27;&#x27;);
+  });
+
+  sheet.getRange(rowNum, 1, 1, numCols).setValues([newRow]);
+
+  try {
+    const newAssets = ss.getSheetByName(&#x27;New_Assets&#x27;);
+    if (newAssets) newAssets.appendRow([
+      new Date(), data.name, data.category, data.subcategory,
+      data.location, data.replacementValue, data.notes,
+      data.photoUrl || &#x27;&#x27;, data.quantity || 1, data.rentalValue
+    ]);
+  } catch(e) {}
+
+  return response({ success: true, assetId: data.assetId, tagId: data.tagId, photoUrl: data.photoUrl });
+}
+
+function editAsset(data) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(&#x27;Inventory&#x27;);
+  const rows = sheet.getDataRange().getValues();
+  const headers = rows[0];
+
+  const assetId = data.assetId;
+  for (let i = 1; i &lt; rows.length; i++) {
+    if (rows[i][headers.indexOf(&#x27;Asset ID&#x27;)] === assetId) {
+      const r = i + 1;
+      headers.forEach((h, col) =&gt; {
+        const header = h.trim();
+        if (header === &#x27;Name&#x27;)              sheet.getRange(r, col+1).setValue(data.name);
+        if (header === &#x27;Category&#x27;)          sheet.getRange(r, col+1).setValue(data.category);
+        if (header === &#x27;Subcatagorey&#x27;)      sheet.getRange(r, col+1).setValue(data.subcategory || &#x27;&#x27;);
+        if (header === &#x27;Storage Location&#x27;)  sheet.getRange(r, col+1).setValue(data.location);
+        if (header === &#x27;Rental Value&#x27;)      sheet.getRange(r, col+1).setValue(data.rentalValue || &#x27;&#x27;);
+        if (header === &#x27;Replacement Value&#x27;) sheet.getRange(r, col+1).setValue(data.replacementValue || &#x27;&#x27;);
+        if (header === &#x27;Notes&#x27;)             sheet.getRange(r, col+1).setValue(data.notes || &#x27;&#x27;);
+        if (header === &#x27;Photo&#x27;)             sheet.getRange(r, col+1).setValue(data.photoUrl || &#x27;&#x27;);
+        if (header === &#x27;Photo Preview&#x27;)     sheet.getRange(r, col+1).setValue(data.photoUrl || &#x27;&#x27;);
+      });
+      return response({ success: true });
+    }
+  }
+  return response({ success: false, error: &#x27;Asset not found&#x27; });
+}
+
+function checkInOut(data) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(&#x27;Inventory&#x27;);
+  const rows = sheet.getDataRange().getValues();
+  const headers = rows[0];
+  const col = (name) =&gt; headers.indexOf(name);
+  const { assetIds, status: newStatus, who=&#x27;&#x27;, dueBack=&#x27;&#x27;, type=&#x27;&#x27;, staffName=&#x27;&#x27;, condition=&#x27;&#x27;, notes=&#x27;&#x27;, conditionNote=&#x27;&#x27; } = data;
+  const today = new Date().toLocaleDateString(&#x27;en-US&#x27;);
+  const updated = [], notFound = [];
+  assetIds.forEach(assetId =&gt; {
+    let found = false;
+    for (let i = 1; i &lt; rows.length; i++) {
+      if (rows[i][col(&#x27;Asset ID&#x27;)] === assetId) {
+        const r = i + 1;
+        sheet.getRange(r, col(&#x27;Status&#x27;) + 1).setValue(newStatus);
+        sheet.getRange(r, col(&#x27;Current show&#x27;) + 1).setValue(newStatus === &#x27;OUT&#x27; ? who : &#x27;&#x27;);
+        sheet.getRange(r, col(&#x27;due back&#x27;) + 1).setValue(newStatus === &#x27;OUT&#x27; ? dueBack : &#x27;&#x27;);
+        sheet.getRange(r, col(&#x27;Type&#x27;) + 1).setValue(newStatus === &#x27;OUT&#x27; ? type : &#x27;&#x27;);
+        if (newStatus === &#x27;OUT&#x27;) {
+          sheet.getRange(r, col(&#x27;Laat Used Date&#x27;) + 1).setValue(today);
+          sheet.getRange(r, col(&#x27;Last Used Show&#x27;) + 1).setValue(who);
+        }
+        // Append condition note to Notes field on check-in
+        if (newStatus === &#x27;IN&#x27; &amp;&amp; conditionNote) {
+          const existingNotes = rows[i][col(&#x27;Notes&#x27;)] || &#x27;&#x27;;
+          const newNotes = existingNotes ? existingNotes + &#x27;\n&#x27; + conditionNote : conditionNote;
+          sheet.getRange(r, col(&#x27;Notes&#x27;) + 1).setValue(newNotes);
+        }
+        updated.push(assetId); found = true; break;
+      }
+    }
+    if (!found) notFound.push(assetId);
+  });
+  try {
+    const log = ss.getSheetByName(&#x27;Form_Responses&#x27;);
+    if (log) assetIds.forEach(assetId =&gt; log.appendRow([
+      new Date(), assetId, newStatus, who, dueBack, condition, staffName, type, notes
+    ]));
+  } catch(e) {}
+  return response({ success: true, updated, notFound });
+}
+
+function getHistory() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(&#x27;Form_Responses&#x27;);
+  const rows = sheet.getDataRange().getValues();
+  const data = [];
+  for (let i = 1; i &lt; rows.length; i++) {
+    if (!rows[i][0] || !rows[i][1]) continue;
+    data.push({
+      timestamp: rows[i][0].toString(),
+      assetId: rows[i][1],
+      action: rows[i][2],
+      who: rows[i][3],
+      dueDate: rows[i][4],
+      condition: rows[i][5],
+      staff: rows[i][6],
+      type: rows[i][7],
+    });
+  }
+  return response({ success: true, history: data.reverse() });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAINT LIBRARY
+// ═══════════════════════════════════════════════════════════════════════════
+
+function getPaints() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(&#x27;Paint_Library&#x27;);
+  if (!sheet) return response({ success: true, paints: [] });
+  const rows = sheet.getDataRange().getValues();
+  const paints = [];
+  for (let i = 1; i &lt; rows.length; i++) {
+    if (!rows[i][0]) continue;
+    paints.push({
+      id: rows[i][0].toString(),
+      name: rows[i][1] || &#x27;&#x27;,
+      brand: rows[i][2] || &#x27;&#x27;,
+      code: rows[i][3] || &#x27;&#x27;,
+      hex: rows[i][4] || &#x27;&#x27;,
+      notes: rows[i][5] || &#x27;&#x27;,
+      shows: rows[i][6] ? rows[i][6].split(&#x27;|&#x27;) : [],
+      addedDate: rows[i][7] || &#x27;&#x27;,
+    });
+  }
+  return response({ success: true, paints });
+}
+
+function savePaint(data) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(&#x27;Paint_Library&#x27;);
+  if (!sheet) return response({ success: false, error: &#x27;Paint_Library sheet not found&#x27; });
+  const rows = sheet.getDataRange().getValues();
+  const showsStr = (data.shows || []).join(&#x27;|&#x27;);
+
+  if (data.id) {
+    // Update existing
+    for (let i = 1; i &lt; rows.length; i++) {
+      if (rows[i][0].toString() === data.id.toString()) {
+        const r = i + 1;
+        sheet.getRange(r, 1, 1, 8).setValues([[
+          data.id, data.name, data.brand, data.code || &#x27;&#x27;,
+          data.hex || &#x27;&#x27;, data.notes || &#x27;&#x27;, showsStr, data.addedDate || &#x27;&#x27;
+        ]]);
+        return response({ success: true });
+      }
+    }
+  }
+  // Add new
+  const newId = Date.now().toString();
+  const dateStr = new Date().toLocaleDateString(&#x27;en-US&#x27;,{month:&#x27;short&#x27;,day:&#x27;numeric&#x27;,year:&#x27;numeric&#x27;});
+  sheet.appendRow([newId, data.name, data.brand, data.code || &#x27;&#x27;, data.hex || &#x27;&#x27;, data.notes || &#x27;&#x27;, showsStr, dateStr]);
+  return response({ success: true, id: newId });
+}
+
+function deletePaint(data) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(&#x27;Paint_Library&#x27;);
+  if (!sheet) return response({ success: false, error: &#x27;Paint_Library sheet not found&#x27; });
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i &lt; rows.length; i++) {
+    if (rows[i][0].toString() === data.id.toString()) {
+      sheet.deleteRow(i + 1);
+      return response({ success: true });
+    }
+  }
+  return response({ success: false, error: &#x27;Paint not found&#x27; });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASKS &amp; SHOW NOTES
+// ═══════════════════════════════════════════════════════════════════════════
+
+function getTasks(e) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const colors = [&#x27;#534AB7&#x27;,&#x27;#f5a623&#x27;,&#x27;#3B6D11&#x27;,&#x27;#185FA5&#x27;,&#x27;#9b59b6&#x27;,&#x27;#1abc9c&#x27;,&#x27;#e67e22&#x27;,&#x27;#e91e63&#x27;];
+
+  // Read Tasks_Data tab
+  const taskSheet = ss.getSheetByName(&#x27;Tasks&#x27;);
+  const lists = [], tasks = {};
+  if (taskSheet) {
+    const taskRows = taskSheet.getDataRange().getValues();
+    for (let i = 1; i &lt; taskRows.length; i++) {
+      const listName = taskRows[i][0];
+      if (!listName) continue;
+      if (!lists.find(l =&gt; l.name === listName))
+        lists.push({ name: listName, color: colors[lists.length % colors.length] });
+      if (!tasks[listName]) tasks[listName] = [];
+      const taskText = taskRows[i][1];
+      if (taskText) {
+        tasks[listName].push({
+          id: taskRows[i][4] || (Date.now() + &#x27;_&#x27; + i),
+          text: taskText,
+          done: (String(taskRows[i][2] || &#x27;&#x27;)).toUpperCase() === &#x27;TRUE&#x27;,
+          due: taskRows[i][3] || null,
+          notify: (String(taskRows[i][5] || &#x27;&#x27;)).toUpperCase() === &#x27;TRUE&#x27;,
+        });
+      }
+    }
+  }
+
+  // Read Show_Notes tab
+  const showNotes = {};
+  const notesSheet = ss.getSheetByName(&#x27;ShowNotes&#x27;);
+  if (notesSheet) {
+    const noteRows = notesSheet.getDataRange().getValues();
+    for (let i = 1; i &lt; noteRows.length; i++) {
+      if (noteRows[i][0]) showNotes[noteRows[i][0]] = noteRows[i][1];
+    }
+  }
+
+  return response({ success: true, lists, tasks, showNotes });
+}
+
+function saveTasks(data) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(&#x27;Tasks&#x27;);
+  if (!sheet) {
+    sheet = ss.insertSheet(&#x27;Tasks&#x27;);
+    sheet.getRange(&#x27;A1:F1&#x27;).setValues([[&#x27;List&#x27;, &#x27;Task&#x27;, &#x27;Done&#x27;, &#x27;Due&#x27;, &#x27;ID&#x27;, &#x27;Notify&#x27;]]);
+  }
+
+  // Clear existing data (keep header)
+  const lastRow = sheet.getLastRow();
+  if (lastRow &gt; 1) sheet.getRange(2, 1, lastRow - 1, 6).clearContent();
+
+  // Write all tasks
+  const rows = [];
+  const lists = data.lists || [];
+  const tasks = data.tasks || {};
+  lists.forEach(list =&gt; {
+    const items = tasks[list.name] || [];
+    if (items.length === 0) {
+      // Write list name with no task so the list persists
+      rows.push([list.name, &#x27;&#x27;, &#x27;&#x27;, &#x27;&#x27;, &#x27;&#x27;, &#x27;&#x27;]);
+    } else {
+      items.forEach(t =&gt; {
+        rows.push([list.name, t.text, t.done ? &#x27;TRUE&#x27; : &#x27;FALSE&#x27;, t.due || &#x27;&#x27;, t.id || &#x27;&#x27;, t.notify ? &#x27;TRUE&#x27; : &#x27;&#x27;]);
+      });
+    }
+  });
+
+  if (rows.length &gt; 0) {
+    sheet.getRange(2, 1, rows.length, 6).setValues(rows);
+  }
+
+  return response({ success: true });
+}
+
+function saveTask(data) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(&#x27;Tasks&#x27;);
+  if (!sheet) {
+    sheet = ss.insertSheet(&#x27;Tasks&#x27;);
+    sheet.getRange(&#x27;A1:F1&#x27;).setValues([[&#x27;List&#x27;, &#x27;Task&#x27;, &#x27;Done&#x27;, &#x27;Due&#x27;, &#x27;ID&#x27;, &#x27;Notify&#x27;]]);
+  }
+
+  const list = data.list;
+  const text = data.text;
+  const done = data.done === &#x27;true&#x27; || data.done === true ? &#x27;TRUE&#x27; : &#x27;FALSE&#x27;;
+  const due = data.due || &#x27;&#x27;;
+  const id = data.id || Date.now().toString();
+  const notify = data.notify === &#x27;true&#x27; || data.notify === true ? &#x27;TRUE&#x27; : &#x27;&#x27;;
+
+  sheet.appendRow([list, text, done, due, id, notify]);
+  return response({ success: true, id });
+}
+
+// Read the Show Notes template link (Settings) and resolve it to a Drive file ID.
+function _getNotesTemplateId() {
+  try {
+    const sheet = _kvSheet();
+    const rows = sheet.getDataRange().getValues();
+    for (let i = 1; i &lt; rows.length; i++) {
+      if (rows[i][0] === &#x27;notesTemplateLink&#x27;) {
+        let v = rows[i][1];
+        try { v = JSON.parse(v); } catch (e) {}
+        return v ? resolveDriveId(v) : &#x27;&#x27;;
+      }
+    }
+  } catch (err) {}
+  return &#x27;&#x27;;
+}
+
+function createShowDoc(e) {
+  const showName = e.parameter.showName;
+  const key = e.parameter.key;
+  if (!showName) return response({ success: false, error: &#x27;No show name provided&#x27; });
+
+  const docName = showName + &#x27; — Show Notes&#x27;;
+  let url;
+
+  // If a template doc has been set in Settings, copy it instead of building a plain default.
+  const templateId = _getNotesTemplateId();
+  if (templateId) {
+    try {
+      const templateFile = DriveApp.getFileById(templateId);
+      const copy = templateFile.makeCopy(docName);
+      url = copy.getUrl();
+    } catch (err) {
+      // Template unreachable (deleted / no access) — fall back to the plain default below.
+      url = null;
+    }
+  }
+
+  if (!url) {
+    const doc = DocumentApp.create(docName);
+    const body = doc.getBody();
+    body.appendParagraph(showName).setHeading(DocumentApp.ParagraphHeading.HEADING1);
+    body.appendParagraph(&#x27;Show Notes&#x27;);
+    body.appendParagraph(&#x27;&#x27;);
+    body.appendParagraph(&#x27;To Do&#x27;).setHeading(DocumentApp.ParagraphHeading.HEADING2);
+    body.appendParagraph(&#x27;&#x27;);
+    doc.saveAndClose();
+    url = doc.getUrl();
+  }
+
+  // Save the doc URL to Show_Notes tab
+  if (key) {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let sheet = ss.getSheetByName(&#x27;ShowNotes&#x27;);
+    if (!sheet) {
+      sheet = ss.insertSheet(&#x27;ShowNotes&#x27;);
+      sheet.getRange(&#x27;A1:B1&#x27;).setValues([[&#x27;Key&#x27;, &#x27;DocURL&#x27;]]);
+    }
+
+    // Check if key already exists
+    const rows = sheet.getDataRange().getValues();
+    let found = false;
+    for (let i = 1; i &lt; rows.length; i++) {
+      if (rows[i][0] === key) {
+        sheet.getRange(i + 1, 2).setValue(url);
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      sheet.appendRow([key, url]);
+    }
+  }
+
+  return response({ success: true, url });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SHOPPING LISTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Generic key-value store (one row per key, JSON value) ────────────────────
+function _kvSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(&#x27;KVStore&#x27;);
+  if (!sheet) {
+    sheet = ss.insertSheet(&#x27;KVStore&#x27;);
+    sheet.getRange(&#x27;A1:B1&#x27;).setValues([[&#x27;Key&#x27;, &#x27;Value&#x27;]]);
+  }
+  return sheet;
+}
+
+function getKV(e) {
+  const key = e.parameter.key;
+  const sheet = _kvSheet();
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i &lt; rows.length; i++) {
+    if (rows[i][0] === key) {
+      let v = rows[i][1];
+      try { v = JSON.parse(v); } catch (err) {}
+      return response({ success: true, value: v });
+    }
+  }
+  return response({ success: true, value: null });
+}
+
+function saveKV(data) {
+  const key = data.key;
+  if (!key) return response({ success: false, error: &#x27;No key&#x27; });
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(20000); } catch (err) { return response({ success: false, error: &#x27;Busy, try again&#x27; }); }
+  try { return _saveKV(key, data.value); } finally { lock.releaseLock(); }
+}
+function _saveKV(key, value) {
+  if (typeof value !== &#x27;string&#x27;) value = JSON.stringify(value);
+  if (value.length &gt; 49000) return response({ success: false, error: &#x27;Too big for one cell (&#x27; + value.length + &#x27; characters)&#x27; });
+  const sheet = _kvSheet();
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i &lt; rows.length; i++) {
+    if (rows[i][0] === key) {
+      sheet.getRange(i + 1, 2).setValue(value);
+      return response({ success: true });
+    }
+  }
+  sheet.appendRow([key, value]);
+  return response({ success: true });
+}
+
+function saveShowNote(data) {
+  const key = data.key;
+  const value = data.value;
+  if (!key) return response({ success: false, error: &#x27;No key provided&#x27; });
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(&#x27;ShowNotes&#x27;);
+  if (!sheet) {
+    sheet = ss.insertSheet(&#x27;ShowNotes&#x27;);
+    sheet.getRange(&#x27;A1:B1&#x27;).setValues([[&#x27;Key&#x27;, &#x27;DocURL&#x27;]]);
+  }
+
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i &lt; rows.length; i++) {
+    if (rows[i][0] === key) {
+      sheet.getRange(i + 1, 2).setValue(value);
+      return response({ success: true });
+    }
+  }
+  sheet.appendRow([key, value]);
+  return response({ success: true });
+}
+
+function getShopping() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(&#x27;Shopping&#x27;);
+  if (!sheet) {
+    sheet = ss.insertSheet(&#x27;Shopping&#x27;);
+    sheet.getRange(&#x27;A1&#x27;).setValue(&#x27;Data&#x27;);
+    sheet.getRange(&#x27;A2&#x27;).setValue(&#x27;{}&#x27;);
+  }
+  const raw = sheet.getRange(&#x27;A2&#x27;).getValue();
+  let data = {};
+  try { data = JSON.parse(raw || &#x27;{}&#x27;); } catch(e) { data = {}; }
+  return response({ success: true, shopping: data });
+}
+
+function getTeamConfig() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(&#x27;TeamConfig&#x27;);
+  if (!sheet) {
+    sheet = ss.insertSheet(&#x27;TeamConfig&#x27;);
+    sheet.getRange(&#x27;A1&#x27;).setValue(&#x27;Data&#x27;);
+    sheet.getRange(&#x27;A2&#x27;).setValue(JSON.stringify({
+      visibleLists: [&#x27;Building&#x27;, &#x27;Tech To-Do&#x27;, &#x27;TO DO&#x27;, &#x27;Home Depot&#x27;, &#x27;Maintenance&#x27;, &#x27;Long Term Projects&#x27;],
+      crewNames: [&#x27;Alex&#x27;, &#x27;Ben&#x27;, &#x27;Chris&#x27;, &#x27;Dana&#x27;, &#x27;Jamie&#x27;, &#x27;Jordan&#x27;, &#x27;Morgan&#x27;, &#x27;Riley&#x27;, &#x27;Sam&#x27;, &#x27;Taylor&#x27;]
+    }));
+  }
+  const raw = sheet.getRange(&#x27;A2&#x27;).getValue();
+  let data = {};
+  try { data = JSON.parse(raw || &#x27;{}&#x27;); } catch(e) { data = {}; }
+  return response({ success: true, teamConfig: data });
+}
+
+function saveTeamConfig(e, body) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(&#x27;TeamConfig&#x27;);
+  if (!sheet) {
+    sheet = ss.insertSheet(&#x27;TeamConfig&#x27;);
+    sheet.getRange(&#x27;A1&#x27;).setValue(&#x27;Data&#x27;);
+  }
+  let data = {};
+  if (body &amp;&amp; body.teamConfig) {
+    data = body.teamConfig;
+  } else if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.teamConfig) {
+    try { data = JSON.parse(e.parameter.teamConfig); } catch(err) { data = {}; }
+  }
+  sheet.getRange(&#x27;A2&#x27;).setValue(JSON.stringify(data));
+  return response({ success: true });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DROPS CATALOG
+// ═══════════════════════════════════════════════════════════════════════════
+
+function getDrops() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(&#x27;Drops&#x27;);
+  if (!sheet) {
+    sheet = ss.insertSheet(&#x27;Drops&#x27;);
+    sheet.getRange(&#x27;A1:H1&#x27;).setValues([[&#x27;Number&#x27;, &#x27;Name&#x27;, &#x27;Category&#x27;, &#x27;Type&#x27;, &#x27;Size&#x27;, &#x27;Photo&#x27;, &#x27;Notes&#x27;, &#x27;ID&#x27;]]);
+  }
+  const rows = sheet.getDataRange().getValues();
+  const drops = [];
+  for (let i = 1; i &lt; rows.length; i++) {
+    if (!rows[i][0] &amp;&amp; !rows[i][1]) continue;
+    drops.push({
+      number: String(rows[i][0] || &#x27;&#x27;),
+      name: rows[i][1] || &#x27;&#x27;,
+      category: rows[i][2] || &#x27;&#x27;,
+      type: rows[i][3] || &#x27;&#x27;,
+      size: rows[i][4] || &#x27;&#x27;,
+      photo: rows[i][5] || &#x27;&#x27;,
+      notes: rows[i][6] || &#x27;&#x27;,
+      id: rows[i][7] || (Date.now() + &#x27;_&#x27; + i),
+    });
+  }
+  return response({ success: true, drops: drops });
+}
+
+function saveDrops(e, body) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(&#x27;Drops&#x27;);
+  if (!sheet) {
+    sheet = ss.insertSheet(&#x27;Drops&#x27;);
+    sheet.getRange(&#x27;A1:H1&#x27;).setValues([[&#x27;Number&#x27;, &#x27;Name&#x27;, &#x27;Category&#x27;, &#x27;Type&#x27;, &#x27;Size&#x27;, &#x27;Photo&#x27;, &#x27;Notes&#x27;, &#x27;ID&#x27;]]);
+  }
+
+  let data = [];
+  if (body &amp;&amp; body.drops) {
+    data = body.drops;
+  } else if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.drops) {
+    try { data = JSON.parse(e.parameter.drops); } catch(err) { data = []; }
+  }
+
+  // Clear existing data (keep header)
+  const lastRow = sheet.getLastRow();
+  if (lastRow &gt; 1) sheet.getRange(2, 1, lastRow - 1, 8).clearContent();
+
+  // Write rows
+  if (data.length &gt; 0) {
+    const rows = data.map(d =&gt; [
+      d.number || &#x27;&#x27;, d.name || &#x27;&#x27;, d.category || &#x27;&#x27;, d.type || &#x27;&#x27;,
+      d.size || &#x27;&#x27;, d.photo || &#x27;&#x27;, d.notes || &#x27;&#x27;, d.id || &#x27;&#x27;
+    ]);
+    sheet.getRange(2, 1, rows.length, 8).setValues(rows);
+  }
+
+  return response({ success: true });
+}
+
+
+function getLinks() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(&quot;CustomLinks&quot;);
+  if (!sheet) {
+    sheet = ss.insertSheet(&quot;CustomLinks&quot;);
+    sheet.getRange(&quot;A1&quot;).setValue(&quot;Data&quot;);
+    sheet.getRange(&quot;A2&quot;).setValue(&quot;[]&quot;);
+  }
+  const raw = sheet.getRange(&quot;A2&quot;).getValue();
+  let data = [];
+  try { data = JSON.parse(raw || &quot;[]&quot;); } catch(e) { data = []; }
+  return response({ success: true, links: data });
+}
+
+function saveLinks(e, body) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(&quot;CustomLinks&quot;);
+  if (!sheet) {
+    sheet = ss.insertSheet(&quot;CustomLinks&quot;);
+    sheet.getRange(&quot;A1&quot;).setValue(&quot;Data&quot;);
+  }
+  let data = [];
+  if (body &amp;&amp; body.links) { data = body.links; }
+  else if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.links) {
+    try { data = JSON.parse(e.parameter.links); } catch(err) { data = []; }
+  }
+  sheet.getRange(&quot;A2&quot;).setValue(JSON.stringify(data));
+  return response({ success: true });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CLEANING LOG  (scheduled items + date-stamped log)
+// ═══════════════════════════════════════════════════════════════════════════
+// Stored as two JSON blobs in a single &quot;Cleaning&quot; sheet:
+//   A2 = items  [{ id, name, area, intervalDays, lastCleaned }]
+//   B2 = log    [{ id, item, area, who, notes, date }]
+
+function getCleaning() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(&quot;Cleaning&quot;);
+  if (!sheet) {
+    sheet = ss.insertSheet(&quot;Cleaning&quot;);
+    sheet.getRange(&quot;A1&quot;).setValue(&quot;Items&quot;);
+    sheet.getRange(&quot;B1&quot;).setValue(&quot;Log&quot;);
+    sheet.getRange(&quot;A2&quot;).setValue(&quot;[]&quot;);
+    sheet.getRange(&quot;B2&quot;).setValue(&quot;[]&quot;);
+  }
+  let items = [], log = [];
+  try { items = JSON.parse(sheet.getRange(&quot;A2&quot;).getValue() || &quot;[]&quot;); } catch(e) { items = []; }
+  try { log = JSON.parse(sheet.getRange(&quot;B2&quot;).getValue() || &quot;[]&quot;); } catch(e) { log = []; }
+  return response({ success: true, items: items, log: log });
+}
+
+function saveCleaning(e, body) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(&quot;Cleaning&quot;);
+  if (!sheet) {
+    sheet = ss.insertSheet(&quot;Cleaning&quot;);
+    sheet.getRange(&quot;A1&quot;).setValue(&quot;Items&quot;);
+    sheet.getRange(&quot;B1&quot;).setValue(&quot;Log&quot;);
+  }
+  let items = null, log = null;
+  if (body) {
+    if (body.items !== undefined) items = body.items;
+    if (body.log !== undefined) log = body.log;
+  } else if (e &amp;&amp; e.parameter) {
+    if (e.parameter.items !== undefined) { try { items = JSON.parse(e.parameter.items); } catch(err) { items = []; } }
+    if (e.parameter.log !== undefined) { try { log = JSON.parse(e.parameter.log); } catch(err) { log = []; } }
+  }
+  if (items !== null) sheet.getRange(&quot;A2&quot;).setValue(JSON.stringify(items));
+  if (log !== null) sheet.getRange(&quot;B2&quot;).setValue(JSON.stringify(log));
+  return response({ success: true });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BACKDROP IMPORT WIZARD  (read sheet text + list folder photos; you approve)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Read the TEXT rows from a pasted Drive sheet (in-cell images can&#x27;t be read, so
+// we only pull text columns — name, number, category, type, size, notes).
+function readDropsSheet(e) {
+  var raw = e.parameter.sheet || e.parameter.id || &#x27;&#x27;;
+  var id = resolveDriveId(raw);
+  if (!id) return response({ success: false, error: &#x27;Could not read a sheet ID from that link.&#x27; });
+
+  var wb;
+  try { wb = SpreadsheetApp.openById(id); }
+  catch (err) { return response({ success: false, error: &#x27;Cannot open that sheet — check it is shared with this account.&#x27; }); }
+
+  // Use the first sheet (or one named like &quot;drops&quot;/&quot;backdrops&quot; if present)
+  var sheets = wb.getSheets();
+  var target = sheets[0];
+  for (var s = 0; s &lt; sheets.length; s++) {
+    var nm = sheets[s].getName().toLowerCase();
+    if (nm.indexOf(&#x27;drop&#x27;) &gt;= 0 || nm.indexOf(&#x27;backdrop&#x27;) &gt;= 0) { target = sheets[s]; break; }
+  }
+
+  var rows = target.getDataRange().getValues();
+  if (rows.length &lt; 2) return response({ success: true, drops: [], skipped: 0, sheetName: target.getName() });
+
+  var headers = rows[0].map(function(h) { return String(h).toLowerCase().trim(); });
+  function findCol(patterns) {
+    for (var i = 0; i &lt; headers.length; i++) {
+      for (var p = 0; p &lt; patterns.length; p++) {
+        if (patterns[p].test(headers[i])) return i;
+      }
+    }
+    return -1;
+  }
+  var colNum   = findCol([/^#$/, /number/, /drop\s*#/, /drop\s*num/, /^num$/]);
+  var colName  = findCol([/^name$/, /drop\s*name/, /title/, /description/]);
+  var colCat   = findCol([/categ/, /^cat$/, /group/]);
+  var colType  = findCol([/type/, /material/, /fabric/]);
+  var colSize  = findCol([/size/, /dimension/]);
+  var colNotes = findCol([/note/, /comment/, /detail/]);
+
+  // Fallbacks if headers are unclear
+  if (colNum === -1 &amp;&amp; colName === -1 &amp;&amp; headers.length &gt;= 2) { colNum = 0; colName = 1; }
+  if (colName === -1) colName = (colNum === 0 ? 1 : 0);
+
+  var drops = [], skipped = 0;
+  for (var i = 1; i &lt; rows.length; i++) {
+    var name = colName &gt;= 0 ? String(rows[i][colName] || &#x27;&#x27;).trim() : &#x27;&#x27;;
+    var num  = colNum  &gt;= 0 ? String(rows[i][colNum]  || &#x27;&#x27;).trim() : &#x27;&#x27;;
+    // Skip blank/junk rows
+    if (!name &amp;&amp; !num) { skipped++; continue; }
+    if (name.toLowerCase() === &#x27;drop&#x27; || /^drop\s*\d*$/i.test(name) &amp;&amp; !num) { skipped++; continue; }
+    drops.push({
+      number:   num.replace(/[^\d]/g, &#x27;&#x27;) || num,
+      name:     name || (&#x27;Drop &#x27; + num),
+      category: colCat   &gt;= 0 ? String(rows[i][colCat]   || &#x27;&#x27;).trim() : &#x27;&#x27;,
+      type:     colType  &gt;= 0 ? String(rows[i][colType]  || &#x27;&#x27;).trim() : &#x27;&#x27;,
+      size:     colSize  &gt;= 0 ? String(rows[i][colSize]  || &#x27;&#x27;).trim() : &#x27;&#x27;,
+      notes:    colNotes &gt;= 0 ? String(rows[i][colNotes] || &#x27;&#x27;).trim() : &#x27;&#x27;,
+      row: i + 1
+    });
+  }
+  return response({ success: true, drops: drops, skipped: skipped, sheetName: target.getName() });
+}
+
+// List all image files in a pasted Drive folder (and subfolders) as pickable thumbnails.
+function listFolderPhotos(e) {
+  var raw = e.parameter.folder || e.parameter.id || &#x27;&#x27;;
+  var id = resolveDriveId(raw);
+  if (!id) return response({ success: false, error: &#x27;Could not read a folder ID from that link.&#x27; });
+
+  var folder;
+  try { folder = DriveApp.getFolderById(id); }
+  catch (err) { return response({ success: false, error: &#x27;Cannot open that folder — check it is shared with this account. (&#x27; + err.message + &#x27;)&#x27; }); }
+
+  var photos = [];
+  var totalFiles = 0, nonImage = 0;
+  var MAX = 600; // safety cap
+  function scan(f) {
+    var files = f.getFiles();
+    while (files.hasNext() &amp;&amp; photos.length &lt; MAX) {
+      var file = files.next();
+      totalFiles++;
+      var mime = &#x27;&#x27;;
+      try { mime = file.getMimeType(); } catch (err) {}
+      if (mime.indexOf(&#x27;image/&#x27;) !== 0) { nonImage++; continue; }
+      var fid = file.getId();
+      photos.push({
+        id: fid,
+        name: file.getName(),
+        url: &#x27;https://drive.google.com/thumbnail?id=&#x27; + fid + &#x27;&amp;sz=w1000&#x27;,
+        thumb: &#x27;https://drive.google.com/thumbnail?id=&#x27; + fid + &#x27;&amp;sz=w300&#x27;
+      });
+    }
+    var subs = f.getFolders();
+    while (subs.hasNext() &amp;&amp; photos.length &lt; MAX) scan(subs.next());
+  }
+  scan(folder);
+  photos.sort(function(a, b) { return a.name.localeCompare(b.name); });
+  return response({
+    success: true, photos: photos, count: photos.length,
+    folderName: folder.getName(), totalFiles: totalFiles, nonImage: nonImage
+  });
+}
+
+function uploadDropPhoto(data) {
+  try {
+    var folder;
+    try {
+      folder = DriveApp.getFolderById(PHOTO_FOLDER_ID);
+    } catch(e) {
+      folder = DriveApp.getRootFolder();
+    }
+    var blob = Utilities.newBlob(Utilities.base64Decode(data.base64), data.mimeType || &#x27;image/jpeg&#x27;, data.fileName || &#x27;drop-photo.jpg&#x27;);
+    var file = folder.createFile(blob);
+    try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(shareErr) {}
+    var url = &#x27;https://lh3.googleusercontent.com/d/&#x27; + file.getId();
+    return response({ success: true, url: url, fileId: file.getId() });
+  } catch(err) {
+    return response({ success: false, error: err.message });
+  }
+}
+
+// Reference photos: store the image file, return a stable thumbnail URL.
+function uploadRefPhoto(data) {
+  try {
+    var folder;
+    try { folder = DriveApp.getFolderById(PHOTO_FOLDER_ID); }
+    catch(e) { folder = DriveApp.getRootFolder(); }
+    var blob = Utilities.newBlob(Utilities.base64Decode(data.base64), data.mimeType || &#x27;image/jpeg&#x27;, data.fileName || &#x27;ref-photo.jpg&#x27;);
+    var file = folder.createFile(blob);
+    // Sharing can fail (e.g. shared-drive / permission limits) — don&#x27;t let it kill the upload.
+    try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(shareErr) {}
+    var fid = file.getId();
+    return response({
+      success: true,
+      fileId: fid,
+      url: &#x27;https://drive.google.com/thumbnail?id=&#x27; + fid + &#x27;&amp;sz=w1200&#x27;,
+      thumb: &#x27;https://drive.google.com/thumbnail?id=&#x27; + fid + &#x27;&amp;sz=w400&#x27;
+    });
+  } catch(err) {
+    return response({ success: false, error: err.message });
+  }
+}
+
+// ── ONE-TIME IMPORT: Run this manually from Apps Script to import existing drops ──
+// Select &quot;importDropsFromFolder&quot; from the function dropdown and click Run.
+// It scans your MMT Backdrops Drive folder and creates entries from the photos.
+function importDropsFromFolder() {
+  const DROPS_FOLDER_ID = &#x27;1F6ERLa9AyPuTO3Udq80qxZ-PgxJKfW1K&#x27;;
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(&#x27;Drops&#x27;);
+  if (!sheet) {
+    sheet = ss.insertSheet(&#x27;Drops&#x27;);
+    sheet.getRange(&#x27;A1:H1&#x27;).setValues([[&#x27;Number&#x27;, &#x27;Name&#x27;, &#x27;Category&#x27;, &#x27;Type&#x27;, &#x27;Size&#x27;, &#x27;Photo&#x27;, &#x27;Notes&#x27;, &#x27;ID&#x27;]]);
+  }
+
+  // Load existing drops from rows
+  let existing = [];
+  var allRows = sheet.getDataRange().getValues();
+  for (var r = 1; r &lt; allRows.length; r++) {
+    if (!allRows[r][0] &amp;&amp; !allRows[r][1]) continue;
+    existing.push({
+      number: String(allRows[r][0] || &#x27;&#x27;), name: allRows[r][1] || &#x27;&#x27;, category: allRows[r][2] || &#x27;&#x27;,
+      type: allRows[r][3] || &#x27;&#x27;, size: allRows[r][4] || &#x27;&#x27;, photo: allRows[r][5] || &#x27;&#x27;,
+      notes: allRows[r][6] || &#x27;&#x27;, id: allRows[r][7] || &#x27;&#x27;,
+    });
+  }
+
+  const folder = DriveApp.getFolderById(DROPS_FOLDER_ID);
+
+  // Step 1: Collect ALL photos from folder and all subfolders
+  const photoMap = {}; // filename (no ext) -&gt; photo URL
+  function scanPhotos(f) {
+    var files = f.getFiles();
+    while (files.hasNext()) {
+      var file = files.next();
+      if (!file.getMimeType().startsWith(&#x27;image/&#x27;)) continue;
+      try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) {}
+      var url = &#x27;https://lh3.googleusercontent.com/d/&#x27; + file.getId();
+      var fname = file.getName().replace(/\.[^.]+$/, &#x27;&#x27;).toLowerCase().trim();
+      photoMap[fname] = url;
+      photoMap[file.getId()] = url;
+    }
+    var subs = f.getFolders();
+    while (subs.hasNext()) { scanPhotos(subs.next()); }
+  }
+  scanPhotos(folder);
+  Logger.log(&#x27;Found &#x27; + Object.keys(photoMap).length / 2 + &#x27; photos&#x27;);
+
+  // Step 2: Find and read any spreadsheets in the folder
+  var spreadsheets = folder.getFilesByType(MimeType.GOOGLE_SHEETS);
+  var sheetDrops = [];
+  while (spreadsheets.hasNext()) {
+    var ssFile = spreadsheets.next();
+    Logger.log(&#x27;Found spreadsheet: &#x27; + ssFile.getName());
+    var workbook = SpreadsheetApp.openById(ssFile.getId());
+    var sheets = workbook.getSheets();
+    sheets.forEach(function(s) {
+      var rows = s.getDataRange().getValues();
+      if (rows.length &lt; 2) return;
+      var headers = rows[0].map(function(h) { return String(h).toLowerCase().trim(); });
+
+      // Try to find relevant columns
+      var colNum = -1, colName = -1, colCat = -1, colType = -1, colSize = -1, colNotes = -1, colPhoto = -1;
+      headers.forEach(function(h, i) {
+        if (h.match(/^#$|number|drop.?#|drop.?num|num/i)) colNum = i;
+        if (h.match(/^name$|drop.?name|title|description/i)) colName = i;
+        if (h.match(/cat|category|group/i)) colCat = i;
+        if (h.match(/type|material|fabric/i)) colType = i;
+        if (h.match(/size|dimension/i)) colSize = i;
+        if (h.match(/note|comment|detail/i)) colNotes = i;
+        if (h.match(/photo|image|pic|url/i)) colPhoto = i;
+      });
+
+      // If we can&#x27;t find name or number columns, try first two columns
+      if (colNum === -1 &amp;&amp; colName === -1) {
+        if (headers.length &gt;= 2) { colNum = 0; colName = 1; }
+        else return;
+      }
+      if (colName === -1) colName = colNum === 0 ? 1 : 0;
+
+      Logger.log(&#x27;Sheet &quot;&#x27; + s.getName() + &#x27;&quot;: num=&#x27; + colNum + &#x27; name=&#x27; + colName + &#x27; cat=&#x27; + colCat + &#x27; type=&#x27; + colType);
+
+      for (var i = 1; i &lt; rows.length; i++) {
+        var name = colName &gt;= 0 ? String(rows[i][colName] || &#x27;&#x27;).trim() : &#x27;&#x27;;
+        var num = colNum &gt;= 0 ? String(rows[i][colNum] || &#x27;&#x27;).trim() : &#x27;&#x27;;
+
+        // Skip blank rows — must have a real name (not just a number)
+        if (!name || name.toLowerCase() === &#x27;drop&#x27; || name.match(/^drop\s*\d*$/i)) continue;
+        if (!name &amp;&amp; !num) continue;
+
+        // Clean up number - extract just digits
+        var numClean = num.replace(/[^\d]/g, &#x27;&#x27;);
+
+        // Only use photo if explicitly in a photo column — no fuzzy matching
+        var photo = &#x27;&#x27;;
+        if (colPhoto &gt;= 0 &amp;&amp; rows[i][colPhoto]) {
+          photo = String(rows[i][colPhoto]).trim();
+        }
+
+        sheetDrops.push({
+          number: numClean || &#x27;&#x27;,
+          name: name || (&#x27;Drop &#x27; + numClean),
+          category: colCat &gt;= 0 ? String(rows[i][colCat] || &#x27;&#x27;).trim() : &#x27;&#x27;,
+          type: colType &gt;= 0 ? String(rows[i][colType] || &#x27;&#x27;).trim() : &#x27;&#x27;,
+          size: colSize &gt;= 0 ? String(rows[i][colSize] || &#x27;&#x27;).trim() : &#x27;&#x27;,
+          notes: colNotes &gt;= 0 ? String(rows[i][colNotes] || &#x27;&#x27;).trim() : &#x27;&#x27;,
+          photo: photo,
+        });
+      }
+    });
+  }
+  Logger.log(&#x27;Found &#x27; + sheetDrops.length + &#x27; drops from spreadsheet(s)&#x27;);
+
+  // Step 3: Merge - spreadsheet data takes priority, add photo-only drops too
+  var existingNumbers = existing.map(function(d) { return d.number; }).filter(Boolean);
+  var count = 0;
+
+  // Add/update from spreadsheet
+  sheetDrops.forEach(function(sd) {
+    // Check if this drop already exists by number
+    var found = false;
+    if (sd.number) {
+      for (var i = 0; i &lt; existing.length; i++) {
+        if (existing[i].number === sd.number) {
+          // Update existing with spreadsheet data (but keep existing photo if spreadsheet has none)
+          if (sd.name) existing[i].name = sd.name;
+          if (sd.category) existing[i].category = sd.category;
+          if (sd.type) existing[i].type = sd.type;
+          if (sd.size) existing[i].size = sd.size;
+          if (sd.notes &amp;&amp; sd.notes !== existing[i].notes) existing[i].notes = sd.notes;
+          if (sd.photo &amp;&amp; !existing[i].photo) existing[i].photo = sd.photo;
+          found = true; break;
+        }
+      }
+    }
+    if (!found) {
+      existing.push({
+        id: Date.now().toString() + &#x27;_&#x27; + count,
+        number: sd.number,
+        name: sd.name,
+        category: sd.category,
+        type: sd.type,
+        size: sd.size,
+        photo: sd.photo,
+        notes: sd.notes,
+      });
+      count++;
+    }
+  });
+
+  // Sort numerically
+  existing.sort(function(a, b) { return (parseInt(a.number) || 999) - (parseInt(b.number) || 999); });
+
+  // Save as rows
+  var lastRow = sheet.getLastRow();
+  if (lastRow &gt; 1) sheet.getRange(2, 1, lastRow - 1, 8).clearContent();
+  if (!sheet.getRange(&#x27;A1&#x27;).getValue()) {
+    sheet.getRange(&#x27;A1:H1&#x27;).setValues([[&#x27;Number&#x27;, &#x27;Name&#x27;, &#x27;Category&#x27;, &#x27;Type&#x27;, &#x27;Size&#x27;, &#x27;Photo&#x27;, &#x27;Notes&#x27;, &#x27;ID&#x27;]]);
+  }
+  if (existing.length &gt; 0) {
+    var rows = existing.map(function(d) {
+      return [d.number || &#x27;&#x27;, d.name || &#x27;&#x27;, d.category || &#x27;&#x27;, d.type || &#x27;&#x27;, d.size || &#x27;&#x27;, d.photo || &#x27;&#x27;, d.notes || &#x27;&#x27;, d.id || &#x27;&#x27;];
+    });
+    sheet.getRange(2, 1, rows.length, 8).setValues(rows);
+  }
+  Logger.log(&#x27;Import complete. Added/updated &#x27; + count + &#x27; drops. Total: &#x27; + existing.length);
+}
+
+function saveShopping(e, body) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(&#x27;Shopping&#x27;);
+  if (!sheet) {
+    sheet = ss.insertSheet(&#x27;Shopping&#x27;);
+    sheet.getRange(&#x27;A1&#x27;).setValue(&#x27;Data&#x27;);
+  }
+
+  let data = {};
+  // Handle both GET (JSONP) and POST
+  if (body &amp;&amp; body.shopping) {
+    data = body.shopping;
+  } else if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.shopping) {
+    try { data = JSON.parse(e.parameter.shopping); } catch(err) { data = {}; }
+  }
+
+  sheet.getRange(&#x27;A2&#x27;).setValue(JSON.stringify(data));
+  return response({ success: true });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCRIPTS &amp; CUES
+// ═══════════════════════════════════════════════════════════════════════════
+
+function getScriptsFolder() {
+  if (SCRIPTS_FOLDER_ID) return DriveApp.getFolderById(SCRIPTS_FOLDER_ID);
+  // Auto-create a folder
+  var folders = DriveApp.getFoldersByName(&#x27;MMT Scripts&#x27;);
+  if (folders.hasNext()) return folders.next();
+  return DriveApp.createFolder(&#x27;MMT Scripts&#x27;);
+}
+
+function listScripts() {
+  var folder = getScriptsFolder();
+  var files = folder.getFilesByType(MimeType.PDF);
+  var scripts = [];
+  while (files.hasNext()) {
+    var f = files.next();
+    scripts.push({ id: f.getId(), name: f.getName().replace(/\.pdf$/i, &#x27;&#x27;), date: f.getLastUpdated().toLocaleDateString() });
+  }
+  return response({ success: true, scripts: scripts, folderId: folder.getId() });
+}
+
+function loadScript(e) {
+  var fileId = e.parameter.fileId;
+  if (!fileId) return response({ success: false, error: &#x27;No fileId&#x27; });
+  var file = DriveApp.getFileById(fileId);
+  var bytes = file.getBlob().getBytes();
+  var base64 = Utilities.base64Encode(bytes);
+  return response({ success: true, data: base64, name: file.getName() });
+}
+
+// Search the whole Drive (including files shared with you) for PDFs by name.
+// Lets you open large scripts that already live in Drive — no upload needed.
+function searchDrive(e) {
+  var q = (e.parameter.q || &#x27;&#x27;).trim();
+  if (!q) return response({ success: true, results: [] });
+
+  // Escape single quotes for the Drive query string
+  var safe = q.replace(/&#x27;/g, &quot;\\&#x27;&quot;);
+  // Match PDFs whose name contains the query, not trashed
+  var query = &quot;mimeType = &#x27;application/pdf&#x27; and title contains &#x27;&quot; + safe + &quot;&#x27; and trashed = false&quot;;
+
+  var results = [];
+  try {
+    var files = DriveApp.searchFiles(query);
+    var count = 0;
+    while (files.hasNext() &amp;&amp; count &lt; 25) {
+      var f = files.next();
+      var folderName = &#x27;&#x27;;
+      try {
+        var parents = f.getParents();
+        if (parents.hasNext()) folderName = parents.next().getName();
+      } catch (err) {}
+      results.push({
+        id: f.getId(),
+        name: f.getName().replace(/\.pdf$/i, &#x27;&#x27;),
+        folder: folderName,
+        date: f.getLastUpdated().toLocaleDateString(),
+        owner: (function(){ try { return f.getOwner() ? f.getOwner().getName() : &#x27;&#x27;; } catch(err){ return &#x27;&#x27;; } })()
+      });
+      count++;
+    }
+  } catch (err) {
+    return response({ success: false, error: err.message });
+  }
+  return response({ success: true, results: results });
+}
+
+// Pull a Drive file ID out of a pasted share link (or return the raw ID if already one).
+function resolveDriveId(raw) {
+  if (!raw) return &#x27;&#x27;;
+  raw = String(raw).trim();
+  // Common Drive URL shapes:
+  //   /file/d/&lt;id&gt;/   /d/&lt;id&gt;   ?id=&lt;id&gt;   /drive/folders/&lt;id&gt;   /folders/&lt;id&gt;   bare &lt;id&gt;
+  var m = raw.match(/\/folders\/([a-zA-Z0-9_-]{20,})/) ||
+          raw.match(/\/d\/([a-zA-Z0-9_-]{20,})/) ||
+          raw.match(/[?&amp;]id=([a-zA-Z0-9_-]{20,})/) ||
+          raw.match(/\/folderview\?id=([a-zA-Z0-9_-]{20,})/) ||
+          raw.match(/^([a-zA-Z0-9_-]{20,})$/) ||
+          raw.match(/([a-zA-Z0-9_-]{25,})/); // last resort: any long id-like token
+  return m ? m[1] : &#x27;&#x27;;
+}
+
+// Copy a Drive PDF (from search or a pasted link) into the MMT Scripts folder.
+// Server-side copy — the file bytes never pass through the browser, so size is no issue.
+// Returns the NEW file&#x27;s ID, which becomes the working copy for layered markup.
+function importScript(e) {
+  var rawId = e.parameter.fileId || e.parameter.link || &#x27;&#x27;;
+  var fileId = resolveDriveId(rawId);
+  if (!fileId) return response({ success: false, error: &#x27;Could not read a Drive file ID from that.&#x27; });
+
+  var source;
+  try {
+    source = DriveApp.getFileById(fileId);
+  } catch (err) {
+    return response({ success: false, error: &#x27;Cannot open that file — check it is shared with this account.&#x27; });
+  }
+
+  // Must be a PDF
+  var mime = &#x27;&#x27;;
+  try { mime = source.getMimeType(); } catch (err) {}
+  if (mime &amp;&amp; mime !== &#x27;application/pdf&#x27;) {
+    return response({ success: false, error: &#x27;That file is not a PDF.&#x27; });
+  }
+
+  var folder = getScriptsFolder();
+  var baseName = source.getName().replace(/\.pdf$/i, &#x27;&#x27;);
+
+  // If a copy with this name already exists in MMT Scripts, reuse it (don&#x27;t duplicate)
+  var existing = folder.getFilesByName(source.getName());
+  if (existing.hasNext()) {
+    var ex = existing.next();
+    return response({ success: true, fileId: ex.getId(), name: baseName, reused: true });
+  }
+
+  var copy = source.makeCopy(source.getName(), folder);
+  return response({ success: true, fileId: copy.getId(), name: baseName, reused: false });
+}
+
+function uploadScript(data) {
+  var folder = getScriptsFolder();
+  var blob = Utilities.newBlob(Utilities.base64Decode(data.base64), &#x27;application/pdf&#x27;, data.fileName || &#x27;script.pdf&#x27;);
+  var file = folder.createFile(blob);
+  return response({ success: true, fileId: file.getId(), name: file.getName() });
+}
+
+// ── CUE DATA ────────────────────────────────────────────────────────────────
+// One row per script in the CueData tab: A = script ID, B onward = the
+// script&#x27;s data as JSON, split into pieces of up to 45,000 characters so a
+// script is never limited by the 50,000-character cell limit.
+//
+// Saves are safe with several devices at once:
+//   • one save at a time (a lock), so two can&#x27;t interleave;
+//   • a save says which version it was based on (baseRev). If someone else
+//     saved since, it&#x27;s refused and the newer copy is sent back; the device
+//     merges and tries again. Nothing is ever written over newer work.
+//   • the version number is set here, not by the devices;
+//   • every 10 minutes the version being replaced is copied to the
+//     CueBackup tab (last 40 per script, so several hours of work).
+// A save with no baseRev comes from an old copy of a page and is refused, so
+// an old tab left open somewhere can&#x27;t overwrite anyone&#x27;s work.
+var CUE_CHUNK = 45000;
+var CUE_BACKUPS_KEEP = 40;      // per script
+var CUE_BACKUP_EVERY = 600;     // seconds between backups of one script
+
+function _cueSheet(ss, name) {
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+    if (name === &#x27;CueData&#x27;) sheet.getRange(&#x27;A1:B1&#x27;).setValues([[&#x27;ScriptID&#x27;, &#x27;Data (continues across columns)&#x27;]]);
+    else sheet.getRange(&#x27;A1:D1&#x27;).setValues([[&#x27;Saved&#x27;, &#x27;ScriptID&#x27;, &#x27;Version&#x27;, &#x27;Data (continues across columns)&#x27;]]);
+  }
+  return sheet;
+}
+// Find a script&#x27;s row: { row (1-based) or -1, json string or &#x27;&#x27; }.
+function _cueRead(sheet, scriptId) {
+  var last = sheet.getLastRow(), width = Math.max(sheet.getLastColumn(), 2);
+  if (last &lt; 2) return { row: -1, json: &#x27;&#x27; };
+  var ids = sheet.getRange(2, 1, last - 1, 1).getValues();
+  for (var i = 0; i &lt; ids.length; i++) {
+    if (String(ids[i][0]) === String(scriptId)) {
+      var vals = sheet.getRange(i + 2, 2, 1, width - 1).getValues()[0];
+      var json = &#x27;&#x27;;
+      for (var c = 0; c &lt; vals.length; c++) { if (vals[c] === &#x27;&#x27; || vals[c] == null) break; json += String(vals[c]); }
+      return { row: i + 2, json: json };
+    }
+  }
+  return { row: -1, json: &#x27;&#x27; };
+}
+// Pieces never start with a character the Sheet would read as a formula or
+// strip (= + - @ &#x27; or a space), and never end in a space.
+function _cueChunks(json) {
+  var out = [], i = 0, bad = &quot;=+-@&#x27; \t&quot;;
+  while (i &lt; json.length) {
+    var end = Math.min(i + CUE_CHUNK, json.length);
+    while (end &lt; json.length &amp;&amp; end &gt; i + 1 &amp;&amp; (bad.indexOf(json.charAt(end)) &gt;= 0 || json.charAt(end - 1) === &#x27; &#x27;)) end--;
+    out.push(json.substring(i, end));
+    i = end;
+  }
+  return out.length ? out : [&#x27;&#x27;];
+}
+function _cueWrite(sheet, row, scriptId, json) {
+  var parts = _cueChunks(json);
+  if (row &lt; 0) { row = sheet.getLastRow() + 1; sheet.getRange(row, 1).setValue(scriptId); }
+  var width = sheet.getLastColumn();
+  // Clear anything past the new end first, so a shorter save can&#x27;t leave a
+  // stale tail behind.
+  if (width &gt; parts.length + 1) sheet.getRange(row, parts.length + 2, 1, width - parts.length - 1).clearContent();
+  var rng = sheet.getRange(row, 2, 1, parts.length);
+  rng.setNumberFormat(&#x27;@&#x27;);            // plain text: the Sheet must not reinterpret it
+  rng.setValues([parts]);
+  return row;
+}
+function _cueRevOf(json) {
+  if (!json) return 0;
+  try { var d = JSON.parse(json); return (d &amp;&amp; d._rev) || 0; } catch (err) { return -1; }
+}
+
+function getCueData(e) {
+  var scriptId = e.parameter.scriptId;
+  if (!scriptId) return response({ success: false, error: &#x27;No scriptId&#x27; });
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(&#x27;CueData&#x27;);
+  if (!sheet) return response({ success: true, cueData: null, rev: 0, safeSaves: true });
+  var r = _cueRead(sheet, scriptId);
+  if (!r.json) return response({ success: true, cueData: null, rev: 0, safeSaves: true });
+  try {
+    var data = JSON.parse(r.json);
+    return response({ success: true, cueData: data, rev: data._rev || 0, safeSaves: true });
+  } catch (err) {
+    return response({ success: false, error: &#x27;The saved data for this script could not be read: &#x27; + err.message });
+  }
+}
+
+// The cheap &quot;anything new?&quot; check devices make every few seconds.
+function getCueRev(e) {
+  var scriptId = e.parameter.scriptId;
+  if (!scriptId) return response({ success: false, error: &#x27;No scriptId&#x27; });
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get(&#x27;cuerev_&#x27; + scriptId);
+  if (hit !== null) return response({ success: true, rev: Number(hit), safeSaves: true });
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(&#x27;CueData&#x27;);
+  var rev = sheet ? _cueRevOf(_cueRead(sheet, scriptId).json) : 0;
+  cache.put(&#x27;cuerev_&#x27; + scriptId, String(rev), 21600);
+  return response({ success: true, rev: rev, safeSaves: true });
+}
+
+function saveCueData(e, body) {
+  var scriptId, cueData, baseRev;
+  if (body &amp;&amp; body.scriptId) { scriptId = body.scriptId; cueData = body.cueData; baseRev = body.baseRev; }
+  else if (e &amp;&amp; e.parameter) { scriptId = e.parameter.scriptId; baseRev = e.parameter.baseRev; try { cueData = JSON.parse(e.parameter.cueData); } catch(err) {} }
+  if (!scriptId) return response({ success: false, error: &#x27;No scriptId&#x27; });
+  if (!cueData || typeof cueData !== &#x27;object&#x27;) return response({ success: false, error: &#x27;No data&#x27; });
+  if (baseRev === undefined || baseRev === null || baseRev === &#x27;&#x27;) {
+    // From an old copy of a page. Not applied, but kept in CueBackup so
+    // nothing typed there is lost.
+    try {
+      var ss0 = SpreadsheetApp.openById(SPREADSHEET_ID);
+      _cueBackup(ss0, scriptId, &#x27;old page, not applied&#x27;, JSON.stringify(cueData));
+    } catch (err) {}
+    return response({ success: false, reload: true, error: &#x27;This page is an old version. Reload it to save.&#x27; });
+  }
+  baseRev = Number(baseRev);
+
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(25000); }
+  catch (err) { return response({ success: false, busy: true, error: &#x27;The Sheet is busy, trying again.&#x27; }); }
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = _cueSheet(ss, &#x27;CueData&#x27;);
+    var cur = _cueRead(sheet, scriptId);
+    var curRev = _cueRevOf(cur.json);
+    if (curRev &lt; 0) return response({ success: false, error: &#x27;The saved copy could not be read, so nothing was written. Nothing is lost.&#x27; });
+    if (curRev !== baseRev) {
+      // Someone saved since this device last read. Send the newer copy back.
+      return response({ success: false, conflict: true, rev: curRev, cueData: cur.json ? JSON.parse(cur.json) : null });
+    }
+    var newRev = curRev + 1;
+    // A short list of the last saves (by the id each device gives its save),
+    // so a device whose answer got lost can tell its save went in.
+    var log = [];
+    try { log = (cur.json &amp;&amp; JSON.parse(cur.json)._log) || []; } catch (err) {}
+    if (body &amp;&amp; body.saveId) log.push({ id: String(body.saveId).slice(0, 40), rev: newRev });
+    cueData._log = log.slice(-30);
+    cueData._rev = newRev;
+    cueData._savedAt = new Date().toISOString();
+    var json = JSON.stringify(cueData);
+    // Keep the version being replaced.
+    // Keep the version being replaced, at most once every 10 minutes per
+    // script (saves come every few seconds while people work).
+    if (cur.json) {
+      try {
+        var cache = CacheService.getScriptCache(), bkKey = &#x27;cuebk_&#x27; + scriptId;
+        if (!cache.get(bkKey)) { _cueBackup(ss, scriptId, curRev, cur.json); cache.put(bkKey, &#x27;1&#x27;, CUE_BACKUP_EVERY); }
+      } catch (err) {}
+    }
+    _cueWrite(sheet, cur.row, scriptId, json);
+    SpreadsheetApp.flush();
+    // Read it back: only say saved once the Sheet really has it.
+    var check = _cueRead(sheet, scriptId);
+    if (check.json !== json) return response({ success: false, error: &#x27;The Sheet did not keep the save. Trying again.&#x27; });
+    CacheService.getScriptCache().put(&#x27;cuerev_&#x27; + scriptId, String(newRev), 21600);
+    return response({ success: true, rev: newRev, savedAt: cueData._savedAt });
+  } catch (err) {
+    return response({ success: false, error: &#x27;Not saved: &#x27; + err.message });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function _cueBackup(ss, scriptId, label, json) {
+  var bk = _cueSheet(ss, &#x27;CueBackup&#x27;);
+  var parts = _cueChunks(json);
+  var row = bk.getLastRow() + 1;
+  bk.getRange(row, 1, 1, 3).setValues([[new Date(), scriptId, label]]);
+  var rng = bk.getRange(row, 4, 1, parts.length);
+  rng.setNumberFormat(&#x27;@&#x27;);
+  rng.setValues([parts]);
+  _cuePruneBackups(bk, scriptId);
+}
+function _cuePruneBackups(bk, scriptId) {
+  var last = bk.getLastRow();
+  if (last &lt; 2) return;
+  var ids = bk.getRange(2, 2, last - 1, 1).getValues();
+  var rows = [];
+  for (var i = 0; i &lt; ids.length; i++) if (String(ids[i][0]) === String(scriptId)) rows.push(i + 2);
+  var extra = rows.length - CUE_BACKUPS_KEEP;
+  for (var k = extra - 1; k &gt;= 0; k--) bk.deleteRow(rows[k]);   // oldest first, bottom-up
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EMAIL NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+// To enable: in Apps Script, go to Triggers (clock icon on left) →
+// + Add Trigger → choose &quot;checkNotifications&quot; → Time-driven →
+// Day timer → 7am to 8am (or whenever you want) → Save
+
+function checkNotifications() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(&#x27;Tasks&#x27;);
+  if (!sheet) return;
+
+  // Fixed recipient — no Session.getEffectiveUser (that needs an extra
+  // permission the script wasn&#x27;t granted). MailApp only needs send_mail.
+  const email = &#x27;musicmountainmcafee@gmail.com&#x27;;
+  const rows = sheet.getDataRange().getValues();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const overdue = [];
+  const dueToday = [];
+  const notifyToday = [];
+
+  for (let i = 1; i &lt; rows.length; i++) {
+    const list = rows[i][0];
+    const task = rows[i][1];
+    const done = String(rows[i][2] || &#x27;&#x27;).toUpperCase() === &#x27;TRUE&#x27;;
+    const dueStr = rows[i][3];
+    const notify = String(rows[i][5] || &#x27;&#x27;).toUpperCase() === &#x27;TRUE&#x27;;
+
+    if (!task || done || !dueStr) continue;
+
+    const due = new Date(dueStr);
+    if (isNaN(due)) continue;
+    due.setHours(0, 0, 0, 0);
+
+    if (due &lt; today) {
+      const daysLate = Math.round((today - due) / 86400000);
+      overdue.push({ list, task, daysLate });
+    } else if (due.getTime() === today.getTime()) {
+      dueToday.push({ list, task });
+      if (notify) notifyToday.push({ list, task });
+    }
+  }
+
+  // Build email
+  if (overdue.length === 0 &amp;&amp; dueToday.length === 0) return; // Nothing to report
+
+  let subject = &#x27;MMT Tasks: &#x27;;
+  const parts = [];
+  if (overdue.length) parts.push(overdue.length + &#x27; overdue&#x27;);
+  if (dueToday.length) parts.push(dueToday.length + &#x27; due today&#x27;);
+  subject += parts.join(&#x27;, &#x27;);
+
+  let body = &#x27;Good morning! Here\&#x27;s your MMT task update:\n\n&#x27;;
+
+  if (overdue.length) {
+    body += &#x27;🔴 OVERDUE (&#x27; + overdue.length + &#x27;):\n&#x27;;
+    overdue.sort((a, b) =&gt; b.daysLate - a.daysLate);
+    overdue.forEach(t =&gt; {
+      body += &#x27;  • [&#x27; + t.list + &#x27;] &#x27; + t.task + &#x27; — &#x27; + t.daysLate + &#x27; day&#x27; + (t.daysLate !== 1 ? &#x27;s&#x27; : &#x27;&#x27;) + &#x27; late\n&#x27;;
+    });
+    body += &#x27;\n&#x27;;
+  }
+
+  if (dueToday.length) {
+    body += &#x27;📅 DUE TODAY (&#x27; + dueToday.length + &#x27;):\n&#x27;;
+    dueToday.forEach(t =&gt; {
+      body += &#x27;  • [&#x27; + t.list + &#x27;] &#x27; + t.task + &#x27;\n&#x27;;
+    });
+    body += &#x27;\n&#x27;;
+  }
+
+  body += &#x27;—\nMMT TD Dashboard\nhttps://musicmountainmcafee-eng.github.io/MMT-Inventory/app.html&#x27;;
+
+  MailApp.sendEmail({
+    to: email,
+    subject: subject,
+    body: body,
+  });
+}
+
+// ── TEST: run this manually from Apps Script to confirm emails work. ──
+// Select &quot;testNotificationEmail&quot; from the function dropdown → Run. It sends a
+// test email to your account right now, regardless of whether any tasks are due.
+function testNotificationEmail() {
+  const email = &#x27;musicmountainmcafee@gmail.com&#x27;;
+  MailApp.sendEmail({
+    to: email,
+    subject: &#x27;MMT Dashboard — test email ✓&#x27;,
+    body: &#x27;This is a test from your MMT Dashboard.\n\nIf you got this, email notifications are working. The daily task summary will arrive each morning once the trigger is set up.\n\n—\nMMT TD Dashboard&#x27;
+  });
+  Logger.log(&#x27;Test email sent to: &#x27; + email);
+}
+
+function getDriveImage(e) {
+  try {
+    var file = DriveApp.getFileById(e.parameter.fileId);
+    var blob = file.getBlob();
+    var base64 = Utilities.base64Encode(blob.getBytes());
+    return ContentService.createTextOutput(
+      (e.parameter.callback || &#x27;callback&#x27;) + &#x27;(&#x27; + JSON.stringify({
+        success: true, base64: base64, mimeType: blob.getContentType()
+      }) + &#x27;)&#x27;
+    ).setMimeType(ContentService.MimeType.JAVASCRIPT);
+  } catch (err) {
+    return ContentService.createTextOutput(
+      (e.parameter.callback || &#x27;callback&#x27;) + &#x27;(&#x27; + JSON.stringify({ success: false, error: err.message }) + &#x27;)&#x27;
+    ).setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+}</textarea>
+<script>function cp(){const t=document.getElementById('c');t.select();t.setSelectionRange(0,t.value.length);
+const done=()=>{document.getElementById('ok').textContent='Copied ('+t.value.length.toLocaleString()+' characters)';};
+(navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(done,()=>{document.execCommand('copy');done();});}</script>
+</body></html>
