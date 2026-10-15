@@ -6180,7 +6180,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.14 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.14 v4</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -15899,6 +15899,8 @@ function quickSetType(id) {
     if (sePlaceMode && sel0 && sel0.value === id) { setPlaceMode(false); return; }
   }
   document.getElementById('cue-type-sel').value = id;
+  // Picking a type for the next cue isn't an edit to the one selected.
+  if (selectedCueId && typeof _cfShown === 'object') _cfShown.type = id;
   const type = cueTypes.find(t => t.id === id);
   if (type) penColor = type.color;
   renderColorSwatches();
@@ -15912,9 +15914,13 @@ function renderCueTypes() {
   document.getElementById('type-list').innerHTML = cueTypes.map((t, i) =>
     `<div class="type-row"><div class="type-color" style="background:${t.color}" onclick="editCueTypeModal(${i})"></div><span class="type-label" style="cursor:pointer;" onclick="editCueTypeModal(${i})">${t.name}</span><button class="type-del" onclick="event.stopPropagation();deleteCueType(${i})">×</button></div>`
   ).join('');
-  document.getElementById('cue-type-sel').innerHTML = cueTypes.map(t =>
+  // Redrawing the options mustn't reset the choice (that would retype the
+  // selected cue, or the next cue placed, to the first type).
+  const tsel = document.getElementById('cue-type-sel'), tv = tsel.value;
+  tsel.innerHTML = cueTypes.map(t =>
     `<option value="${t.id}">${t.name}</option>`
   ).join('');
+  if (tv && cueTypes.some(t => t.id === tv)) tsel.value = tv;
   renderColorSwatches();
 }
 
@@ -17488,6 +17494,18 @@ function csMergeVocab(b, m, t, where, conf) {
   return out;
 }
 
+// An entry with the same boxes as these, all empty.
+function csBlankLike(a, b) {
+  const out = {};
+  [a || {}, b || {}].forEach(o => Object.keys(o).forEach(k => {
+    if (k in out) return;
+    const v = o[k];
+    out[k] = Array.isArray(v) ? [] : typeof v === 'string' ? '' : typeof v === 'boolean' ? false : typeof v === 'number' ? 0 : undefined;
+  }));
+  if ((a && a.piece) || (b && b.piece)) out.piece = (a && a.piece) || b.piece;   // the name isn't a box
+  return out;
+}
+
 // The whole script. Returns { doc, conflicts }.
 function csMergeDoc(base, mine, theirs) {
   base = base || {}; mine = mine || {}; theirs = theirs || {};
@@ -17503,7 +17521,9 @@ function csMergeDoc(base, mine, theirs) {
       new Set([...Object.keys(t), ...Object.keys(m), ...Object.keys(b)]).forEach(k => {
         const bb = b[k], mm = m[k], tt = t[k];
         if (mm === undefined && tt === undefined) return;
-        if (bb === undefined) { out[k] = mm === undefined ? csClone(tt) : tt === undefined ? csClone(mm) : csMergeObj({}, mm, tt, w + '.' + k, c); return; }
+        // A piece both sides started at once: measure from an empty entry, so a
+        // blank box on one side doesn't wipe what the other filled in.
+        if (bb === undefined) { out[k] = mm === undefined ? csClone(tt) : tt === undefined ? csClone(mm) : csMergeObj(csBlankLike(mm, tt), mm, tt, w + '.' + k, c); return; }
         if (mm === undefined) { if (!csEq(tt, bb)) out[k] = csClone(tt); return; }
         if (tt === undefined) { if (!csEq(mm, bb)) out[k] = csClone(mm); return; }
         out[k] = csMergeObj(bb, mm, tt, w + '.' + k, c);
@@ -17523,12 +17543,35 @@ function csMergeDoc(base, mine, theirs) {
 // ── Save ────────────────────────────────────────────────────────────────────
 // Every edit is written to this device first (that copy survives a crash, a
 // closed tab or no signal), then sent to the Sheet a moment later.
+// Writes that must not fail quietly. When the device's storage is full, make
+// room from things that can be rebuilt (other scripts' history, caches) and
+// try again; if it still won't fit, say so.
+function csStore(key, value) {
+  for (let pass = 0; pass < 4; pass++) {
+    try { localStorage.setItem(key, value); return true; } catch(e) {}
+    try {
+      const keys = []; for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+      keys.forEach(k => {
+        if (k === key) return;
+        if (/^mmt_cuelist_cache_/.test(k) || (pass >= 1 && /^mmt_cuepend_/.test(k) && k !== 'mmt_cuepend_' + showId)) { localStorage.removeItem(k); return; }
+        if (/^(mmt_cues_snap_|mmt_cuelist_snap_)/.test(k)) {
+          const a = JSON.parse(localStorage.getItem(k) || '[]');
+          if (Array.isArray(a) && a.length > 1) localStorage.setItem(k, JSON.stringify(a.slice(Math.ceil(a.length / 2))));
+          else if (pass >= 2) localStorage.removeItem(k);
+        }
+        if (pass >= 3 && /^mmt_cuebase_/.test(k) && k !== 'mmt_cuebase_' + showId) localStorage.removeItem(k);
+      });
+    } catch(e) {}
+  }
+  return false;
+}
 function saveShowData() {
   if (!showId) return;
+  if (_cs.readOnly) { csShowElsewhere(); return; }
   const st = getCueSync();
   const rev = (st.rev || 0) + 1;
   const data = { cueTypes, cues, annotations, setVocab, presets, _rev: rev, _savedAt: new Date().toISOString() };
-  try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify(data)); } catch(e) {}
+  if (!csStore('mmt_cues_' + showId, JSON.stringify(data))) toast('This device is out of storage. Keep this page open until it says Saved.');
   setCueSync({ ...st, rev, savedAt: data._savedAt });
   saveCueSnapshot(data, 'edit');
   setCueSaveState('saving');
@@ -17560,8 +17603,7 @@ function csLoadBase(id) {
 function csSetBase(doc, rev) {
   _cs.base = csClone(doc || {}); _cs.baseRev = rev;
   try { csRemember(_cs.base); } catch(e) {}
-  try { localStorage.setItem(csBaseKey(_cs.sid), JSON.stringify({ rev, doc: _cs.base })); }
-  catch(e) { try { localStorage.removeItem(csBaseKey(_cs.sid)); } catch(e2) {} }   // too big: kept in memory only
+  if (!csStore(csBaseKey(_cs.sid), JSON.stringify({ rev, doc: _cs.base }))) { try { localStorage.removeItem(csBaseKey(_cs.sid)); } catch(e2) {} }   // too big: kept in memory only
 }
 
 // Saves whose answer never came back (no signal, page closed). The Sheet keeps
@@ -17571,7 +17613,7 @@ function csSetBase(doc, rev) {
 function csPendKey(id) { return 'mmt_cuepend_' + id; }
 function csPendGet(id) { try { const v = JSON.parse(localStorage.getItem(csPendKey(id)) || '[]'); return Array.isArray(v) ? v : []; } catch(e) { return []; } }
 function csPendSet(id, list) {
-  list = list.slice(-3);
+  list = list.slice(-4);
   for (;;) {
     try { if (list.length) localStorage.setItem(csPendKey(id), JSON.stringify(list)); else localStorage.removeItem(csPendKey(id)); return; }
     catch(e) { if (!list.length) return; list = list.slice(1); }
@@ -17658,7 +17700,7 @@ function csApply(doc) {
   presets = normalizePresets(doc.presets);
   setVocab = normalizeVocab(doc.setVocab);
   annotations = doc.annotations || {};
-  try { localStorage.setItem('mmt_cues_' + showId, JSON.stringify({ cueTypes, cues, annotations, setVocab, presets, _rev: getCueSync().rev || 0 })); } catch(e) {}
+  csStore('mmt_cues_' + showId, JSON.stringify({ cueTypes, cues, annotations, setVocab, presets, _rev: getCueSync().rev || 0 }));
   csRepaint();
 }
 function csRepaint() {
@@ -17765,7 +17807,7 @@ function csRevOf(d) { return d && typeof d.rev === 'number' ? d.rev : ((d && d.c
 // Send what's here.
 function csPush() {
   const cs = _cs, sid = showId;
-  if (!sid || cs.sid !== sid) return;
+  if (!sid || cs.sid !== sid || cs.readOnly) return;
   clearTimeout(saveShowData._t);
   if (cs.inflight) { cs.again = true; return; }
   if (!cueHasUnsaved()) { if (_cueSaveState === 'saving') setCueSaveState('idle'); return; }
@@ -17850,7 +17892,7 @@ function csPush() {
 // Look at the Sheet; fold in anything new. push: carry on saving afterwards.
 function csRefresh(push) {
   const cs = _cs, sid = showId;
-  if (!sid || cs.sid !== sid || cs.inflight) return;
+  if (!sid || cs.sid !== sid || cs.inflight || cs.readOnly) return;
   cs.inflight = true;
   csGet('getCueData', sid).then(d => {
     cs.inflight = false;
@@ -17899,7 +17941,10 @@ function csFirstLoad(d) {
     csReportClash(r.conflicts, theirs);
     ahead = !csSame(r.doc, theirs);
   }
-  setCueSync({ rev: rev + (ahead ? 1 : 0), syncedRev: rev, savedAt: (theirs && theirs._savedAt) || '' });
+  // The counters only ever go up, so a late answer to an older save can never
+  // mark newer edits as saved.
+  const L = Math.max(st.rev || 0, st.syncedRev || 0);
+  setCueSync({ rev: L + (ahead ? 1 : 0), syncedRev: L, savedAt: (theirs && theirs._savedAt) || '' });
   cs.loaded = true;
   const cleaned = migrateMoveTriggers() | purgeRetiredTypes();
   if (cleaned) saveShowData();
@@ -17907,9 +17952,54 @@ function csFirstLoad(d) {
   else setCueSaveState('idle');
 }
 
+// ── One tab per script on this device ───────────────────────────────────────
+// Two tabs (or windows) of the dashboard on the same script would share this
+// device's copy and trip over each other. The tab that opens it last takes
+// over; the other one stops and says so, with a button to take it back.
+const _csTab = 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+let _csChan = null;
+try { _csChan = new BroadcastChannel('mmt_scripts'); } catch(e) {}
+function csClaim(sid) {
+  const msg = { type: 'claim', sid, tab: _csTab, t: Date.now() };
+  try { _csChan && _csChan.postMessage(msg); } catch(e) {}
+  try { localStorage.setItem('mmt_cue_claim', JSON.stringify(msg)); } catch(e) {}   // for browsers without BroadcastChannel
+}
+function csOnClaim(m) {
+  if (!m || m.type !== 'claim' || m.tab === _csTab || !_cs.sid || m.sid !== _cs.sid || _cs.readOnly) return;
+  // Everything typed here is already on this device; the other tab picks it up.
+  clearTimeout(saveShowData._t); clearTimeout(_cs.timer);
+  const sid = _cs.sid;
+  _cs = { sid, readOnly: true, base: null, baseRev: null, safe: null, loaded: false, inflight: false, again: false, timer: null, fails: 0, loops: 0, tick: 0 };
+  csShowElsewhere();
+}
+if (_csChan) _csChan.onmessage = e => csOnClaim(e.data);
+window.addEventListener('storage', e => { if (e.key === 'mmt_cue_claim' && e.newValue) { try { csOnClaim(JSON.parse(e.newValue)); } catch(err) {} } });
+function csShowElsewhere() {
+  let el = document.getElementById('cs-elsewhere');
+  const ed = document.getElementById('scripts-editor');
+  if (!ed) return;
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'cs-elsewhere';
+    el.style.cssText = 'position:absolute;inset:0;z-index:500;background:rgba(255,255,255,.88);display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font:15px system-ui,sans-serif;color:#333';
+    el.innerHTML = '<div><div style="font-weight:600;margin-bottom:6px">This script is open in another tab or window on this device.</div><div style="color:#666;margin-bottom:14px">Your work is safe; it carries on there.</div><button type="button" style="font-size:15px;padding:10px 18px;border:0;border-radius:8px;background:#534ab7;color:#fff" onclick="csUseHere()">Use it here instead</button></div>';
+    if (getComputedStyle(ed).position === 'static') ed.style.position = 'relative';
+    ed.appendChild(el);
+  }
+  el.style.display = 'flex';
+}
+function csUseHere() {
+  const el = document.getElementById('cs-elsewhere'); if (el) el.style.display = 'none';
+  _cs.sid = '';                 // a fresh start for this script
+  loadShowData();
+  try { renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches(); } catch(e) {}
+}
+
 // Opening a script.
 function loadShowData() {
-  const prev = _cs.sid;
+  { const el = document.getElementById('cs-elsewhere'); if (el) el.style.display = 'none'; }
+  csClaim(showId);
+  const prev = _cs.readOnly ? '' : _cs.sid;
   clearTimeout(saveShowData._t); clearTimeout(_cs.timer);
   if (prev && prev !== showId) csSendLeftBehind(prev);
   const sid = showId;
@@ -17935,7 +18025,7 @@ function loadShowData() {
 function csPoll() {
   const cs = _cs, sid = showId;
   const ed = document.getElementById('scripts-editor');
-  if (!sid || cs.sid !== sid || cs.polling || document.visibilityState !== 'visible' || !ed || !ed.classList.contains('open')) return;
+  if (!sid || cs.sid !== sid || cs.polling || cs.readOnly || document.visibilityState !== 'visible' || !ed || !ed.classList.contains('open')) return;
   if (!cs.loaded) { if (!cs.inflight && ++cs.tick % 3 === 0) csRefresh(false); return; }
   cs.tick++;
   if (cs.safe === false) { if (!cs.inflight && cs.tick % 4 === 0) csRefresh(false); return; }   // old Sheet script: a full read every 12s
@@ -18098,7 +18188,7 @@ function flushCueData() {
 window.addEventListener('pagehide', flushCueData);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushCueData(); });
 window.addEventListener('beforeunload', e => {
-  if (showId && cueHasUnsaved()) { flushCueData(); e.preventDefault(); e.returnValue = ''; return ''; }
+  if (showId && cueHasUnsaved() && !_cs.readOnly) { flushCueData(); e.preventDefault(); e.returnValue = ''; return ''; }
 });
 
 // Leaving a script with saves still waiting: send them in the background.

@@ -873,8 +873,10 @@ function start(){
       const when = new Date(draft.at || Date.now()).toLocaleString('en-US',
         { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
       setTimeout(() => {
-        if (confirm('There are unsaved set change edits on this device from ' + when
-          + ' (' + n + ' set change' + (n !== 1 ? 's' : '') + ').\n\nOpen them for editing?')) {
+        // Put them back and save them (merged, so nothing anyone else did since
+        // is lost). Never thrown away on a tap.
+        {
+          toast('Saving ' + n + ' change' + (n !== 1 ? 's' : '') + ' left on this device from ' + when);
           setEditMode(true);
           editBaseline = draft.baseline || {};
           Object.keys(draft.moves || {}).forEach(id => {
@@ -886,7 +888,7 @@ function start(){
             Object.keys(draft.presets).forEach(k => { if (draft.presets[k]) { presets[k] = draft.presets[k]; editedPresets[k] = true; } });
           }
           markDirty(); render();
-        } else { clearDraft(); }
+        }
       }, 900);
     }
   } catch(e) {}
@@ -1085,7 +1087,7 @@ function fetchCues(showLoading){
       const hash = JSON.stringify([d.cueData.cues, d.cueData.cueTypes, d.cueData.presets]);
       const same = hash === lastHash;
       applyPayload(d.cueData);
-      _clLastDoc = JSON.parse(JSON.stringify(d.cueData));
+      _clLastDoc = { doc: JSON.parse(JSON.stringify(d.cueData)), rev: typeof d.rev === 'number' ? d.rev : (d.cueData._rev || 0) };
       if (typeof d.safeSaves === 'boolean') _clSafe = d.safeSaves;
       loadedRev = typeof d.rev === 'number' ? d.rev : (d.cueData._rev != null) ? d.cueData._rev : null;
       lastHash = hash;
@@ -2901,8 +2903,14 @@ function saveDraft(){
     });
     const pOut = {};
     Object.keys(editedPresets).forEach(k => { pOut[k] = presets[k] || null; });
-    lsSet(draftKey(), JSON.stringify({ at: Date.now(), rev: editLoadedRev, baseline: editBaseline, moves: out,
-      presetBaseline, presets: pOut }));
+    const v = JSON.stringify({ at: Date.now(), rev: editLoadedRev, baseline: editBaseline, moves: out, presetBaseline, presets: pOut });
+    for (let pass = 0; pass < 3; pass++) {
+      try { localStorage.setItem(draftKey(), v); break; } catch(e) {
+        // Full: make room from copies that can be fetched again.
+        try { Object.keys(localStorage).forEach(k => { if (/^mmt_cuelist_cache_/.test(k)) localStorage.removeItem(k);
+          else if (/^(mmt_cuelist_snap_|mmt_cues_snap_)/.test(k)) { const a = JSON.parse(localStorage.getItem(k) || '[]'); if (Array.isArray(a)) localStorage.setItem(k, JSON.stringify(a.slice(Math.ceil(a.length / 2)))); } }); } catch(e2) {}
+      }
+    }
   } catch(e) {}
 }
 function clearDraft(){ try { localStorage.removeItem(draftKey()); } catch(e) {} }
@@ -3104,6 +3112,18 @@ function csMergeVocab(b, m, t, where, conf) {
   return out;
 }
 
+// An entry with the same boxes as these, all empty.
+function csBlankLike(a, b) {
+  const out = {};
+  [a || {}, b || {}].forEach(o => Object.keys(o).forEach(k => {
+    if (k in out) return;
+    const v = o[k];
+    out[k] = Array.isArray(v) ? [] : typeof v === 'string' ? '' : typeof v === 'boolean' ? false : typeof v === 'number' ? 0 : undefined;
+  }));
+  if ((a && a.piece) || (b && b.piece)) out.piece = (a && a.piece) || b.piece;   // the name isn't a box
+  return out;
+}
+
 // The whole script. Returns { doc, conflicts }.
 function csMergeDoc(base, mine, theirs) {
   base = base || {}; mine = mine || {}; theirs = theirs || {};
@@ -3119,7 +3139,9 @@ function csMergeDoc(base, mine, theirs) {
       new Set([...Object.keys(t), ...Object.keys(m), ...Object.keys(b)]).forEach(k => {
         const bb = b[k], mm = m[k], tt = t[k];
         if (mm === undefined && tt === undefined) return;
-        if (bb === undefined) { out[k] = mm === undefined ? csClone(tt) : tt === undefined ? csClone(mm) : csMergeObj({}, mm, tt, w + '.' + k, c); return; }
+        // A piece both sides started at once: measure from an empty entry, so a
+        // blank box on one side doesn't wipe what the other filled in.
+        if (bb === undefined) { out[k] = mm === undefined ? csClone(tt) : tt === undefined ? csClone(mm) : csMergeObj(csBlankLike(mm, tt), mm, tt, w + '.' + k, c); return; }
         if (mm === undefined) { if (!csEq(tt, bb)) out[k] = csClone(tt); return; }
         if (tt === undefined) { if (!csEq(mm, bb)) out[k] = csClone(mm); return; }
         out[k] = csMergeObj(bb, mm, tt, w + '.' + k, c);
@@ -3160,10 +3182,12 @@ let _saveAgain = false, _saveLoops = 0, _clSafe = null;
 // here: those set changes and pieces keep this page's version.
 function clAdopt(data){
   if (!data) return;
+  // The Sheet's copy and its version, always together: the next save is
+  // built on exactly this.
+  _clLastDoc = { doc: JSON.parse(JSON.stringify(data)), rev: data._rev };
   const sheetOpen = (document.getElementById('move-sheet') || {}).classList;
   if (editMode && sheetOpen && sheetOpen.contains('open')) { _clAdoptLater = data; return; }
   _clAdoptLater = null;
-  _clLastDoc = JSON.parse(JSON.stringify(data));
   const keepMoves = {}, keepP = {};
   Object.keys(editedCues).forEach(id => { const c = cues.find(x => String(x.id) === String(id)); if (c) keepMoves[id] = JSON.parse(JSON.stringify(c.moves || [])); });
   Object.keys(editedPresets).forEach(k => { if (presets[k]) keepP[k] = JSON.parse(JSON.stringify(presets[k])); });
@@ -3221,7 +3245,9 @@ function saveMoveEdits(forceRead){
     pKeys.forEach(k => {
       // Box by box: someone else's change to another box of this piece stays.
       const theirs = data.presets[k] ? normalizePresets({ [k]: data.presets[k] })[k] : {};
-      const base = JSON.parse(presetBaseline[k] || 'null') || {};
+      // Not there when editing began: measure from an empty entry, so blank
+      // boxes here don't wipe what someone else filled in.
+      const base = JSON.parse(presetBaseline[k] || 'null') || csBlankLike(oursP[k], theirs);
       data.presets[k] = csMergeObj(base, oursP[k], theirs, 'presets.' + k, clashes);
       pApplied.push(k);
     });
@@ -3238,7 +3264,7 @@ function saveMoveEdits(forceRead){
       return r.text();
     }).then(t => {
       let res; try { res = JSON.parse(t); } catch(e) { res = { unknown: true }; }
-      if (res.conflict && res.cueData && _saveLoops < 8) { _saveLoops++; return go(res.cueData, res.rev); }
+      if (res.conflict && res.cueData && _saveLoops < 8) { _saveLoops++; _clLastDoc = { doc: JSON.parse(JSON.stringify(res.cueData)), rev: res.rev }; return go(res.cueData, res.rev); }
       editSaving = false;
       if (res.conflict || res.unknown || res.busy) {
         // The answer got lost, or it's busy: read again, merge again.
@@ -3279,7 +3305,7 @@ function saveMoveEdits(forceRead){
           + '. Your version is still on this device.');
       } else {
         if (el){ el.className = 'edit-state saved'; el.textContent = 'Saved'; setTimeout(() => { if (el.textContent === 'Saved') el.textContent = ''; }, 2500); }
-        if (editMode || _saveAgain) saveDraft();
+        if (editMode || _saveAgain || Object.keys(editedCues).length || Object.keys(editedPresets).length) saveDraft();
         else {
           clearDraft();
           const btn = document.getElementById('edit-btn');
@@ -3297,12 +3323,13 @@ function saveMoveEdits(forceRead){
     }).catch(offline);
   };
 
-  if (!forceRead && _clSafe === true && _clLastDoc && loadedRev != null) { go(JSON.parse(JSON.stringify(_clLastDoc)), loadedRev); return; }
+  if (!forceRead && _clSafe === true && _clLastDoc && typeof _clLastDoc.rev === 'number') { go(JSON.parse(JSON.stringify(_clLastDoc.doc)), _clLastDoc.rev); return; }
   jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), d => {
     if (!d || !d.success || !d.cueData) return offline();
     if (typeof d.safeSaves === 'boolean') _clSafe = d.safeSaves;
-    _clLastDoc = JSON.parse(JSON.stringify(d.cueData));
-    go(d.cueData, typeof d.rev === 'number' ? d.rev : (d.cueData._rev || 0));
+    const r0 = typeof d.rev === 'number' ? d.rev : (d.cueData._rev || 0);
+    _clLastDoc = { doc: JSON.parse(JSON.stringify(d.cueData)), rev: r0 };
+    go(d.cueData, r0);
   }, offline);
 }
 
@@ -3422,6 +3449,11 @@ function prPaint(){
   });
 }
 (function(){ const f = window.render; if (typeof f === 'function') window.render = function(){ const r = f.apply(this, arguments); try { if (_prPeople.length) prPaint(); } catch(e){} return r; }; })();
+// Leaving with changes not saved yet: send them now (they're kept on this
+// device either way, and go next time if this doesn't make it).
+function clUnsaved(){ return Object.keys(editedCues).length + Object.keys(editedPresets).length > 0; }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && clUnsaved()) { saveDraft(); if (!editSaving) saveMoveEdits(); } });
+window.addEventListener('beforeunload', e => { if (clUnsaved()) { saveDraft(); e.preventDefault(); e.returnValue = ''; return ''; } });
 window.addEventListener('pagehide', () => { try { if (scriptId) fetch(SCRIPT_URL + '?action=getCueRev&scriptId=' + encodeURIComponent(scriptId) + '&me=' + encodeURIComponent(prDevId()) + '&bye=1', { mode: 'no-cors', keepalive: true }); } catch(e){} });
 function clAutoSave(){
   clearTimeout(_clAutoT);
@@ -3963,6 +3995,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.14 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.14 v3</div>
 </body>
 </html>

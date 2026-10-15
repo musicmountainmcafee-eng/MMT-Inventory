@@ -1277,7 +1277,7 @@ function _cueChunks(json) {
 }
 function _cueWrite(sheet, row, scriptId, json) {
   var parts = _cueChunks(json);
-  if (row < 0) { row = sheet.getLastRow() + 1; sheet.getRange(row, 1).setValue(scriptId); }
+  if (row < 0) { row = sheet.getLastRow() + 1; sheet.getRange(row, 1).setNumberFormat('@').setValue(String(scriptId)); }
   var width = sheet.getLastColumn();
   // Clear anything past the new end first, so a shorter save can't leave a
   // stale tail behind.
@@ -1302,6 +1302,7 @@ function getCueData(e) {
   if (!r.json) return response({ success: true, cueData: null, rev: 0, safeSaves: true });
   try {
     var data = JSON.parse(r.json);
+    try { CacheService.getScriptCache().put('cuerev_' + scriptId, String(data._rev || 0), 21600); } catch (err) {}
     return response({ success: true, cueData: data, rev: data._rev || 0, safeSaves: true });
   } catch (err) {
     return response({ success: false, error: 'The saved data for this script could not be read: ' + err.message });
@@ -1396,7 +1397,11 @@ function saveCueData(e, body) {
     SpreadsheetApp.flush();
     // Read it back: only say saved once the Sheet really has it.
     var check = _cueRead(sheet, scriptId);
-    if (check.json !== json) return response({ success: false, error: 'The Sheet did not keep the save. Trying again.' });
+    if (check.json !== json) {
+      // Put the previous version straight back, so what's stored is never half a save.
+      if (cur.json) { try { _cueWrite(sheet, check.row, scriptId, cur.json); SpreadsheetApp.flush(); } catch (err) {} }
+      return response({ success: false, error: 'The Sheet did not keep the save. Trying again.' });
+    }
     CacheService.getScriptCache().put('cuerev_' + scriptId, String(newRev), 21600);
     return response({ success: true, rev: newRev, savedAt: cueData._savedAt });
   } catch (err) {

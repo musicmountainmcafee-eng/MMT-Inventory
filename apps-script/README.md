@@ -5,7 +5,7 @@ code is what's deployed in Apps Script; keep these in step when it changes.
 
 | File | Apps Script project | Status |
 |---|---|---|
-| `MainSheet-Code.gs` | **MMT Warehouse** → Code.gs (web app ending `…BaBg/exec`) | Deployed 10.14 (editing together, who's here, big scripts split across cells) |
+| `MainSheet-Code.gs` | **MMT Warehouse** → Code.gs (web app ending `…BaBg/exec`) | 10.14 v3 (editing together, who's here, big scripts split across cells, safer writes) |
 | `Inventory-Code.gs` | New separate project for the Inventory tab | Not deployed yet (`WRITES_ON = false` until ready) |
 | `ShowNotesDev.gs` | Show notes (dev) | — |
 
