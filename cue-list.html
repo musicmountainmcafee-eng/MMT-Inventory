@@ -606,6 +606,7 @@
       <button class="top-btn" id="edit-btn" onclick="setEditMode(!editMode)" title="Edit set changes">Edit</button>
       <button class="top-btn" onclick="openSheet()">Settings</button>
     </div>
+    <div class="pr-bar" id="pr-bar" style="padding:2px 12px 6px"></div>
     <div class="search-row">
       <div class="view-tabs">
         <button class="view-tab on" id="tab-cues"    onclick="setView('cues')">Cues</button>
@@ -911,24 +912,26 @@ function start(){
 // only fetched when something changed.) While editing, other people's changes
 // come in too, except to the set changes and pieces being edited here.
 let _pollN = 0, _polling = false;
+function clCheck(){
+  if (document.visibilityState !== 'visible' || !scriptId || _polling) return;
+  _pollN++;
+  if (_clSafe === false) { if (_pollN % 4 === 0 && !editMode && !editSaving) fetchCues(); return; }   // old Sheet script
+  _polling = true;
+  jsonp(SCRIPT_URL + '?action=getCueRev&scriptId=' + encodeURIComponent(scriptId) + prParams() + '&_=' + Date.now(), d => {
+    _polling = false;
+    prTake(d);
+    if (!d || typeof d.rev !== 'number') { if (d && d.success) _clSafe = false; return; }
+    _clSafe = true;
+    if (d.rev === loadedRev || editSaving) return;
+    if (!editMode) { fetchCues(); return; }
+    jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), f => {
+      if (f && f.success && f.cueData && editMode && !editSaving) clAdopt(f.cueData);
+    }, () => {});
+  }, () => { _polling = false; });
+}
 function schedulePoll(){
   if (pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(() => {
-    if (document.visibilityState !== 'visible' || !scriptId || _polling || editSaving) return;
-    _pollN++;
-    if (_clSafe === false) { if (_pollN % 4 === 0 && !editMode) fetchCues(); return; }   // old Sheet script
-    _polling = true;
-    jsonp(SCRIPT_URL + '?action=getCueRev&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), d => {
-      _polling = false;
-      if (!d || typeof d.rev !== 'number') { if (d && d.success) _clSafe = false; return; }
-      _clSafe = true;
-      if (d.rev === loadedRev || editSaving) return;
-      if (!editMode) { fetchCues(); return; }
-      jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), f => {
-        if (f && f.success && f.cueData && editMode && !editSaving) clAdopt(f.cueData);
-      }, () => {});
-    }, () => { _polling = false; });
-  }, 4000);
+  pollTimer = setInterval(clCheck, 3000);
 }
 
 // Drive de-dupes filenames, so "…Script (1)" is a file artifact, not a title.
@@ -1082,7 +1085,9 @@ function fetchCues(showLoading){
       const hash = JSON.stringify([d.cueData.cues, d.cueData.cueTypes, d.cueData.presets]);
       const same = hash === lastHash;
       applyPayload(d.cueData);
-      loadedRev = (d.cueData._rev != null) ? d.cueData._rev : null;
+      _clLastDoc = JSON.parse(JSON.stringify(d.cueData));
+      if (typeof d.safeSaves === 'boolean') _clSafe = d.safeSaves;
+      loadedRev = typeof d.rev === 'number' ? d.rev : (d.cueData._rev != null) ? d.cueData._rev : null;
       lastHash = hash;
       try { lsSet('mmt_cuelist_cache_' + scriptId, JSON.stringify(d.cueData)); } catch(e){}
       lastOk = Date.now();
@@ -1598,7 +1603,7 @@ function cueRow(c, band){
     if (band) a.push('band');
     if (changedIds.has(c.id)) a.push('changed');
     if (c2) a.push(c2);
-    return a.length ? ` class="${a.join(' ')}"` : '';
+    return (a.length ? ` class="${a.join(' ')}"` : '') + ` data-cue="${esc(c.id)}"`;
   };
 
   // Non-shift cues: one row, unchanged.
@@ -1644,7 +1649,7 @@ function cueRow(c, band){
       // bottom of the screen. No boxes on the page itself.
       const sel = moveSheet && moveSheet.cueId === String(c.id) && moveSheet.idx === i ? ' mv-sel' : '';
       const blank = !m.piece && !m.action && !m.who && !m.spike && !(m.spikeIds || []).length && !m.notes;
-      return `<tr${rowCls('shift-row mv-edit' + pos.replace(' shift-end', '') + sel)}${accent} data-page="${esc(c.page || '')}"
+      return `<tr${rowCls('shift-row mv-edit' + pos.replace(' shift-end', '') + sel)}${accent} data-page="${esc(c.page || '')}" data-mv="${esc(m.id || '')}"
               onclick="openMove('${esc(c.id)}', ${i})">
         <td class="shift-cue">${first ? cueCell : ''}</td>
         <td class="cs-action">${blank
@@ -1662,7 +1667,7 @@ function cueRow(c, band){
            </tr>` : '');
     }
 
-    return `<tr${rowCls('shift-row' + pos)}${accent} data-page="${esc(c.page || '')}"${toggleAttr}>
+    return `<tr${rowCls('shift-row' + pos)}${accent} data-page="${esc(c.page || '')}" data-mv="${esc(m.id || '')}"${toggleAttr}>
       <td class="shift-cue">${first ? cueCell + (moves.length > 1
           ? `<span class="cs-pg">${moves.length} moves</span>` : '') : ''}</td>
       <td class="cs-action"><span class="mv-piece">${esc(m.piece || '')}</span>${
@@ -1723,6 +1728,11 @@ function saveSnap(data, reason){
   if (!scriptId || !data) return;
   try {
     const snaps = getSnaps();
+    // Routine saves come every few seconds now; keep one every 3 minutes.
+    if (/^(before a cue sheet save|saved from the cue sheet)$/.test(reason || '')) {
+      const last = snaps.filter(s => s.reason === reason).pop();
+      if (last && Date.now() - last.at < 180000) return;
+    }
     const strip = { ...data };
     delete strip.annotations;
     if (Array.isArray(strip.cues)) strip.cues = strip.cues.map(c => (c && typeof c.lineCrop === 'string' && c.lineCrop.startsWith('data:')) ? (({ lineCrop, ...r }) => r)(c) : c);
@@ -2938,7 +2948,7 @@ function mvAddRow(cueId){
   const c = cues.find(x => String(x.id) === String(cueId));
   if (!c) return;
   c.moves = c.moves || [];
-  c.moves.push({ piece:'', action:'', who:'', spike:'', notes:'' });
+  c.moves.push({ id: 'mv' + Date.now() + Math.random().toString(36).slice(2, 6), piece:'', action:'', who:'', spike:'', notes:'' });
   editedCues[cueId] = true;
   saveDraft(); markDirty(); render();
 }
@@ -2955,6 +2965,7 @@ function mvDelRow(cueId, idx){
 }
 
 function markDirty(){
+  clAutoSave();
   const el = document.getElementById('edit-state');
   if (!el) return;
   const n = Object.keys(editedCues).length + Object.keys(editedPresets).length;
@@ -3152,6 +3163,7 @@ function clAdopt(data){
   const sheetOpen = (document.getElementById('move-sheet') || {}).classList;
   if (editMode && sheetOpen && sheetOpen.contains('open')) { _clAdoptLater = data; return; }
   _clAdoptLater = null;
+  _clLastDoc = JSON.parse(JSON.stringify(data));
   const keepMoves = {}, keepP = {};
   Object.keys(editedCues).forEach(id => { const c = cues.find(x => String(x.id) === String(id)); if (c) keepMoves[id] = JSON.parse(JSON.stringify(c.moves || [])); });
   Object.keys(editedPresets).forEach(k => { if (presets[k]) keepP[k] = JSON.parse(JSON.stringify(presets[k])); });
@@ -3172,9 +3184,10 @@ function clRetrySave(){
   clearTimeout(_clRetryT);
   _clRetryT = setTimeout(() => { if (!editSaving) saveMoveEdits(); }, Math.min(5000 * Math.pow(2, _clRetryN++), 60000));
 }
-function saveMoveEdits(){
+function saveMoveEdits(forceRead){
   if (editSaving) { _saveAgain = true; return; }
   _saveAgain = false;
+  clearTimeout(_clAutoT);
   const ids = Object.keys(editedCues);
   const pKeys = Object.keys(editedPresets);
   if (!ids.length && !pKeys.length){ schedulePoll(); render(); return; }
@@ -3189,19 +3202,19 @@ function saveMoveEdits(){
     if (c) ours[id] = JSON.parse(JSON.stringify(c.moves || []));
   });
   pKeys.forEach(k => { oursP[k] = JSON.parse(JSON.stringify(presets[k] || {})); });
+  const offline = () => {
+    editSaving = false;
+    if (el){ el.className = 'edit-state error'; el.textContent = 'Not saved yet — no signal. Your edits are safe on this device; trying again.'; }
+    clRetrySave();
+  };
 
-  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), d => {
-    if (!d || !d.success || !d.cueData){
-      editSaving = false;
-      if (el){ el.className = 'edit-state error'; el.textContent = 'Could not reach the Sheet — your edits are kept on this device; trying again.'; }
-      clRetrySave();
-      return;
-    }
-    saveSnap(d.cueData, 'before a cue sheet save');
-    const mergeOut = mergeMoveEdits(d.cueData, editBaseline, ours);
+  // Fold our edits into a copy of the Sheet's data and send it, saying which
+  // version it was made on. One trip when nobody else saved; if someone did,
+  // the Sheet sends its copy back and we fold into that instead.
+  const go = (fresh, freshRev) => {
+    saveSnap(fresh, 'before a cue sheet save');
+    const mergeOut = mergeMoveEdits(fresh, editBaseline, ours);
     const { data, applied, conflicts } = mergeOut;
-    // Presets: each edited piece goes over the Sheet's copy only if nobody
-    // else changed that piece since editing began.
     const pApplied = [];
     data.presets = (data.presets && typeof data.presets === 'object') ? data.presets : {};
     const clashes = mergeOut.clashes;
@@ -3212,7 +3225,7 @@ function saveMoveEdits(){
       data.presets[k] = csMergeObj(base, oursP[k], theirs, 'presets.' + k, clashes);
       pApplied.push(k);
     });
-    const baseRev = typeof d.rev === 'number' ? d.rev : (d.cueData._rev || 0);
+    const baseRev = freshRev;
     data._rev = baseRev + 1;
     data._savedAt = new Date().toISOString();
     delete data._log;
@@ -3225,17 +3238,18 @@ function saveMoveEdits(){
       return r.text();
     }).then(t => {
       let res; try { res = JSON.parse(t); } catch(e) { res = { unknown: true }; }
+      if (res.conflict && res.cueData && _saveLoops < 8) { _saveLoops++; return go(res.cueData, res.rev); }
       editSaving = false;
       if (res.conflict || res.unknown || res.busy) {
-        // Someone saved first (or the answer got lost): read again, merge again.
-        if (++_saveLoops > 8) { _saveLoops = 0; if (el){ el.className = 'edit-state error'; el.textContent = 'Busy — retrying'; } setTimeout(saveMoveEdits, 5000); return; }
-        saveMoveEdits(); return;
+        // The answer got lost, or it's busy: read again, merge again.
+        if (++_saveLoops > 8) { _saveLoops = 0; if (el){ el.className = 'edit-state error'; el.textContent = 'Busy — retrying'; } setTimeout(() => saveMoveEdits(true), 5000); return; }
+        saveMoveEdits(true); return;
       }
       if (!res.success) {
         if (el){ el.className = 'edit-state error'; el.textContent = res.reload ? 'Reload this page to save — your edits are safe on this device'
           : /50000|maximum/i.test(res.error || '') ? 'Too big for the Sheet — the Sheet script needs its update. Edits are safe here.'
           : 'Not saved — retrying. Your edits are safe on this device'; }
-        if (!res.reload) setTimeout(saveMoveEdits, 8000);
+        if (!res.reload) setTimeout(() => saveMoveEdits(true), 8000);
         return;
       }
       _saveLoops = 0; _clRetryN = 0;
@@ -3243,34 +3257,30 @@ function saveMoveEdits(){
       if (clashes.length) {
         toast('Someone changed the same ' + (clashes.length > 1 ? clashes.length + ' boxes' : 'box') + ' you did. Yours was kept; theirs is in History.');
       }
-      // What we saved is now the starting point. Anything changed again while
-      // this save was out stays marked, so the next save picks it up.
+      // What this page sent is the new starting point for its own changes;
+      // anything changed again while the save was out stays marked.
       applied.forEach(id => {
         const c = cues.find(x => String(x.id) === String(id));
         editBaseline[id] = JSON.parse(JSON.stringify(ours[id]));
         if (!c || JSON.stringify(c.moves || []) === JSON.stringify(ours[id])) delete editedCues[id];
       });
-      // What this page sent is the new starting point for its own changes;
-      // anything changed again meanwhile stays marked for the next save.
       pApplied.forEach(k => {
         presetBaseline[k] = JSON.stringify(oursP[k]);
         if (JSON.stringify(presets[k] || {}) === JSON.stringify(oursP[k])) delete editedPresets[k];
       });
       if (conflicts.length){
-        // Our version of the clashing changes stays in the draft, so nothing
-        // is thrown away — it just isn't pushed over someone else's work.
+        // A set change deleted elsewhere while it was being edited here: our
+        // version stays in the draft, nothing is thrown away. Said once.
+        const fresh1 = conflicts.filter(x => !_clWarned[x.id]);
+        fresh1.forEach(x => { _clWarned[x.id] = true; });
         if (el){ el.className = 'edit-state error';
           el.textContent = conflicts.length + ' set change' + (conflicts.length !== 1 ? 's' : '') + ' not saved — ' + conflicts[0].why; }
-        alert('Saved ' + (applied.length + pApplied.length) + ' change' + ((applied.length + pApplied.length) !== 1 ? 's' : '') + '.\n\n'
-          + conflicts.length + ' could not be saved because ' + conflicts[0].why
-          + '. Your version is still on this device — reopen Edit to see it.');
+        if (fresh1.length) alert(fresh1.length + ' set change' + (fresh1.length !== 1 ? 's' : '') + ' could not be saved because ' + fresh1[0].why
+          + '. Your version is still on this device.');
       } else {
         if (el){ el.className = 'edit-state saved'; el.textContent = 'Saved'; setTimeout(() => { if (el.textContent === 'Saved') el.textContent = ''; }, 2500); }
-        if (editMode || _saveAgain) {
-          // You're already editing again (or another save is queued): keep
-          // the draft with those edits, and leave the panel open.
-          saveDraft();
-        } else {
+        if (editMode || _saveAgain) saveDraft();
+        else {
           clearDraft();
           const btn = document.getElementById('edit-btn');
           if (btn){ btn.textContent = 'Edit'; btn.classList.remove('on'); }
@@ -3284,18 +3294,139 @@ function saveMoveEdits(){
       if (_saveAgain) { saveMoveEdits(); return; }
       if (!editMode) schedulePoll();
       render();
-    }).catch(() => {
-      editSaving = false; _saveAgain = false;
-      if (el){ el.className = 'edit-state error'; el.textContent = 'Not saved yet — no signal. Your edits are safe on this device; trying again.'; }
-      clRetrySave();
-    });
-  }, () => {
-    editSaving = false;
-    if (el){ el.className = 'edit-state error'; el.textContent = 'Could not reach the Sheet — your edits are kept on this device; trying again.'; }
-    clRetrySave();
-  });
+    }).catch(offline);
+  };
+
+  if (!forceRead && _clSafe === true && _clLastDoc && loadedRev != null) { go(JSON.parse(JSON.stringify(_clLastDoc)), loadedRev); return; }
+  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), d => {
+    if (!d || !d.success || !d.cueData) return offline();
+    if (typeof d.safeSaves === 'boolean') _clSafe = d.safeSaves;
+    _clLastDoc = JSON.parse(JSON.stringify(d.cueData));
+    go(d.cueData, typeof d.rev === 'number' ? d.rev : (d.cueData._rev || 0));
+  }, offline);
 }
 
+// Saves on its own a moment after you stop typing, no Done needed.
+let _clAutoT = null, _clWarned = {}, _clLastDoc = null;
+
+// ── WHO ELSE IS HERE (shared: app.html and cue-list.html — keep in step) ────
+// Each device says, with its "anything new?" check, which box it's in. The
+// Sheet's script keeps that for a few seconds (never in the Sheet) and hands
+// back everyone else's, so each page can outline the box someone is typing
+// in, with their name, in their colour. prWhere / prPaint are per page.
+const PR_COLORS = ['#e8590c', '#1c7ed6', '#2f9e44', '#ae3ec9', '#f08c00', '#0c8599', '#d6336c', '#5f3dc4'];
+let _prPeople = [], _prMarked = [];
+function prDevId() {
+  let v = '';
+  try { v = localStorage.getItem('mmt_dev_id') || ''; if (!v) { v = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); localStorage.setItem('mmt_dev_id', v); } } catch (e) {}
+  return v || (window._prTmpId = window._prTmpId || 'd' + Math.random().toString(36).slice(2, 9));
+}
+function prKind() {
+  const u = navigator.userAgent || '';
+  return /iPad/.test(u) ? 'iPad' : /iPhone/.test(u) ? 'iPhone' : /Android/.test(u) ? (/Mobile/.test(u) ? 'Android phone' : 'Android tablet') : /Mac/.test(u) ? 'Mac' : /Windows/.test(u) ? 'PC' : 'Device';
+}
+function prName() { try { const n = localStorage.getItem('mmt_dev_name'); if (n) return n; } catch (e) {} return prKind(); }
+function prRename() {
+  const n = prompt('Your name, as the others see it:', prName());
+  if (n === null || !n.trim()) return;
+  try { localStorage.setItem('mmt_dev_name', n.trim().slice(0, 30)); } catch (e) {}
+  prPaint(); prNudge();
+}
+function prColor(id) { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return PR_COLORS[h % PR_COLORS.length]; }
+function prParams() {
+  let w = '', pg = '';
+  try { w = prWhere() || ''; pg = prPage() || ''; } catch (e) {}
+  return '&me=' + encodeURIComponent(prDevId()) + '&name=' + encodeURIComponent(prName()) + '&where=' + encodeURIComponent(w) + '&page=' + encodeURIComponent(pg);
+}
+function prTake(d) { if (d && Array.isArray(d.people)) { _prPeople = d.people; try { prPaint(); } catch (e) {} } }
+function prEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
+// Outline an element in someone's colour, with their name on it.
+function prMark(el, p, tagIn) {
+  if (!el) return;
+  const col = prColor(p.id);
+  _prMarked.push({ el, outline: el.style.outline, shadow: el.style.boxShadow });
+  if (el.tagName === 'TR') el.style.boxShadow = 'inset 4px 0 0 ' + col + ', inset 0 0 0 1px ' + col + '55';
+  else { el.style.outline = '2px solid ' + col; el.style.outlineOffset = '1px'; }
+  const host = tagIn || (el.tagName === 'TR' ? el.firstElementChild : el.parentElement);
+  if (host && !host.querySelector('.pr-tag[data-p="' + p.id + '"]')) {
+    const t = document.createElement('span');
+    t.className = 'pr-tag'; t.dataset.p = p.id; t.textContent = p.name || 'Someone';
+    t.style.cssText = 'display:inline-block;margin:0 4px;padding:1px 6px;border-radius:9px;font:600 10px/1.5 system-ui,sans-serif;color:#fff;background:' + col + ';vertical-align:middle;white-space:nowrap;pointer-events:none;';
+    host.appendChild(t);
+  }
+}
+function prUnmarkAll() {
+  _prMarked.forEach(m => { m.el.style.outline = m.outline; m.el.style.boxShadow = m.shadow; });
+  _prMarked = [];
+  document.querySelectorAll('.pr-tag').forEach(t => t.remove());
+}
+// The row of names: you first (tap to change your name), then the others.
+function prBarHTML(describe) {
+  const me = `<button type="button" class="pr-chip pr-me" onclick="prRename()" title="Tap to change your name">You: ${prEsc(prName())}</button>`;
+  return me + _prPeople.map(p => `<span class="pr-chip" style="--pc:${prColor(p.id)}"><i></i>${prEsc(p.name || 'Someone')}<em>${prEsc(describe(p))}</em></span>`).join('');
+}
+const PR_CSS = `.pr-bar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font:12px system-ui,sans-serif}
+.pr-bar:empty{display:none}
+.pr-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;background:#f1f0fa;color:#333;border:1px solid #ddd;white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis}
+.pr-chip i{width:8px;height:8px;border-radius:50%;background:var(--pc)}
+.pr-chip em{font-style:normal;color:#777}
+.pr-me{cursor:pointer;font:inherit;color:#555;background:transparent}`;
+function prInjectCSS() { if (document.getElementById('pr-css')) return; const s = document.createElement('style'); s.id = 'pr-css'; s.textContent = PR_CSS; document.head.appendChild(s); }
+// Moving to another box: tell the others straight away rather than at the next check.
+let _prNudgeT = null;
+document.addEventListener('focusin', () => { clearTimeout(_prNudgeT); _prNudgeT = setTimeout(prNudge, 250); });
+document.addEventListener('focusout', () => { clearTimeout(_prNudgeT); _prNudgeT = setTimeout(prNudge, 400); });
+
+// This page: which box am I in, and where do the others show.
+function prNudge(){ clCheck(); }
+function prPage(){ return 'cuesheet'; }
+function prWhere(){
+  const ae = document.activeElement;
+  const f = ae && ae.id && ae.id.indexOf('ms-') === 0 ? ae.id.slice(3) : '';
+  if (moveSheet){
+    const c = cues.find(x => String(x.id) === String(moveSheet.cueId));
+    const m = c && c.moves && c.moves[moveSheet.idx];
+    return 'mv:' + moveSheet.cueId + ':' + ((m && m.id) || '') + ':' + f;
+  }
+  if (typeof presetSheet !== 'undefined' && presetSheet) return 'pre:' + presetSheet.key + ':' + f;
+  return '';
+}
+const PR_FIELD = { action: 'Action', cueLine: 'Cue line', notes: 'Notes', number: 'Number', piece: 'Piece', who: 'Who', spike: 'Spike', location: 'Location', edit: 'editing' };
+function prDescribe(p){
+  const w = String(p.where || '').split(':');
+  const cueName = id => { const c = cues.find(x => String(x.id) === String(id)); return c ? (c.number || 'a cue') : 'a cue'; };
+  if (w[0] === 'mv'){
+    const c = cues.find(x => String(x.id) === w[1]); const m = c && (c.moves || []).find(x => x.id === w[2]);
+    return cueName(w[1]) + (m && m.piece ? ' · ' + m.piece : '') + (w[3] ? ' · ' + (PR_FIELD[w[3]] || w[3]) : '');
+  }
+  if (w[0] === 'cue') return cueName(w[1]) + (w[2] ? ' · ' + (PR_FIELD[w[2]] || w[2]) : '');
+  if (w[0] === 'pre') return 'Before House · ' + ((presets[w[1]] || {}).piece || w[1]);
+  return p.page === 'cuesheet' ? 'cue sheet' : p.page && /^p\d+$/.test(p.page) ? 'script, page ' + p.page.slice(1) : 'looking';
+}
+function prPaint(){
+  prInjectCSS();
+  prUnmarkAll();
+  const bar = document.getElementById('pr-bar');
+  if (bar) { const h = _prPeople.length ? prBarHTML(prDescribe) : ''; if (bar.innerHTML !== h) { bar.innerHTML = h; try { measureHeader(); } catch(e){} } }
+  _prPeople.forEach(p => {
+    const w = String(p.where || '').split(':');
+    if (w[0] === 'mv' && w[2]) document.querySelectorAll('tr[data-mv="' + CSS.escape(w[2]) + '"]').forEach(el => prMark(el, p));
+    else if (w[0] === 'mv' || w[0] === 'cue') { const r = document.querySelector('tr[data-cue="' + CSS.escape(w[1]) + '"]'); prMark(r, p); }
+    if (w[0] === 'pre') document.querySelectorAll('tr.pr-row[data-key="' + CSS.escape(w[1]) + '"]').forEach(el => prMark(el, p));
+    // Same move or piece open here: outline the box they're in.
+    if (w[3] || w[2]) {
+      const f = w[0] === 'mv' ? w[3] : w[0] === 'pre' ? w[2] : '';
+      const mine = prWhere().split(':');
+      if (f && mine[0] === w[0] && mine[1] === w[1] && (w[0] === 'pre' || mine[2] === w[2])) prMark(document.getElementById('ms-' + f), p);
+    }
+  });
+}
+(function(){ const f = window.render; if (typeof f === 'function') window.render = function(){ const r = f.apply(this, arguments); try { if (_prPeople.length) prPaint(); } catch(e){} return r; }; })();
+window.addEventListener('pagehide', () => { try { if (scriptId) fetch(SCRIPT_URL + '?action=getCueRev&scriptId=' + encodeURIComponent(scriptId) + '&me=' + encodeURIComponent(prDevId()) + '&bye=1', { mode: 'no-cors', keepalive: true }); } catch(e){} });
+function clAutoSave(){
+  clearTimeout(_clAutoT);
+  _clAutoT = setTimeout(() => { if (Object.keys(editedCues).length || Object.keys(editedPresets).length) saveMoveEdits(); }, 1500);
+}
 
 
 // ── PRESET PANEL (Before House, edit mode) ──────────────────────────────────
@@ -3441,7 +3572,7 @@ function openMove(cueId, idx, added){
   if (!c) return;
   c.moves = c.moves || [];
   // An empty set change shows a "Tap to add a move" row with nothing behind it.
-  if (!c.moves.length){ c.moves.push({ piece:'', action:'', who:'', spike:'', notes:'' }); idx = 0; added = true; }
+  if (!c.moves.length){ c.moves.push({ id: 'mv' + Date.now() + Math.random().toString(36).slice(2, 6), piece:'', action:'', who:'', spike:'', notes:'' }); idx = 0; added = true; }
   if (idx >= c.moves.length) idx = c.moves.length - 1;
   moveSheet = { cueId: id, idx, added: !!added };
   render();
@@ -3491,7 +3622,7 @@ function sheetAddMove(cueId){
   c.moves = c.moves || [];
   // A lone blank placeholder is reused rather than stacking another blank.
   if (c.moves.length && blankMove(c.moves[c.moves.length - 1])) return openMove(c.id, c.moves.length - 1, true);
-  c.moves.push({ piece:'', action:'', who:'', spike:'', notes:'' });
+  c.moves.push({ id: 'mv' + Date.now() + Math.random().toString(36).slice(2, 6), piece:'', action:'', who:'', spike:'', notes:'' });
   openMove(c.id, c.moves.length - 1, true);
 }
 
@@ -3832,6 +3963,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.14 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.14 v2</div>
 </body>
 </html>

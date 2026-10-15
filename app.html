@@ -5889,6 +5889,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
       <div class="se-title">
         <div class="se-name" id="se-name"></div>
         <div class="se-sub"><span id="se-dates"></span><span id="se-count"></span><span class="cue-save-status" id="cue-save-status"></span></div>
+        <div class="pr-bar" id="pr-bar"></div>
       </div>
       <!-- Raw script filename; exports read it. The tidy name shows in se-name. -->
       <span class="show-name" id="show-name" hidden></span>
@@ -6179,7 +6180,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.14 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.14 v3</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -16127,9 +16128,9 @@ function renderPresets() {
               title="Print this row" style="width:auto;margin:0;cursor:pointer;"
               onchange="presetToggle('${escA(key)}','${escA(piece)}',this.checked)" /></td>
         <td class="pg-name">${escA(piece)}</td>
-        <td><input type="text" value="${escA(e.location)}" autocomplete="off"
+        <td><input type="text" value="${escA(e.location)}" autocomplete="off" data-pkey="${escA(key)}" data-f="location"
               oninput="presetEdit('${escA(key)}','${escA(piece)}','location',this.value)" /></td>
-        <td><input type="text" value="${escA(e.notes)}" autocomplete="off"
+        <td><input type="text" value="${escA(e.notes)}" autocomplete="off" data-pkey="${escA(key)}" data-f="notes"
               oninput="presetEdit('${escA(key)}','${escA(piece)}','notes',this.value)" /></td>
       </tr>`;
     }).join('')}</tbody>
@@ -17746,7 +17747,7 @@ function csPost(body) {
     .finally(() => clearTimeout(t));
 }
 // A read that doesn't light up the busy bar (these run every few seconds).
-function csGet(action, sid) {
+function csGet(action, sid, extra) {
   return new Promise((res, rej) => {
     const cb = 'cs_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
     const el = document.createElement('script');
@@ -17755,7 +17756,7 @@ function csGet(action, sid) {
     const to = setTimeout(() => { if (end()) rej('timeout'); }, 15000);
     window[cb] = d => { if (end()) res(d); };
     el.onerror = () => { if (end()) rej('error'); };
-    el.src = SCRIPT_URL + '?action=' + action + '&scriptId=' + encodeURIComponent(sid) + '&_=' + Date.now() + '&callback=' + cb;
+    el.src = SCRIPT_URL + '?action=' + action + '&scriptId=' + encodeURIComponent(sid) + (extra || '') + '&_=' + Date.now() + '&callback=' + cb;
     document.head.appendChild(el);
   });
 }
@@ -17934,20 +17935,152 @@ function loadShowData() {
 function csPoll() {
   const cs = _cs, sid = showId;
   const ed = document.getElementById('scripts-editor');
-  if (!sid || cs.sid !== sid || cs.inflight || cs.polling || document.visibilityState !== 'visible' || !ed || !ed.classList.contains('open')) return;
-  if (!cs.loaded) { if (++cs.tick % 3 === 0) csRefresh(false); return; }
+  if (!sid || cs.sid !== sid || cs.polling || document.visibilityState !== 'visible' || !ed || !ed.classList.contains('open')) return;
+  if (!cs.loaded) { if (!cs.inflight && ++cs.tick % 3 === 0) csRefresh(false); return; }
   cs.tick++;
-  if (cs.safe === false) { if (cs.tick % 4 === 0) csRefresh(false); return; }   // old Sheet script: a full read every 12s
+  if (cs.safe === false) { if (!cs.inflight && cs.tick % 4 === 0) csRefresh(false); return; }   // old Sheet script: a full read every 12s
   cs.polling = true;
-  csGet('getCueRev', sid).then(d => {
+  csGet('getCueRev', sid, prParams()).then(d => {
     cs.polling = false;
-    if (cs !== _cs || cs.inflight) return;
+    if (cs !== _cs) return;
+    prTake(d);
+    if (cs.inflight) return;
     if (!d || typeof d.rev !== 'number') { if (d && d.success) cs.safe = false; return; }
     cs.safe = true;
     if (d.rev !== cs.baseRev) csRefresh(false);
   }).catch(() => { cs.polling = false; });
 }
 setInterval(csPoll, 3000);
+
+// ── WHO ELSE IS HERE (shared: app.html and cue-list.html — keep in step) ────
+// Each device says, with its "anything new?" check, which box it's in. The
+// Sheet's script keeps that for a few seconds (never in the Sheet) and hands
+// back everyone else's, so each page can outline the box someone is typing
+// in, with their name, in their colour. prWhere / prPaint are per page.
+const PR_COLORS = ['#e8590c', '#1c7ed6', '#2f9e44', '#ae3ec9', '#f08c00', '#0c8599', '#d6336c', '#5f3dc4'];
+let _prPeople = [], _prMarked = [];
+function prDevId() {
+  let v = '';
+  try { v = localStorage.getItem('mmt_dev_id') || ''; if (!v) { v = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); localStorage.setItem('mmt_dev_id', v); } } catch (e) {}
+  return v || (window._prTmpId = window._prTmpId || 'd' + Math.random().toString(36).slice(2, 9));
+}
+function prKind() {
+  const u = navigator.userAgent || '';
+  return /iPad/.test(u) ? 'iPad' : /iPhone/.test(u) ? 'iPhone' : /Android/.test(u) ? (/Mobile/.test(u) ? 'Android phone' : 'Android tablet') : /Mac/.test(u) ? 'Mac' : /Windows/.test(u) ? 'PC' : 'Device';
+}
+function prName() { try { const n = localStorage.getItem('mmt_dev_name'); if (n) return n; } catch (e) {} return prKind(); }
+function prRename() {
+  const n = prompt('Your name, as the others see it:', prName());
+  if (n === null || !n.trim()) return;
+  try { localStorage.setItem('mmt_dev_name', n.trim().slice(0, 30)); } catch (e) {}
+  prPaint(); prNudge();
+}
+function prColor(id) { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return PR_COLORS[h % PR_COLORS.length]; }
+function prParams() {
+  let w = '', pg = '';
+  try { w = prWhere() || ''; pg = prPage() || ''; } catch (e) {}
+  return '&me=' + encodeURIComponent(prDevId()) + '&name=' + encodeURIComponent(prName()) + '&where=' + encodeURIComponent(w) + '&page=' + encodeURIComponent(pg);
+}
+function prTake(d) { if (d && Array.isArray(d.people)) { _prPeople = d.people; try { prPaint(); } catch (e) {} } }
+function prEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
+// Outline an element in someone's colour, with their name on it.
+function prMark(el, p, tagIn) {
+  if (!el) return;
+  const col = prColor(p.id);
+  _prMarked.push({ el, outline: el.style.outline, shadow: el.style.boxShadow });
+  if (el.tagName === 'TR') el.style.boxShadow = 'inset 4px 0 0 ' + col + ', inset 0 0 0 1px ' + col + '55';
+  else { el.style.outline = '2px solid ' + col; el.style.outlineOffset = '1px'; }
+  const host = tagIn || (el.tagName === 'TR' ? el.firstElementChild : el.parentElement);
+  if (host && !host.querySelector('.pr-tag[data-p="' + p.id + '"]')) {
+    const t = document.createElement('span');
+    t.className = 'pr-tag'; t.dataset.p = p.id; t.textContent = p.name || 'Someone';
+    t.style.cssText = 'display:inline-block;margin:0 4px;padding:1px 6px;border-radius:9px;font:600 10px/1.5 system-ui,sans-serif;color:#fff;background:' + col + ';vertical-align:middle;white-space:nowrap;pointer-events:none;';
+    host.appendChild(t);
+  }
+}
+function prUnmarkAll() {
+  _prMarked.forEach(m => { m.el.style.outline = m.outline; m.el.style.boxShadow = m.shadow; });
+  _prMarked = [];
+  document.querySelectorAll('.pr-tag').forEach(t => t.remove());
+}
+// The row of names: you first (tap to change your name), then the others.
+function prBarHTML(describe) {
+  const me = `<button type="button" class="pr-chip pr-me" onclick="prRename()" title="Tap to change your name">You: ${prEsc(prName())}</button>`;
+  return me + _prPeople.map(p => `<span class="pr-chip" style="--pc:${prColor(p.id)}"><i></i>${prEsc(p.name || 'Someone')}<em>${prEsc(describe(p))}</em></span>`).join('');
+}
+const PR_CSS = `.pr-bar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font:12px system-ui,sans-serif}
+.pr-bar:empty{display:none}
+.pr-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;background:#f1f0fa;color:#333;border:1px solid #ddd;white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis}
+.pr-chip i{width:8px;height:8px;border-radius:50%;background:var(--pc)}
+.pr-chip em{font-style:normal;color:#777}
+.pr-me{cursor:pointer;font:inherit;color:#555;background:transparent}`;
+function prInjectCSS() { if (document.getElementById('pr-css')) return; const s = document.createElement('style'); s.id = 'pr-css'; s.textContent = PR_CSS; document.head.appendChild(s); }
+// Moving to another box: tell the others straight away rather than at the next check.
+let _prNudgeT = null;
+document.addEventListener('focusin', () => { clearTimeout(_prNudgeT); _prNudgeT = setTimeout(prNudge, 250); });
+document.addEventListener('focusout', () => { clearTimeout(_prNudgeT); _prNudgeT = setTimeout(prNudge, 400); });
+
+// This page: which box am I in, and where do the others show.
+function prNudge() { csPoll(); }
+function prPage() {
+  const ed = document.getElementById('scripts-editor');
+  return ed && ed.classList.contains('open') && typeof currentPage !== 'undefined' ? 'p' + currentPage : '';
+}
+function prWhere() {
+  const ae = document.activeElement, drawer = document.getElementById('mvd-body');
+  if (ae && ae.dataset && ae.dataset.move && drawer && drawer.contains(ae)) return 'mv:' + ae.dataset.cue + ':' + ae.dataset.move + ':' + ae.dataset.key;
+  if (ae && CF_FIELDS[ae.id] && selectedCueId) return 'cue:' + selectedCueId + ':' + CF_FIELDS[ae.id];
+  if (ae && ae.dataset && ae.dataset.pkey) return 'pre:' + ae.dataset.pkey + ':' + (ae.dataset.f || '');
+  if (editingCueId) return 'cue:' + editingCueId + ':edit';
+  if (mvDrawerCueId) return 'cue:' + mvDrawerCueId;
+  if (selectedCueId) return 'cue:' + selectedCueId;
+  return '';
+}
+const PR_FIELD = { action: 'Action', cueLine: 'Cue line', notes: 'Notes', number: 'Number', type: 'Type', piece: 'Piece', who: 'Who', spike: 'Spike', location: 'Location', edit: 'editing' };
+function prDescribe(p) {
+  const w = String(p.where || '').split(':');
+  const cueName = id => { const c = cues.find(x => String(x.id) === String(id)); return c ? (c.number || 'a cue') : 'a cue'; };
+  if (w[0] === 'mv') {
+    const c = cues.find(x => String(x.id) === w[1]); const m = c && (c.moves || []).find(x => x.id === w[2]);
+    return cueName(w[1]) + (m && m.piece ? ' · ' + m.piece : '') + (w[3] ? ' · ' + (PR_FIELD[w[3]] || w[3]) : '');
+  }
+  if (w[0] === 'cue') return cueName(w[1]) + (w[2] ? ' · ' + (PR_FIELD[w[2]] || w[2]) : '');
+  if (w[0] === 'pre') return 'Before House · ' + ((presets[w[1]] || {}).piece || w[1]);
+  return p.page && /^p\d+$/.test(p.page) ? 'page ' + p.page.slice(1) : 'looking';
+}
+function prPaint() {
+  prInjectCSS();
+  prUnmarkAll();
+  const bar = document.getElementById('pr-bar');
+  if (bar) bar.innerHTML = _prPeople.length ? prBarHTML(prDescribe) : '';
+  _prPeople.forEach(p => {
+    const w = String(p.where || '').split(':');
+    if (w[0] === 'mv' || w[0] === 'cue') {
+      prMark(document.querySelector('.cue-table tr[data-cue-id="' + CSS.escape(w[1]) + '"]'), p);
+    }
+    if (w[0] === 'mv') {
+      const sel = '#mvd-body input[data-move="' + CSS.escape(w[2]) + '"]' + (w[3] ? '[data-key="' + CSS.escape(w[3]) + '"]' : '');
+      document.querySelectorAll(sel).forEach(el => prMark(el, p));
+    }
+    if (w[0] === 'cue' && w[2] && String(selectedCueId) === w[1]) {
+      const id = Object.keys(CF_FIELDS).find(k => CF_FIELDS[k] === w[2]);
+      if (id) prMark(document.getElementById(id), p);
+    }
+    if (w[0] === 'pre') document.querySelectorAll('#preset-body input[data-pkey="' + CSS.escape(w[1]) + '"]' + (w[2] ? '[data-f="' + CSS.escape(w[2]) + '"]' : '')).forEach(el => prMark(el, p));
+  });
+}
+// Repaint the outlines whenever these lists are redrawn.
+['renderCueList', 'renderMoveDrawer', 'renderPresets'].forEach(n => {
+  const f = window[n]; if (typeof f !== 'function') return;
+  window[n] = function () { const r = f.apply(this, arguments); try { if (_prPeople.length) prPaint(); } catch (e) {} return r; };
+});
+// Leaving: say so, so the others' outline goes at once.
+function prBye() {
+  if (!showId) return;
+  try { fetch(SCRIPT_URL + '?action=getCueRev&scriptId=' + encodeURIComponent(showId) + '&me=' + encodeURIComponent(prDevId()) + '&bye=1', { mode: 'no-cors', keepalive: true }); } catch (e) {}
+  _prPeople = []; try { prPaint(); } catch (e) {}
+}
+window.addEventListener('pagehide', prBye);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') csPoll(); });
 
 // Anything pending goes out before the page is hidden or closed. Only with the
@@ -19368,6 +19501,7 @@ function openScriptsEditor() {
   if (typeof clearCueForm === 'function') clearCueForm();  // edit panel starts disabled
 }
 function closeScriptsEditor() {
+  try { prBye(); } catch (e) {}
   const ed = document.getElementById('scripts-editor');
   if (ed) ed.classList.remove('open');
 }

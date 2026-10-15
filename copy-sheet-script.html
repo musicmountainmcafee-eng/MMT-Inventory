@@ -3,7 +3,7 @@
 <style>body{font-family:-apple-system,system-ui,sans-serif;margin:16px;background:#fff;color:#222}
 button{font-size:18px;padding:12px 22px;border:0;border-radius:8px;background:#534ab7;color:#fff;cursor:pointer}
 #ok{margin-left:12px;color:#1a7f37;font-weight:600}textarea{width:100%;height:60vh;margin-top:14px;font:12px ui-monospace,monospace;box-sizing:border-box}</style></head>
-<body><h2>Main Sheet script update (safe editing together)</h2>
+<body><h2>Main Sheet script update (editing together + who's here)</h2>
 <p>Tap Copy, then in Apps Script select everything in Code.gs and paste over it.</p>
 <button onclick="cp()">Copy the code</button><span id="ok"></span>
 <textarea id="c" readonly>const PHOTO_FOLDER_ID = &#x27;1lHOzK17bJfXGHfCeVaopghbrjUKIs61Ur2r5aYy8naYKcTjyB0uiv-XNVKsQpFWo02AlSMtG&#x27;;
@@ -1316,18 +1316,39 @@ function getCueData(e) {
   }
 }
 
-// The cheap &quot;anything new?&quot; check devices make every few seconds.
+// The cheap &quot;anything new?&quot; check devices make every few seconds. It also
+// says who else has this script open and what they&#x27;re editing (kept a few
+// seconds in the cache only, never in the Sheet).
 function getCueRev(e) {
   var scriptId = e.parameter.scriptId;
   if (!scriptId) return response({ success: false, error: &#x27;No scriptId&#x27; });
   var cache = CacheService.getScriptCache();
-  var hit = cache.get(&#x27;cuerev_&#x27; + scriptId);
-  if (hit !== null) return response({ success: true, rev: Number(hit), safeSaves: true });
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var sheet = ss.getSheetByName(&#x27;CueData&#x27;);
-  var rev = sheet ? _cueRevOf(_cueRead(sheet, scriptId).json) : 0;
-  cache.put(&#x27;cuerev_&#x27; + scriptId, String(rev), 21600);
-  return response({ success: true, rev: rev, safeSaves: true });
+  var hit = cache.get(&#x27;cuerev_&#x27; + scriptId), rev;
+  if (hit !== null) rev = Number(hit);
+  else {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName(&#x27;CueData&#x27;);
+    rev = sheet ? _cueRevOf(_cueRead(sheet, scriptId).json) : 0;
+    cache.put(&#x27;cuerev_&#x27; + scriptId, String(rev), 21600);
+  }
+  var people = [];
+  try { people = _cuePresence(cache, scriptId, e.parameter); } catch (err) {}
+  return response({ success: true, rev: rev, safeSaves: true, people: people, now: Date.now() });
+}
+function _cuePresence(cache, scriptId, p) {
+  var me = String(p.me || &#x27;&#x27;).slice(0, 40);
+  if (!me) return [];
+  var idxKey = &#x27;presidx_&#x27; + scriptId, idx = [];
+  try { idx = JSON.parse(cache.get(idxKey) || &#x27;[]&#x27;) || []; } catch (err) {}
+  var key = function (d) { return &#x27;pres_&#x27; + scriptId + &#x27;_&#x27; + d; };
+  if (p.bye) cache.remove(key(me));
+  else cache.put(key(me), JSON.stringify({ id: me, name: String(p.name || &#x27;&#x27;).slice(0, 30), where: String(p.where || &#x27;&#x27;).slice(0, 200), page: String(p.page || &#x27;&#x27;).slice(0, 40), t: Date.now() }), 30);
+  if (idx.indexOf(me) &lt; 0 &amp;&amp; !p.bye) { idx.push(me); idx = idx.slice(-20); cache.put(idxKey, JSON.stringify(idx), 21600); }
+  var got = cache.getAll(idx.map(key)), out = [], now = Date.now();
+  Object.keys(got).forEach(function (k) {
+    try { var x = JSON.parse(got[k]); if (x &amp;&amp; x.id !== me &amp;&amp; now - x.t &lt; 15000) out.push(x); } catch (err) {}
+  });
+  return out;
 }
 
 function saveCueData(e, body) {
@@ -1527,5 +1548,5 @@ function getDriveImage(e) {
 <script>function cp(){const t=document.getElementById('c');t.select();t.setSelectionRange(0,t.value.length);
 const done=()=>{document.getElementById('ok').textContent='Copied ('+t.value.length.toLocaleString()+' characters)';};
 (navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(done,()=>{document.execCommand('copy');done();});}</script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.14 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.14 v2</div>
 </body></html>
