@@ -634,6 +634,7 @@
       <button class="export-opt" onclick="runExport('cues')"><b>Cue sheet</b><span>PDF of every cue, with line photos</span></button>
       <button class="export-opt" onclick="runExport('plot')"><b>Set change plot</b><span>PDF for the deck: Before House, then every change</span></button>
       <button class="export-opt" onclick="runExport('xlsx')"><b>Set change plot (Excel)</b><span>The same plot as a spreadsheet</span></button>
+      <button class="export-opt" onclick="runExport('spikes')"><b>Spike key</b><span>PDF to post backstage: each piece, its tape and spike notes</span></button>
     </div>
     <div class="modal-btns"><button class="top-btn" onclick="closeExport()">Cancel</button></div>
   </div>
@@ -1721,6 +1722,7 @@ async function runExport(kind){
     if (kind === 'cues') await exportCueSheet();
     else if (kind === 'plot') await exportSetChangePlot();
     else if (kind === 'xlsx') await exportSetChangeXLSX();
+    else if (kind === 'spikes') await exportSpikeKey();
   } catch(e) { console.error(e); toast('Export failed — try again'); }
 }
 
@@ -1833,6 +1835,136 @@ function restoreSnap(idx, _try){
 // change. Scenes get a solid bar. Deliberately its own document rather than a
 // section of the cue sheet — this is what goes on the deck, and nobody running
 // a change wants to page past LX cues to find it.
+// ── SPIKE KEY EXPORT ─────────────────────────────────────────────────────────
+// One sheet to post backstage: every piece, A–Z, with the tape for each of its
+// spikes (drawn as it's laid on the floor), what the spike map says about it,
+// anything typed, and where it's used (Before House, change 3…). Pieces with
+// no spike yet are listed at the foot, so the gaps show.
+function spikeKeyRows(){
+  const changes = cuesInScriptOrder().filter(c => c.type === SHIFT_TYPE_ID);
+  const tName = typeOf(SHIFT_TYPE_ID).name;
+  return allPieces().map(({ key, piece }) => {
+    const p = presets[key] || {};
+    if (p.hidden) return null;
+    const spikes = new Map(), typed = new Map();
+    const use = (id, e, where) => { if (!spikes.has(id)) spikes.set(id, { e, uses: [] }); const u = spikes.get(id).uses; if (!u.includes(where)) u.push(where); };
+    const useT = (txt, where) => { const t = String(txt || '').trim(); if (!t) return; const k = t.toLowerCase(); if (!typed.has(k)) typed.set(k, { t, uses: [] }); const u = typed.get(k).uses; if (!u.includes(where)) u.push(where); };
+    (Array.isArray(p.spikeIds) ? p.spikeIds : []).forEach(id => use(id, spkFind(scriptId, id), 'Before House'));
+    useT(p.spike, 'Before House');
+    changes.forEach(c => (c.moves || []).forEach(m => {
+      if (String(m.piece || '').trim().toLowerCase() !== key) return;
+      const where = 'Change ' + shortNumber(c, tName);
+      (Array.isArray(m.spikeIds) ? m.spikeIds : []).forEach(id => use(id, spkFind(scriptId, id), where));
+      useT(m.spike, where);
+    }));
+    return { piece, spikes: [...spikes.values()].filter(x => x.e), typed: [...typed.values()] };
+  }).filter(Boolean);
+}
+async function exportSpikeKey() {
+  const rows = spikeKeyRows();
+  if (!rows.length) { toast('No pieces yet: add moves to a set change first'); return; }
+  let jsPDFCtor = null;
+  try { jsPDFCtor = await loadJsPDF(); } catch (err) {}
+  if (!jsPDFCtor) { toast('Could not load PDF library'); return; }
+  toast('Building spike key…');
+  const showName = ssTitle(scriptId, document.getElementById('show-name').textContent || 'Untitled');
+  const now = new Date();
+  const stamp = now.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' }) + ' at ' + now.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+  const withS = rows.filter(r => r.spikes.length || r.typed.length), without = rows.filter(r => !r.spikes.length && !r.typed.length);
+
+  // Laid out at full size first; if that runs past one page, a little smaller,
+  // down to 70%, so it can go up as a single sheet.
+  const build = (k, dry) => {
+    const doc = new jsPDFCtor({ orientation: 'p', unit: 'pt', format: 'letter' });
+    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+    const M = 40, GAP = 20, COLW = (W - M * 2 - GAP) / 2, BOTTOM = H - 36;
+    const SW = 34 * k, SH = 20 * k, TX = SW + 10;
+    const F = { name: 13 * k, head: 10.5 * k, small: 9 * k, use: 8 * k };
+    const L = { name: F.name * 1.23, head: F.head * 1.24, small: F.small * 1.22, use: F.use * 1.25 };
+    const lines = (txt, w, size, bold) => { doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(size); return doc.splitTextToSize(String(txt), w); };
+    let y0 = 0, pages = 1;
+    const title = first => {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(20, 20, 26);
+      doc.text(showName, M, 50);
+      const tw = doc.getTextWidth(showName);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(110, 110, 122);
+      doc.text('Spike Key', M + tw + 10, 50);
+      doc.setFontSize(8); doc.setTextColor(150, 150, 160); doc.text('Updated ' + stamp, M, 64);
+      doc.setDrawColor(38, 38, 46); doc.setLineWidth(1.1); doc.line(M, 72, W - M, 72);
+      y0 = 90;
+      // The gaps first, where they can't be missed.
+      if (first && without.length) {
+        const txt = lines('No spike yet: ' + without.map(r => r.piece).join(', '), W - M * 2, 9.5, true);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(150, 60, 40);
+        txt.forEach((t, i) => doc.text(t, M, 88 + i * 12));
+        y0 = 88 + txt.length * 12 + 10;
+      }
+    };
+    const block = r => {
+      const parts = [];
+      r.spikes.forEach(s => {
+        const e = s.e;
+        const head = lines(e.label || spkTapeName(e) || 'Spike', COLW - TX, F.head, true);
+        const tape = e.label ? lines(spkTapeName(e), COLW - TX, F.small, false) : [];
+        const note = e.note ? lines(e.note, COLW - TX, F.small, false) : [];
+        const uses = lines('Used: ' + s.uses.join(', '), COLW - TX, F.use, false);
+        parts.push({ kind: 'spike', e, head, tape, note, uses, h: Math.max(SH, head.length * L.head + (tape.length + note.length) * L.small + uses.length * L.use) + 5 * k });
+      });
+      r.typed.forEach(t => {
+        const txt = lines(t.t, COLW - TX, F.small + 1 * k, false), uses = lines('Used: ' + t.uses.join(', '), COLW - TX, F.use, false);
+        parts.push({ kind: 'typed', txt, uses, h: Math.max(SH, txt.length * L.head + uses.length * L.use) + 5 * k });
+      });
+      const name = lines(r.piece, COLW, F.name, true);
+      return { name, parts, h: name.length * L.name + 4 * k + parts.reduce((n, p) => n + p.h, 0) + 10 * k };
+    };
+    const draw = (b, x, y) => {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(F.name); doc.setTextColor(20, 20, 26);
+      b.name.forEach((t, i) => doc.text(t, x, y + F.name * 0.95 + i * L.name));
+      let yy = y + b.name.length * L.name + 4 * k;
+      b.parts.forEach(p => {
+        let ty = yy + F.head * 0.95;
+        if (p.kind === 'spike') {
+          spkDrawPDF(doc, p.e, x, yy + 1, SW, SH);
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(F.head); doc.setTextColor(25, 25, 30);
+          p.head.forEach(t => { doc.text(t, x + TX, ty); ty += L.head; });
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(F.small); doc.setTextColor(70, 70, 80);
+          p.tape.forEach(t => { doc.text(t, x + TX, ty - 2); ty += L.small; });
+          doc.setTextColor(40, 40, 48);
+          p.note.forEach(t => { doc.text(t, x + TX, ty - 2); ty += L.small; });
+        } else {
+          doc.setDrawColor(150, 150, 160); doc.setLineWidth(0.6); doc.setLineDashPattern([2, 2], 0); doc.rect(x, yy + 1, SW, SH); doc.setLineDashPattern([], 0);
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(F.small + 1 * k); doc.setTextColor(30, 30, 36);
+          p.txt.forEach(t => { doc.text(t, x + TX, ty); ty += L.head; });
+        }
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(F.use); doc.setTextColor(130, 130, 142);
+        p.uses.forEach(t => { doc.text(t, x + TX, ty - 2); ty += L.use; });
+        yy += p.h;
+      });
+      doc.setDrawColor(220, 220, 228); doc.setLineWidth(0.5); doc.line(x, y + b.h - 5 * k, x + COLW, y + b.h - 5 * k);
+    };
+    title(true);
+    let col = 0, y = y0;
+    withS.forEach(r => {
+      const b = block(r);
+      if (y + b.h > BOTTOM && y > y0) {
+        if (col === 0) { col = 1; y = y0; }
+        else { doc.addPage(); pages++; title(false); col = 0; y = y0; }
+      }
+      if (!dry) draw(b, M + col * (COLW + GAP), y);
+      y += b.h;
+    });
+    if (!dry) {
+      const n = doc.getNumberOfPages();
+      if (n > 1) for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(150, 150, 160); doc.text(i + ' / ' + n, W - M, H - 20, { align: 'right' }); }
+    }
+    return { doc, pages };
+  };
+  let k = 1;
+  while (k > 0.7 && build(k, true).pages > 1) k -= 0.05;
+  const { doc } = build(Math.max(k, 0.7), false);
+  doc.save(showName.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') + '_Spike_Key.pdf');
+}
+
 async function exportSetChangePlot() {
   const ordered = cuesInScriptOrder();
   const changes = ordered.filter(c => c.type === SHIFT_TYPE_ID);
@@ -4011,6 +4143,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.15 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.15 v2</div>
 </body>
 </html>

@@ -6180,7 +6180,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.15 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.15 v3</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -16979,6 +16979,11 @@ function saveCueEdit() {
 function deleteCue(id) {
   const target = id || editingCueId || selectedCueId;
   if (!target) return;
+  // Kept so the delete can be undone: the cue, where it sat in the list, and
+  // its marks on the script.
+  const at = cues.findIndex(c => c.id === target);
+  const gone = { cue: at >= 0 ? JSON.parse(JSON.stringify(cues[at])) : null, at, marks: [] };
+  Object.keys(annotations).forEach(page => (annotations[page] || []).forEach((a, i) => { if (a.cueId === target) gone.marks.push({ page, i, a: JSON.parse(JSON.stringify(a)) }); }));
   cues = cues.filter(c => c.id !== target);
   // Remove annotation
   Object.keys(annotations).forEach(page => {
@@ -16990,7 +16995,31 @@ function deleteCue(id) {
   renderCueList();
   redrawAnnotations();
   saveShowData();
-  toast('Cue deleted');
+  if (gone.cue) toastUndo((gone.cue.number || 'Cue') + ' deleted', () => undeleteCue(gone));
+  else toast('Cue deleted');
+}
+function undeleteCue(g) {
+  if (!g || !g.cue || cues.some(c => c.id === g.cue.id)) return;
+  cues.splice(Math.min(Math.max(g.at, 0), cues.length), 0, g.cue);
+  g.marks.forEach(m => { const arr = annotations[m.page] = annotations[m.page] || []; arr.splice(Math.min(m.i, arr.length), 0, m.a); });
+  renderCueList(); redrawAnnotations(); saveShowData();
+  toast((g.cue.number || 'Cue') + ' is back');
+}
+// A message with an Undo button, for a few seconds.
+function toastUndo(msg, undo) {
+  let el = document.getElementById('toast-undo');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'toast-undo';
+    el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:6px 6px 6px 18px;border-radius:99px;font:500 14px system-ui,sans-serif;z-index:10000;display:none;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.25)';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = '';
+  const t = document.createElement('span'); t.textContent = msg;
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Undo';
+  b.style.cssText = 'min-height:36px;padding:0 16px;border:0;border-radius:99px;background:#fff;color:#1a1a1a;font:600 14px system-ui,sans-serif;cursor:pointer';
+  b.onclick = () => { el.style.display = 'none'; clearTimeout(el._t); undo(); };
+  el.append(t, b); el.style.display = 'flex';
+  clearTimeout(el._t); el._t = setTimeout(() => { el.style.display = 'none'; }, 8000);
 }
 
 let _ceShown = null;
