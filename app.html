@@ -6180,7 +6180,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.15 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.15 v4</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -6617,13 +6617,9 @@ function saveSideWork() {
   };
   const ind = document.getElementById('sw-saved-indicator');
   if (ind) ind.textContent = 'Saving…';
-  fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({ action:'saveKV', key:'sidework', value:_sideWork }) })
-    .then(() => { if (ind) ind.textContent = 'Saved ✓'; renderSideWork(); })
-    .catch(() => {
-      jsonp(SCRIPT_URL + '?action=saveKV&key=sidework&value=' + encodeURIComponent(JSON.stringify(_sideWork)) + '&_=' + Date.now(),
-        () => { if (ind) ind.textContent = 'Saved ✓'; renderSideWork(); },
-        () => { if (ind) ind.textContent = 'Save failed'; });
-    });
+  kvSave('sidework', () => _sideWork, 'Side work',
+    () => { if (ind) ind.textContent = 'Saved ✓'; renderSideWork(); },
+    () => { if (ind) ind.textContent = 'Not saved yet, trying again'; });
 }
 
 
@@ -6821,13 +6817,12 @@ function chkBackupThenMigrate() {
   };
   const viaJsonp = () => {
     jsonp(SCRIPT_URL + '?action=saveKV&key=checklists_prev&value='
-          + encodeURIComponent(original) + '&_=' + Date.now(), proceed, giveUp);
+          + encodeURIComponent(original) + '&_=' + Date.now(), d => (d && d.success === false) ? giveUp() : proceed(), giveUp);
   };
   netStart();
-  fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'},
-    body: JSON.stringify({ action:'saveKV', key:'checklists_prev', value:_chk }) })
+  kvSend('checklists_prev', _chk)
     .then(() => { netEnd(); proceed(); })
-    .catch(() => { netEnd(); viaJsonp(); });
+    .catch(err => { netEnd(); if (err && err.refused) giveUp(); else viaJsonp(); });
 }
 
 // Handles anything older than v5 in one pass.
@@ -6890,13 +6885,7 @@ function chkMigrate() {
 }
 
 function chkSave() {
-  const payload = JSON.stringify(_chk);
-  fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'},
-    body: JSON.stringify({ action:'saveKV', key:'checklists', value:_chk }) })
-    .catch(() => {
-      jsonp(SCRIPT_URL + '?action=saveKV&key=checklists&value=' + encodeURIComponent(payload) + '&_=' + Date.now(),
-        () => {}, () => { try { toast('Checklist save failed'); } catch(e){} });
-    });
+  kvSave('checklists', () => _chk, 'Checklists');
 }
 var _chkSaveTimer = null;
 function chkSaveSoon() { clearTimeout(_chkSaveTimer); _chkSaveTimer = setTimeout(chkSave, 700); }
@@ -8896,15 +8885,7 @@ function saveDayTracker(isUserEdit) {
   // Cache only until the server has answered; the post-response rollover is the
   // one that persists.
   if (isUserEdit === false && !_dtLoaded) return;
-  fetch(SCRIPT_URL, {
-    method: 'POST', headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action: 'saveKV', key: 'daytracker', value: _dt })
-  }).catch(() => {
-    try {
-      jsonp(SCRIPT_URL + '?action=saveKV&key=daytracker&value=' +
-        encodeURIComponent(JSON.stringify(_dt)) + '&_=' + Date.now(), () => {}, () => {});
-    } catch(e) {}
-  });
+  kvSave('daytracker', () => _dt, 'Day tracker');
 }
 
 // ── REFERENCE PHOTOS ─────────────────────────────────────────────────────────
@@ -9114,8 +9095,7 @@ function saveRefPhoto() {
 }
 
 function persistRefPhotos() {
-  fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'},
-    body: JSON.stringify({ action:'saveKV', key:'refphotos', value:_refPhotos }) }).catch(() => {});
+  kvSave('refphotos', () => _refPhotos, 'Reference photos');
 }
 
 function resetRefForm() {
@@ -10077,13 +10057,7 @@ function saveHub() {
   clearTimeout(_hubSaveTimer);
   _hubSaveTimer = setTimeout(() => {
     try {
-      fetch(SCRIPT_URL, {
-        method: 'POST', headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'saveKV', key: 'showhub', value: _hub })
-      }).catch(() => {
-        jsonp(SCRIPT_URL + '?action=saveKV&key=showhub&value='
-          + encodeURIComponent(JSON.stringify(_hub)) + '&_=' + Date.now(), () => {}, () => {});
-      });
+      kvSave('showhub', () => _hub, 'Show Hub');
     } catch(e) { console.warn('saveHub:', e); }
   }, 700);
 }
@@ -10853,14 +10827,9 @@ function saveNotesTemplate() {
   const val = (document.getElementById('notes-template-link') || {}).value.trim();
   const status = document.getElementById('notes-template-status');
   if (status) status.textContent = 'Saving…';
-  fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'},
-    body: JSON.stringify({ action:'saveKV', key:'notesTemplateLink', value: val }) })
+  kvSend('notesTemplateLink', val)
     .then(() => { if (status) status.textContent = 'Saved ✓'; setTimeout(() => { if (status) status.textContent = ''; }, 1800); })
-    .catch(() => {
-      jsonp(SCRIPT_URL + '?action=saveKV&key=notesTemplateLink&value=' + encodeURIComponent(val) + '&_=' + Date.now(),
-        () => { if (status) status.textContent = 'Saved ✓'; setTimeout(() => { if (status) status.textContent = ''; }, 1800); },
-        () => { if (status) status.textContent = 'Save failed'; });
-    });
+    .catch(() => { if (status) status.textContent = 'Save failed, try again'; });
 }
 
 // ── TEAM CONFIG ─────────────────────────────────────────────────────────────
@@ -10966,16 +10935,9 @@ function setShowSyncMsg(msg) {
 }
 
 function pushShowsToServer() {
-  const value = { mainstage: MAINSTAGE, childrens: CHILDRENS, seeded: window._showsSeeded || [], updated: new Date().toISOString() };
-  const payload = JSON.stringify(value);
-  fetch(SCRIPT_URL, {
-    method: 'POST', headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action: 'saveKV', key: 'showlist', value })
-  }).then(() => setShowSyncMsg('saved to sheet (' + (MAINSTAGE.length + CHILDRENS.length) + ' shows)')).catch(() => {
-    jsonp(SCRIPT_URL + '?action=saveKV&key=showlist&value=' + encodeURIComponent(payload) + '&_=' + Date.now(),
-          () => setShowSyncMsg('saved to sheet (' + (MAINSTAGE.length + CHILDRENS.length) + ' shows)'),
-          () => setShowSyncMsg('COULD NOT SAVE to sheet. Changes are on this device only'));
-  });
+  kvSave('showlist', () => ({ mainstage: MAINSTAGE, childrens: CHILDRENS, seeded: window._showsSeeded || [], updated: new Date().toISOString() }), 'Show list',
+    () => setShowSyncMsg('saved to sheet (' + (MAINSTAGE.length + CHILDRENS.length) + ' shows)'),
+    () => setShowSyncMsg('NOT SAVED to sheet yet. Changes are on this device; trying again'));
 }
 
 function seed2027Shows() {
@@ -11911,6 +11873,57 @@ function outboxPending() { return outboxRead().length; }
 // replaceKey: for whole-document saves (all tasks, all shopping) only the
 // latest copy is worth sending. Twenty edits offline should drain as one
 // request, not twenty.
+// ── Saving one Sheet value (KVStore) and making sure it took ────────────────
+// The Sheet answers every save; a "busy" or "too big" answer used to look the
+// same as a good one. kvSend only resolves when the Sheet says it saved.
+// kvSave also keeps trying (latest copy each time) while the page is open,
+// one save per key at a time, and says so when it can't.
+function kvSend(key, value) {
+  const checkRes = d => {
+    if (d && d.success === false) { const e = new Error(d.error || 'Not saved'); e.refused = true; e.tooBig = /too big/i.test(d.error || ''); throw e; }
+    return true;
+  };
+  return fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveKV', key, value }) })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+    .then(t => { let d = null; try { d = JSON.parse(t); } catch (e) { return true; } return checkRes(d); })
+    .catch(err => {
+      if (err && err.refused) throw err;
+      // Phones sometimes lose the POST; the GET form works, if it's short enough
+      // for a web address.
+      const v = typeof value === 'string' ? value : JSON.stringify(value);
+      const url = SCRIPT_URL + '?action=saveKV&key=' + encodeURIComponent(key) + '&value=' + encodeURIComponent(v) + '&_=' + Date.now();
+      if (url.length > 7500) throw err;
+      return new Promise((res, rej) => jsonp(url, d => { try { res(checkRes(d)); } catch (e) { rej(e); } }, () => rej(err)));
+    });
+}
+const _kvq = {};
+function kvSave(key, getValue, label, onOk, onFail) {
+  const q = _kvq[key] = _kvq[key] || { tries: 0 };
+  Object.assign(q, { getValue, label, onOk, onFail });
+  clearTimeout(q.t);
+  if (q.busy) { q.again = true; return; }
+  q.busy = true; q.again = false;
+  const again = () => kvSave(key, q.getValue, q.label, q.onOk, q.onFail);
+  let value;
+  try { value = q.getValue(); } catch (e) { q.busy = false; return; }
+  kvSend(key, value).then(() => {
+    q.busy = false; q.tries = 0;
+    if (q.warned) { q.warned = false; try { toast(q.label + ' saved to the Sheet'); } catch (e) {} }
+    try { q.onOk && q.onOk(); } catch (e) {}
+    if (q.again) again();
+  }, err => {
+    q.busy = false;
+    try { q.onFail && q.onFail(err); } catch (e) {}
+    if (err && err.tooBig) { q.tries = 0; try { toast(q.label + ' is too big for the Sheet. It is kept on this device.'); } catch (e) {} return; }
+    if (q.again) { again(); return; }
+    q.tries++;
+    if (q.tries <= 12) {
+      if (!q.warned) { q.warned = true; try { toast(q.label + ' not saved to the Sheet yet. Trying again…'); } catch (e) {} }
+      q.t = setTimeout(again, Math.min(5000 * q.tries, 60000));
+    } else { q.tries = 0; q.warned = false; try { toast(q.label + ' could not be saved to the Sheet. It is kept on this device.'); } catch (e) {} }
+  });
+}
+
 function apiPost(body, opts) {
   const o = opts || {};
   const list = outboxRead();
@@ -11934,12 +11947,19 @@ function outboxSendOne(entry) {
     method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: entry.body,
   }).then(r => {
     if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.text();
+  }).then(t => {
+    // The Sheet's own answer: "busy" or an error means it didn't save; keep it
+    // in the outbox and try again.
+    let d = null; try { d = JSON.parse(t); } catch (e) {}
+    if (d && d.success === false) { const e = new Error(d.error || 'Not saved'); e.refused = true; throw e; }
     return true;
   }).catch(err => {
+    if (err && err.refused) throw err;
     if (!entry.getUrl) throw err;
     // Google's account redirect can eat a POST on mobile; the GET form works.
     return new Promise((resolve, reject) => {
-      try { jsonp(entry.getUrl, () => resolve(true), () => reject(err)); }
+      try { jsonp(entry.getUrl, d => (d && d.success === false) ? reject(err) : resolve(true), () => reject(err)); }
       catch(e) { reject(err); }
     });
   });
@@ -18862,7 +18882,7 @@ function ssLink(scriptId, fileName, slug, cb) {
   try { localStorage.setItem('mmt_showhub', JSON.stringify(_hub)); } catch (e) {}
   jsonp(SCRIPT_URL + '?action=getKV&key=showhub&_=' + Date.now(), d => {
     const fresh = apply(d && d.value && typeof d.value === 'object' && d.value.shows ? d.value : _hub);
-    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveKV', key: 'showhub', value: fresh }) })
+    kvSend('showhub', fresh)
       .then(() => { _hub = fresh; try { localStorage.setItem('mmt_showhub', JSON.stringify(_hub)); } catch (e) {} if (cb) cb(true); })
       .catch(() => { toast('Could not save the link, try again'); if (cb) cb(false); });
   }, () => { toast('Could not reach the Sheet, the link is only on this device'); if (cb) cb(false); });
@@ -19723,10 +19743,7 @@ function smSave() {
   try { localStorage.setItem('mmt_storagemap', JSON.stringify(_sm)); } catch (e) {}
   clearTimeout(_smSaveTimer);
   _smSaveTimer = setTimeout(() => {
-    const value = Object.assign({}, _sm, { updated: new Date().toISOString() });
-    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'saveKV', key: 'storagemap', value }) })
-      .catch(() => jsonp(SCRIPT_URL + '?action=saveKV&key=storagemap&value=' + encodeURIComponent(JSON.stringify(value)) + '&_=' + Date.now(), () => {}, () => toast('Could not save the storage map')));
+    kvSave('storagemap', () => Object.assign({}, _sm, { updated: new Date().toISOString() }), 'Storage map');;
   }, 500);
   return true;
 }
@@ -20113,14 +20130,7 @@ function loadArchives(cb) {
 function saveArchives() {
   arcStore();
   try { localStorage.setItem('mmt_archive', JSON.stringify(_archives)); } catch (e) {}
-  const payload = JSON.stringify(_archives);
-  fetch(SCRIPT_URL, {
-    method: 'POST', headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action: 'saveKV', key: 'showarchive', value: _archives })
-  }).catch(() => {
-    jsonp(SCRIPT_URL + '?action=saveKV&key=showarchive&value=' + encodeURIComponent(payload) + '&_=' + Date.now(),
-          () => {}, () => {});
-  });
+  kvSave('showarchive', () => _archives, 'Show archive');
   updateArcBanner();
 }
 
