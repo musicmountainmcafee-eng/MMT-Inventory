@@ -6,9 +6,10 @@
   (the service worker serves the cached page first, so a reload or two is needed).
 - Never touch real data: test against fake backends only. All data lives in the
   Google Sheet and must stay legible there.
-- Backups: before pushing a change, tag the commit it builds on
-  (`git tag -a backup-YYYY-MM-DD-before-<what> <sha>`) and tag the change
-  itself (`release-YYYY-MM-DD-<what>`); push the tags. Never keep old copies
-  of pages in the site itself: an old page left online can still save over
-  current data. Restore = check out the tag's files and push them as a new
-  commit.
+- Backups: before pushing a change, push the commit it builds on as a
+  branch `backup/YYYY-MM-DD-before-<what>`
+  (`git push origin <sha>:refs/heads/backup/...`; tag pushes are blocked here).
+  GitHub Pages only serves the main branch, so backups are never live pages.
+  Never keep old copies of pages in the site itself: an old page left online
+  can still save over current data. Restore = check out the backup's files
+  and push them to main as a new commit.
