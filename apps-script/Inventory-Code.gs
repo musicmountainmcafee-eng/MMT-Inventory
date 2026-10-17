@@ -22,7 +22,7 @@
  * and Deploy > Manage deployments > edit > Version: New version > Deploy.
  */
 const SHEET_ID  = '1ZC6eyjym1wLtPNG9G_rNFP_Txke1-VJtt7mrPsL0WOA';
-const WRITES_ON = false;
+const WRITES_ON = true;   // saving is on (switched on 10.16)
 const VERSION   = 'inv-3';
 // The dashboard PIN. Change it here and in the dashboard together.
 const STAFF_KEY = '1483';
