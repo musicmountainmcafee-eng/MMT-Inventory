@@ -6209,7 +6209,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v8</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v1</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -20818,7 +20818,8 @@ function t2Push() {
     t2Merge(t2Parse(d && d.value));
     t2Local();
     const payload = JSON.stringify(T2);
-    if (payload.length > 49000) { t2Busy = false; t2TooBig = true; t2Render(); return; }
+    // The updated Sheet script (it says bigCells) spreads a long value over several cells.
+    if (payload.length > (d && d.bigCells ? 1900000 : 49000)) { t2Busy = false; t2TooBig = true; t2Render(); return; }
     t2TooBig = false;
     let getUrl = null; const enc = encodeURIComponent(payload);
     if (enc.length < 7000) getUrl = SCRIPT_URL + '?action=saveKV&key=' + T2_KEY + '&value=' + enc + '&_=' + Date.now();

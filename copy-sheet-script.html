@@ -3,7 +3,7 @@
 <style>body{font-family:-apple-system,system-ui,sans-serif;margin:16px;background:#fff;color:#222}
 button{font-size:18px;padding:12px 22px;border:0;border-radius:8px;background:#534ab7;color:#fff;cursor:pointer}
 #ok{margin-left:12px;color:#1a7f37;font-weight:600}textarea{width:100%;height:60vh;margin-top:14px;font:12px ui-monospace,monospace;box-sizing:border-box}</style></head>
-<body><h2>Main Sheet script update (editing together + who's here)</h2>
+<body><h2>Main Sheet script update (big values across cells + safer cue saves)</h2>
 <p>Tap Copy, then in Apps Script select everything in Code.gs and paste over it.</p>
 <button onclick="cp()">Copy the code</button><span id="ok"></span>
 <textarea id="c" readonly>const PHOTO_FOLDER_ID = &#x27;1lHOzK17bJfXGHfCeVaopghbrjUKIs61Ur2r5aYy8naYKcTjyB0uiv-XNVKsQpFWo02AlSMtG&#x27;;
@@ -233,7 +233,8 @@ function checkInOut(data) {
         if (newStatus === &#x27;IN&#x27; &amp;&amp; conditionNote) {
           const existingNotes = rows[i][col(&#x27;Notes&#x27;)] || &#x27;&#x27;;
           const newNotes = existingNotes ? existingNotes + &#x27;\n&#x27; + conditionNote : conditionNote;
-          sheet.getRange(r, col(&#x27;Notes&#x27;) + 1).setValue(newNotes);
+          // A full Notes cell would make the whole check-in fail; the note is in Form_Responses either way.
+          if (newNotes.length &lt;= 45000) sheet.getRange(r, col(&#x27;Notes&#x27;) + 1).setValue(newNotes);
         }
         updated.push(assetId); found = true; break;
       }
@@ -375,7 +376,7 @@ function getTasks(e) {
   if (notesSheet) {
     const noteRows = notesSheet.getDataRange().getValues();
     for (let i = 1; i &lt; noteRows.length; i++) {
-      if (noteRows[i][0]) showNotes[noteRows[i][0]] = noteRows[i][1];
+      if (noteRows[i][0]) showNotes[noteRows[i][0]] = _bigJoin(noteRows[i], 1);
     }
   }
 
@@ -533,12 +534,12 @@ function getKV(e) {
   const rows = sheet.getDataRange().getValues();
   for (let i = 1; i &lt; rows.length; i++) {
     if (rows[i][0] === key) {
-      let v = rows[i][1];
+      let v = _bigJoin(rows[i], 1);
       try { v = JSON.parse(v); } catch (err) {}
-      return response({ success: true, value: v });
+      return response({ success: true, value: v, bigCells: true });
     }
   }
-  return response({ success: true, value: null });
+  return response({ success: true, value: null, bigCells: true });
 }
 
 function saveKV(data) {
@@ -550,18 +551,78 @@ function saveKV(data) {
 }
 function _saveKV(key, value) {
   if (typeof value !== &#x27;string&#x27;) value = JSON.stringify(value);
-  if (value.length &gt; 49000) return response({ success: false, error: &#x27;Too big for one cell (&#x27; + value.length + &#x27; characters)&#x27; });
+  if (value.length &gt; BIG_MAX) return response({ success: false, error: &#x27;Too big for the Sheet (&#x27; + value.length + &#x27; characters)&#x27; });
   const sheet = _kvSheet();
   const rows = sheet.getDataRange().getValues();
-  for (let i = 1; i &lt; rows.length; i++) {
-    if (rows[i][0] === key) {
-      sheet.getRange(i + 1, 2).setValue(value);
-      return response({ success: true });
-    }
-  }
-  sheet.appendRow([key, value]);
+  let row = -1;
+  for (let i = 1; i &lt; rows.length; i++) if (rows[i][0] === key) { row = i + 1; break; }
+  if (row &lt; 0) { row = sheet.getLastRow() + 1; sheet.getRange(row, 1).setNumberFormat(&#x27;@&#x27;).setValue(key); }
+  _bigWriteRow(sheet, row, 2, value);
   return response({ success: true });
 }
+
+// ── Values too big for one cell ─────────────────────────────────────────────
+// A Sheet cell holds at most 50,000 characters. A longer value continues in
+// the next cells: across the row (KVStore, ShowNotes) or down the column
+// (Shopping, TeamConfig, CustomLinks, Cleaning). Every piece except the last
+// is at least BIG_FULL long, so a short cell always ends the value and
+// anything else sitting next to it is never read in or cleared.
+// Short values still sit in one cell, exactly as before.
+var BIG_PIECE = 45000, BIG_FULL = 40000;
+var BIG_MAX = 2000000;   // ~45 cells; anything bigger is refused, never cut
+function _bigChunks(str) {
+  var out = [], i = 0, bad = &quot;=+-@&#x27; \t&quot;;
+  while (i &lt; str.length) {
+    var end = Math.min(i + BIG_PIECE, str.length), e2 = end;
+    // Prefer not to start a piece on a character the Sheet could reinterpret.
+    while (e2 &lt; str.length &amp;&amp; e2 &gt; i + BIG_FULL &amp;&amp; (bad.indexOf(str.charAt(e2)) &gt;= 0 || str.charAt(e2 - 1) === &#x27; &#x27;)) e2--;
+    if (e2 &gt; i + BIG_FULL) end = e2;
+    // Never split a surrogate pair (emoji).
+    if (end &lt; str.length &amp;&amp; /[\uD800-\uDBFF]/.test(str.charAt(end - 1))) end--;
+    out.push(str.substring(i, end));
+    i = end;
+  }
+  return out.length ? out : [&#x27;&#x27;];
+}
+// Cells in order from &quot;from&quot;: how many belong to the value, and the value.
+function _bigScan(cells, from) {
+  var out = &#x27;&#x27;, n = 0;
+  for (var c = from; c &lt; cells.length; c++) {
+    if (cells[c] === &#x27;&#x27; || cells[c] == null) break;
+    var t = String(cells[c]); out += t; n++;
+    if (t.length &lt; BIG_FULL) break;
+  }
+  return { value: out, n: n };
+}
+function _bigJoin(cells, from) { return _bigScan(cells, from).value; }
+function _bigWriteRow(sheet, row, col, str) {
+  var parts = _bigChunks(str);
+  var need = col + parts.length - 1;
+  if (sheet.getMaxColumns() &lt; need) sheet.insertColumnsAfter(sheet.getMaxColumns(), need - sheet.getMaxColumns());
+  var width = sheet.getLastColumn();
+  var old = width &gt;= col ? _bigScan(sheet.getRange(row, col, 1, width - col + 1).getValues()[0], 0).n : 0;
+  if (old &gt; parts.length) sheet.getRange(row, col + parts.length, 1, old - parts.length).clearContent();   // the old value&#x27;s own tail only
+  var rng = sheet.getRange(row, col, 1, parts.length);
+  rng.setNumberFormat(&#x27;@&#x27;);            // plain text: the Sheet must not reinterpret it
+  rng.setValues([parts]);
+}
+function _bigColCells(sheet, row, col) {
+  var last = sheet.getLastRow();
+  if (last &lt; row) return [];
+  return sheet.getRange(row, col, last - row + 1, 1).getValues().map(function (r) { return r[0]; });
+}
+function _bigReadCol(sheet, row, col) { return _bigJoin(_bigColCells(sheet, row, col), 0); }
+function _bigWriteCol(sheet, row, col, str) {
+  var parts = _bigChunks(str);
+  var old = _bigScan(_bigColCells(sheet, row, col), 0).n;
+  var need = row + parts.length - 1;
+  if (sheet.getMaxRows() &lt; need) sheet.insertRowsAfter(sheet.getMaxRows(), need - sheet.getMaxRows());
+  if (old &gt; parts.length) sheet.getRange(row + parts.length, col, old - parts.length, 1).clearContent();
+  var rng = sheet.getRange(row, col, parts.length, 1);
+  rng.setNumberFormat(&#x27;@&#x27;);
+  rng.setValues(parts.map(function (p) { return [p]; }));
+}
+function _bigTooBig(str) { return str.length &gt; BIG_MAX ? response({ success: false, error: &#x27;Too big for the Sheet (&#x27; + str.length + &#x27; characters)&#x27; }) : null; }
 
 function saveShowNote(data) {
   const key = data.key;
@@ -575,14 +636,13 @@ function saveShowNote(data) {
     sheet.getRange(&#x27;A1:B1&#x27;).setValues([[&#x27;Key&#x27;, &#x27;DocURL&#x27;]]);
   }
 
+  const str = value == null ? &#x27;&#x27; : String(value);
+  const big = _bigTooBig(str); if (big) return big;
   const rows = sheet.getDataRange().getValues();
-  for (let i = 1; i &lt; rows.length; i++) {
-    if (rows[i][0] === key) {
-      sheet.getRange(i + 1, 2).setValue(value);
-      return response({ success: true });
-    }
-  }
-  sheet.appendRow([key, value]);
+  let row = -1;
+  for (let i = 1; i &lt; rows.length; i++) if (rows[i][0] === key) { row = i + 1; break; }
+  if (row &lt; 0) { row = sheet.getLastRow() + 1; sheet.getRange(row, 1).setNumberFormat(&#x27;@&#x27;).setValue(key); }
+  _bigWriteRow(sheet, row, 2, str);
   return response({ success: true });
 }
 
@@ -594,7 +654,7 @@ function getShopping() {
     sheet.getRange(&#x27;A1&#x27;).setValue(&#x27;Data&#x27;);
     sheet.getRange(&#x27;A2&#x27;).setValue(&#x27;{}&#x27;);
   }
-  const raw = sheet.getRange(&#x27;A2&#x27;).getValue();
+  const raw = _bigReadCol(sheet, 2, 1);
   let data = {};
   try { data = JSON.parse(raw || &#x27;{}&#x27;); } catch(e) { data = {}; }
   return response({ success: true, shopping: data });
@@ -611,7 +671,7 @@ function getTeamConfig() {
       crewNames: [&#x27;Alex&#x27;, &#x27;Ben&#x27;, &#x27;Chris&#x27;, &#x27;Dana&#x27;, &#x27;Jamie&#x27;, &#x27;Jordan&#x27;, &#x27;Morgan&#x27;, &#x27;Riley&#x27;, &#x27;Sam&#x27;, &#x27;Taylor&#x27;]
     }));
   }
-  const raw = sheet.getRange(&#x27;A2&#x27;).getValue();
+  const raw = _bigReadCol(sheet, 2, 1);
   let data = {};
   try { data = JSON.parse(raw || &#x27;{}&#x27;); } catch(e) { data = {}; }
   return response({ success: true, teamConfig: data });
@@ -630,7 +690,9 @@ function saveTeamConfig(e, body) {
   } else if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.teamConfig) {
     try { data = JSON.parse(e.parameter.teamConfig); } catch(err) { data = {}; }
   }
-  sheet.getRange(&#x27;A2&#x27;).setValue(JSON.stringify(data));
+  const str = JSON.stringify(data);
+  const big = _bigTooBig(str); if (big) return big;
+  _bigWriteCol(sheet, 2, 1, str);
   return response({ success: true });
 }
 
@@ -703,7 +765,7 @@ function getLinks() {
     sheet.getRange(&quot;A1&quot;).setValue(&quot;Data&quot;);
     sheet.getRange(&quot;A2&quot;).setValue(&quot;[]&quot;);
   }
-  const raw = sheet.getRange(&quot;A2&quot;).getValue();
+  const raw = _bigReadCol(sheet, 2, 1);
   let data = [];
   try { data = JSON.parse(raw || &quot;[]&quot;); } catch(e) { data = []; }
   return response({ success: true, links: data });
@@ -721,7 +783,9 @@ function saveLinks(e, body) {
   else if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.links) {
     try { data = JSON.parse(e.parameter.links); } catch(err) { data = []; }
   }
-  sheet.getRange(&quot;A2&quot;).setValue(JSON.stringify(data));
+  const str = JSON.stringify(data);
+  const big = _bigTooBig(str); if (big) return big;
+  _bigWriteCol(sheet, 2, 1, str);
   return response({ success: true });
 }
 
@@ -743,8 +807,8 @@ function getCleaning() {
     sheet.getRange(&quot;B2&quot;).setValue(&quot;[]&quot;);
   }
   let items = [], log = [];
-  try { items = JSON.parse(sheet.getRange(&quot;A2&quot;).getValue() || &quot;[]&quot;); } catch(e) { items = []; }
-  try { log = JSON.parse(sheet.getRange(&quot;B2&quot;).getValue() || &quot;[]&quot;); } catch(e) { log = []; }
+  try { items = JSON.parse(_bigReadCol(sheet, 2, 1) || &quot;[]&quot;); } catch(e) { items = []; }
+  try { log = JSON.parse(_bigReadCol(sheet, 2, 2) || &quot;[]&quot;); } catch(e) { log = []; }
   return response({ success: true, items: items, log: log });
 }
 
@@ -764,8 +828,10 @@ function saveCleaning(e, body) {
     if (e.parameter.items !== undefined) { try { items = JSON.parse(e.parameter.items); } catch(err) { items = []; } }
     if (e.parameter.log !== undefined) { try { log = JSON.parse(e.parameter.log); } catch(err) { log = []; } }
   }
-  if (items !== null) sheet.getRange(&quot;A2&quot;).setValue(JSON.stringify(items));
-  if (log !== null) sheet.getRange(&quot;B2&quot;).setValue(JSON.stringify(log));
+  const si = items !== null ? JSON.stringify(items) : null, sl = log !== null ? JSON.stringify(log) : null;
+  const big = (si &amp;&amp; _bigTooBig(si)) || (sl &amp;&amp; _bigTooBig(sl)); if (big) return big;
+  if (si !== null) _bigWriteCol(sheet, 2, 1, si);
+  if (sl !== null) _bigWriteCol(sheet, 2, 2, sl);
   return response({ success: true });
 }
 
@@ -1097,7 +1163,9 @@ function saveShopping(e, body) {
     try { data = JSON.parse(e.parameter.shopping); } catch(err) { data = {}; }
   }
 
-  sheet.getRange(&#x27;A2&#x27;).setValue(JSON.stringify(data));
+  const str = JSON.stringify(data);
+  const big = _bigTooBig(str); if (big) return big;
+  _bigWriteCol(sheet, 2, 1, str);
   return response({ success: true });
 }
 
@@ -1553,5 +1621,5 @@ function getDriveImage(e) {
 <script>function cp(){const t=document.getElementById('c');t.select();t.setSelectionRange(0,t.value.length);
 const done=()=>{document.getElementById('ok').textContent='Copied ('+t.value.length.toLocaleString()+' characters)';};
 (navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(done,()=>{document.execCommand('copy');done();});}</script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.14 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v1</div>
 </body></html>

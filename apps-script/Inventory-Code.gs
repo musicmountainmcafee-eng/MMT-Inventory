@@ -445,7 +445,10 @@ function checkInOut(ss, d) {
       if ((condition && condition !== 'Good') || note) {
         const stamp = '[' + Utilities.formatDate(now, tz(ss), 'MMM d, yyyy') + '] ' + conditionText;
         const prev = str(c.notes > -1 ? r[c.notes] : '');
-        setCell(sh, rowNum, c.notes, prev ? prev + '\n' + stamp : stamp);
+        const next = prev ? prev + '\n' + stamp : stamp;
+        // A cell holds 50,000 characters; a full Notes cell must not block the check-in.
+        // The note is in the history (Form_Responses) either way.
+        if (next.length <= 45000) setCell(sh, rowNum, c.notes, next);
       }
     }
     if (log) appendByHeaders(log, LOG_COLS, {

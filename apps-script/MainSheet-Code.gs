@@ -225,7 +225,8 @@ function checkInOut(data) {
         if (newStatus === 'IN' && conditionNote) {
           const existingNotes = rows[i][col('Notes')] || '';
           const newNotes = existingNotes ? existingNotes + '\n' + conditionNote : conditionNote;
-          sheet.getRange(r, col('Notes') + 1).setValue(newNotes);
+          // A full Notes cell would make the whole check-in fail; the note is in Form_Responses either way.
+          if (newNotes.length <= 45000) sheet.getRange(r, col('Notes') + 1).setValue(newNotes);
         }
         updated.push(assetId); found = true; break;
       }
@@ -367,7 +368,7 @@ function getTasks(e) {
   if (notesSheet) {
     const noteRows = notesSheet.getDataRange().getValues();
     for (let i = 1; i < noteRows.length; i++) {
-      if (noteRows[i][0]) showNotes[noteRows[i][0]] = noteRows[i][1];
+      if (noteRows[i][0]) showNotes[noteRows[i][0]] = _bigJoin(noteRows[i], 1);
     }
   }
 
@@ -525,12 +526,12 @@ function getKV(e) {
   const rows = sheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === key) {
-      let v = rows[i][1];
+      let v = _bigJoin(rows[i], 1);
       try { v = JSON.parse(v); } catch (err) {}
-      return response({ success: true, value: v });
+      return response({ success: true, value: v, bigCells: true });
     }
   }
-  return response({ success: true, value: null });
+  return response({ success: true, value: null, bigCells: true });
 }
 
 function saveKV(data) {
@@ -542,18 +543,78 @@ function saveKV(data) {
 }
 function _saveKV(key, value) {
   if (typeof value !== 'string') value = JSON.stringify(value);
-  if (value.length > 49000) return response({ success: false, error: 'Too big for one cell (' + value.length + ' characters)' });
+  if (value.length > BIG_MAX) return response({ success: false, error: 'Too big for the Sheet (' + value.length + ' characters)' });
   const sheet = _kvSheet();
   const rows = sheet.getDataRange().getValues();
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][0] === key) {
-      sheet.getRange(i + 1, 2).setValue(value);
-      return response({ success: true });
-    }
-  }
-  sheet.appendRow([key, value]);
+  let row = -1;
+  for (let i = 1; i < rows.length; i++) if (rows[i][0] === key) { row = i + 1; break; }
+  if (row < 0) { row = sheet.getLastRow() + 1; sheet.getRange(row, 1).setNumberFormat('@').setValue(key); }
+  _bigWriteRow(sheet, row, 2, value);
   return response({ success: true });
 }
+
+// ── Values too big for one cell ─────────────────────────────────────────────
+// A Sheet cell holds at most 50,000 characters. A longer value continues in
+// the next cells: across the row (KVStore, ShowNotes) or down the column
+// (Shopping, TeamConfig, CustomLinks, Cleaning). Every piece except the last
+// is at least BIG_FULL long, so a short cell always ends the value and
+// anything else sitting next to it is never read in or cleared.
+// Short values still sit in one cell, exactly as before.
+var BIG_PIECE = 45000, BIG_FULL = 40000;
+var BIG_MAX = 2000000;   // ~45 cells; anything bigger is refused, never cut
+function _bigChunks(str) {
+  var out = [], i = 0, bad = "=+-@' \t";
+  while (i < str.length) {
+    var end = Math.min(i + BIG_PIECE, str.length), e2 = end;
+    // Prefer not to start a piece on a character the Sheet could reinterpret.
+    while (e2 < str.length && e2 > i + BIG_FULL && (bad.indexOf(str.charAt(e2)) >= 0 || str.charAt(e2 - 1) === ' ')) e2--;
+    if (e2 > i + BIG_FULL) end = e2;
+    // Never split a surrogate pair (emoji).
+    if (end < str.length && /[\uD800-\uDBFF]/.test(str.charAt(end - 1))) end--;
+    out.push(str.substring(i, end));
+    i = end;
+  }
+  return out.length ? out : [''];
+}
+// Cells in order from "from": how many belong to the value, and the value.
+function _bigScan(cells, from) {
+  var out = '', n = 0;
+  for (var c = from; c < cells.length; c++) {
+    if (cells[c] === '' || cells[c] == null) break;
+    var t = String(cells[c]); out += t; n++;
+    if (t.length < BIG_FULL) break;
+  }
+  return { value: out, n: n };
+}
+function _bigJoin(cells, from) { return _bigScan(cells, from).value; }
+function _bigWriteRow(sheet, row, col, str) {
+  var parts = _bigChunks(str);
+  var need = col + parts.length - 1;
+  if (sheet.getMaxColumns() < need) sheet.insertColumnsAfter(sheet.getMaxColumns(), need - sheet.getMaxColumns());
+  var width = sheet.getLastColumn();
+  var old = width >= col ? _bigScan(sheet.getRange(row, col, 1, width - col + 1).getValues()[0], 0).n : 0;
+  if (old > parts.length) sheet.getRange(row, col + parts.length, 1, old - parts.length).clearContent();   // the old value's own tail only
+  var rng = sheet.getRange(row, col, 1, parts.length);
+  rng.setNumberFormat('@');            // plain text: the Sheet must not reinterpret it
+  rng.setValues([parts]);
+}
+function _bigColCells(sheet, row, col) {
+  var last = sheet.getLastRow();
+  if (last < row) return [];
+  return sheet.getRange(row, col, last - row + 1, 1).getValues().map(function (r) { return r[0]; });
+}
+function _bigReadCol(sheet, row, col) { return _bigJoin(_bigColCells(sheet, row, col), 0); }
+function _bigWriteCol(sheet, row, col, str) {
+  var parts = _bigChunks(str);
+  var old = _bigScan(_bigColCells(sheet, row, col), 0).n;
+  var need = row + parts.length - 1;
+  if (sheet.getMaxRows() < need) sheet.insertRowsAfter(sheet.getMaxRows(), need - sheet.getMaxRows());
+  if (old > parts.length) sheet.getRange(row + parts.length, col, old - parts.length, 1).clearContent();
+  var rng = sheet.getRange(row, col, parts.length, 1);
+  rng.setNumberFormat('@');
+  rng.setValues(parts.map(function (p) { return [p]; }));
+}
+function _bigTooBig(str) { return str.length > BIG_MAX ? response({ success: false, error: 'Too big for the Sheet (' + str.length + ' characters)' }) : null; }
 
 function saveShowNote(data) {
   const key = data.key;
@@ -567,14 +628,13 @@ function saveShowNote(data) {
     sheet.getRange('A1:B1').setValues([['Key', 'DocURL']]);
   }
 
+  const str = value == null ? '' : String(value);
+  const big = _bigTooBig(str); if (big) return big;
   const rows = sheet.getDataRange().getValues();
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][0] === key) {
-      sheet.getRange(i + 1, 2).setValue(value);
-      return response({ success: true });
-    }
-  }
-  sheet.appendRow([key, value]);
+  let row = -1;
+  for (let i = 1; i < rows.length; i++) if (rows[i][0] === key) { row = i + 1; break; }
+  if (row < 0) { row = sheet.getLastRow() + 1; sheet.getRange(row, 1).setNumberFormat('@').setValue(key); }
+  _bigWriteRow(sheet, row, 2, str);
   return response({ success: true });
 }
 
@@ -586,7 +646,7 @@ function getShopping() {
     sheet.getRange('A1').setValue('Data');
     sheet.getRange('A2').setValue('{}');
   }
-  const raw = sheet.getRange('A2').getValue();
+  const raw = _bigReadCol(sheet, 2, 1);
   let data = {};
   try { data = JSON.parse(raw || '{}'); } catch(e) { data = {}; }
   return response({ success: true, shopping: data });
@@ -603,7 +663,7 @@ function getTeamConfig() {
       crewNames: ['Alex', 'Ben', 'Chris', 'Dana', 'Jamie', 'Jordan', 'Morgan', 'Riley', 'Sam', 'Taylor']
     }));
   }
-  const raw = sheet.getRange('A2').getValue();
+  const raw = _bigReadCol(sheet, 2, 1);
   let data = {};
   try { data = JSON.parse(raw || '{}'); } catch(e) { data = {}; }
   return response({ success: true, teamConfig: data });
@@ -622,7 +682,9 @@ function saveTeamConfig(e, body) {
   } else if (e && e.parameter && e.parameter.teamConfig) {
     try { data = JSON.parse(e.parameter.teamConfig); } catch(err) { data = {}; }
   }
-  sheet.getRange('A2').setValue(JSON.stringify(data));
+  const str = JSON.stringify(data);
+  const big = _bigTooBig(str); if (big) return big;
+  _bigWriteCol(sheet, 2, 1, str);
   return response({ success: true });
 }
 
@@ -695,7 +757,7 @@ function getLinks() {
     sheet.getRange("A1").setValue("Data");
     sheet.getRange("A2").setValue("[]");
   }
-  const raw = sheet.getRange("A2").getValue();
+  const raw = _bigReadCol(sheet, 2, 1);
   let data = [];
   try { data = JSON.parse(raw || "[]"); } catch(e) { data = []; }
   return response({ success: true, links: data });
@@ -713,7 +775,9 @@ function saveLinks(e, body) {
   else if (e && e.parameter && e.parameter.links) {
     try { data = JSON.parse(e.parameter.links); } catch(err) { data = []; }
   }
-  sheet.getRange("A2").setValue(JSON.stringify(data));
+  const str = JSON.stringify(data);
+  const big = _bigTooBig(str); if (big) return big;
+  _bigWriteCol(sheet, 2, 1, str);
   return response({ success: true });
 }
 
@@ -735,8 +799,8 @@ function getCleaning() {
     sheet.getRange("B2").setValue("[]");
   }
   let items = [], log = [];
-  try { items = JSON.parse(sheet.getRange("A2").getValue() || "[]"); } catch(e) { items = []; }
-  try { log = JSON.parse(sheet.getRange("B2").getValue() || "[]"); } catch(e) { log = []; }
+  try { items = JSON.parse(_bigReadCol(sheet, 2, 1) || "[]"); } catch(e) { items = []; }
+  try { log = JSON.parse(_bigReadCol(sheet, 2, 2) || "[]"); } catch(e) { log = []; }
   return response({ success: true, items: items, log: log });
 }
 
@@ -756,8 +820,10 @@ function saveCleaning(e, body) {
     if (e.parameter.items !== undefined) { try { items = JSON.parse(e.parameter.items); } catch(err) { items = []; } }
     if (e.parameter.log !== undefined) { try { log = JSON.parse(e.parameter.log); } catch(err) { log = []; } }
   }
-  if (items !== null) sheet.getRange("A2").setValue(JSON.stringify(items));
-  if (log !== null) sheet.getRange("B2").setValue(JSON.stringify(log));
+  const si = items !== null ? JSON.stringify(items) : null, sl = log !== null ? JSON.stringify(log) : null;
+  const big = (si && _bigTooBig(si)) || (sl && _bigTooBig(sl)); if (big) return big;
+  if (si !== null) _bigWriteCol(sheet, 2, 1, si);
+  if (sl !== null) _bigWriteCol(sheet, 2, 2, sl);
   return response({ success: true });
 }
 
@@ -1089,7 +1155,9 @@ function saveShopping(e, body) {
     try { data = JSON.parse(e.parameter.shopping); } catch(err) { data = {}; }
   }
 
-  sheet.getRange('A2').setValue(JSON.stringify(data));
+  const str = JSON.stringify(data);
+  const big = _bigTooBig(str); if (big) return big;
+  _bigWriteCol(sheet, 2, 1, str);
   return response({ success: true });
 }
 
