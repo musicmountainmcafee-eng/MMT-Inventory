@@ -23,6 +23,8 @@
   .header { background: linear-gradient(135deg, var(--green) 0%, var(--purple) 55%, var(--blue) 100%); border-radius: var(--radius); padding: 2.5rem 2rem; margin-bottom: 1.5rem; position: relative; overflow: hidden; }
   .header::before { content: ''; position: absolute; top: -40px; right: -40px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.05); pointer-events: none; }
   #staff-box { position: relative; z-index: 1; }
+  /* Availability is for staff only. */
+  body:not(.is-staff) .staff-only { display: none !important; }
   #staff-box .btn { background: rgba(255,255,255,0.16); color: #fff; border: 1px solid rgba(255,255,255,0.5); }
   #staff-box label { color: #1a1a1a; }
   .header h1 { color: white; font-size: 2rem; font-weight: 600; letter-spacing: -0.5px; }
@@ -160,8 +162,8 @@
   </div>
   <div class="stats">
     <div class="stat"><div class="stat-label">Total items</div><div class="stat-val purple" id="total-count">—</div></div>
-    <div class="stat"><div class="stat-label">Available</div><div class="stat-val green" id="avail-count">—</div></div>
-    <div class="stat"><div class="stat-label">Currently out</div><div class="stat-val blue" id="out-count">—</div></div>
+    <div class="stat staff-only"><div class="stat-label">Available</div><div class="stat-val green" id="avail-count">—</div></div>
+    <div class="stat staff-only"><div class="stat-label">Currently out</div><div class="stat-val blue" id="out-count">—</div></div>
     <div class="stat"><div class="stat-label">Categories</div><div class="stat-val" id="cat-count">—</div></div>
   </div>
   <div class="controls">
@@ -170,7 +172,7 @@
       <input type="text" id="search" placeholder="Search items, categories, tags..." oninput="render()" />
     </div>
     <select id="cat-filter" onchange="render()"><option value="">All categories</option></select>
-    <select id="status-filter" onchange="render()">
+    <select id="status-filter" class="staff-only" onchange="render()">
       <option value="">All statuses</option>
       <option value="IN">Available</option>
       <option value="OUT">Out</option>
@@ -310,7 +312,7 @@ function loadCsv() {
     staff = false; source = 'copy';
     // Public view: only what renters may see.
     items = items.map(i => ({ assetId: i.assetId, tagId: i.tagId, name: i.name, quantity: i.quantity, photo: i.photo, category: i.category,
-      subcategory: i.subcategory, status: i.status, dueBack: i.status === 'OUT' ? i.dueBack : '', rental: settings.showRental ? i.rental : '' }));
+      subcategory: i.subcategory, rental: settings.showRental ? i.rental : '' }));
     setItems(items);
   }).catch(() => {
     if (!allItems.length) document.getElementById('results').innerHTML = '<div class="message"><p style="color:#c0392b;">Could not load the inventory. Check the connection and tap Refresh.</p></div>';
@@ -326,6 +328,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
 // ── Staff ───────────────────────────────────────────────────────────────────
 function paintStaff() {
+  document.body.classList.toggle('is-staff', staff);
   const box = document.getElementById('staff-box');
   box.innerHTML = staff
     ? `<span style="font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px;background:#ece9fb;color:#3c3489;">Staff view</span>
@@ -367,6 +370,7 @@ function fmtDate(s) {
   return isNaN(d) ? s : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 function statusChip(i) {
+  if (!staff) return '';
   return i.status === 'OUT'
     ? `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;background:#fde8d7;color:#8a3b0b;">Out${i.dueBack ? ' · back ' + esc(fmtDate(i.dueBack)) : ''}</span>`
     : `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;background:#dcf2e3;color:#1d6b39;">Available</span>`;
@@ -406,7 +410,7 @@ function render() {
   const status = document.getElementById('status-filter').value;
   const filtered = allItems.filter(i =>
     (!q || [i.name, i.tagId, i.assetId, i.category, i.subcategory, staff ? i.location : '', staff ? i.currentShow : ''].some(f => String(f || '').toLowerCase().includes(q))) &&
-    (!cat || i.category === cat) && (!status || i.status === status));
+    (!cat || i.category === cat) && (!staff || !status || i.status === status));
   document.getElementById('total-count').textContent = allItems.length;
   document.getElementById('avail-count').textContent = allItems.filter(i => i.status === 'IN').length;
   document.getElementById('out-count').textContent = allItems.filter(i => i.status === 'OUT').length;
@@ -442,6 +446,6 @@ function render() {
 paintStaff();
 loadData();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v3</div>
 </body>
 </html>

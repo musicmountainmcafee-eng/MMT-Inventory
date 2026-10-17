@@ -23,7 +23,7 @@
  */
 const SHEET_ID  = '1ZC6eyjym1wLtPNG9G_rNFP_Txke1-VJtt7mrPsL0WOA';
 const WRITES_ON = false;
-const VERSION   = 'inv-2';
+const VERSION   = 'inv-3';
 // The dashboard PIN. Change it here and in the dashboard together.
 const STAFF_KEY = '1483';
 
@@ -141,8 +141,7 @@ function catalog(ss, staff) {
   const items = readItems(ss).map(it => {
     if (staff) return it;
     const pub = { assetId: it.assetId, tagId: it.tagId, name: it.name, quantity: it.quantity, photo: it.photo,
-      category: it.category, subcategory: it.subcategory, status: it.status === 'OUT' ? 'OUT' : 'IN',
-      dueBack: it.status === 'OUT' ? it.dueBack : '' };
+      category: it.category, subcategory: it.subcategory };   // availability is for staff only
     if (settings.showRental) pub.rental = it.rental;
     return pub;
   });
