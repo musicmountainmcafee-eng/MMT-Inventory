@@ -335,7 +335,9 @@ function paintStaff() {
        <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:99px;background:var(--surface);cursor:pointer;">
          <input type="checkbox" ${settings.showRental ? 'checked' : ''} onchange="setShowRental(this.checked)" style="width:16px;height:16px;"> Show rental prices to the public</label>
        <button class="btn btn-ghost" onclick="signOut()">Sign out</button>`
-    : `<button class="btn btn-ghost" onclick="openPin()">Staff sign in</button>`;
+    // The public see no sign-in. Staff get in by signing in to the dashboard
+    // on this device, or by adding ?staff to the address.
+    : (/[?&#]staff\b/.test(location.search + location.hash) ? `<button class="btn btn-ghost" onclick="openPin()">Staff sign in</button>` : '');
 }
 function openPin() { document.getElementById('pin-err').textContent = ''; document.getElementById('pin-input').value = ''; document.getElementById('pin-overlay').style.display = 'flex'; setTimeout(() => document.getElementById('pin-input').focus(), 50); }
 function closePin(e) { if (e && e.target !== document.getElementById('pin-overlay')) return; document.getElementById('pin-overlay').style.display = 'none'; }
@@ -446,6 +448,6 @@ function render() {
 paintStaff();
 loadData();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v4</div>
 </body>
 </html>
