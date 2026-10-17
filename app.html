@@ -6180,7 +6180,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -11970,7 +11970,7 @@ function outboxDrain() {
   if (_outboxDraining) return;
   const list = outboxRead();
   if (!list.length) { updateOutboxUi(); return; }
-  if (navigator.onLine === false) { outboxRetryLater(); return; }
+  if (netDown()) { outboxRetryLater(); return; }
 
   _outboxDraining = true;
   const entry = list[0];
@@ -12005,7 +12005,7 @@ function updateOutboxUi() {
   const n = outboxPending();
   const bar = document.getElementById('offline-bar');
   if (!bar) return;
-  const offline = navigator.onLine === false;
+  const offline = navigator.onLine === false && _reallyOffline;
   document.body.classList.toggle('has-pending', n > 0 && !offline);
   if (offline) {
     bar.textContent = n
@@ -12025,12 +12025,28 @@ setInterval(outboxDrain, 60000);
 // ── OFFLINE NOTICE ──────────────────────────────────────────────────────────
 // Theatre wifi drops constantly. Silence about it is what turned a bad
 // connection into a lost day of set changes, so say so plainly.
+// The browser's own "offline" flag is sometimes wrong (VPNs, some Mac network
+// setups, a leftover DevTools setting), so it's checked with a real request
+// before the bar says there's no connection.
+var _reallyOffline = false;
+function netDown() { return navigator.onLine === false && _reallyOffline; }
 function updateOnlineState() {
   try {
-    document.body.classList.toggle('is-offline', navigator.onLine === false);
+    if (navigator.onLine !== false) _reallyOffline = false;
+    document.body.classList.toggle('is-offline', navigator.onLine === false && _reallyOffline);
     updateOutboxUi();
+    if (navigator.onLine === false && !updateOnlineState._checking) {
+      updateOnlineState._checking = true;
+      const ac = typeof AbortController === 'function' ? new AbortController() : null;
+      const t = setTimeout(() => { try { ac && ac.abort(); } catch (e) {} }, 8000);
+      fetch('https://www.gstatic.com/generate_204?_=' + Date.now(), { mode: 'no-cors', cache: 'no-store', signal: ac ? ac.signal : undefined })
+        .then(() => { _reallyOffline = false; }, () => { _reallyOffline = true; })
+        .finally(() => { clearTimeout(t); updateOnlineState._checking = false;
+          document.body.classList.toggle('is-offline', navigator.onLine === false && _reallyOffline); updateOutboxUi(); });
+    }
   } catch(e) {}
 }
+setInterval(() => { if (navigator.onLine === false) updateOnlineState(); }, 30000);
 window.addEventListener('online',  updateOnlineState);
 window.addEventListener('offline', updateOnlineState);
 updateOnlineState();
@@ -12054,7 +12070,7 @@ function showNewBuildBar(tag) {
 }
 
 function checkForNewBuild() {
-  if (!RUNNING_BUILD || !navigator.onLine) return;
+  if (!RUNNING_BUILD || netDown()) return;
   fetch('app.html', { cache: 'reload' })
     .then(r => r.ok ? r.text() : null)
     .then(t => {
@@ -12787,15 +12803,9 @@ function loadInventoryData() {
   const url = invUrl();
   iv.loading = new Promise(resolve => {
     const done = () => { iv.loading = null; inventoryLoaded = true; ivRender(); resolve(allItems); };
-    if (url) {
-      jsonp(url + '?action=all&key=' + encodeURIComponent(CORRECT_PIN) + '&_=' + Date.now(), d => {
-        if (d && d.success) {
-          ivApply(d, 'api');
-          try { localStorage.setItem('mmt_inv_cache', JSON.stringify({ items: d.items, history: d.history, paints: d.paints, prefixes: d.prefixes, writesOn: d.writesOn, at: Date.now() })); } catch (e) {}
-        } else iv.err = (d && d.error) || 'The inventory script said no.';
-        done();
-      }, () => { iv.err = 'Could not reach the inventory script.'; done(); }, 25000);
-    } else {
+    // The published copy of the Sheet: used when no inventory script is set,
+    // and whenever the script can't be reached, so the tab is never empty.
+    const fromCopy = note => {
       fetch(CSV_URL + '&_=' + Date.now()).then(r => r.text()).then(text => {
         const rows = ivParseCSV(text);
         ivApply({ items: rows.map(r => ({
@@ -12805,11 +12815,21 @@ function loadInventoryData() {
           rental: r['Rental Value'], replacement: r['Replacement Value'], notes: r['Notes'],
           lastDate: r['Laat Used Date'] || r['Last Used Date'], lastShow: r['Last Used Show'],
         })) }, 'csv');
+        if (note) iv.err = note;
         // The old routes for the log and paint, as before.
         jsonp(SCRIPT_URL + '?action=getHistory&_=' + Date.now(), h => { if (h && h.success && h.history) { historyData = h.history.map(x => ({ when: x.timestamp, assetId: x.assetId, action: String(x.action || '').toUpperCase().indexOf('OUT') > -1 ? 'OUT' : 'IN', who: x.who, dueBack: x.dueDate, condition: x.condition, staff: x.staff, type: x.type })); ivRender(); } }, () => {});
         done();
-      }).catch(() => { iv.err = 'Could not load the inventory.'; done(); });
-    }
+      }).catch(() => { iv.err = note || 'Could not load the inventory.'; done(); });
+    };
+    if (url) {
+      jsonp(url + '?action=all&key=' + encodeURIComponent(CORRECT_PIN) + '&_=' + Date.now(), d => {
+        if (d && d.success) {
+          ivApply(d, 'api');
+          try { localStorage.setItem('mmt_inv_cache', JSON.stringify({ items: d.items, history: d.history, paints: d.paints, prefixes: d.prefixes, writesOn: d.writesOn, at: Date.now() })); } catch (e) {}
+          done();
+        } else fromCopy(((d && d.error) || 'The inventory script said no.') + ' Showing the published copy (may lag a few minutes).');
+      }, () => fromCopy('Could not reach the inventory script. Showing the published copy (may lag a few minutes).'), 25000);
+    } else fromCopy();
   });
   return iv.loading;
 }
@@ -12855,7 +12875,9 @@ function ivCanMove() { return iv.src === 'api' || iv.src === 'csv'; }
 
 async function ivPost(body) {
   const url = invUrl();
-  if (url) {
+  // Only through the inventory script when it answered this time; otherwise
+  // the main script's old routes, as before.
+  if (url && iv.src !== 'csv') {
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ key: CORRECT_PIN }, body)) });
     const res = await r.json();
     // Saving still switched off in the inventory script: check in/out and
@@ -13260,7 +13282,7 @@ async function ivRun(btnId, label, body, onOk, onQueued) {
   const old = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = label; }
   try {
-    if (onQueued && (navigator.onLine === false || ivOutbox().length)) throw new Error('offline');
+    if (onQueued && (netDown() || ivOutbox().length)) throw new Error('offline');
     const res = await ivPost(body);
     if (res && res.success) onOk(res);
     else ivToast(ivE((res && res.error) || 'The Sheet said no.') + ' Nothing was saved.', { err: true, ms: 7000 });
@@ -13284,7 +13306,7 @@ function ivQueue(body) {
   const q = ivOutbox();
   q.push({ id: Date.now() + '_' + Math.floor(Math.random() * 1e4), at: new Date().toISOString(), body: { ...body, at: new Date().toISOString() } });
   ivOutboxSet(q);
-  ivDrainSoon(navigator.onLine === false ? 15000 : 2000);
+  ivDrainSoon(netDown() ? 15000 : 2000);
 }
 // After a reload the Sheet doesn't know these yet, so lay them over its copy.
 function ivReplayOutbox() {
@@ -13300,7 +13322,7 @@ async function ivDrain() {
   if (_ivDraining) return;
   let q = ivOutbox();
   if (!q.length) return;
-  if (navigator.onLine === false) { ivDrainSoon(30000); return; }
+  if (netDown()) { ivDrainSoon(30000); return; }
   _ivDraining = true;
   let sent = 0, skipped = 0, refused = [];
   try {
