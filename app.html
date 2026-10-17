@@ -6244,7 +6244,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v5</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v6</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -6584,7 +6584,7 @@ function switchTab(tab) {
   if (tab === 'calendar' && typeof renderCalendar === 'function') renderCalendar(true);
   if ((tab === 'inventory' || tab === 'drops') && typeof renderInventoryTab === 'function') {
     const scope = tab === 'drops' ? 'drops' : 'pieces';
-    if (iv.scope !== scope) { iv.scope = scope; iv.q = ''; iv.cat = ''; iv.dcat = ''; iv.status = 'all'; iv.sel.clear(); iv.detail = ''; ivCloseAll(); }
+    if (iv.scope !== scope) { iv.scope = scope; iv.need = ''; iv.multi = false; iv.q = ''; iv.cat = ''; iv.dcat = ''; iv.status = 'all'; iv.sel.clear(); iv.detail = ''; ivCloseAll(); }
     renderInventoryTab();
   }
   if (tab === 'storagemap' && typeof ensureStorageMapLoaded === 'function') ensureStorageMapLoaded();
@@ -12870,7 +12870,7 @@ function ivNormItem(r, idx) {
     rental: String(r.rental || ''), replacement: String(r.replacement || ''), notes: String(r.notes || ''),
     lastDate: String(r.lastDate || ''), lastShow: String(r.lastShow || ''),
     photoRaw: String(r.photo || ''), photo: driveThumb(String(r.photo || '')),
-    drop: !!r.drop, dropNo: String(r.dropNo || ''), size: String(r.size || ''), kind: String(r.kind || ''), cats: String(r.cats || ''),
+    drop: !!r.drop, shows: String(r.shows || ''), dropNo: String(r.dropNo || ''), size: String(r.size || ''), kind: String(r.kind || ''), cats: String(r.cats || ''),
     photos: Array.isArray(r.photos) && r.photos.length ? r.photos.map(x => ({ url: String((x && x.url) || ''), note: String((x && x.note) || '') })).filter(x => x.url)
       : (r.photo ? [{ url: String(r.photo), note: '' }] : []),
   };
@@ -13037,7 +13037,8 @@ function ivFiltered() {
     if (iv.status === 'late' && !ivIsLate(i)) return false;
     if (iv.cat && ivGroupOf(i) !== iv.cat) return false;
     if (iv.dcat && i.drop && !ivCatList(i).includes(iv.dcat)) return false;
-    if (q && ![i.name, i.assetId, i.tagId, i.location, i.currentShow, i.category, i.subcategory, i.notes, i.kind, i.cats, i.size, i.dropNo].some(f => String(f || '').toLowerCase().includes(q))) return false;
+    if (iv.need && i.drop && !ivNeeds(i, iv.need)) return false;
+    if (q && ![i.name, i.assetId, i.tagId, i.location, i.currentShow, i.category, i.subcategory, i.notes, i.kind, i.cats, i.size, i.dropNo, i.shows].some(f => String(f || '').toLowerCase().includes(q))) return false;
     return true;
   }).sort(ivSortFn());
 }
@@ -13077,6 +13078,8 @@ function ivRender() {
       <div class="iv-chips iv-phone-only">
         ${ivDrops() ? '' : `${chip('all', 'All', ivAll().length)}${chip('in', 'In', ivAll().length - out.length)}${chip('out', 'Out', out.length)}${late.length ? chip('late', 'Late', late.length, ' late') : ''}`}
         <select class="iv-chip${iv.cat ? ' on' : ''}" aria-label="${ivDrops() ? 'Kind' : 'Category'}" onchange="ivSetCat(this.value)"><option value="">${ivDrops() ? 'Kind' : 'Category'}</option>${cats.map(c => `<option${c === iv.cat ? ' selected' : ''}>${ivE(c)}</option>`).join('')}</select>
+        ${ivDrops() ? `<select class="iv-chip${iv.need ? ' on' : ''}" aria-label="Needs attention" onchange="iv.need=this.value;ivRender()"><option value="">Needs…</option>${Object.keys(IV_NEEDS).map(k => `<option value="${k}"${iv.need === k ? ' selected' : ''}>${IV_NEEDS[k]} (${ivAll().filter(i => ivNeeds(i, k)).length})</option>`).join('')}</select>
+        <button class="iv-chip${iv.multi ? ' on' : ''}" onclick="${iv.multi ? 'ivMultiOff()' : 'ivMultiOn()'}">${iv.multi ? 'Done' : 'Select'}</button>` : ''}
         ${ivDrops() ? `<select class="iv-chip${iv.dcat ? ' on' : ''}" aria-label="Category" onchange="iv.dcat=this.value;ivRender()"><option value="">Category</option>${ivDcats().filter(c => ivAll().some(i => ivCatList(i).includes(c))).map(c => `<option${c === iv.dcat ? ' selected' : ''}>${ivE(c)}</option>`).join('')}</select>` : ''}
       </div>
     </div>`;
@@ -13109,8 +13112,8 @@ function ivPhoneBody(list, out, late) {
 
 function ivRowHTML(i) {
   const s = ivStatusLine(i), on = iv.sel.has(i.assetId);
-  return `<div class="iv-row${on ? ' sel' : ''}" onclick="ivOpenItem(${ivJ(i.assetId)})">
-    <button class="iv-cb${on ? ' on' : ''}" aria-label="${on ? 'Unselect' : 'Select'} ${ivE(i.name)}" onclick="event.stopPropagation();ivToggleSel(${ivJ(i.assetId)})"><i>${on ? IV_ICON.check : ''}</i></button>
+  return `<div class="iv-row${on ? ' sel' : ''}" onclick="ivItemClick(${ivJ(i.assetId)})">
+    ${ivShowCb(i) ? `<button class="iv-cb${on ? ' on' : ''}" aria-label="${on ? 'Unselect' : 'Select'} ${ivE(i.name)}" onclick="event.stopPropagation();ivToggleSel(${ivJ(i.assetId)})"><i>${on ? IV_ICON.check : ''}</i></button>` : ''}
     ${ivPhoto(i)}
     <div class="iv-mid"><div class="iv-nm">${ivE(i.name || '(no name)')}${+i.quantity > 1 ? ' <span style="font-weight:500;color:var(--text-muted)">×' + ivE(i.quantity) + '</span>' : ''}</div><div class="iv-sub">${ivE(i.tagId || i.assetId)}</div><div class="iv-loc ${s.cls}">${ivE(s.text)}</div></div>
     ${ivPill(i)}
@@ -13120,14 +13123,14 @@ function ivRowHTML(i) {
 function ivDeskBody(list, out, late, cats) {
   const side = (k, label, n, extra) => `<button class="iv-sideitem${iv.status === k && !iv.cat ? ' on' : ''}"${extra || ''} onclick="ivSetStatus('${k}', true)">${label} <small>${n}</small></button>`;
   const catBtn = c => `<button class="iv-sideitem${iv.cat === c ? ' on' : ''}" onclick="ivSetCat(${ivJ(iv.cat === c ? '' : c)})">${ivE(c)} <small>${ivAll().filter(i => ivGroupOf(i) === c).length}</small></button>`;
-  const sideHTML = `<div class="iv-side">${ivDrops() ? `${side('all', 'All drops', ivAll().length)}` : `<h4>STATUS</h4>${side('all', 'All', ivAll().length)}${side('in', 'In storage', ivAll().length - out.length)}${side('out', 'Out', out.length)}${side('late', 'Past due', late.length, ' style="color:var(--iv-late)"')}`}
+  const sideHTML = `<div class="iv-side">${ivDrops() ? `${side('all', 'All drops', ivAll().length)}<h4 style="padding-top:16px">NEEDS ATTENTION</h4>${ivNeedBtns()}` : `<h4>STATUS</h4>${side('all', 'All', ivAll().length)}${side('in', 'In storage', ivAll().length - out.length)}${side('out', 'Out', out.length)}${side('late', 'Past due', late.length, ' style="color:var(--iv-late)"')}`}
     <h4 style="padding-top:16px">${ivDrops() ? 'KIND' : 'CATEGORY'}</h4>${cats.map(catBtn).join('')}
     ${ivDrops() ? `<h4 style="padding-top:16px">CATEGORY</h4>${ivDcats().filter(c => ivAll().some(i => ivCatList(i).includes(c))).map(c => `<button class="iv-sideitem${iv.dcat === c ? ' on' : ''}" onclick="iv.dcat=${ivJ(iv.dcat === c ? '' : c)};ivRender()">${ivE(c)} <small>${ivAll().filter(i => ivCatList(i).includes(c)).length}</small></button>`).join('')}` : ''}</div>`;
   const cards = list.length ? `<div class="iv-grid">${list.map(i => {
     const s = ivStatusLine(i), on = iv.sel.has(i.assetId);
-    return `<div class="iv-card${iv.detail === i.assetId ? ' on' : ''}${on ? ' sel' : ''}" onclick="ivOpenItem(${ivJ(i.assetId)})">
+    return `<div class="iv-card${iv.detail === i.assetId ? ' on' : ''}${on ? ' sel' : ''}" onclick="ivItemClick(${ivJ(i.assetId)})">
       <div class="img">${i.photo ? `<img src="${ivE(i.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : IV_ICON.photo}</div>
-      <button class="iv-cb${on ? ' on' : ''}" aria-label="${on ? 'Unselect' : 'Select'} ${ivE(i.name)}" onclick="event.stopPropagation();ivToggleSel(${ivJ(i.assetId)})"><i>${on ? IV_ICON.check : ''}</i></button>
+      ${ivShowCb(i) ? `<button class="iv-cb${on ? ' on' : ''}" aria-label="${on ? 'Unselect' : 'Select'} ${ivE(i.name)}" onclick="event.stopPropagation();ivToggleSel(${ivJ(i.assetId)})"><i>${on ? IV_ICON.check : ''}</i></button>` : ''}
       <div class="iv-cbody"><div class="iv-nm" style="font-size:14px">${ivE(i.name || '(no name)')}</div><div class="iv-sub">${ivE(i.tagId || i.assetId)}</div>
       <div class="row2"><span class="iv-loc ${s.cls}" style="margin:0">${ivE(s.text)}</span>${ivPill(i)}</div></div></div>`;
   }).join('')}</div>` : `<div class="iv-empty">${ivAll().length ? 'Nothing matches.' : (ivDrops() ? ivDropsEmpty() : 'No items yet. Use “Add item” to add the first one.')}</div>`;
@@ -13135,6 +13138,8 @@ function ivDeskBody(list, out, late, cats) {
     // Drops: no side pane (a drop opens as a pop-up), filters can be hidden, cards sized.
     const v = ivDropView();
     const bar = `<div class="iv-dbar"><button class="iv-btn sm" onclick="ivDropPref('side', !ivDropPrefs().side)">${ivDropPrefs().side ? '‹ Hide filters' : 'Filters ›'}</button>
+      ${iv.multi ? `<button class="iv-btn sm pri" onclick="ivSelectShown()">Select all ${list.length}</button><button class="iv-btn sm" onclick="ivMultiOff()">Done</button>` : `<button class="iv-btn sm" onclick="ivMultiOn()">Select several</button>`}
+      ${iv.need ? `<span class="iv-hint" style="margin:0 0 0 6px"><b>${list.length}</b> with ${ivE(IV_NEEDS[iv.need].toLowerCase())}</span>` : ''}
       <span style="flex:1"></span><span class="iv-hint" style="margin:0">Size</span>
       ${[['s', 'Small'], ['m', 'Medium'], ['l', 'List']].map(([k, l]) => `<button class="iv-chip${v === k ? ' on' : ''}" onclick="ivDropPref('view','${k}')">${l}</button>`).join('')}</div>`;
     const body = v === 'l' ? (list.length ? `<div class="iv-list">${list.map(ivRowHTML).join('')}</div>` : cards) : cards;
@@ -13150,9 +13155,13 @@ function ivDropView() { return ivDropPrefs().view; }
 function ivDropPref(k, v) { const p = ivDropPrefs(); p[k] = v; try { localStorage.setItem('mmt_drops_prefs', JSON.stringify(p)); } catch (e) {} ivRender(); }
 
 function ivSelBar() {
-  if (!iv.sel.size) return '';
+  if (!iv.sel.size) return ivDrops() && iv.multi ? `<div class="iv-selbar"><span class="t">Tap drops to pick them</span><button class="iv-btn" onclick="ivMultiOff()">Done</button></div>` : '';
   const items = [...iv.sel].map(ivItem).filter(Boolean);
   const anyIn = items.some(i => !ivIsOut(i)), anyOut = items.some(ivIsOut);
+  if (ivDrops()) return `<div class="iv-selbar"><span class="t">${iv.sel.size} selected</span>
+    <button class="iv-btn" onclick="ivMultiOff()">Done</button>
+    <button class="iv-btn" onclick="ivOpenLabels(true)">Labels</button>
+    <button class="iv-btn pri" onclick="ivOpenBulk()">Edit ${iv.sel.size}</button></div>`;
   return `<div class="iv-selbar"><span class="t">${iv.sel.size} selected</span>
     <button class="iv-btn" onclick="ivSel.clear()">Clear</button>
     <button class="iv-btn" onclick="ivOpenLabels(true)">Labels</button>
@@ -13220,7 +13229,7 @@ function ivItemHTML(i, inPane) {
       </div>
       ${i.notes ? `<div style="margin-top:14px"><div class="iv-k">NOTES</div><div class="iv-v" style="color:var(--text-muted)">${ivE(i.notes)}</div></div>` : ''}
       ${ivGalleryHTML(i)}
-      ${i.drop ? '' : `<div style="margin-top:16px"><div class="iv-k">HISTORY</div>${histHTML}</div>`}
+      ${i.drop ? ivShowsHTML(i) : `<div style="margin-top:16px"><div class="iv-k">HISTORY</div>${histHTML}</div>`}
     </div>
     <div class="iv-actions"${inPane ? ' style="position:sticky;bottom:0"' : ''}>
       <button class="iv-btn big" onclick="ivOpenLabels(false, [${ivJ(i.assetId)}])">Label</button>${i.drop ? `<button class="iv-btn big" onclick="ivStartMove(${ivJ(i.assetId)})">Move</button><button class="iv-btn big pri grow" onclick="ivOpenEdit(${ivJ(i.assetId)})">Edit</button>` : ''}${actions}
@@ -13261,7 +13270,7 @@ const IV_VIEWS = {
   menu() {
     const out = ivAll().filter(ivIsOut).length;
     return { sheet: true, w: 420, label: 'More', html: `${ivHead(ivDrops() ? 'Drops' : 'Inventory', '', { sheet: true })}<div class="iv-obody iv-menu">
-      <button onclick="ivClose();ivOpen({v:'outnow'})">Out now <span class="iv-badge" style="margin-left:auto">${out}</span></button>
+      ${ivDrops() ? '' : `<button onclick="ivClose();ivOpen({v:'outnow'})">Out now <span class="iv-badge" style="margin-left:auto">${out}</span></button>`}
       <button onclick="ivClose();ivOpenScan()">Scan labels</button>
       ${ivDrops() ? `<button onclick="ivClose();ivOpenRack()">Storage map</button>` : ''}
       <button onclick="ivClose();ivOpenLabels()">Print labels</button>
@@ -14162,7 +14171,7 @@ function ivRackHTML(v) {
   drops.forEach(i => { const p = ivRackSpot(i); if (p && p.r <= R.rows && p.b <= R.bays) (at[p.r + '-' + p.b] = at[p.r + '-' + p.b] || []).push(i); else loose.push(i); });
   const focus = v.focus && ivItem(v.focus), fp = focus && ivRackSpot(focus);
   const mv = iv.move, mvItem = mv && mv.id && ivItem(mv.id);
-  const banner = mv ? `<div class="iv-note" style="margin:0;border-radius:0"><span>${mv.form ? 'Tap the bay where this drop is stored.' : `Tap the new bay for <b>${ivE(ivDropLabel(mvItem || {}))}</b>.`}</span><button class="iv-btn sm" onclick="iv.move=null;ivClose()">Cancel</button></div>` : '';
+  const banner = mv ? `<div class="iv-note" style="margin:0;border-radius:0"><span>${mv.form || mv.bulk ? 'Tap the bay where this drop is stored.' : `Tap the new bay for <b>${ivE(ivDropLabel(mvItem || {}))}</b>.`}</span><button class="iv-btn sm" onclick="iv.move=null;ivClose()">Cancel</button></div>` : '';
   let head = '<div class="iv-rk-h"></div>';
   for (let b = 1; b <= R.bays; b++) head += `<div class="iv-rk-h">${ivE(ivBayName(b))}</div>`;
   let rows = '';
@@ -14183,6 +14192,7 @@ function ivRackHTML(v) {
 async function ivRackTap(r, b) {
   const mv = iv.move;
   if (mv && mv.form) { iv.form.location = ivSpot(r, b); iv.move = null; ivClose(); return; }
+  if (mv && mv.bulk) { iv.bulk.loc = ivSpot(r, b); iv.move = null; ivClose(); return; }
   if (mv && mv.id) {
     const i = ivItem(mv.id); if (!i) { iv.move = null; return; }
     const spot = ivSpot(r, b);
@@ -14294,6 +14304,77 @@ async function ivDsRack() {
   if (await ivDsetSave({ rack: { rows, bays } })) { ivRenderOv(); ivToast('✓ Map is now ' + rows + ' rows × ' + bays + ' bays'); }
 }
 
+// Needs attention, picking several, editing them at once, shows used in
+const IV_NEEDS = { spot: 'No storage spot', photo: 'No photo', kind: 'No kind', size: 'No size', cats: 'No category' };
+function ivNeeds(i, k) { return k === 'spot' ? !i.location : k === 'photo' ? !i.photo : k === 'kind' ? !i.kind : k === 'size' ? !i.size : k === 'cats' ? !i.cats : true; }
+function ivNeedBtns() {
+  return Object.keys(IV_NEEDS).map(k => { const n = ivAll().filter(i => ivNeeds(i, k)).length;
+    return `<button class="iv-sideitem${iv.need === k ? ' on' : ''}" onclick="iv.need=${iv.need === k ? "''" : `'${k}'`};ivRender()">${IV_NEEDS[k]} <small>${n}</small></button>`; }).join('');
+}
+function ivShowCb(i) { return !i.drop || iv.multi; }
+function ivItemClick(id) { const i = ivItem(id); if (i && i.drop && iv.multi) ivToggleSel(id); else ivOpenItem(id); }
+function ivMultiOn() { iv.multi = true; iv.sel.clear(); ivRender(); }
+function ivMultiOff() { iv.multi = false; iv.sel.clear(); ivRender(); }
+function ivSelectShown() { ivFiltered().forEach(i => iv.sel.add(i.assetId)); ivRender(); }
+function ivOpenBulk() { if (!iv.sel.size) return; iv.bulk = { loc: '', kind: '', size: '', cats: {}, show: '' }; ivOpen({ v: 'dbulk' }); }
+function ivBulkHTML() {
+  const B = iv.bulk, n = iv.sel.size;
+  const catBtn = c => { const st = B.cats[c]; return `<button class="iv-pick${st === 'add' ? ' on' : ''}"${st === 'remove' ? ' style="text-decoration:line-through;border-color:var(--iv-late);color:var(--iv-late)"' : ''} onclick="ivBulkCat(${ivJ(c)})">${st === 'add' ? '+ ' : st === 'remove' ? '− ' : ''}${ivE(c)}</button>`; };
+  return `${ivHead('Edit ' + n + ' drop' + (n === 1 ? '' : 's') + ' at once', 'only what you set here changes')}<div class="iv-obody"><div class="iv-pad">
+    <span class="iv-fl">STORED AT</span>
+    <div style="display:flex;gap:8px"><button class="iv-in" style="text-align:left;font-weight:600;cursor:pointer;flex:1" onclick="iv.move={bulk:true};ivOpen({v:'rack'})">${ivE(B.loc || 'Leave as is · pick on map ›')}</button>${B.loc ? `<button class="iv-btn" onclick="iv.bulk.loc='';ivRenderOv()">Clear</button>` : ''}</div>
+    <label class="iv-fl" for="iv-bk-kind">KIND</label>
+    <select id="iv-bk-kind" class="iv-in" onchange="iv.bulk.kind=this.value"><option value="">Leave as is</option>${ivKinds().map(k => `<option${B.kind === k ? ' selected' : ''}>${ivE(k)}</option>`).join('')}</select>
+    <span class="iv-fl">CATEGORIES</span>
+    <div class="iv-wrap">${ivDcats().map(catBtn).join('')}</div>
+    <div class="iv-hint">Tap once to add to all of them, twice to take it off all of them, three times to leave it.</div>
+    <label class="iv-fl" for="iv-bk-size">SIZE</label>
+    <input id="iv-bk-size" class="iv-in" placeholder="Leave as is" value="${ivE(B.size)}" oninput="iv.bulk.size=this.value">
+    <label class="iv-fl" for="iv-bk-show">ADD A SHOW IT WAS USED IN</label>
+    <input id="iv-bk-show" class="iv-in" list="iv-showlist" placeholder="e.g. Annie 2025" value="${ivE(B.show)}" oninput="iv.bulk.show=this.value">
+    <datalist id="iv-showlist">${ivAllShowNames().map(s => `<option value="${ivE(s)}">`).join('')}</datalist>
+  </div></div>
+  <div class="iv-ofoot"><button class="iv-btn big" onclick="ivClose()">Cancel</button><button class="iv-btn big pri grow" id="iv-bk-go" onclick="ivBulkSave()">Save to ${n} drop${n === 1 ? '' : 's'}</button></div>`;
+}
+function ivBulkCat(c) { const B = iv.bulk; B.cats[c] = !B.cats[c] ? 'add' : B.cats[c] === 'add' ? 'remove' : ''; if (!B.cats[c]) delete B.cats[c]; ivRenderOv(); }
+async function ivBulkSave() {
+  const B = iv.bulk, set = {};
+  if (B.loc) set.location = B.loc;
+  if (B.kind) set.kind = B.kind;
+  if (B.size.trim()) set.size = B.size.trim();
+  const addCats = Object.keys(B.cats).filter(c => B.cats[c] === 'add'), removeCats = Object.keys(B.cats).filter(c => B.cats[c] === 'remove');
+  const addShow = B.show.trim();
+  if (!Object.keys(set).length && !addCats.length && !removeCats.length && !addShow) { ivToast('Nothing to change yet.', { err: true }); return; }
+  if (iv.src !== 'api' || !iv.writesOn) { ivToast('Saving needs the inventory script with saving on.', { err: true }); return; }
+  const ids = [...iv.sel];
+  await ivRun('iv-bk-go', 'Saving…', { action: 'bulkEditDrops', ids, set, addCats, removeCats, addShow }, res => {
+    if (res.items) ivMergeItems(res.items);
+    iv.multi = false; iv.sel.clear(); ivCloseAll(); ivRender();
+    ivToast(`✓ ${res.updated.length} drop${res.updated.length === 1 ? '' : 's'} updated · <span class="ok">saved to Sheet</span>`);
+  });
+}
+function ivShowsHTML(i) {
+  const list = String(i.shows || '').split(',').map(x => x.trim()).filter(Boolean);
+  return `<div style="margin-top:16px"><div class="iv-k">USED IN SHOWS</div>
+    <div class="iv-wrap" style="margin-top:6px">${list.length ? list.map(s => `<span class="iv-pill" style="background:var(--iv-out-bg);color:var(--iv-out);display:inline-flex;align-items:center;gap:4px;font-size:13px;padding:4px 4px 4px 10px">${ivE(s)}<button class="iv-btn ghost sm" style="min-height:28px!important;height:28px;padding:0 6px!important" aria-label="Remove ${ivE(s)}" onclick="ivShowEdit(${ivJ(i.assetId)}, ${ivJ(s)}, false)">✕</button></span>`).join('') : '<span class="iv-hint" style="margin:0">None yet.</span>'}</div>
+    <form style="display:flex;gap:8px;margin-top:8px" onsubmit="event.preventDefault();ivShowEdit(${ivJ(i.assetId)}, this.elements.s.value, true)">
+      <input name="s" class="iv-in" style="margin:0;flex:1" list="iv-showlist-i" placeholder="Add a show…" aria-label="Add a show" autocomplete="off">
+      <button class="iv-btn" type="submit">Add</button></form>
+    <datalist id="iv-showlist-i">${ivAllShowNames().map(s => `<option value="${ivE(s)}">`).join('')}</datalist></div>`;
+}
+async function ivShowEdit(id, show, add) {
+  const i = ivItem(id); show = String(show || '').trim(); if (!i || !show) return;
+  if (iv.src !== 'api' || !iv.writesOn) { ivToast('Saving needs the inventory script with saving on.', { err: true }); return; }
+  const cur = String(i.shows || '').split(',').map(x => x.trim()).filter(Boolean);
+  const next = add ? (cur.some(x => x.toLowerCase() === show.toLowerCase()) ? cur : [show, ...cur]) : cur.filter(x => x !== show);
+  if (next.join(', ') === cur.join(', ')) return;
+  await ivRun('', 'Saving…', { action: 'editAsset', assetId: id, fields: { shows: next.join(', ') }, base: { shows: i.shows || '' } }, res => {
+    if (res.item) ivMergeItems([res.item]);
+    ivRenderOv(); ivRender();
+    if ((res.conflicts || []).length) ivToast('Someone else changed the shows meanwhile; theirs were kept. Try again.', { err: true, ms: 7000 });
+  });
+}
+IV_VIEWS.dbulk = () => ({ w: 560, label: 'Edit several drops', html: ivBulkHTML() });
 IV_VIEWS.dform = () => ({ w: 600, label: iv.form && iv.form.mode === 'dedit' ? 'Edit drop' : 'Add a drop', html: ivDropFormHTML() });
 IV_VIEWS.rack = v => ({ w: 1400, label: 'Drop storage map', html: ivRackHTML(v) });
 IV_VIEWS.bay = v => ({ sheet: true, w: 520, label: 'Bay', html: ivBayHTML(v) });

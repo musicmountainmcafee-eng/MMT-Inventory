@@ -23,7 +23,7 @@
  */
 const SHEET_ID  = '1ZC6eyjym1wLtPNG9G_rNFP_Txke1-VJtt7mrPsL0WOA';
 const WRITES_ON = true;   // saving is on (switched on 10.16)
-const VERSION   = 'inv-5';
+const VERSION   = 'inv-6';
 // The dashboard PIN. Change it here and in the dashboard together.
 const STAFF_KEY = '1483';
 
@@ -55,13 +55,14 @@ const INV_COLS = {
 // The Drop Inventory tab: one row per drop. Made by the first import or the
 // first drop added.
 const DROP_HEAD = ['Asset ID', 'Drop #', 'Name', 'Size', 'Kind', 'Category', 'Stored At', 'Status', 'Current show', 'due back',
-  'Type', 'Photo', 'Rental Value', 'Replacement Value', 'Notes', 'Last Used Date', 'Last Used Show'];
+  'Type', 'Photo', 'Rental Value', 'Replacement Value', 'Notes', 'Last Used Date', 'Last Used Show', 'Shows'];
 const DROP_COLS = {
   assetId: ['Asset ID'], dropNo: ['Drop #', 'Drop Number', 'Number'], name: ['Name'], size: ['Size'], kind: ['Kind'],
   cats: ['Category', 'Categories'], location: ['Stored At', 'Storage Location'], status: ['Status'],
   currentShow: ['Current show'], dueBack: ['due back', 'Due Back'], type: ['Type'], photo: ['Photo'],
   rental: ['Rental Value'], replacement: ['Replacement Value'], notes: ['Notes'],
   lastDate: ['Last Used Date', 'Laat Used Date'], lastShow: ['Last Used Show'],
+  shows: ['Shows', 'Used In', 'Shows Used In'],
 };
 const LOG_COLS = {
   when:      ['Timestamp'],
@@ -125,6 +126,7 @@ function doPost(e) {
       case 'importDrops': return out(importDrops(ss, data));
       case 'dropSettings': return out(saveDropSettings(ss, data));
       case 'renameDropValue': return out(renameDropValue(ss, data));
+      case 'bulkEditDrops': return out(bulkEditDrops(ss, data));
     }
     return out({ success: false, error: 'Unknown action' });
   } catch (err) {
@@ -259,6 +261,41 @@ function renameDropValue(ss, d) {
   if (changed.length) { const f = dropTable(ss, false); changed.forEach(id => { const i = findRow(f.values, f.c, id); if (i > 0) items.push(rowToItem(ss, f.values[i], f.c, i + 1)); }); }
   return { success: true, changed: changed.length, items };
 }
+// Change several drops at once. Only what's sent changes:
+// set {location, kind, size}, addCats / removeCats, addShow.
+function bulkEditDrops(ss, d) {
+  const ids = (d.ids || []).map(str).filter(isDropId).slice(0, 400);
+  if (!ids.length) return { success: false, error: 'No drops chosen' };
+  const set = d.set || {}, addCats = (d.addCats || []).map(str).filter(Boolean), removeCats = (d.removeCats || []).map(s => str(s).toLowerCase()).filter(Boolean);
+  const addShow = str(d.addShow);
+  let t = dropTable(ss, false);
+  if (!t) return { success: false, error: 'No Drop Inventory tab yet' };
+  if (addShow) t = ensureDropCol(t, 'shows', 'Shows');
+  const list = (v) => str(v).split(',').map(str).filter(Boolean);
+  const done = [], notFound = [];
+  ids.forEach(id => {
+    const i = findRow(t.values, t.c, id);
+    if (i < 0) { notFound.push(id); return; }
+    const r = t.values[i], rowNum = i + 1;
+    ['location', 'kind', 'size'].forEach(k => { if (k in set && str(set[k]) !== str(r[t.c[k]])) setCell(t.sh, rowNum, t.c[k], str(set[k])); });
+    if (addCats.length || removeCats.length) {
+      const cur = list(r[t.c.cats]);
+      const next = cur.filter(c => removeCats.indexOf(c.toLowerCase()) < 0);
+      addCats.forEach(c => { if (!next.some(x => x.toLowerCase() === c.toLowerCase())) next.push(c); });
+      if (next.join(', ') !== cur.join(', ')) setCell(t.sh, rowNum, t.c.cats, next.join(', '));
+    }
+    if (addShow) {
+      const cur = list(r[t.c.shows]);
+      if (!cur.some(x => x.toLowerCase() === addShow.toLowerCase())) setCell(t.sh, rowNum, t.c.shows, [addShow].concat(cur).join(', '));
+    }
+    done.push(id);
+  });
+  SpreadsheetApp.flush();
+  const f = dropTable(ss, false);
+  const items = done.map(id => { const i = findRow(f.values, f.c, id); return rowToItem(ss, f.values[i], f.c, i + 1); });
+  return { success: true, updated: done, notFound, items };
+}
+
 // D + the drop number (D009), or the next free D1000+ when the number is
 // blank or its ID was ever used before (so history never mixes two drops).
 function dropIdFor(used, dropNo) {
@@ -406,6 +443,15 @@ function dropTable(ss, create) {
   const values = sh.getDataRange().getValues();
   return { sh, values, c: colMap(values[0] || [], DROP_COLS) };
 }
+// A tab made before the "Shows" column existed gets it added at the end.
+function ensureDropCol(t, key, header) {
+  if (t.c[key] > -1) return t;
+  const col = t.values[0].length + 1;
+  t.sh.getRange(1, col).setValue(header);
+  t.values = t.sh.getDataRange().getValues();
+  t.c = colMap(t.values[0] || [], DROP_COLS);
+  return t;
+}
 function tableFor(ss, id) { return isDropId(id) ? (dropTable(ss, false) || { sh: null, values: [[]], c: { assetId: -1 } }) : invTable(ss); }
 
 function rowToItem(ss, r, c, rowNum) {
@@ -417,7 +463,7 @@ function rowToItem(ss, r, c, rowNum) {
     size: str(g('size')), kind: str(g('kind')), cats: str(g('cats')), location: str(g('location')),
     status: str(g('status')).toUpperCase() || 'IN', dueBack: dayStr(ss, g('dueBack')), type: str(g('type')),
     currentShow: str(g('currentShow')), rental: str(g('rental')), replacement: str(g('replacement')),
-    notes: str(g('notes')), lastDate: dayStr(ss, g('lastDate')), lastShow: str(g('lastShow')),
+    notes: str(g('notes')), lastDate: dayStr(ss, g('lastDate')), lastShow: str(g('lastShow')), shows: str(g('shows')),
   };
   return {
     row: rowNum,
@@ -710,7 +756,8 @@ function editAsset(ss, d) {
     for (let k = 1; k < values.length; k++) if (k !== i && str(values[k][c.dropNo]) === str(fields.dropNo))
       return { success: false, error: 'Drop #' + str(fields.dropNo) + ' is already used by ' + str(values[k][c.name]) + '.' };
   }
-  const allowed = drop ? ['dropNo', 'name', 'size', 'kind', 'cats', 'location', 'rental', 'replacement', 'notes', 'photo']
+  if (drop && 'shows' in fields) ensureDropCol({ sh, values, c }, 'shows', 'Shows');
+  const allowed = drop ? ['dropNo', 'name', 'size', 'kind', 'cats', 'location', 'rental', 'replacement', 'notes', 'photo', 'shows']
     : ['name', 'category', 'subcategory', 'location', 'quantity', 'rental', 'replacement', 'notes', 'photo'];
   const changed = [], conflicts = [];
   allowed.forEach(k => {
