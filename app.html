@@ -2593,6 +2593,15 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   .htm-night { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
   .htm-night:last-child { border-bottom: none; } .htm-night span { flex: 1; } .htm-night b { font-variant-numeric: tabular-nums; }
   .htm-night .acts { display: block; color: var(--text-muted); font-size: 12px; }
+  .htm-trend { font-size: 13px; margin: 8px 0 0; }
+  .htm-nt { border: none !important; border-bottom: 1px solid var(--border) !important; border-radius: 0 !important; padding: 8px 0 !important; }
+  .htm-nt summary { display: flex !important; justify-content: space-between; align-items: flex-start; }
+  .htm-nt .d { display: flex; flex-direction: column; font-size: 14px; font-weight: 600; } .htm-nt .d em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--purple); }
+  .htm-nt .t { display: flex; flex-direction: column; align-items: flex-end; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .htm-nt small { font-weight: 400; font-size: 12px; color: var(--text-muted); }
+  .htm-tl { display: grid; grid-template-columns: 82px 1fr auto; gap: 8px; padding: 5px 0 5px 4px; font-size: 13px; align-items: baseline; }
+  .htm-tl .tm { font-variant-numeric: tabular-nums; color: var(--text-muted); } .htm-tl .len { text-align: right; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; }
+  .htm-tl.gap .what, .htm-tl.end .what { color: var(--text-muted); } .htm-tl.miss .what { color: var(--text-faint); font-style: italic; }
 
   /* ── BACKDROPS TAB (merged from drops.html — Session 4) ──────────────────── */
   #tab-backdrops .drp-wrap { padding: 20px; }
@@ -6309,7 +6318,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v11</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v12</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -6604,21 +6613,62 @@ function htmHistory() {
   jsonp(SCRIPT_URL + '?action=getKV&key=timer_histall&_=' + Date.now(), d => {
     let rows = d && d.value; if (typeof rows === 'string') { try { rows = JSON.parse(rows); } catch (e) { rows = null; } }
     if (!Array.isArray(rows) || !rows.length) { box.innerHTML = '<div class="htm-night"><span>Nothing logged yet. After a performance, each act’s running time shows up here.</span></div>'; return; }
-    const by = {};
-    rows.forEach(r => { if (!Array.isArray(r)) return; const sh = by[r[1]] = by[r[1]] || { name: r[1], nights: {} }; const n = sh.nights[r[0]] = sh.nights[r[0]] || { at: 0, start: Infinity, acts: [], run: false };
-      n.acts.push({ name: r[2], ms: r[3], end: r[4], start: r[5] != null ? r[5] : r[4] - r[3] }); n.at = Math.max(n.at, r[4] || 0); n.start = Math.min(n.start, r[5] != null ? r[5] : (r[4] - r[3])); if (r[6] === 'r') n.run = true; });
-    const shows = Object.values(by).map(sh => { const nights = Object.values(sh.nights).sort((a, b) => b.at - a.at); nights.forEach(n => { n.acts.sort((a, b) => a.start - b.start); n.total = n.acts.reduce((t, a) => t + (a.ms || 0), 0); }); return { name: sh.name, nights, last: nights[0].at }; }).sort((a, b) => b.last - a.last);
-    const day = t => new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-    box.innerHTML = shows.map((sh, k) => {
-      const perfs = sh.nights.filter(n => !n.run), runs = sh.nights.length - perfs.length;
-      const full = Math.max(0, ...perfs.map(n => n.acts.length)), done = perfs.filter(n => n.acts.length === full).slice(0, 3);
-      const names = done.length ? done[0].acts.map(a => a.name) : [];
-      const avg = fn => done.length ? done.reduce((t, n) => t + fn(n), 0) / done.length : 0;
-      const avgHTML = done.length ? `<div class="htm-avg"><div><div style="font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--text-muted)">RUN TIME</div><div class="v">${htmFmt(avg(n => n.total))}</div><small>${done.length === 1 ? 'from 1 night' : 'average of the last ' + done.length + ' nights'}</small></div>${names.map(nm => `<span>${ivE(nm)} <b>${htmFmt(avg(n => (n.acts.find(a => a.name === nm) || {}).ms || 0))}</b></span>`).join('')}</div>` : '';
-      const nightsHTML = sh.nights.map(n => `<div class="htm-night"><span>${ivE(day(n.start === Infinity ? n.at : n.start))}${n.run ? ' · run-through' : ''}<span class="acts">${n.acts.map(a => ivE(a.name) + ' ' + htmFmt(a.ms)).join(' · ')}</span></span><b>${htmFmt(n.total)}</b></div>`).join('');
-      return `<details${k === 0 ? ' open' : ''}><summary><b>${ivE(sh.name)}</b><small>${[perfs.length ? perfs.length + (perfs.length === 1 ? ' performance' : ' performances') : '', runs ? runs + (runs === 1 ? ' run-through' : ' run-throughs') : ''].filter(Boolean).join(' · ')} · last ${ivE(day(sh.last))}</small></summary>${avgHTML}<div style="margin-top:8px">${nightsHTML}</div></details>`;
-    }).join('');
+    box.innerHTML = htmHistHTML(rows);
   }, () => { box.innerHTML = '<div class="htm-night"><span>Couldn’t reach the Sheet. Try again in a moment.</span></div>'; });
+}
+// Same reading of the timer's history as its own History screen: per show, per
+// night, a timeline of clock times (start of each part, intermissions, end).
+// Rows: [night key, show, part, ran ms, ended at, started at, 'r' = run-through].
+function htmClock(t) { const d = new Date(t), h = d.getHours(); return (h % 12 || 12) + ':' + String(d.getMinutes()).padStart(2, '0') + ' ' + (h >= 12 ? 'PM' : 'AM'); }
+function htmCap(nm) { return String(nm).toLowerCase().replace(/\b\w/g, c => c.toUpperCase()); }
+function htmHistHTML(rows) {
+  const by = {};
+  rows.forEach(r => {
+    if (!Array.isArray(r)) return;
+    const sh = by[r[1]] = by[r[1]] || { name: r[1], nights: {} };
+    const n = sh.nights[r[0]] = sh.nights[r[0]] || { at: 0, acts: {}, seq: [], st: {}, en: {}, est: {}, run: false };
+    n.acts[r[2]] = r[3]; n.en[r[2]] = r[4];
+    if (r[5] != null) n.st[r[2]] = r[5]; else { n.st[r[2]] = r[4] - r[3]; n.est[r[2]] = 1; }
+    n.seq.push([r[2], r[4]]); if (r[4] > n.at) n.at = r[4];
+    if (r[6] === 'r') n.run = true;
+  });
+  const day = (t, wk) => new Date(t).toLocaleDateString(undefined, wk ? { weekday: 'short', month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric' });
+  const shows = Object.values(by).map(sh => {
+    const list = Object.values(sh.nights).sort((a, b) => b.at - a.at);
+    const best = list.slice().sort((a, b) => (a.run ? 1 : 0) - (b.run ? 1 : 0) || b.seq.length - a.seq.length)[0], names = [];
+    best.seq.slice().sort((a, b) => a[1] - b[1]).forEach(x => { if (!names.includes(x[0])) names.push(x[0]); });
+    list.forEach(n => n.seq.forEach(x => { if (!names.includes(x[0])) names.push(x[0]); }));
+    list.forEach(n => { n.total = 0; n.complete = true; names.forEach(nm => { if (n.acts[nm] == null) { if (!n.run) n.complete = false; } else n.total += n.acts[nm]; }); });
+    for (let i = 0; i < list.length; i++) { list[i].delta = null; if (!list[i].complete || list[i].run) continue; for (let k = i + 1; k < list.length; k++) if (list[k].complete && !list[k].run) { list[i].delta = list[i].total - list[k].total; break; } }
+    return { name: sh.name, names, nights: list, done: list.filter(n => n.complete && !n.run), perfs: list.filter(n => !n.run).length, runs: list.filter(n => n.run).length, last: list[0].at };
+  }).sort((a, b) => b.last - a.last);
+  return shows.map((sh, si) => {
+    const last3 = sh.done.slice(0, 3), avg = fn => Math.round(last3.reduce((t, n) => t + fn(n), 0) / Math.max(1, last3.length) / 1000) * 1000;
+    let head = '';
+    if (last3.length) {
+      head = `<div class="htm-avg"><div><div style="font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--text-muted)">RUN TIME</div><div class="v">${htmFmt(avg(n => n.total))}</div><small>${last3.length === 1 ? 'from 1 night so far' : 'average of the last ' + last3.length + ' nights'}</small></div>${sh.names.map(nm => `<span>${ivE(htmCap(nm))} <b>${htmFmt(avg(n => n.acts[nm] || 0))}</b></span>`).join('')}</div>`;
+      if (sh.done.length >= 2) { const first = sh.done[sh.done.length - 1], tr = sh.done[0].total - first.total; head += `<p class="htm-trend">${Math.abs(tr) < 60000 ? 'Holding steady since ' + ivE(day(first.at)) + '.' : `<b>Running ${htmFmt(Math.abs(tr))} ${tr > 0 ? 'longer' : 'shorter'}</b> than ${ivE(day(first.at))}.`}</p>`; }
+    }
+    let opened = false;
+    const nights = sh.nights.map(n => {
+      const acts = sh.names.filter(nm => n.st[nm] != null).sort((a, b) => n.st[a] - n.st[b]);
+      const open = !opened && n.complete && !n.run; if (open) opened = true;
+      const row = (cls, tm, est, what, len, note) => `<div class="htm-tl${cls ? ' ' + cls : ''}"><span class="tm">${tm == null ? '' : (est ? '≈' : '') + htmClock(tm)}</span><span class="what">${ivE(what)}</span><span class="len">${len || ''}${note ? `<small>${ivE(note)}</small>` : ''}</span></div>`;
+      let tl = '';
+      acts.forEach((nm, ai) => {
+        if (ai > 0) { const pe = n.en[acts[ai - 1]], gap = n.st[nm] - pe; if (gap >= 60000) tl += row('gap', pe, false, 'Intermission', htmFmt(Math.round(gap / 1000) * 1000)); }
+        const span = n.en[nm] - n.st[nm], held = n.est[nm] ? 0 : span - n.acts[nm];
+        tl += row('', n.st[nm], n.est[nm], htmCap(nm), htmFmt(n.acts[nm]), held >= 30000 ? '+' + htmFmt(Math.round(held / 1000) * 1000) + ' held' : '');
+      });
+      sh.names.forEach(nm => { if (n.acts[nm] == null && !n.run) tl += row('miss', null, false, htmCap(nm) + ' — not logged', ''); });
+      if (acts.length) tl += row('end', n.en[acts[acts.length - 1]], false, n.complete ? 'End of show' : 'Last GO', '');
+      const started = acts.length ? 'Started ' + (n.est[acts[0]] ? 'about ' : '') + htmClock(n.st[acts[0]]) + (n.complete ? '' : ' · didn’t finish') : '';
+      const dl = n.complete && n.delta != null ? (Math.abs(n.delta) < 5000 ? 'same as before' : htmFmt(Math.abs(n.delta)) + (n.delta > 0 ? ' longer' : ' shorter')) : (!n.complete ? 'incomplete' : '');
+      return `<details class="htm-nt"${open ? ' open' : ''}><summary><span class="d">${ivE(day(n.at, true))}${n.run ? ' <em>Run-through</em>' : ''}<small>${ivE(started)}</small></span><span class="t">${n.complete ? htmFmt(n.total) : ''}<small>${ivE(dl)}</small></span></summary>${tl}</details>`;
+    }).join('');
+    const sub = [sh.perfs ? sh.perfs + (sh.perfs === 1 ? ' performance' : ' performances') : '', sh.runs ? sh.runs + (sh.runs === 1 ? ' run-through' : ' run-throughs') : ''].filter(Boolean).join(' · ') + ' · last ' + day(sh.last);
+    return `<details${si === 0 ? ' open' : ''}><summary><b>${ivE(sh.name)}</b><small>${ivE(sub)}</small></summary>${head}<div style="margin-top:6px">${nights}</div></details>`;
+  }).join('') + '<p class="htm-trend" style="color:var(--text-muted)">Lengths don’t count intermission or holds. ≈ means the time was worked out from the part’s length.</p>';
 }
 function htmHistClose() { document.getElementById('htm-hist').hidden = true; }
 function htmToggle() {
