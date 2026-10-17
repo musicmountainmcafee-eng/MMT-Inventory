@@ -23,7 +23,7 @@
  */
 const SHEET_ID  = '1ZC6eyjym1wLtPNG9G_rNFP_Txke1-VJtt7mrPsL0WOA';
 const WRITES_ON = true;   // saving is on (switched on 10.16)
-const VERSION   = 'inv-6';
+const VERSION   = 'inv-7';   // inv-N: self-update only moves to a higher N
 // The dashboard PIN. Change it here and in the dashboard together.
 const STAFF_KEY = '1483';
 
@@ -108,6 +108,7 @@ function doPost(e) {
   try { data = JSON.parse(e.postData.contents); }
   catch (err) { return out({ success: false, error: 'Bad request' }); }
   if (!staffOk(data)) return out({ success: false, needKey: true, error: 'Staff PIN needed.' });
+  if (data.action === 'selfUpdate') { try { return out(Object.assign({ success: true }, selfUpdate_())); } catch (err) { return out({ success: false, error: String(err && err.message || err) }); } }
   if (data.action === 'catalogSet') return out(catalogSet(data));   // a setting, not inventory: allowed while WRITES_ON is false
   if (!WRITES_ON) return out({ success: false, readOnly: true, error: 'Saving is switched off in the inventory script (WRITES_ON = false).' });
   const lock = LockService.getScriptLock();
@@ -370,6 +371,83 @@ function importDrops(ss, d) {
   }
   SpreadsheetApp.flush();
   return { success: true, added, skipped };
+}
+
+// ── Self-update ─────────────────────────────────────────────────────────────
+// The dashboard's "Update now" asks this script to pull the newest
+// apps-script/Inventory-Code.gs from the MMT-Inventory GitHub repo, swap it in,
+// save a version and move the web app onto it (same URL). It only moves to a
+// higher inv-N, keeps this copy's WRITES_ON, and refuses code that doesn't parse.
+// ONE-TIME SETUP (laptop):
+//   1. script.google.com/home/usersettings → "Google Apps Script API" → On.
+//   2. Project Settings (gear) → tick "Show appsscript.json manifest file in
+//      editor"; replace appsscript.json with apps-script/inventory-appsscript.json.
+//   3. Replace Code.gs with this file. Save. Pick "setup" in the toolbar, Run,
+//      allow the permissions. The log ends with "Ready".
+//   4. Deploy → Manage deployments → ✎ → Version: New version → Deploy.
+const SELF_SOURCES = [
+  'https://api.github.com/repos/musicmountainmcafee-eng/MMT-Inventory/contents/apps-script/Inventory-Code.gs?ref=main',
+  'https://raw.githubusercontent.com/musicmountainmcafee-eng/MMT-Inventory/main/apps-script/Inventory-Code.gs',
+];
+function versionNo(v) { const m = /inv-(\d+)/.exec(String(v || '')); return m ? Number(m[1]) : 0; }
+function selfUpdate_() {
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(20000); } catch (err) { return { updated: false, reason: 'The Sheet is busy, try again in a moment.' }; }
+  try {
+    let src = fetchSelf_();
+    const m = /const VERSION\s*=\s*'(inv-\d+)'/.exec(src);
+    const remote = m ? versionNo(m[1]) : 0;
+    if (!remote) throw new Error('The file on GitHub has no inv- version; not updating.');
+    if (remote <= versionNo(VERSION)) return { updated: false, reason: 'Already up to date', version: VERSION };
+    if (src.indexOf('function doGet(') < 0 || src.indexOf('function doPost(') < 0 || src.indexOf('function selfUpdate_(') < 0)
+      throw new Error('The file on GitHub does not look like the inventory script; not updating.');
+    src = src.replace(/const WRITES_ON = (true|false);/, 'const WRITES_ON = ' + (WRITES_ON ? 'true' : 'false') + ';');
+    new Function(src);   // a file that doesn't parse can't break the live script
+    const id = ScriptApp.getScriptId(), base = 'https://script.googleapis.com/v1/projects/' + id;
+    const content = scriptApi_('get', base + '/content');
+    const all = content.files || [];
+    const mine = all.filter(f => f.type === 'SERVER_JS' && /const VERSION/.test(f.source || ''))[0] || all.filter(f => f.type === 'SERVER_JS')[0] || { name: 'Code' };
+    const files = all.filter(f => f !== mine);
+    files.push({ name: mine.name, type: 'SERVER_JS', source: src });
+    scriptApi_('put', base + '/content', { scriptId: id, files });
+    const ver = scriptApi_('post', base + '/versions', { description: 'Self-update to inv-' + remote });
+    const deps = (scriptApi_('get', base + '/deployments').deployments || []).filter(d =>
+      d.deploymentConfig && d.deploymentConfig.versionNumber && (d.entryPoints || []).some(e => e.entryPointType === 'WEB_APP'));
+    deps.forEach(d => scriptApi_('put', base + '/deployments/' + d.deploymentId, { deploymentConfig: {
+      scriptId: id, versionNumber: ver.versionNumber, manifestFileName: 'appsscript', description: 'Inventory script inv-' + remote } }));
+    return { updated: true, from: VERSION, to: 'inv-' + remote, versionNumber: ver.versionNumber, deployments: deps.length };
+  } finally { lock.releaseLock(); }
+}
+function fetchSelf_() {
+  let last = '';
+  for (const u of SELF_SOURCES) {
+    try {
+      const r = UrlFetchApp.fetch(u + (u.indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now(), { muteHttpExceptions: true, headers: { Accept: 'application/vnd.github.raw' } });
+      if (r.getResponseCode() === 200) return r.getContentText();
+      last = 'HTTP ' + r.getResponseCode();
+    } catch (err) { last = String(err && err.message || err); }
+  }
+  throw new Error('Could not download the update from GitHub (' + last + ').');
+}
+function scriptApi_(method, url, body) {
+  const opt = { method, muteHttpExceptions: true, contentType: 'application/json', headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } };
+  if (body) opt.payload = JSON.stringify(body);
+  const r = UrlFetchApp.fetch(url, opt), code = r.getResponseCode(), text = r.getContentText();
+  if (code >= 300) {
+    if (/has not been used|is disabled|SERVICE_DISABLED|User has not enabled the Apps Script API/i.test(text))
+      throw new Error('Turn on "Google Apps Script API" at script.google.com/home/usersettings, then try again.');
+    if (code === 403 && /insufficient|scope/i.test(text))
+      throw new Error('The script needs its permissions: replace appsscript.json with inventory-appsscript.json, run "setup" once, then try again.');
+    throw new Error('Apps Script API ' + code + ': ' + text.slice(0, 200));
+  }
+  return text ? JSON.parse(text) : {};
+}
+// Run once from the editor: asks for the permissions and checks update can work.
+function setup() {
+  book().getName();
+  const deps = scriptApi_('get', 'https://script.googleapis.com/v1/projects/' + ScriptApp.getScriptId() + '/deployments').deployments || [];
+  fetchSelf_();
+  Logger.log('Found ' + deps.length + ' deployment(s). Ready: the inventory script can now update itself.');
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

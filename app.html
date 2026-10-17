@@ -6244,7 +6244,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v7</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v8</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -12801,6 +12801,24 @@ function ivBig(raw) {
 }
 
 // The Set Pieces tab and the Drops tab are the same screens over different items.
+// The inventory script this page expects. From inv-7 on, the script updates
+// itself from GitHub when asked; older ones need one last paste.
+const IV_SCRIPT_WANT = 7;
+function ivScriptNo() { const m = /inv-(\d+)/.exec(iv.version || ''); return m ? +m[1] : 0; }
+function ivScriptNote() {
+  if (!iv.loaded || iv.src !== 'api' || !iv.version || ivScriptNo() >= IV_SCRIPT_WANT) return '';
+  if (ivScriptNo() >= 7) return `<div class="iv-note"><span><b>An update for the inventory script is ready.</b> It takes about half a minute.</span><button class="iv-btn sm pri" id="iv-upd" onclick="ivScriptUpdate()">Update now</button></div>`;
+  return `<div class="iv-note warn"><span>The inventory script is older than this page (${ivE(iv.version)}). Paste <b>apps-script/Inventory-Code.gs</b> and the new manifest once more, following the steps at its top. After that it updates itself.</span></div>`;
+}
+async function ivScriptUpdate() {
+  const b = document.getElementById('iv-upd'); if (b) { b.disabled = true; b.textContent = 'Updating…'; }
+  let res = null;
+  try { res = await ivPost({ action: 'selfUpdate' }); } catch (e) {}
+  if (res && res.success && res.updated) { ivToast('✓ Inventory script updated to ' + ivE(res.to) + '. Reloading…', { ms: 6000 }); setTimeout(loadInventoryData, 4000); return; }
+  if (b) { b.disabled = false; b.textContent = 'Update now'; }
+  if (res && res.success) { ivToast(ivE(res.reason || 'Already up to date.')); loadInventoryData(); return; }
+  ivToast(ivE((res && res.error) || 'Could not reach the inventory script.') + ' Nothing was changed.', { err: true, ms: 10000 });
+}
 function ivDrops() { return iv.scope === 'drops'; }
 function ivAll() { const d = ivDrops(); return allItems.filter(i => !!i.drop === d); }
 function ivGroupOf(i) { return i.drop ? (i.kind || 'No kind') : (i.category || 'No category'); }
@@ -12884,6 +12902,7 @@ function ivApply(d, src) {
   if (d.nextId) iv.nextId = d.nextId;
   if (d.dropSettings) iv.dset = d.dropSettings;
   iv.writesOn = !!d.writesOn;
+  if (d.version) iv.version = d.version;
   iv.src = src; iv.loaded = true; iv.err = ''; iv.syncedAt = Date.now();
   ivReplayOutbox();
 }
@@ -13055,6 +13074,7 @@ function ivRender() {
   let notes = ivOutboxNote();
   if (iv.err) notes += `<div class="iv-note warn"><span><b>${ivE(iv.err)}</b> ${iv.loaded ? 'Showing the last copy on this device.' : ''}</span><button class="iv-btn sm" onclick="loadInventoryData()">Try again</button></div>`;
   if (iv.loaded && iv.src === 'csv') notes += `<div class="iv-note warn"><span>Using the old connection: the list can be a few minutes behind the Sheet. Check in/out still saves.</span><button class="iv-btn sm" onclick="ivOpen({v:'setup'})">Connect</button></div>`;
+  notes += ivScriptNote();
   if (iv.loaded && iv.src === 'api' && !iv.writesOn) notes += `<div class="iv-note"><span><b>Live from your Sheet.</b> Check in/out and paints save as before. Adding and editing items wait until saving is switched on in the inventory script.</span></div>`;
 
   const chip = (k, label, n, extra) => `<button class="iv-chip${iv.status === k ? ' on' : ''}${extra || ''}" onclick="ivSetStatus('${k}')">${label} <small>${n}</small></button>`;
