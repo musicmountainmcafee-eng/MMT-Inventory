@@ -23,11 +23,11 @@
  */
 const SHEET_ID  = '1ZC6eyjym1wLtPNG9G_rNFP_Txke1-VJtt7mrPsL0WOA';
 const WRITES_ON = true;   // saving is on (switched on 10.16)
-const VERSION   = 'inv-3';
+const VERSION   = 'inv-4';
 // The dashboard PIN. Change it here and in the dashboard together.
 const STAFF_KEY = '1483';
 
-const TAB = { inv: 'Inventory', log: 'Form_Responses', added: 'New_Assets', paint: 'Paint_Library', prefix: 'Prefix_Table' };
+const TAB = { inv: 'Inventory', log: 'Form_Responses', added: 'New_Assets', paint: 'Paint_Library', prefix: 'Prefix_Table', photos: 'Item_Photos' };
 
 // The Inventory headers this script uses, by job. Each lists the spellings it
 // accepts (case and spaces at the ends don't matter).
@@ -109,6 +109,7 @@ function doPost(e) {
       case 'editAsset':   return out(editAsset(ss, data));
       case 'savePaint':   return out(savePaint(ss, data));
       case 'deletePaint': return out(deletePaint(ss, data));
+      case 'setPhotos':   return out(setPhotos(ss, data));
     }
     return out({ success: false, error: 'Unknown action' });
   } catch (err) {
@@ -142,6 +143,7 @@ function catalog(ss, staff) {
     if (staff) return it;
     const pub = { assetId: it.assetId, tagId: it.tagId, name: it.name, quantity: it.quantity, photo: it.photo,
       category: it.category, subcategory: it.subcategory };   // availability is for staff only
+    if (it.photos) pub.photos = it.photos.map(p => ({ url: p.url }));   // photo notes are for staff only
     if (settings.showRental) pub.rental = it.rental;
     return pub;
   });
@@ -246,7 +248,58 @@ function readItems(ss) {
     if (!str(r[c.assetId]) && !str(r[c.name])) continue;   // blank rows
     items.push(rowToItem(ss, r, c, i + 1));
   }
+  const photos = readPhotos(ss);
+  items.forEach(it => { const p = photos[idKey(it.assetId)]; if (p) it.photos = p; });
   return items;
+}
+
+// ── Photos: one row per photo in the Item_Photos tab ────────────────────────
+// Columns: Asset ID, Photo, Note, Order, Added. The first photo is the cover,
+// which also stays in the Inventory tab's Photo column.
+const PHOTO_HEAD = ['Asset ID', 'Photo', 'Note', 'Order', 'Added'];
+function readPhotos(ss) {
+  const sh = tab(ss, TAB.photos, false);
+  const map = {};
+  if (!sh) return map;
+  const v = sh.getDataRange().getValues();
+  const rows = [];
+  for (let i = 1; i < v.length; i++) {
+    const id = idKey(v[i][0]), url = str(v[i][1]);
+    if (id && url) rows.push({ id, url, note: str(v[i][2]), order: Number(v[i][3]) || 0, i });
+  }
+  rows.sort((a, b) => a.order - b.order || a.i - b.i);
+  rows.forEach(r => (map[r.id] = map[r.id] || []).push({ url: r.url, note: r.note }));
+  return map;
+}
+function photoSig(list) { return JSON.stringify((list || []).map(p => [str(p.url), str(p.note)])); }
+
+// Replaces one item's photos. "base" is the list the editor started from;
+// if someone changed the photos meanwhile, nothing is saved and theirs come back.
+function setPhotos(ss, d) {
+  const { sh, values, c } = invTable(ss);
+  const i = findRow(values, c, d.assetId);
+  if (i < 0) return { success: false, error: 'Item not found: ' + d.assetId };
+  const key = idKey(d.assetId);
+  const cover = str(values[i][c.photo]);
+  const now = readPhotos(ss)[key] || (cover ? [{ url: cover, note: '' }] : []);
+  if (Array.isArray(d.base) && photoSig(d.base) !== photoSig(now))
+    return { success: false, conflict: true, photos: now, error: 'Someone else changed these photos meanwhile. Their photos were kept; yours were not saved.' };
+  const list = (Array.isArray(d.photos) ? d.photos : []).map(p => ({ url: str(p && p.url), note: str(p && p.note) }))
+    .filter(p => /^https:\/\//.test(p.url)).slice(0, 30);
+  let ph = tab(ss, TAB.photos, false);
+  if (!ph) { ph = ss.insertSheet(TAB.photos); ph.appendRow(PHOTO_HEAD); }
+  const pv = ph.getDataRange().getValues();
+  const added = {};
+  for (let r = pv.length - 1; r >= 1; r--) if (idKey(pv[r][0]) === key) { added[str(pv[r][1])] = pv[r][4]; ph.deleteRow(r + 1); }
+  const stamp = stampStr(ss, new Date());
+  list.forEach((p, n) => ph.appendRow([str(values[i][c.assetId]), p.url, p.note, n + 1, added[p.url] ? stampStr(ss, added[p.url]) : stamp]));
+  const newCover = list.length ? list[0].url : '';
+  if (c.photo > -1 && newCover !== cover) setCell(sh, i + 1, c.photo, newCover);
+  SpreadsheetApp.flush();
+  const fresh = invTable(ss);
+  const item = rowToItem(ss, fresh.values[i], fresh.c, i + 1);
+  if (list.length) item.photos = list;
+  return { success: true, item };
 }
 
 function readHistory(ss) {

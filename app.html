@@ -1559,11 +1559,12 @@
 /* ══ INVENTORY (rebuilt 10.12) ══════════════════════════════════════════════
    Everything is under #tab-inventory or #iv-ov, prefixed iv-. Buttons repeat
    their padding/font with !important because the app-wide button rule does. */
-#tab-inventory .iv, #iv-ov { --iv-in: #1e6b34; --iv-in-bg: #e6f4ea; --iv-out: #3C3489; --iv-out-bg: #efeefc; --iv-late: #a3271b; --iv-late-bg: #fdecea; --iv-ph: #ecebe6; --iv-deep: #1d1b33; }
-[data-theme="dark"] #tab-inventory .iv, [data-theme="dark"] #iv-ov { --iv-in: #93cf72; --iv-in-bg: #1d3320; --iv-out: #c3bafa; --iv-out-bg: #2b2750; --iv-late: #f2918f; --iv-late-bg: #3a1c1c; --iv-ph: #2a2a38; --iv-deep: #0e0d1c; }
+#tab-inventory .iv, #iv-ov, #iv-scan { --iv-in: #1e6b34; --iv-in-bg: #e6f4ea; --iv-out: #3C3489; --iv-out-bg: #efeefc; --iv-late: #a3271b; --iv-late-bg: #fdecea; --iv-ph: #ecebe6; --iv-deep: #1d1b33; }
+[data-theme="dark"] #tab-inventory .iv, [data-theme="dark"] #iv-ov, [data-theme="dark"] #iv-scan { --iv-in: #93cf72; --iv-in-bg: #1d3320; --iv-out: #c3bafa; --iv-out-bg: #2b2750; --iv-late: #f2918f; --iv-late-bg: #3a1c1c; --iv-ph: #2a2a38; --iv-deep: #0e0d1c; }
 #tab-inventory .iv { font-family: 'DM Sans', sans-serif; color: var(--text); max-width: 1500px; margin: 0 auto; padding-bottom: 96px; }
-#tab-inventory .iv *, #iv-ov * { box-sizing: border-box; }
-#tab-inventory .iv button, #iv-ov button { font-family: 'DM Sans', sans-serif !important; letter-spacing: 0 !important; cursor: pointer; }
+#tab-inventory .iv *, #iv-ov *, #iv-scan * { box-sizing: border-box; }
+#iv-scan { font-family: 'DM Sans', sans-serif; }
+#tab-inventory .iv button, #iv-ov button, #iv-scan button { font-family: 'DM Sans', sans-serif !important; letter-spacing: 0 !important; cursor: pointer; }
 
 /* top bar */
 .iv-top { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--surface); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
@@ -1727,6 +1728,34 @@ textarea.iv-in { height: 84px; padding: 10px 12px !important; resize: vertical; 
 .iv-photos { display: flex; gap: 8px; margin-top: 12px; }
 .iv-photo { width: 104px; height: 104px; border-radius: 12px; background: var(--iv-ph); display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: 12px; overflow: hidden; position: relative; }
 .iv-photo img { width: 100%; height: 100%; object-fit: cover; }
+.iv-ph-row { display: flex; gap: 10px; align-items: flex-start; margin-top: 10px; }
+.iv-ph-row .iv-photo { flex-shrink: 0; }
+.iv-ph-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.iv-ph-side textarea { min-height: 58px; }
+.iv-ph-side .iv-pick { height: 34px; min-height: 34px !important; font-weight: 500 !important; }
+.iv-cover { position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 700; background: #fff; color: #1f1d2b; padding: 1px 6px; border-radius: 8px; z-index: 1; }
+.iv-gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 6px; }
+.iv-gal a { display: block; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden; background: var(--iv-ph); }
+.iv-gal img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.iv-gal .n { font-size: 12px; color: var(--text-muted); margin-top: 4px; white-space: pre-line; }
+#iv-scan { display: none; position: fixed; inset: 0; z-index: 10050; background: #111015; color: #fff; flex-direction: column; }
+#iv-scan.open { display: flex; }
+.iv-scan-top { display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top)) 16px 10px; }
+.iv-scan-top .iv-ib { background: rgba(255,255,255,.14); color: #fff; }
+.iv-scan-top span { margin-left: auto; font-size: 13px; color: #cfcbe0; }
+.iv-scan-cam { margin: 0 16px; height: min(42vh, 340px); border-radius: 18px; background: #2a2833; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.iv-scan-cam video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.iv-scan-box { position: absolute; width: 190px; height: 190px; border: 3px solid #8be0a4; border-radius: 16px; pointer-events: none; }
+.iv-scan-msg { position: absolute; bottom: 12px; left: 12px; right: 12px; background: rgba(29,107,57,.92); border-radius: 10px; padding: 8px 12px; font-size: 14px; font-weight: 600; display: none; }
+.iv-scan-msg.on { display: block; } .iv-scan-msg.err { background: rgba(140,40,30,.92); }
+.iv-scan-cam .cam-off { padding: 20px; text-align: center; font-size: 14px; color: #cfcbe0; position: relative; }
+.iv-scan-list { flex: 1; margin-top: 14px; background: var(--surface, #fff); color: var(--text, #1f1d2b); border-radius: 18px 18px 0 0; padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.iv-scan-items { overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; flex: 0 1 auto; min-height: 0; }
+.iv-scan-items .r { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.iv-scan-items .r:last-child { border-bottom: none; }
+.iv-scan-items .th { width: 40px; height: 32px; border-radius: 6px; background: var(--iv-ph); overflow: hidden; flex-shrink: 0; }
+.iv-scan-items .th img { width: 100%; height: 100%; object-fit: cover; }
+.iv-scan-go { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: auto; }
 label.iv-photo.add { border: 2px dashed var(--purple); background: var(--purple-light); color: var(--purple-dark); font-weight: 600; font-size: 13px; flex-direction: column; gap: 6px; cursor: pointer; }
 .iv-grid2 { display: grid; grid-template-columns: minmax(0, 1fr) 100px; gap: 10px; }
 .iv-grid2e { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -6180,7 +6209,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v5</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -12784,6 +12813,8 @@ function ivNormItem(r, idx) {
     rental: String(r.rental || ''), replacement: String(r.replacement || ''), notes: String(r.notes || ''),
     lastDate: String(r.lastDate || ''), lastShow: String(r.lastShow || ''),
     photoRaw: String(r.photo || ''), photo: driveThumb(String(r.photo || '')),
+    photos: Array.isArray(r.photos) && r.photos.length ? r.photos.map(x => ({ url: String((x && x.url) || ''), note: String((x && x.note) || '') })).filter(x => x.url)
+      : (r.photo ? [{ url: String(r.photo), note: '' }] : []),
   };
 }
 
@@ -12911,6 +12942,8 @@ function ivMergeItems(list) {
   (list || []).forEach(r => {
     const n = ivNormItem(r, 0);
     const at = allItems.findIndex(i => i.assetId.toUpperCase() === n.assetId.toUpperCase());
+    // Check-in/out and edit answers don't carry the photo list: keep ours if the cover is unchanged.
+    if (at > -1 && !Array.isArray(r.photos) && allItems[at].photos && allItems[at].photos.length && allItems[at].photos[0].url === n.photoRaw) n.photos = allItems[at].photos;
     if (at > -1) { n._idx = allItems[at]._idx; allItems[at] = n; } else { n._idx = allItems.length; allItems.push(n); }
   });
 }
@@ -12969,9 +13002,11 @@ function ivRender() {
     <div class="iv-top">
       <div class="iv-title"><b>Inventory</b><small>${ivE(sub)}</small></div>
       <button class="iv-btn iv-desk-only" onclick="ivOpen({v:'outnow'})">Out now <span class="iv-badge${late.length ? ' late' : ''}">${out.length}${late.length ? ' · ' + late.length + ' late' : ''}</span></button>
+      <button class="iv-btn iv-desk-only" onclick="ivOpenScan()">Scan</button>
       <button class="iv-btn iv-desk-only" onclick="ivOpenLabels()">Labels</button>
       <button class="iv-btn iv-desk-only" onclick="ivOpen({v:'history'})">History</button>
       <button class="iv-btn pri iv-desk-only" onclick="ivOpenAdd()">${IV_ICON.plus} Add item</button>
+      <button class="iv-btn iv-phone-only" onclick="ivOpenScan()">Scan</button>
       <button class="iv-ib pri iv-phone-only" aria-label="Add an item" onclick="ivOpenAdd()">${IV_ICON.plus}</button>
       <button class="iv-ib iv-phone-only" aria-label="More: labels, history, paint" onclick="ivOpen({v:'menu'})">${IV_ICON.more}</button>
       <button class="iv-ib iv-desk-only" aria-label="More" onclick="ivOpen({v:'menu'})">${IV_ICON.more}</button>
@@ -13070,6 +13105,14 @@ function ivOpenItem(id) {
   ivOpen({ v: 'item', id: it.assetId });
 }
 
+function ivGalleryHTML(i) {
+  const ph = i.photos || [];
+  if (ph.length < 2 && !ph.some(p => p.note)) return '';
+  return `<div style="margin-top:14px"><div class="iv-k">PHOTOS · ${ph.length}</div><div class="iv-gal">${ph.map((p, n) => `<div>
+    <a href="${ivE(ivBig(p.url))}" target="_blank" rel="noopener" aria-label="Open photo ${n + 1}"><img src="${ivE(driveThumb(p.url))}" alt="" loading="lazy" referrerpolicy="no-referrer"></a>
+    ${p.note ? `<div class="n">${ivE(p.note)}</div>` : ''}</div>`).join('')}</div></div>`;
+}
+
 function ivItemHTML(i, inPane) {
   const late = ivDaysLate(i);
   const hist = historyData.filter(h => String(h.assetId).toUpperCase() === i.assetId.toUpperCase()).slice().reverse();
@@ -13099,6 +13142,7 @@ function ivItemHTML(i, inPane) {
         <div><div class="iv-k">REPLACEMENT</div><div class="iv-v">${i.replacement ? '$' + ivE(i.replacement.replace(/^\$/, '')) : '—'}</div></div>
       </div>
       ${i.notes ? `<div style="margin-top:14px"><div class="iv-k">NOTES</div><div class="iv-v" style="color:var(--text-muted)">${ivE(i.notes)}</div></div>` : ''}
+      ${ivGalleryHTML(i)}
       <div style="margin-top:16px"><div class="iv-k">HISTORY</div>${histHTML}</div>
     </div>
     <div class="iv-actions"${inPane ? ' style="position:sticky;bottom:0"' : ''}>
@@ -13141,6 +13185,7 @@ const IV_VIEWS = {
     const out = allItems.filter(ivIsOut).length;
     return { sheet: true, w: 420, label: 'More', html: `${ivHead('Inventory', '', { sheet: true })}<div class="iv-obody iv-menu">
       <button onclick="ivClose();ivOpen({v:'outnow'})">Out now <span class="iv-badge" style="margin-left:auto">${out}</span></button>
+      <button onclick="ivClose();ivOpenScan()">Scan labels</button>
       <button onclick="ivClose();ivOpenLabels()">Print labels</button>
       <button onclick="ivClose();ivOpen({v:'history'})">History</button>
       <button onclick="ivClose();loadInventoryData()">Refresh from the Sheet</button>
@@ -13476,14 +13521,15 @@ async function ivSubmitCheckOut() {
 // ── Add / edit ──────────────────────────────────────────────────────────────
 function ivOpenAdd(keep) {
   const prev = keep && iv.form;
-  iv.form = { mode: 'add', name: '', category: prev ? prev.category : '', subcategory: prev ? prev.subcategory : '', location: prev ? prev.location : '', quantity: '1', rental: '', replacement: '', notes: '', file: null, preview: '', photo: '', more: false };
+  iv.form = { mode: 'add', photos: [], photosBase: [], name: '', category: prev ? prev.category : '', subcategory: prev ? prev.subcategory : '', location: prev ? prev.location : '', quantity: '1', rental: '', replacement: '', notes: '', file: null, preview: '', photo: '', more: false };
   if (prev) { iv.stack = iv.stack.filter(s => s.v !== 'edit'); }
   ivOpen({ v: 'edit' });
 }
 function ivOpenEdit(id) {
   const i = ivItem(id); if (!i) return;
   const base = { name: i.name, category: i.category, subcategory: i.subcategory, location: i.location, quantity: i.quantity, rental: i.rental, replacement: i.replacement, notes: i.notes, photo: i.photoRaw };
-  iv.form = { mode: 'edit', assetId: i.assetId, tagId: i.tagId, ...base, base, file: null, preview: '', more: true };
+  const ph = (i.photos || []).map(p => ({ url: p.url, note: p.note }));
+  iv.form = { mode: 'edit', assetId: i.assetId, tagId: i.tagId, ...base, base, photos: ph.map(p => ({ ...p })), photosBase: ph, more: true };
   ivOpen({ v: 'edit' });
 }
 function ivF(k, v) { iv.form[k] = v; if (k === 'category' || k === 'subcategory') ivTagPreview(); }
@@ -13504,14 +13550,9 @@ function ivFormHTML() {
   const locs = [...new Set(allItems.map(i => i.location).filter(Boolean))].sort();
   const subs = [...new Set(allItems.map(i => i.subcategory).filter(Boolean).concat(Object.keys((iv.prefixes && iv.prefixes.subcats) || {}).map(s => s.replace(/\b\w/g, c => c.toUpperCase()))))].sort();
   const recent = [...new Set(allItems.slice().reverse().map(i => i.location).filter(Boolean))].slice(0, 3);
-  const photo = f.preview || (f.photo ? driveThumb(f.photo) : '');
   const inp = (k, label, ph, extra) => `<label class="iv-fl" for="iv-f-${k}">${label}</label><input id="iv-f-${k}" class="iv-in" value="${ivE(f[k])}" placeholder="${ivE(ph || '')}" oninput="ivF('${k}', this.value)" autocomplete="off"${extra || ''}>`;
   return `${ivHead(isEdit ? 'Edit ' + ivE(f.base.name || 'item') : 'Add an item', isEdit ? ivE(f.tagId || f.assetId) : '')}<div class="iv-obody"><div class="iv-pad">
-    <div class="iv-photos">
-      ${photo ? `<div class="iv-photo"><img src="${ivE(photo)}" alt="Item photo" referrerpolicy="no-referrer"></div>` : ''}
-      <label class="iv-photo add">${IV_ICON.cam}${photo ? 'Retake' : 'Take photo'}<input type="file" accept="image/*" capture="environment" style="display:none" onchange="ivPickPhoto(this)"></label>
-      <label class="iv-photo add" style="border-style:solid">${IV_ICON.photo}From library<input type="file" accept="image/*" style="display:none" onchange="ivPickPhoto(this)"></label>
-    </div>
+    ${ivPhotoEditHTML(f)}
     ${inp('name', 'NAME', 'e.g. Bentwood café chair')}
     <span class="iv-fl">CATEGORY</span>
     <div class="iv-wrap">${cats.map(c => `<button class="iv-pick${f.category === c ? ' on' : ''}" onclick="ivF('category', ${ivJ(c)});ivRenderOv()">${ivE(c)}</button>`).join('')}</div>
@@ -13534,12 +13575,53 @@ function ivFormHTML() {
     : `<button class="iv-btn big" id="iv-f-go2" onclick="ivSaveForm(true)">Save + add another</button><button class="iv-btn big pri grow" id="iv-f-go" onclick="ivSaveForm()">Save item</button>`}</div>`;
 }
 
+function ivPhotoEditHTML(f) {
+  const ph = f.photos, n = ph.length;
+  const rows = ph.map((p, k) => `<div class="iv-ph-row">
+      <div class="iv-photo">${k === 0 && n > 1 ? '<span class="iv-cover">Cover</span>' : ''}<img src="${ivE(p.preview || driveThumb(p.url))}" alt="Photo ${k + 1}" referrerpolicy="no-referrer"></div>
+      <div class="iv-ph-side"><textarea class="iv-in" aria-label="Note for photo ${k + 1}" placeholder="Note (staff only, optional)" oninput="iv.form.photos[${k}].note=this.value">${ivE(p.note || '')}</textarea>
+        <div class="iv-wrap">${k > 0 ? `<button class="iv-pick" aria-label="Move photo ${k + 1} up" onclick="ivPhMove(${k},-1)">↑</button>` : ''}${k < n - 1 ? `<button class="iv-pick" aria-label="Move photo ${k + 1} down" onclick="ivPhMove(${k},1)">↓</button>` : ''}${k > 0 ? `<button class="iv-pick" onclick="ivPhMove(${k},${-k})">Make cover</button>` : ''}<button class="iv-pick" onclick="ivPhDel(${k})">Remove</button></div>
+      </div></div>`).join('');
+  return `<div class="iv-k" style="margin-top:12px">PHOTOS${n ? ' (' + n + ')' : ''}${n > 1 ? ' · the first is the cover' : ''}</div>${rows}
+    <div class="iv-photos">
+      <label class="iv-photo add">${IV_ICON.cam}Take photo<input type="file" accept="image/*" capture="environment" style="display:none" onchange="ivPickPhoto(this)"></label>
+      <label class="iv-photo add" style="border-style:solid">${IV_ICON.photo}Choose photos<input type="file" accept="image/*" multiple style="display:none" onchange="ivPickPhoto(this)"></label>
+    </div>`;
+}
 function ivPickPhoto(input) {
-  const file = input.files && input.files[0]; if (!file) return;
-  iv.form.file = file;
-  const r = new FileReader();
-  r.onload = () => { iv.form.preview = r.result; ivRenderOv(); };
-  r.readAsDataURL(file);
+  const files = [...(input.files || [])].slice(0, 30); if (!files.length) return;
+  files.forEach(file => iv.form.photos.push({ url: '', note: '', file, preview: URL.createObjectURL(file) }));
+  ivRenderOv();
+}
+function ivPhMove(k, d) {
+  const ph = iv.form.photos, j = k + d;
+  if (j < 0 || j >= ph.length) return;
+  const [x] = ph.splice(k, 1); ph.splice(j, 0, x); ivRenderOv();
+}
+function ivPhDel(k) { iv.form.photos.splice(k, 1); ivRenderOv(); }
+function ivPhSig(list) { return JSON.stringify((list || []).map(p => [String(p.url || ''), String(p.note || '').trim()])); }
+// Saves an item's whole photo list. Returns true when the Sheet has it.
+async function ivSavePhotos(assetId, photos, base) {
+  let res;
+  try { res = await ivPost({ action: 'setPhotos', assetId, photos, base }); }
+  catch (e) { ivToast('Could not reach the Sheet, so the photos weren\'t saved. Try again.', { err: true, ms: 7000 }); return false; }
+  if (res && res.success) { if (res.item) ivMergeItems([res.item]); ivRender(); return true; }
+  if (res && res.conflict) {
+    const it = ivItem(assetId); if (it && res.photos) it.photos = res.photos;
+    ivToast(ivE(res.error), { err: true, ms: 8000 }); ivRender(); return false;
+  }
+  if (res && /unknown action/i.test(res.error || '')) {
+    // The inventory script is older than inv-4: keep the cover only.
+    const it = ivItem(assetId), cover = photos.length ? photos[0].url : '';
+    if (it && cover !== it.photoRaw) {
+      try { const r2 = await ivPost({ action: 'editAsset', assetId, fields: { photo: cover }, base: { photo: it.photoRaw } }); if (r2 && r2.item) ivMergeItems([r2.item]); } catch (e) {}
+    }
+    ivRender();
+    ivToast('Only the cover photo was saved. To keep several photos and notes, paste the new inventory script and redeploy it.', { err: true, ms: 9000 });
+    return false;
+  }
+  ivToast(ivE((res && res.error) || 'The Sheet said no.') + ' The photos weren\'t saved.', { err: true, ms: 7000 });
+  return false;
 }
 
 // Phone photos are huge; send a 1600px JPEG.
@@ -13579,19 +13661,23 @@ async function ivSaveForm(another) {
   if (iv.busy) return;
   const btnId = another ? 'iv-f-go2' : 'iv-f-go';
   const btn = document.getElementById(btnId);
-  let photo = f.photo || '';
-  if (f.file) {
+  const pend = f.photos.filter(p => p.file);
+  if (pend.length) {
     iv.busy = true;
     if (btn) { btn.disabled = true; btn.textContent = 'Uploading photo…'; }
-    try { photo = await ivUpload(f.file); }
+    try { for (let k = 0; k < pend.length; k++) { if (btn) btn.textContent = pend.length > 1 ? `Uploading photo ${k + 1} of ${pend.length}…` : 'Uploading photo…'; pend[k].url = await ivUpload(pend[k].file); pend[k].file = null; } }
     catch (e) { iv.busy = false; if (btn) { btn.disabled = false; btn.textContent = another ? 'Save + add another' : 'Save item'; } ivToast('The photo didn\'t upload, so nothing was saved. Try again, or save without a new photo.', { err: true, ms: 7000 }); return; }
     iv.busy = false;
-    f.photo = photo; f.file = null;
+    if (btn) { btn.disabled = false; btn.textContent = another ? 'Save + add another' : (f.mode === 'edit' ? 'Save changes' : 'Save item'); }
   }
+  const photos = f.photos.filter(p => p.url).map(p => ({ url: p.url, note: String(p.note || '').trim() }));
+  const photo = photos.length ? photos[0].url : '';
+  const needList = photos.length > 1 || photos.some(p => p.note);
   if (f.mode === 'add') {
     const body = { action: 'addAsset', name: f.name.trim(), category: f.category, subcategory: f.subcategory.trim(), location: f.location.trim(), quantity: f.quantity || 1, rentalValue: f.rental, replacementValue: f.replacement, notes: f.notes.trim(), photoUrl: photo };
     await ivRun(btnId, 'Saving…', body, res => {
       if (res.item) ivMergeItems([res.item]);
+      if (needList) ivSavePhotos(res.assetId, photos, photo ? [{ url: photo, note: '' }] : []);
       iv.nextId = 'S' + String(+String(res.assetId || 'S0').slice(1) + 1).padStart(4, '0');
       ivToast(`✓ ${ivE(f.name.trim())} added as <b>${ivE(res.tagId || res.assetId)}</b> · <span class="ok">saved to Sheet</span>`);
       if (another) { ivOpenAdd(true); }
@@ -13599,13 +13685,24 @@ async function ivSaveForm(another) {
       ivRender();
     });
   } else {
-    const fields = {}, keys = ['name', 'category', 'subcategory', 'location', 'quantity', 'rental', 'replacement', 'notes', 'photo'];
-    keys.forEach(k => { const v = String(k === 'photo' ? photo : f[k] || '').trim(); if (v !== String(f.base[k] || '').trim()) fields[k] = v; });
-    if (!Object.keys(fields).length) { ivClose(); return; }
+    const fields = {}, keys = ['name', 'category', 'subcategory', 'location', 'quantity', 'rental', 'replacement', 'notes'];
+    keys.forEach(k => { const v = String(f[k] || '').trim(); if (v !== String(f.base[k] || '').trim()) fields[k] = v; });
+    const photosChanged = ivPhSig(photos) !== ivPhSig(f.photosBase);
+    if (!Object.keys(fields).length && !photosChanged) { ivClose(); return; }
+    if (!Object.keys(fields).length) {
+      if (iv.busy) return;
+      iv.busy = true; if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+      const ok = await ivSavePhotos(f.assetId, photos, f.photosBase);
+      iv.busy = false;
+      const b2 = document.getElementById(btnId); if (b2) { b2.disabled = false; b2.textContent = 'Save changes'; }
+      if (ok) { iv.stack = iv.stack.filter(s => s.v !== 'edit'); ivRenderOv(); ivToast('✓ Photos saved · <span class="ok">saved to Sheet</span>'); }
+      return;
+    }
     const body = { action: 'editAsset', assetId: f.assetId, fields, base: f.base };
     await ivRun(btnId, 'Saving…', body, res => {
       if (res.item) ivMergeItems([res.item]);
       const conf = (res.conflicts || []);
+      if (photosChanged) ivSavePhotos(f.assetId, photos, f.photosBase).then(ok => { if (ok) ivToast('✓ Changes and photos saved · <span class="ok">saved to Sheet</span>'); });
       iv.stack = iv.stack.filter(s => s.v !== 'edit'); ivRenderOv(); ivRender();
       if (conf.length) ivToast(`Saved ${res.changed.length} change${res.changed.length === 1 ? '' : 's'}. ${conf.length} field${conf.length === 1 ? ' was' : 's were'} changed by someone else meanwhile, so theirs was kept: ${ivE(conf.map(c => c.field).join(', '))}.`, { err: true, ms: 9000 });
       else ivToast('✓ Changes saved · <span class="ok">saved to Sheet</span>');
@@ -13654,7 +13751,7 @@ function ivLabAll(on) {
 function ivLabelSheetHTML(items, start) {
   const cells = [];
   for (let s = 1; s < start; s++) cells.push('<div class="c"></div>');
-  items.forEach(i => cells.push(`<div class="c"><div class="top"><img src="${LOGO_URL}" alt=""><div><div class="tag">${ivE(i.tagId || i.assetId)}</div><div class="nm">${ivE(i.name)}</div><div class="cat">${ivE([i.category, i.subcategory].filter(Boolean).join(' · '))}</div></div></div><div class="loc"><span>Storage:</span> ${ivE(i.location || '—')}</div></div>`));
+  items.forEach(i => cells.push(`<div class="c"><div class="lft"><div class="top"><img src="${LOGO_URL}" alt=""><div><div class="tag">${ivE(i.tagId || i.assetId)}</div><div class="nm">${ivE(i.name)}</div><div class="cat">${ivE([i.category, i.subcategory].filter(Boolean).join(' · '))}</div></div></div><div class="loc"><span>Storage:</span> ${ivE(i.location || '—')}</div></div>${ivQrSvg(i.assetId)}</div>`));
   while (cells.length % 10) cells.push('<div class="c"></div>');
   let pagesHTML = '';
   for (let p = 0; p < cells.length; p += 10) pagesHTML += `<div class="page">${cells.slice(p, p + 10).join('')}</div>`;
@@ -13662,23 +13759,145 @@ function ivLabelSheetHTML(items, start) {
     @page { size: 8.5in 11in; margin: 0; }
     * { box-sizing: border-box; } body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #000; }
     .page { width: 8.5in; height: 11in; padding: 0.5in 0.15625in; display: grid; grid-template-columns: 4in 4in; grid-template-rows: repeat(5, 2in); column-gap: 0.1875in; page-break-after: always; }
-    .c { width: 4in; height: 2in; padding: 0.16in 0.2in; overflow: hidden; display: flex; flex-direction: column; }
+    .c { width: 4in; height: 2in; padding: 0.16in 0.2in; overflow: hidden; display: flex; gap: 0.12in; }
+    .lft { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .qr { width: 1.2in; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2pt; }
+    .qr svg { width: 1.15in; height: 1.15in; display: block; }
+    .qr div { font: 7pt 'Courier New', monospace; }
     .top { display: flex; gap: 0.12in; align-items: flex-start; }
-    .top img { width: 0.7in; height: 0.7in; object-fit: contain; }
-    .tag { font: 700 15pt 'Courier New', monospace; }
+    .top img { width: 0.55in; height: 0.55in; object-fit: contain; flex-shrink: 0; }
+    .top > div { min-width: 0; }
+    .tag { font: 700 13pt 'Courier New', monospace; white-space: nowrap; }
     .nm { font-size: 13pt; font-weight: 700; margin-top: 2pt; line-height: 1.15; }
     .cat { font-size: 9pt; color: #333; margin-top: 2pt; }
-    .loc { margin-top: auto; border-top: 1px solid #000; padding-top: 4pt; font-size: 11pt; }
+    .loc { margin-top: auto; border-top: 1px solid #000; padding-top: 4pt; font-size: 11pt; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .loc span { font-size: 8pt; text-transform: uppercase; letter-spacing: .05em; }
     @media screen { body { background: #ddd; } .page { background: #fff; margin: 12px auto; box-shadow: 0 2px 10px rgba(0,0,0,.2); } }
   </style></head><body>${pagesHTML}<script>window.onload=function(){setTimeout(function(){window.focus();window.print();},300);};<\/script></body></html>`;
 }
-function ivPrintLabels() {
+// QR codes hold "MMT:<Asset ID>": not a web address, so a phone camera outside
+// the dashboard just shows the text. The dashboard's Scan reads them.
+const _ivQrRef = { p: null };
+function ivLoadQr() {
+  return loadScriptOnce('https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js', () => (typeof qrcode === 'function' ? qrcode : null), _ivQrRef);
+}
+function ivQrSvg(assetId) {
+  if (typeof qrcode !== 'function') return '';
+  const q = qrcode(0, 'M'); q.addData('MMT:' + assetId); q.make();
+  return `<div class="qr">${q.createSvgTag({ cellSize: 4, margin: 2, scalable: true })}<div>MMT:${ivE(assetId)}</div></div>`;
+}
+async function ivPrintLabels() {
   const items = allItems.filter(i => iv.lab.sel.has(i.assetId));
   if (!items.length) return;
   const w = window.open('', '_blank');
   if (!w) { ivToast('Your browser blocked the print window. Allow pop-ups for this site and try again.', { err: true, ms: 7000 }); return; }
+  w.document.write('<p style="font-family:sans-serif">Making labels…</p>');
+  try { await ivLoadQr(); } catch (e) { ivToast('Could not load the QR code maker, so these labels have no QR codes. Check the connection and print again.', { err: true, ms: 8000 }); }
   w.document.open(); w.document.write(ivLabelSheetHTML(items, iv.lab.start)); w.document.close();
+}
+
+// ── Scan: hold labels up to the camera, then check them all in or out ───────
+const _ivJsqrRef = { p: null };
+function ivScanEl() {
+  let el = document.getElementById('iv-scan');
+  if (!el) { el = document.createElement('div'); el.id = 'iv-scan'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Scan items'); document.body.appendChild(el); }
+  return el;
+}
+async function ivOpenScan() {
+  if (!iv.loaded) { ivToast('The inventory is still loading.', { err: true }); return; }
+  const S = iv.scan = { ids: [], last: '', lastT: 0, stream: null, timer: 0, det: null, on: true };
+  const el = ivScanEl();
+  el.innerHTML = `<div class="iv-scan-top"><button class="iv-ib" aria-label="Close scanner" onclick="ivCloseScan()">✕</button><b style="font-size:17px">Scan items</b><span>Hold each label up to the camera</span></div>
+    <div class="iv-scan-cam"><video id="iv-scan-v" playsinline muted autoplay></video><div class="cam-off" id="iv-scan-off">Starting the camera…</div><div class="iv-scan-box"></div><div class="iv-scan-msg" id="iv-scan-msg" role="status" aria-live="polite"></div></div>
+    <div class="iv-scan-list" id="iv-scan-list"></div>`;
+  el.className = 'open';
+  document.body.classList.add('iv-ov-open');
+  ivScanList();
+  const v = document.getElementById('iv-scan-v'), off = document.getElementById('iv-scan-off');
+  try {
+    S.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    if (!S.on) { S.stream.getTracks().forEach(t => t.stop()); return; }
+    v.srcObject = S.stream; await v.play().catch(() => {});
+    off.remove();
+  } catch (e) {
+    off.textContent = 'The camera isn\'t available. Allow camera access for this site, or type a tag below.';
+    return;
+  }
+  try { if ('BarcodeDetector' in window && (await BarcodeDetector.getSupportedFormats()).includes('qr_code')) S.det = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) {}
+  if (!S.det) {
+    try { await loadScriptOnce('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js', () => (typeof jsQR === 'function' ? jsQR : null), _ivJsqrRef); }
+    catch (e) { ivScanMsg('Could not load the code reader. Check the connection, or type a tag below.', true); return; }
+  }
+  const cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
+  const tick = async () => {
+    if (!S.on) return;
+    try {
+      if (v.readyState >= 2 && v.videoWidth) {
+        if (S.det) (await S.det.detect(v)).forEach(c => ivScanCode(c.rawValue));
+        else {
+          const k = Math.min(1, 720 / Math.max(v.videoWidth, v.videoHeight));
+          cv.width = Math.round(v.videoWidth * k); cv.height = Math.round(v.videoHeight * k);
+          cx.drawImage(v, 0, 0, cv.width, cv.height);
+          const r = jsQR(cx.getImageData(0, 0, cv.width, cv.height).data, cv.width, cv.height, { inversionAttempts: 'dontInvert' });
+          if (r && r.data) ivScanCode(r.data);
+        }
+      }
+    } catch (e) {}
+    if (S.on) S.timer = setTimeout(tick, 120);
+  };
+  tick();
+}
+function ivScanFind(raw) {
+  const t = String(raw || '').trim();
+  const m = t.match(/^MMT:\s*([\w-]+)$/i);
+  const k = (m ? m[1] : t).toUpperCase();
+  if (!k) return null;
+  return allItems.find(i => i.assetId.toUpperCase() === k) || allItems.find(i => i.tagId && i.tagId.toUpperCase() === k) || null;
+}
+function ivScanCode(raw) {
+  const S = iv.scan; if (!S || !S.on) return;
+  const t = String(raw || '').trim(), now = Date.now();
+  if (t === S.last && now - S.lastT < 2500) return;   // same label still in view
+  S.last = t; S.lastT = now;
+  const it = ivScanFind(t);
+  if (!it) { ivScanMsg('That code isn\'t one of our labels.', true); return; }
+  if (S.ids.includes(it.assetId)) { ivScanMsg('Already in the list: ' + it.name); return; }
+  S.ids.push(it.assetId);
+  try { navigator.vibrate && navigator.vibrate(60); } catch (e) {}
+  ivScanMsg('✓ Added ' + it.name + (+it.quantity > 1 ? ' (×' + it.quantity + ')' : ''));
+  ivScanList();
+}
+function ivScanMsg(text, err) {
+  const m = document.getElementById('iv-scan-msg'); if (!m) return;
+  m.textContent = text; m.className = 'iv-scan-msg on' + (err ? ' err' : '');
+  clearTimeout(ivScanMsg._t); ivScanMsg._t = setTimeout(() => { m.className = 'iv-scan-msg'; }, 2600);
+}
+function ivScanList() {
+  const box = document.getElementById('iv-scan-list'), S = iv.scan; if (!box || !S) return;
+  const items = S.ids.map(ivItem).filter(Boolean);
+  const nIn = items.filter(i => !ivIsOut(i)).length, nOut = items.length - nIn;
+  box.innerHTML = `<div style="display:flex;align-items:baseline;justify-content:space-between"><b style="font-size:16px">${items.length} scanned</b>${items.length ? '<button class="iv-btn ghost sm" onclick="iv.scan.ids=[];ivScanList()">Clear</button>' : ''}</div>
+    ${items.length ? `<div class="iv-scan-items">${items.map(i => `<div class="r"><div class="th">${i.photo ? `<img src="${ivE(i.photo)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}</div>
+      <div style="flex:1;min-width:0"><b style="font-size:14px">${ivE(i.name || '(no name)')}</b><div class="iv-sub">${ivE(i.tagId || i.assetId)} · ${ivE(ivStatusLine(i).text)}</div></div>
+      <button class="iv-btn ghost sm" aria-label="Remove ${ivE(i.name)}" onclick="iv.scan.ids=iv.scan.ids.filter(x=>x!==${ivJ(i.assetId)});ivScanList()">✕</button></div>`).join('')}</div>`
+      : '<div class="iv-hint" style="margin:0">Scanning the same label twice doesn\'t add it twice. A code that isn\'t one of ours is ignored.</div>'}
+    <form style="display:flex;gap:8px" onsubmit="event.preventDefault();const x=this.elements.t;if(x.value.trim()){iv.scan.last='';ivScanCode(x.value);x.value='';}">
+      <input name="t" class="iv-in" style="flex:1;margin:0" placeholder="Or type a tag or ID" autocomplete="off" aria-label="Type a tag or ID"><button class="iv-btn" type="submit">Add</button></form>
+    <div class="iv-scan-go">
+      <button class="iv-btn big pri" onclick="ivScanGo('out')"${nIn ? '' : ' disabled'}>Check out ${nIn || ''}</button>
+      <button class="iv-btn big go" onclick="ivScanGo('in')"${nOut ? '' : ' disabled'}>Check in ${nOut || ''}</button>
+    </div>`;
+}
+function ivScanGo(kind) {
+  const ids = (iv.scan ? iv.scan.ids : []).filter(id => { const i = ivItem(id); return i && (kind === 'in' ? ivIsOut(i) : !ivIsOut(i)); });
+  ivCloseScan();
+  if (kind === 'in') ivOpenCheckIn(ids); else ivOpenCheckOut(ids);
+}
+function ivCloseScan() {
+  const S = iv.scan;
+  if (S) { S.on = false; clearTimeout(S.timer); if (S.stream) S.stream.getTracks().forEach(t => t.stop()); }
+  const el = document.getElementById('iv-scan'); if (el) { el.className = ''; el.innerHTML = ''; }
+  if (!ivTop()) document.body.classList.remove('iv-ov-open');
 }
 
 // ── History ─────────────────────────────────────────────────────────────────
