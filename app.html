@@ -6244,7 +6244,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v8</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v9</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -12807,8 +12807,8 @@ const IV_SCRIPT_WANT = 7;
 function ivScriptNo() { const m = /inv-(\d+)/.exec(iv.version || ''); return m ? +m[1] : 0; }
 function ivScriptNote() {
   if (!iv.loaded || iv.src !== 'api' || !iv.version || ivScriptNo() >= IV_SCRIPT_WANT) return '';
-  if (ivScriptNo() >= 7) return `<div class="iv-note"><span><b>An update for the inventory script is ready.</b> It takes about half a minute.</span><button class="iv-btn sm pri" id="iv-upd" onclick="ivScriptUpdate()">Update now</button></div>`;
-  return `<div class="iv-note warn"><span>The inventory script is older than this page (${ivE(iv.version)}). Paste <b>apps-script/Inventory-Code.gs</b> and the new manifest once more, following the steps at its top. After that it updates itself.</span></div>`;
+  // Self-update needs the script on its own Cloud project; until then the copy page is the way.
+  return `<div class="iv-note"><span><b>An update for the inventory script is ready</b> (running ${ivE(iv.version)}). On a computer, open the <a href="copy-inventory-script.html" target="_blank" rel="noopener">copy page</a>, paste box 2 over Code.gs, save, then Deploy › Manage deployments › ✎ › New version.</span>${ivScriptNo() >= 7 ? `<button class="iv-btn sm" id="iv-upd" onclick="ivScriptUpdate()">Try Update now</button>` : ''}</div>`;
 }
 async function ivScriptUpdate() {
   const b = document.getElementById('iv-upd'); if (b) { b.disabled = true; b.textContent = 'Updating…'; }
@@ -12817,7 +12817,7 @@ async function ivScriptUpdate() {
   if (res && res.success && res.updated) { ivToast('✓ Inventory script updated to ' + ivE(res.to) + '. Reloading…', { ms: 6000 }); setTimeout(loadInventoryData, 4000); return; }
   if (b) { b.disabled = false; b.textContent = 'Update now'; }
   if (res && res.success) { ivToast(ivE(res.reason || 'Already up to date.')); loadInventoryData(); return; }
-  ivToast(ivE((res && res.error) || 'Could not reach the inventory script.') + ' Nothing was changed.', { err: true, ms: 10000 });
+  ivToast(ivE((res && res.error) || 'Could not reach the inventory script.') + ' Nothing was changed. Use the copy page instead.', { err: true, ms: 10000 });
 }
 function ivDrops() { return iv.scope === 'drops'; }
 function ivAll() { const d = ivDrops(); return allItems.filter(i => !!i.drop === d); }
