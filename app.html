@@ -6180,7 +6180,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v3</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -12822,13 +12822,18 @@ function loadInventoryData() {
       }).catch(() => { iv.err = note || 'Could not load the inventory.'; done(); });
     };
     if (url) {
-      jsonp(url + '?action=all&key=' + encodeURIComponent(CORRECT_PIN) + '&_=' + Date.now(), d => {
+      // Asked without Google sign-in cookies first: a phone signed into several
+      // Google accounts otherwise gets sent to the wrong one ("/u/3/") and the
+      // script can't be opened. The old way (jsonp) is the fallback.
+      const q = url + '?action=all&key=' + encodeURIComponent(CORRECT_PIN) + '&_=' + Date.now();
+      const ask = (ok, fail) => fetch(q, { credentials: 'omit', cache: 'no-store' }).then(r => r.json()).then(ok, () => jsonp(q, ok, fail, 25000));
+      ask(d => {
         if (d && d.success) {
           ivApply(d, 'api');
           try { localStorage.setItem('mmt_inv_cache', JSON.stringify({ items: d.items, history: d.history, paints: d.paints, prefixes: d.prefixes, writesOn: d.writesOn, at: Date.now() })); } catch (e) {}
           done();
         } else fromCopy(((d && d.error) || 'The inventory script said no.') + ' Showing the published copy (may lag a few minutes).');
-      }, () => fromCopy('Could not reach the inventory script. Showing the published copy (may lag a few minutes).'), 25000);
+      }, () => fromCopy('Could not reach the inventory script. Showing the published copy (may lag a few minutes).'));
     } else fromCopy();
   });
   return iv.loading;
@@ -12878,7 +12883,7 @@ async function ivPost(body) {
   // Only through the inventory script when it answered this time; otherwise
   // the main script's old routes, as before.
   if (url && iv.src !== 'csv') {
-    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ key: CORRECT_PIN }, body)) });
+    const r = await fetch(url, { method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ key: CORRECT_PIN }, body)) });
     const res = await r.json();
     // Saving still switched off in the inventory script: check in/out and
     // paints keep going the old way, so nothing stops working meanwhile.

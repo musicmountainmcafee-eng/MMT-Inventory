@@ -243,6 +243,12 @@ function driveThumb(raw, w) {
   const m = raw.match(/id=([\w-]+)/) || raw.match(/\/d\/([\w-]+)/);
   return m ? 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w' + (w || 400) : raw;
 }
+// Asked without Google sign-in cookies first (a phone signed into several
+// Google accounts otherwise gets sent to the wrong one and can't open the
+// script); the old way is the fallback.
+function getJSON(url, ok, fail) {
+  fetch(url, { credentials: 'omit', cache: 'no-store' }).then(r => r.json()).then(ok, () => jsonp(url, ok, fail));
+}
 function jsonp(url, ok, fail, ms) {
   const cb = 'cat_' + Date.now() + '_' + Math.floor(Math.random() * 1e6), el = document.createElement('script');
   let done = false;
@@ -290,7 +296,7 @@ function setItems(items) {
 function loadData(quiet) {
   if (!quiet) document.getElementById('results').innerHTML = allItems.length ? document.getElementById('results').innerHTML : '<div class="message"><p>Loading inventory...</p></div>';
   const key = staffKey();
-  jsonp(INV_URL + '?action=catalog' + (key ? '&key=' + encodeURIComponent(key) : '') + '&_=' + Date.now(), d => {
+  getJSON(INV_URL + '?action=catalog' + (key ? '&key=' + encodeURIComponent(key) : '') + '&_=' + Date.now(), d => {
     if (!d || !d.success) return loadCsv();
     staff = !!d.staff;
     if (key && !staff) { try { localStorage.removeItem('mmt_staff_key'); } catch (e) {} }   // PIN changed
@@ -335,7 +341,7 @@ function submitPin() {
   if (!pin) return;
   document.getElementById('pin-err').textContent = 'Checking…';
   // The script checks the PIN; it isn't kept in this page.
-  jsonp(INV_URL + '?action=catalog&key=' + encodeURIComponent(pin) + '&_=' + Date.now(), d => {
+  getJSON(INV_URL + '?action=catalog&key=' + encodeURIComponent(pin) + '&_=' + Date.now(), d => {
     if (d && d.success && d.staff) {
       try { localStorage.setItem('mmt_staff_key', pin); } catch (e) {}
       staff = true; settings = d.settings || settings; source = 'live';
@@ -347,7 +353,7 @@ function submitPin() {
 function signOut() { try { localStorage.removeItem('mmt_staff_key'); } catch (e) {} staff = false; loadData(); }
 function setShowRental(on) {
   const key = staffKey();
-  fetch(INV_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'catalogSet', key, showRental: !!on }) })
+  fetch(INV_URL, { method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'catalogSet', key, showRental: !!on }) })
     .then(r => r.json()).then(d => {
       if (!d || !d.success) throw new Error((d && d.error) || 'Not saved');
       settings = d.settings || settings; paintStaff(); render();
@@ -436,6 +442,6 @@ function render() {
 paintStaff();
 loadData();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v2</div>
 </body>
 </html>
