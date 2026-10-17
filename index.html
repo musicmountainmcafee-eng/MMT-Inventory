@@ -395,7 +395,7 @@ function openModal(idx) {
     : `${PHOTO_NONE}<span style="font-size:13px;">No photo yet</span>`;
   const f = (label, val, mono) => `<div class="mf"><div class="mf-label">${label}</div><div class="mf-val${mono ? ' mono' : ''}">${val || '—'}</div></div>`;
   let g = f('Tag ID', esc(i.tagId), true) + f('Category', esc(i.category)) + f('Subcategory', esc(i.subcategory)) + f('Quantity', esc(i.quantity || '1'));
-  if (showPrice(i)) g += f('Rental rate', money(i.rental));
+  if (showPrice(i)) g += f('Rental rate', money(i.rental) + ' per week');
   if (staff) g += f('Storage location', esc(i.location)) + f('Current show', esc(i.currentShow) || (i.lastShow ? 'last: ' + esc(i.lastShow) : '')) + f('Replacement value', money(i.replacement));
   document.getElementById('modal-grid').innerHTML = g;
   document.getElementById('modal-staff').innerHTML = staff
@@ -428,7 +428,7 @@ function render() {
           <div class="card-top"><span class="card-name">${esc(i.name)}</span></div>
           <span class="cat-pill">${esc(i.category)}${i.subcategory ? ' · ' + esc(i.subcategory) : ''}${+i.quantity > 1 ? ' · ×' + esc(i.quantity) : ''}</span>
           <div class="card-footer">
-            <div>${showPrice(i) ? `<div class="rental-label">Rental rate</div><div class="rental-val">${money(i.rental)}</div>` : ''}${staff && i.location ? `<div class="rental-label" style="margin-top:2px;">${esc(i.location)}</div>` : ''}</div>
+            <div>${showPrice(i) ? `<div class="rental-label">Rental rate</div><div class="rental-val">${money(i.rental)}<span style="font-size:12px;font-weight:500;opacity:.7;"> / week</span></div>` : ''}${staff && i.location ? `<div class="rental-label" style="margin-top:2px;">${esc(i.location)}</div>` : ''}</div>
             ${statusChip(i)}
           </div>
         </div>
@@ -439,7 +439,7 @@ function render() {
         <span class="list-name">${esc(i.name)}</span>
         <span class="list-cat"><span class="cat-pill">${esc(i.category)}</span></span>
         <span class="list-loc">${staff ? esc(i.location || '—') : ''}</span>
-        <span class="list-price">${showPrice(i) ? money(i.rental) : ''}</span>
+        <span class="list-price">${showPrice(i) ? money(i.rental) + ' / week' : ''}</span>
         ${statusChip(i)}
       </div>`).join('') + '</div>';
   }
@@ -448,6 +448,6 @@ function render() {
 paintStaff();
 loadData();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v5</div>
 </body>
 </html>
