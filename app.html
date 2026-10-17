@@ -6209,7 +6209,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v5</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v6</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -13820,12 +13820,17 @@ async function ivOpenScan() {
     v.srcObject = S.stream; await v.play().catch(() => {});
     off.remove();
   } catch (e) {
-    off.textContent = 'The camera isn\'t available. Allow camera access for this site, or type a tag below.';
+    const name = (e && e.name) || 'Error', ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const how = !navigator.mediaDevices ? 'This browser has no live camera here.'
+      : name === 'NotAllowedError' ? (ios ? 'Camera access is off. On iPhone: Settings › Apps › Safari (or Chrome) › Camera › Allow, then reload.' : 'Camera access is blocked. Tap the lock or ⓘ by the address, allow Camera, then reload.')
+      : name === 'NotFoundError' ? 'No camera was found.' : name === 'NotReadableError' ? 'Another app is using the camera.' : 'The live camera didn\'t start (' + name + ').';
+    off.innerHTML = ivE(how) + '<br><br><b>You can still scan:</b> tap “Photo of a label” below.';
+    const box = el.querySelector('.iv-scan-box'); if (box) box.remove();
     return;
   }
   try { if ('BarcodeDetector' in window && (await BarcodeDetector.getSupportedFormats()).includes('qr_code')) S.det = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) {}
   if (!S.det) {
-    try { await loadScriptOnce('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js', () => (typeof jsQR === 'function' ? jsQR : null), _ivJsqrRef); }
+    try { await ivLoadJsqr(); }
     catch (e) { ivScanMsg('Could not load the code reader. Check the connection, or type a tag below.', true); return; }
   }
   const cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
@@ -13846,6 +13851,34 @@ async function ivOpenScan() {
     if (S.on) S.timer = setTimeout(tick, 120);
   };
   tick();
+}
+function ivLoadJsqr() { return loadScriptOnce('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js', () => (typeof jsQR === 'function' ? jsQR : null), _ivJsqrRef); }
+// Scan from a still photo: works where the live camera isn't allowed.
+async function ivScanPhoto(input) {
+  const files = [...(input.files || [])]; input.value = '';
+  if (!files.length) return;
+  ivScanMsg('Reading the photo…');
+  let det = null;
+  try { if ('BarcodeDetector' in window && (await BarcodeDetector.getSupportedFormats()).includes('qr_code')) det = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) {}
+  if (!det) { try { await ivLoadJsqr(); } catch (e) { ivScanMsg('Could not load the code reader. Check the connection, or type a tag.', true); return; } }
+  let found = 0;
+  for (const f of files) {
+    const url = URL.createObjectURL(f);
+    try {
+      const img = new Image(); img.src = url; await img.decode();
+      const codes = new Set();
+      for (const size of [1600, 900, 2400]) {   // a label far away or close up reads best at different sizes
+        const k = Math.min(1, size / Math.max(img.naturalWidth, img.naturalHeight));
+        const cv = document.createElement('canvas'); cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k);
+        const cx = cv.getContext('2d', { willReadFrequently: true }); cx.drawImage(img, 0, 0, cv.width, cv.height);
+        if (det) (await det.detect(cv)).forEach(c => codes.add(c.rawValue));
+        else { const r = jsQR(cx.getImageData(0, 0, cv.width, cv.height).data, cv.width, cv.height); if (r && r.data) codes.add(r.data); }
+        if (codes.size) break;
+      }
+      codes.forEach(c => { if (iv.scan) iv.scan.last = ''; ivScanCode(c); found++; });
+    } catch (e) {} finally { URL.revokeObjectURL(url); }
+  }
+  if (!found) ivScanMsg('No code found in that photo. Fill the frame with the QR code and try again.', true);
 }
 function ivScanFind(raw) {
   const t = String(raw || '').trim();
@@ -13883,6 +13916,7 @@ function ivScanList() {
       : '<div class="iv-hint" style="margin:0">Scanning the same label twice doesn\'t add it twice. A code that isn\'t one of ours is ignored.</div>'}
     <form style="display:flex;gap:8px" onsubmit="event.preventDefault();const x=this.elements.t;if(x.value.trim()){iv.scan.last='';ivScanCode(x.value);x.value='';}">
       <input name="t" class="iv-in" style="flex:1;margin:0" placeholder="Or type a tag or ID" autocomplete="off" aria-label="Type a tag or ID"><button class="iv-btn" type="submit">Add</button></form>
+    <label class="iv-btn" style="justify-content:center;cursor:pointer">${IV_ICON.cam} Photo of a label<input type="file" accept="image/*" capture="environment" style="display:none" onchange="ivScanPhoto(this)"></label>
     <div class="iv-scan-go">
       <button class="iv-btn big pri" onclick="ivScanGo('out')"${nIn ? '' : ' disabled'}>Check out ${nIn || ''}</button>
       <button class="iv-btn big go" onclick="ivScanGo('in')"${nOut ? '' : ' disabled'}>Check in ${nOut || ''}</button>
