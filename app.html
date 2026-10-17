@@ -6180,7 +6180,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.15 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v1</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -6309,6 +6309,7 @@ function pinPress(val) {
   if (pinEntry.length === 4) {
     setTimeout(() => {
       if (pinEntry === TD_PIN) {
+        try { localStorage.setItem('mmt_staff_key', TD_PIN); } catch (e) {}   // the catalog's staff view
         unlockApp('td', 'TD');
       } else if (crewPins[pinEntry]) {
         unlockApp('crew', crewPins[pinEntry]);
@@ -12611,7 +12612,7 @@ function escHtml(s) {
 // Shared with other tabs: allItems, paintData, historyData, inventoryLoaded,
 // loadInventoryData(), loadPaintData(), renderInventoryTab(), showToast().
 // ════════════════════════════════════════════════════════════════════════════
-const INV_URL_DEFAULT = '';
+const INV_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbwtpTZGYMn_5JdVuBC37xfW5A6Dlu7hXvihbZfuB0U3AY4VPHf-EV1TCnVgz1rSKtijsA/exec';
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRupSW2TcKEhcXbsDg5FRWaQgRzjkgDKvRFduvVwpdwCsMers-HJRwK4lK1AmAH4qO74ZBrmvJzOO25/pub?gid=0&single=true&output=csv';
 const CORRECT_PIN = '1483';
 const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dyzkxnrnd/image/upload';
@@ -12787,7 +12788,7 @@ function loadInventoryData() {
   iv.loading = new Promise(resolve => {
     const done = () => { iv.loading = null; inventoryLoaded = true; ivRender(); resolve(allItems); };
     if (url) {
-      jsonp(url + '?action=all&_=' + Date.now(), d => {
+      jsonp(url + '?action=all&key=' + encodeURIComponent(CORRECT_PIN) + '&_=' + Date.now(), d => {
         if (d && d.success) {
           ivApply(d, 'api');
           try { localStorage.setItem('mmt_inv_cache', JSON.stringify({ items: d.items, history: d.history, paints: d.paints, prefixes: d.prefixes, writesOn: d.writesOn, at: Date.now() })); } catch (e) {}
@@ -12848,12 +12849,18 @@ function renderInventoryTab() {
 
 // ── Saving ──────────────────────────────────────────────────────────────────
 function ivCanSave() { return iv.src === 'api' ? iv.writesOn : iv.src === 'csv'; }
+// Check in/out and paints also work while saving is off in the inventory
+// script: they go the old way through the main script (see ivPost).
+function ivCanMove() { return iv.src === 'api' || iv.src === 'csv'; }
 
 async function ivPost(body) {
   const url = invUrl();
   if (url) {
-    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
-    return r.json();
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ key: CORRECT_PIN }, body)) });
+    const res = await r.json();
+    // Saving still switched off in the inventory script: check in/out and
+    // paints keep going the old way, so nothing stops working meanwhile.
+    if (!(res && res.readOnly && /^(checkInOut|savePaint|deletePaint)$/.test(body.action))) return res;
   }
   // Old route: only check in/out and paint went through the main script.
   if (body.action === 'checkInOut') {
@@ -12927,7 +12934,7 @@ function ivRender() {
   let notes = ivOutboxNote();
   if (iv.err) notes += `<div class="iv-note warn"><span><b>${ivE(iv.err)}</b> ${iv.loaded ? 'Showing the last copy on this device.' : ''}</span><button class="iv-btn sm" onclick="loadInventoryData()">Try again</button></div>`;
   if (iv.loaded && iv.src === 'csv') notes += `<div class="iv-note warn"><span>Using the old connection: the list can be a few minutes behind the Sheet. Check in/out still saves.</span><button class="iv-btn sm" onclick="ivOpen({v:'setup'})">Connect</button></div>`;
-  if (iv.loaded && iv.src === 'api' && !iv.writesOn) notes += `<div class="iv-note"><span><b>Read-only check.</b> This is your real Sheet, read live. Saving is switched off in the inventory script until you turn it on.</span></div>`;
+  if (iv.loaded && iv.src === 'api' && !iv.writesOn) notes += `<div class="iv-note"><span><b>Live from your Sheet.</b> Check in/out and paints save as before. Adding and editing items wait until saving is switched on in the inventory script.</span></div>`;
 
   const chip = (k, label, n, extra) => `<button class="iv-chip${iv.status === k ? ' on' : ''}${extra || ''}" onclick="ivSetStatus('${k}')">${label} <small>${n}</small></button>`;
   const cats = ivCategories().filter(c => allItems.some(i => i.category === c));
@@ -13200,7 +13207,7 @@ function ivCheckInHTML() {
 async function ivSubmitCheckIn() {
   const c = iv.ci;
   if (!c.staff.trim()) { ivToast('Add your name first', { err: true }); document.getElementById('iv-ci-staff').focus(); return; }
-  if (!ivCanSave()) { ivToast(iv.src === 'api' ? 'Saving is switched off in the inventory script.' : 'Not connected yet.', { err: true }); return; }
+  if (!ivCanMove()) { ivToast(iv.src === 'api' ? 'Saving is switched off in the inventory script.' : 'Not connected yet.', { err: true }); return; }
   const before = c.ids.map(id => ({ ...ivItem(id) }));
   const body = { action: 'checkInOut', assetIds: c.ids, status: 'IN', condition: c.condition, note: c.note.trim(), staffName: c.staff.trim() };
   await ivRun('iv-ci-go', 'Saving…', body, res => {
@@ -13415,7 +13422,7 @@ async function ivSubmitCheckOut() {
   if (!who) { ivToast(c.mode === 'show' ? 'Pick a show' : 'Add who\'s renting', { err: true }); return; }
   if (!c.due) { ivToast('Add a back-by date', { err: true }); return; }
   if (!c.staff.trim()) { ivToast('Add your name first', { err: true }); document.getElementById('iv-co-staff').focus(); return; }
-  if (!ivCanSave()) { ivToast(iv.src === 'api' ? 'Saving is switched off in the inventory script.' : 'Not connected yet.', { err: true }); return; }
+  if (!ivCanMove()) { ivToast(iv.src === 'api' ? 'Saving is switched off in the inventory script.' : 'Not connected yet.', { err: true }); return; }
   const ids = c.ids.filter(id => !ivIsOut(ivItem(id)));
   if (!ids.length) { ivToast('Those are all already out.', { err: true }); return; }
   const before = ids.map(id => ({ ...ivItem(id) }));
@@ -13745,7 +13752,7 @@ function ivPaintUse(k) { const e = iv.paint.edit, m = e.matches[k]; e.name = e.n
 async function ivPaintSave() {
   const e = iv.paint.edit;
   if (!e.name.trim()) { ivToast('Give the color a name', { err: true }); return; }
-  if (!ivCanSave()) { ivToast(iv.src === 'api' ? 'Saving is switched off in the inventory script.' : 'Not connected yet.', { err: true }); return; }
+  if (!ivCanMove()) { ivToast(iv.src === 'api' ? 'Saving is switched off in the inventory script.' : 'Not connected yet.', { err: true }); return; }
   const body = { action: 'savePaint', id: e.id, name: e.name.trim(), brand: e.brand.trim(), code: e.code.trim(), hex: e.hex.trim(), notes: e.notes.trim(), shows: e.shows };
   await ivRun('iv-p-go', 'Saving…', body, res => {
     const rec = { id: res.id || e.id, name: body.name, brand: body.brand, code: body.code, hex: body.hex, notes: body.notes, shows: body.shows.slice() };

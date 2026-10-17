@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MMT Warehouse Catalogue</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -22,7 +21,10 @@
   body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem 1rem; }
   .container { max-width: 1100px; margin: 0 auto; }
   .header { background: linear-gradient(135deg, var(--green) 0%, var(--purple) 55%, var(--blue) 100%); border-radius: var(--radius); padding: 2.5rem 2rem; margin-bottom: 1.5rem; position: relative; overflow: hidden; }
-  .header::before { content: ''; position: absolute; top: -40px; right: -40px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.05); }
+  .header::before { content: ''; position: absolute; top: -40px; right: -40px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.05); pointer-events: none; }
+  #staff-box { position: relative; z-index: 1; }
+  #staff-box .btn { background: rgba(255,255,255,0.16); color: #fff; border: 1px solid rgba(255,255,255,0.5); }
+  #staff-box label { color: #1a1a1a; }
   .header h1 { color: white; font-size: 2rem; font-weight: 600; letter-spacing: -0.5px; }
   .header p { color: rgba(255,255,255,0.75); font-size: 0.95rem; margin-top: 6px; }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
@@ -148,8 +150,13 @@
 <body>
 <div class="container">
   <div class="header">
-    <h1>MMT Warehouse Catalogue</h1>
-    <p>Browse available props, furniture &amp; scenic elements for rent</p>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+      <div>
+        <h1>MMT Warehouse Catalogue</h1>
+        <p>Browse available props, furniture &amp; scenic elements for rent</p>
+      </div>
+      <div id="staff-box" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"></div>
+    </div>
   </div>
   <div class="stats">
     <div class="stat"><div class="stat-label">Total items</div><div class="stat-val purple" id="total-count">—</div></div>
@@ -160,7 +167,7 @@
   <div class="controls">
     <div class="search-wrap">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input type="text" id="search" placeholder="Search items, categories, locations..." oninput="render()" />
+      <input type="text" id="search" placeholder="Search items, categories, tags..." oninput="render()" />
     </div>
     <select id="cat-filter" onchange="render()"><option value="">All categories</option></select>
     <select id="status-filter" onchange="render()">
@@ -173,23 +180,14 @@
       <button class="view-btn" id="list-btn" onclick="setView('list')" title="List">&#9776;</button>
     </div>
   </div>
-  <div class="refresh-bar">
+  <div class="refresh-bar" style="display:flex;align-items:center;gap:10px;">
+    <span id="updated" style="font-size:12px;color:var(--text-muted);margin-right:auto;"></span>
     <button class="refresh-btn" onclick="loadData()">
       <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
       Refresh
     </button>
   </div>
   <div id="results"><div class="message"><p>Loading inventory...</p></div></div>
-</div>
-
-<!-- CART BAR -->
-<div class="cart-bar" id="cart-bar">
-  <div>
-    <div class="cart-bar-count" id="cart-bar-count">0 items in inquiry</div>
-    <div class="cart-bar-items" id="cart-bar-items"></div>
-  </div>
-  <button class="btn btn-ghost" onclick="clearCart()">Clear</button>
-  <button class="btn btn-green" onclick="openInquiry()">Submit inquiry →</button>
 </div>
 
 <!-- ITEM DETAIL MODAL -->
@@ -202,399 +200,242 @@
           <div class="modal-title" id="modal-name"></div>
           <div style="margin-top:5px;" id="modal-badge"></div>
         </div>
-        <button class="close-btn" onclick="closeModal()">&times;</button>
+        <button class="close-btn" onclick="closeModal()" aria-label="Close">&times;</button>
       </div>
-      <div class="modal-grid">
-        <div class="mf"><div class="mf-label">Tag ID</div><div class="mf-val mono" id="modal-tag"></div></div>
-        <div class="mf"><div class="mf-label">Category</div><div class="mf-val" id="modal-cat"></div></div>
-        <div class="mf"><div class="mf-label">Storage location</div><div class="mf-val" id="modal-loc"></div></div>
-        <div class="mf"><div class="mf-label">Subcategory</div><div class="mf-val" id="modal-sub"></div></div>
-        <div class="mf"><div class="mf-label">Rental rate</div><div class="mf-val" id="modal-rental"></div></div>
-        <div class="mf"><div class="mf-label">Replacement value</div><div class="mf-val" id="modal-replace"></div></div>
-      </div>
-      <hr class="modal-divider" />
-      <div class="mf"><div class="mf-label">Notes</div><div class="mf-val" id="modal-notes" style="font-size:13px;color:var(--text-muted);font-weight:400;"></div></div>
-      <div class="modal-footer" id="modal-footer"></div>
+      <div class="modal-grid" id="modal-grid"></div>
+      <div id="modal-staff"></div>
     </div>
   </div>
 </div>
 
-<!-- INQUIRY MODAL -->
-<div id="inquiry-overlay" class="overlay" style="display:none;" onclick="closeInquiry(event)">
-  <div class="modal modal-wide" onclick="event.stopPropagation()">
-    <div class="modal-body" id="inquiry-body">
-      <div class="modal-header">
-        <div>
-          <div class="modal-title">Rental Inquiry</div>
-          <div style="font-size:13px;color:var(--text-muted);margin-top:3px;">Tell us about your production</div>
-        </div>
-        <button class="close-btn" onclick="closeInquiry()">&times;</button>
-      </div>
-
-      <div class="cart-summary">
-        <div class="cart-summary-title">Items you're inquiring about</div>
-        <div id="inquiry-cart-items"></div>
-      </div>
-
-      <div style="background:#fff8e1;border:2px solid #f59e0b;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:1.25rem;text-align:center;">
-        <div style="font-size:15px;font-weight:700;color:#92400e;">⚠️ This is NOT a confirmation of availability.</div>
-        <div style="font-size:13px;color:#92400e;margin-top:4px;">Submitting this form is an inquiry only. We will follow up to confirm availability and pricing.</div>
-      </div>
-
-      <div class="note-box">
-        We'll get back to you with availability and pricing. If you don't hear back within one week, please follow up at <strong>musicmountainmcafee@gmail.com</strong>.
-      </div>
-
-      <div class="form-section">
-        <div class="form-section-title">Contact info</div>
-        <div class="field-row">
-          <div class="field"><label>Full name <span class="required">*</span></label><input type="text" id="f-name"  /></div>
-          <div class="field"><label>Email <span class="required">*</span></label><input type="email" id="f-email"  /></div>
-        </div>
-        <div class="field"><label>Organization / Theatre company <span class="required">*</span></label><input type="text" id="f-org"  /></div>
-        <div class="field">
-          <label>How did you hear about us? <span class="required">*</span></label>
-          <select id="f-heard">
-            <option value="">Select...</option>
-            <option>Google search</option>
-            <option>Social media</option>
-            <option>Word of mouth</option>
-            <option>Returning customer</option>
-            <option>Theatre community</option>
-            <option>Other</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="form-section">
-        <div class="form-section-title">Production details</div>
-        <div class="field"><label>Show / Production name <span class="required">*</span></label><input type="text" id="f-show"  /></div>
-        <div class="field-row">
-          <div class="field"><label>Performance start date <span class="required">*</span></label><input type="date" id="f-perf-start" /></div>
-          <div class="field"><label>Performance end date <span class="required">*</span></label><input type="date" id="f-perf-end" /></div>
-        </div>
-        <div class="field-row">
-          <div class="field"><label>Load-in date</label><input type="date" id="f-load-in" /></div>
-          <div class="field"><label>Load-out date</label><input type="date" id="f-load-out" /></div>
-        </div>
-        <div class="field"><label>Additional notes</label><textarea id="f-notes" ></textarea></div>
-        <div class="field"><label>Looking for anything else not listed?</label><textarea id="f-other" ></textarea></div>
-      </div>
-
-      <div class="form-section">
-        <div class="form-section-title">Pickup & Visit</div>
-        <div class="field">
-          <label>Preferred pickup day</label>
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Our standard pickup days are <strong>Tuesday & Thursday, 10:30am–3:30pm</strong>. Other times may be available.</div>
-          <select id="f-pickup" onchange="togglePickupOther()">
-            <option value="">Select a preference...</option>
-            <option value="Tuesday">Tuesday 10:30am–3:30pm</option>
-            <option value="Thursday">Thursday 10:30am–3:30pm</option>
-            <option value="Other">Other — I'll specify below</option>
-          </select>
-          <div id="pickup-other-field" style="display:none;margin-top:8px;">
-            <input type="text" id="f-pickup-other" placeholder="e.g. Monday afternoon, weekends, etc." style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);outline:none;" />
-          </div>
-        </div>
-        <div class="field">
-          <label>Interested in visiting our space to view items?</label>
-          <select id="f-visit" onchange="toggleVisitDates()">
-            <option value="">Select...</option>
-            <option value="yes">Yes, I'd like to visit</option>
-            <option value="no">No, not necessary</option>
-            <option value="maybe">Maybe — I'll reach out separately</option>
-          </select>
-        </div>
-        <div class="field" id="visit-dates-field" style="display:none;">
-          <label>Dates & times you could visit</label>
-          <textarea id="f-visit-dates" style="min-height:60px;"></textarea>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button class="btn btn-ghost" onclick="closeInquiry()">Cancel</button>
-        <button class="btn btn-green" id="submit-btn" onclick="submitInquiry()">Send inquiry</button>
-      </div>
+<!-- STAFF PIN -->
+<div id="pin-overlay" class="overlay" style="display:none;" onclick="closePin(event)">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:340px;">
+    <div class="modal-body">
+      <div class="modal-header"><div class="modal-title">Staff sign in</div><button class="close-btn" onclick="closePin()" aria-label="Close">&times;</button></div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Same PIN as the dashboard.</p>
+      <input id="pin-input" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN"
+        style="width:100%;font-size:20px;letter-spacing:6px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);"
+        onkeydown="if(event.key==='Enter')submitPin()" />
+      <div id="pin-err" style="color:#c0392b;font-size:13px;min-height:18px;margin-top:6px;"></div>
+      <div class="modal-footer"><button class="btn btn-green" style="flex:1;" onclick="submitPin()">Sign in</button></div>
     </div>
   </div>
 </div>
 
 <script>
-emailjs.init('qJ7k4_Y-3t2ueyqp_');
-
+// ── Where the inventory comes from ──────────────────────────────────────────
+// The inventory script reads the Sheet live. The public get only what renters
+// may see; with the staff PIN (the dashboard's) it sends everything. If the
+// script can't be reached, the published copy of the Sheet is the fallback
+// (it lags a few minutes).
+const INV_URL = 'https://script.google.com/macros/s/AKfycbwtpTZGYMn_5JdVuBC37xfW5A6Dlu7hXvihbZfuB0U3AY4VPHf-EV1TCnVgz1rSKtijsA/exec';
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRupSW2TcKEhcXbsDg5FRWaQgRzjkgDKvRFduvVwpdwCsMers-HJRwK4lK1AmAH4qO74ZBrmvJzOO25/pub?gid=0&single=true&output=csv';
-const SERVICE_ID = 'service_y6d8d1q';
-const INQUIRY_TEMPLATE = 'template_bvygl6c';
-const CONFIRM_TEMPLATE = 'template_hc0xa6q';
+const REFRESH_MS = 60000;
 
-function driveThumb(raw) {
+let allItems = [], view = 'grid', staff = false, settings = { showRental: false }, loadedAt = 0, source = '';
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function staffKey() { try { return localStorage.getItem('mmt_staff_key') || ''; } catch (e) { return ''; } }
+
+function driveThumb(raw, w) {
   if (!raw) return '';
-  if (raw.includes('cloudinary.com')) return raw.replace('/upload/', '/upload/w_400,c_fill/');
-  const m = raw.match(/id=([\w-]+)/) || raw.match(/\/d\/([\w-]+)\//);
-  return m ? 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w400' : raw;
+  if (raw.includes('cloudinary.com')) return raw.replace('/upload/', '/upload/w_' + (w || 400) + ',c_fill/');
+  const m = raw.match(/id=([\w-]+)/) || raw.match(/\/d\/([\w-]+)/);
+  return m ? 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w' + (w || 400) : raw;
 }
-
-function splitLine(line) {
-  const vals = []; let cur = '', inQ = false;
-  for (let c of line) {
-    if (c === '"') { inQ = !inQ; }
-    else if (c === ',' && !inQ) { vals.push(cur); cur = ''; }
-    else cur += c;
-  }
-  vals.push(cur); return vals;
+function jsonp(url, ok, fail, ms) {
+  const cb = 'cat_' + Date.now() + '_' + Math.floor(Math.random() * 1e6), el = document.createElement('script');
+  let done = false;
+  const end = () => { if (done) return false; done = true; clearTimeout(t); delete window[cb]; el.remove(); return true; };
+  const t = setTimeout(() => { if (end()) fail(); }, ms || 20000);
+  window[cb] = d => { if (end()) ok(d); };
+  el.onerror = () => { if (end()) fail(); };
+  el.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+  document.head.appendChild(el);
 }
-
+// A full CSV reader: quoted cells may hold commas, quotes and line breaks
+// (the notes do, since check-ins add dated lines).
 function parseCSV(text) {
-  const lines = text.trim().split(/\r?\n/);
-  const headers = splitLine(lines[0]);
-  return lines.slice(1).map(line => {
-    const vals = splitLine(line);
-    const obj = {};
-    headers.forEach((h, i) => obj[h.trim()] = (vals[i] || '').trim());
-    return obj;
-  }).filter(r => r['Asset ID'] && r['Name']);
-}
-
-let allItems = [], view = 'grid', cart = new Set();
-
-const photoSVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>`;
-const pinSVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
-
-async function loadData() {
-  document.getElementById('results').innerHTML = '<div class="message"><p>Loading inventory...</p></div>';
-  try {
-    const res = await fetch(CSV_URL);
-    const text = await res.text();
-    const rows = parseCSV(text);
-    allItems = rows.map((r, idx) => ({
-      _idx: idx,
-      tagId: r['Tag ID'] || '',
-      name: r['Name'] || '',
-      category: r['Category'] || '',
-      subcategory: r['Subcatagorey'] || '',
-      location: r['Storage Location'] || '',
-      status: (r['Status'] || '').toUpperCase(),
-      rental: r['Rental Value'] || '',
-      replacement: r['Replacement Value'] || '',
-      notes: r['Notes'] || '',
-      photo: driveThumb(r['Photo'] || ''),
-    }));
-    const cats = [...new Set(allItems.map(i => i.category).filter(Boolean))].sort();
-    document.getElementById('cat-filter').innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option>${c}</option>`).join('');
-    render();
-  } catch(e) {
-    document.getElementById('results').innerHTML = '<div class="message"><p style="color:#c0392b;">Could not load inventory.</p></div>';
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ',') { row.push(cur); cur = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; }
+    else cur += ch;
   }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  const head = (rows.shift() || []).map(h => h.trim());
+  const col = (...names) => head.findIndex(h => names.some(n => h.toLowerCase() === n.toLowerCase()));
+  const C = { id: col('Asset ID'), tag: col('Tag ID'), name: col('Name'), qty: col('Quantity'), photo: col('Photo'), cat: col('Category'),
+    sub: col('Subcatagorey', 'Subcategory'), loc: col('Storage Location'), status: col('Status'), due: col('due back'), show: col('Current show'),
+    rental: col('Rental Value'), repl: col('Replacement Value'), notes: col('Notes'), lastShow: col('Last Used Show') };
+  const g = (r, k) => (C[k] > -1 ? String(r[C[k]] || '').trim() : '');
+  return rows.filter(r => g(r, 'id') && g(r, 'name')).map(r => ({
+    assetId: g(r, 'id'), tagId: g(r, 'tag'), name: g(r, 'name'), quantity: g(r, 'qty'), photo: g(r, 'photo'),
+    category: g(r, 'cat'), subcategory: g(r, 'sub'), status: g(r, 'status').toUpperCase() === 'OUT' ? 'OUT' : 'IN', dueBack: g(r, 'due'),
+    location: g(r, 'loc'), currentShow: g(r, 'show'), rental: g(r, 'rental'), replacement: g(r, 'repl'), notes: g(r, 'notes'), lastShow: g(r, 'lastShow') }));
 }
 
-function toggleCart(idx, e) {
-  if (e) e.stopPropagation();
-  const name = allItems[idx].name;
-  if (cart.has(name)) cart.delete(name); else cart.add(name);
-  updateCartBar();
-  render();
+function setItems(items) {
+  allItems = items.map((it, idx) => Object.assign({}, it, { _idx: idx, status: it.status === 'OUT' ? 'OUT' : 'IN' }));
+  const sel = document.getElementById('cat-filter'), cur = sel.value;
+  const cats = [...new Set(allItems.map(i => i.category).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option>${esc(c)}</option>`).join('');
+  if (cats.includes(cur)) sel.value = cur;
+  loadedAt = Date.now();
+  paintStaff(); render(); stamp();
+}
+function loadData(quiet) {
+  if (!quiet) document.getElementById('results').innerHTML = allItems.length ? document.getElementById('results').innerHTML : '<div class="message"><p>Loading inventory...</p></div>';
+  const key = staffKey();
+  jsonp(INV_URL + '?action=catalog' + (key ? '&key=' + encodeURIComponent(key) : '') + '&_=' + Date.now(), d => {
+    if (!d || !d.success) return loadCsv();
+    staff = !!d.staff;
+    if (key && !staff) { try { localStorage.removeItem('mmt_staff_key'); } catch (e) {} }   // PIN changed
+    settings = d.settings || settings; source = 'live';
+    setItems(d.items || []);
+  }, loadCsv);
+}
+function loadCsv() {
+  fetch(CSV_URL + '&_=' + Date.now()).then(r => r.text()).then(t => {
+    let items = parseCSV(t);
+    staff = false; source = 'copy';
+    // Public view: only what renters may see.
+    items = items.map(i => ({ assetId: i.assetId, tagId: i.tagId, name: i.name, quantity: i.quantity, photo: i.photo, category: i.category,
+      subcategory: i.subcategory, status: i.status, dueBack: i.status === 'OUT' ? i.dueBack : '', rental: settings.showRental ? i.rental : '' }));
+    setItems(items);
+  }).catch(() => {
+    if (!allItems.length) document.getElementById('results').innerHTML = '<div class="message"><p style="color:#c0392b;">Could not load the inventory. Check the connection and tap Refresh.</p></div>';
+  });
+}
+function stamp() {
+  const el = document.getElementById('updated'); if (!el || !loadedAt) return;
+  const m = Math.round((Date.now() - loadedAt) / 60000);
+  el.textContent = (source === 'live' ? 'Live from the inventory' : 'From the published copy (can lag a few minutes)') + ' · updated ' + (m < 1 ? 'just now' : m + ' min ago');
+}
+setInterval(() => { stamp(); if (document.visibilityState === 'visible' && Date.now() - loadedAt > REFRESH_MS) loadData(true); }, 15000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - loadedAt > 15000) loadData(true); });
+
+// ── Staff ───────────────────────────────────────────────────────────────────
+function paintStaff() {
+  const box = document.getElementById('staff-box');
+  box.innerHTML = staff
+    ? `<span style="font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px;background:#ece9fb;color:#3c3489;">Staff view</span>
+       <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:99px;background:var(--surface);cursor:pointer;">
+         <input type="checkbox" ${settings.showRental ? 'checked' : ''} onchange="setShowRental(this.checked)" style="width:16px;height:16px;"> Show rental prices to the public</label>
+       <button class="btn btn-ghost" onclick="signOut()">Sign out</button>`
+    : `<button class="btn btn-ghost" onclick="openPin()">Staff sign in</button>`;
+}
+function openPin() { document.getElementById('pin-err').textContent = ''; document.getElementById('pin-input').value = ''; document.getElementById('pin-overlay').style.display = 'flex'; setTimeout(() => document.getElementById('pin-input').focus(), 50); }
+function closePin(e) { if (e && e.target !== document.getElementById('pin-overlay')) return; document.getElementById('pin-overlay').style.display = 'none'; }
+function submitPin() {
+  const pin = document.getElementById('pin-input').value.trim();
+  if (!pin) return;
+  document.getElementById('pin-err').textContent = 'Checking…';
+  // The script checks the PIN; it isn't kept in this page.
+  jsonp(INV_URL + '?action=catalog&key=' + encodeURIComponent(pin) + '&_=' + Date.now(), d => {
+    if (d && d.success && d.staff) {
+      try { localStorage.setItem('mmt_staff_key', pin); } catch (e) {}
+      staff = true; settings = d.settings || settings; source = 'live';
+      document.getElementById('pin-overlay').style.display = 'none';
+      setItems(d.items || []);
+    } else document.getElementById('pin-err').textContent = 'That PIN didn’t work.';
+  }, () => { document.getElementById('pin-err').textContent = 'Could not reach the inventory. Try again.'; });
+}
+function signOut() { try { localStorage.removeItem('mmt_staff_key'); } catch (e) {} staff = false; loadData(); }
+function setShowRental(on) {
+  const key = staffKey();
+  fetch(INV_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'catalogSet', key, showRental: !!on }) })
+    .then(r => r.json()).then(d => {
+      if (!d || !d.success) throw new Error((d && d.error) || 'Not saved');
+      settings = d.settings || settings; paintStaff(); render();
+    }).catch(() => { alert('Could not save that setting. Try again.'); paintStaff(); });
 }
 
-function updateCartBar() {
-  const bar = document.getElementById('cart-bar');
-  const count = cart.size;
-  if (count === 0) { bar.classList.remove('visible'); return; }
-  bar.classList.add('visible');
-  document.getElementById('cart-bar-count').textContent = count + ' item' + (count !== 1 ? 's' : '') + ' in inquiry';
-  document.getElementById('cart-bar-items').textContent = [...cart].join(', ');
+// ── Showing it ──────────────────────────────────────────────────────────────
+function fmtDate(s) {
+  if (!s) return '';
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s + 'T12:00:00' : s);
+  return isNaN(d) ? s : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
-
-function clearCart() { cart.clear(); updateCartBar(); render(); }
-
+function statusChip(i) {
+  return i.status === 'OUT'
+    ? `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;background:#fde8d7;color:#8a3b0b;">Out${i.dueBack ? ' · back ' + esc(fmtDate(i.dueBack)) : ''}</span>`
+    : `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;background:#dcf2e3;color:#1d6b39;">Available</span>`;
+}
+const money = v => { const n = String(v || '').replace(/^\$/, '').trim(); return n ? '$' + esc(n) : ''; };
+const showPrice = i => (staff || settings.showRental) && i.rental;
 function setView(v) {
   view = v;
   document.getElementById('grid-btn').classList.toggle('active', v === 'grid');
   document.getElementById('list-btn').classList.toggle('active', v === 'list');
   render();
 }
-
-function openModal(idx, e) {
-  if (e) e.stopPropagation();
-  const i = allItems[idx];
+const PHOTO_NONE = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="width:32px;height:32px;opacity:0.3;" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
+function openModal(idx) {
+  const i = allItems[idx]; if (!i) return;
   document.getElementById('modal-name').textContent = i.name;
-  document.getElementById('modal-tag').textContent = i.tagId || '—';
-  document.getElementById('modal-cat').textContent = i.category || '—';
-  document.getElementById('modal-loc').textContent = i.location || '—';
-  document.getElementById('modal-sub').textContent = i.subcategory || '—';
-  document.getElementById('modal-rental').textContent = i.rental ? '$' + i.rental : '—';
-  document.getElementById('modal-replace').textContent = i.replacement ? '$' + i.replacement : '—';
-  document.getElementById('modal-notes').textContent = i.notes || 'No notes on file.';
-  document.getElementById('modal-badge').innerHTML = '';
+  document.getElementById('modal-badge').innerHTML = statusChip(i);
   document.getElementById('modal-img').innerHTML = i.photo
-    ? `<img src="${i.photo}" alt="${i.name}" style="width:100%;height:240px;object-fit:cover;" />`
-    : `${photoSVG}<span style="font-size:13px;">No photo yet</span>`;
-  const inCart = cart.has(i.name);
-  document.getElementById('modal-footer').innerHTML = `
-    <button class="btn ${inCart ? 'btn-ghost' : 'btn-green'}" style="flex:1;" onclick="toggleCart(${idx},event);closeModal()">
-      ${inCart ? '✓ Remove from inquiry' : '+ Add to inquiry'}
-    </button>`;
+    ? `<img src="${esc(driveThumb(i.photo, 800))}" alt="${esc(i.name)}" style="width:100%;height:260px;object-fit:cover;" />`
+    : `${PHOTO_NONE}<span style="font-size:13px;">No photo yet</span>`;
+  const f = (label, val, mono) => `<div class="mf"><div class="mf-label">${label}</div><div class="mf-val${mono ? ' mono' : ''}">${val || '—'}</div></div>`;
+  let g = f('Tag ID', esc(i.tagId), true) + f('Category', esc(i.category)) + f('Subcategory', esc(i.subcategory)) + f('Quantity', esc(i.quantity || '1'));
+  if (showPrice(i)) g += f('Rental rate', money(i.rental));
+  if (staff) g += f('Storage location', esc(i.location)) + f('Current show', esc(i.currentShow) || (i.lastShow ? 'last: ' + esc(i.lastShow) : '')) + f('Replacement value', money(i.replacement));
+  document.getElementById('modal-grid').innerHTML = g;
+  document.getElementById('modal-staff').innerHTML = staff
+    ? `<hr class="modal-divider" /><div class="mf"><div class="mf-label">Notes</div><div class="mf-val" style="font-size:13px;color:var(--text-muted);font-weight:400;white-space:pre-line;">${esc(i.notes) || 'No notes on file.'}</div></div>`
+    : '';
   document.getElementById('modal-overlay').style.display = 'flex';
 }
-
-function closeModal(e) {
-  if (!e || e.target === document.getElementById('modal-overlay'))
-    document.getElementById('modal-overlay').style.display = 'none';
-}
-
-function openInquiry() {
-  document.getElementById('inquiry-cart-items').innerHTML = [...cart].map(name => `
-    <div class="cart-item-row"><span>${name}</span><button onclick="cart.delete('${name}');updateCartBar();updateInquiryCart();if(cart.size===0)closeInquiry();" style="background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:12px;">Remove</button></div>
-  `).join('');
-  document.getElementById('inquiry-body').style.display = 'block';
-  document.getElementById('inquiry-overlay').style.display = 'flex';
-}
-
-function updateInquiryCart() {
-  document.getElementById('inquiry-cart-items').innerHTML = [...cart].map(name => `
-    <div class="cart-item-row"><span>${name}</span><button onclick="cart.delete('${name}');updateCartBar();updateInquiryCart();if(cart.size===0)closeInquiry();" style="background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:12px;">Remove</button></div>
-  `).join('');
-  render();
-}
-
-function togglePickupOther() {
-  const val = document.getElementById('f-pickup').value;
-  document.getElementById('pickup-other-field').style.display = val === 'Other' ? 'block' : 'none';
-  if (val === 'Other') document.getElementById('f-pickup-other').focus();
-}
-
-function toggleVisitDates() {
-  const val = document.getElementById('f-visit').value;
-  document.getElementById('visit-dates-field').style.display = val === 'yes' ? 'block' : 'none';
-}
-
-function closeInquiry(e) {
-  if (!e || e.target === document.getElementById('inquiry-overlay'))
-    document.getElementById('inquiry-overlay').style.display = 'none';
-}
-
-async function submitInquiry() {
-  const name = document.getElementById('f-name').value.trim();
-  const email = document.getElementById('f-email').value.trim();
-  const org = document.getElementById('f-org').value.trim();
-  const heard = document.getElementById('f-heard').value;
-  const show = document.getElementById('f-show').value.trim();
-  const perfStart = document.getElementById('f-perf-start').value;
-  const perfEnd = document.getElementById('f-perf-end').value;
-
-  if (!name) { alert('Please enter your name'); document.getElementById('f-name').focus(); return; }
-  if (!email || !email.includes('@')) { alert('Please enter a valid email'); document.getElementById('f-email').focus(); return; }
-  if (!org) { alert('Please enter your organization name'); document.getElementById('f-org').focus(); return; }
-  if (!heard) { alert('Please tell us how you heard about us'); document.getElementById('f-heard').focus(); return; }
-  if (!show) { alert('Please enter your show name'); document.getElementById('f-show').focus(); return; }
-  if (!perfStart || !perfEnd) { alert('Please enter your performance dates'); return; }
-
-  const btn = document.getElementById('submit-btn');
-  btn.innerHTML = '<span class="spinner"></span>Sending...';
-  btn.disabled = true;
-
-  const itemsList = [...cart].map((n, i) => `${i+1}. ${n}`).join('\n');
-  const formatDate = d => { if (!d) return 'Not specified'; const dt = new Date(d + 'T00:00:00'); return dt.toLocaleDateString('en-US', {month:'long',day:'numeric',year:'numeric'}); };
-  const perfDates = formatDate(perfStart) + ' to ' + formatDate(perfEnd);
-  const loadInFmt = formatDate(document.getElementById('f-load-in').value);
-  const loadOutFmt = formatDate(document.getElementById('f-load-out').value);
-  const loadIn = loadInFmt;
-  const loadOut = loadOutFmt;
-  const notes = document.getElementById('f-notes').value.trim() || 'None';
-  const otherItems = document.getElementById('f-other').value.trim() || 'None';
-  const pickupVal = document.getElementById('f-pickup').value;
-  const pickupOther = document.getElementById('f-pickup-other').value.trim();
-  const pickup = pickupVal === 'Other' ? ('Other: ' + (pickupOther || 'Not specified')) : (pickupVal || 'Not specified');
-  const visit = document.getElementById('f-visit').value || 'Not specified';
-  const visitDates = document.getElementById('f-visit-dates') ? document.getElementById('f-visit-dates').value.trim() || 'N/A' : 'N/A';
-
-  const params = {
-    from_name: name,
-    from_email: email,
-    organization: org,
-    heard_from: heard,
-    show_name: show,
-    perf_dates: perfDates,
-    load_in: loadIn,
-    load_out: loadOut,
-    notes: notes,
-    items: itemsList,
-    other_items: otherItems,
-    pickup_pref: pickup,
-    visit_interest: visit,
-    visit_dates: visitDates,
-  };
-
-  try {
-    await emailjs.send(SERVICE_ID, INQUIRY_TEMPLATE, params);
-    await emailjs.send(SERVICE_ID, CONFIRM_TEMPLATE, params);
-    // Show success
-    document.getElementById('inquiry-body').innerHTML = `
-      <div class="success-wrap">
-        <div class="success-icon">✅</div>
-        <div class="success-title">Inquiry sent!</div>
-        <div class="success-msg">
-          Thanks ${name}! We've received your inquiry for <strong>${cart.size} item${cart.size !== 1 ? 's' : ''}</strong> and sent a confirmation to <strong>${email}</strong>.<br><br>
-          We'll be in touch soon. If you don't hear back within one week, please follow up at <strong>musicmountainmcafee@gmail.com</strong>.
-        </div>
-        <button class="btn btn-purple" style="margin-top:1.5rem;width:100%;" onclick="closeInquiry();clearCart();">Done</button>
-      </div>`;
-  } catch(err) {
-    alert('Something went wrong sending the email. Please try again or contact us directly at musicmountainmcafee@gmail.com');
-    btn.innerHTML = 'Send inquiry';
-    btn.disabled = false;
-  }
-}
-
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeInquiry(); } });
+function closeModal(e) { if (e && e.target !== document.getElementById('modal-overlay')) return; document.getElementById('modal-overlay').style.display = 'none'; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closePin(); } });
 
 function render() {
   const q = document.getElementById('search').value.toLowerCase();
   const cat = document.getElementById('cat-filter').value;
   const status = document.getElementById('status-filter').value;
   const filtered = allItems.filter(i =>
-    (!q || [i.name,i.tagId,i.category,i.location,i.subcategory].some(f=>f.toLowerCase().includes(q))) &&
-    (!cat || i.category===cat) && (!status || i.status===status)
-  );
+    (!q || [i.name, i.tagId, i.assetId, i.category, i.subcategory, staff ? i.location : '', staff ? i.currentShow : ''].some(f => String(f || '').toLowerCase().includes(q))) &&
+    (!cat || i.category === cat) && (!status || i.status === status));
   document.getElementById('total-count').textContent = allItems.length;
-  document.getElementById('avail-count').textContent = allItems.filter(i=>i.status==='IN').length;
-  document.getElementById('out-count').textContent = allItems.filter(i=>i.status==='OUT').length;
-  document.getElementById('cat-count').textContent = [...new Set(allItems.map(i=>i.category).filter(Boolean))].length;
-  const container = document.getElementById('results');
-  if (!filtered.length) { container.innerHTML = '<div class="message"><p>No items match your filters.</p></div>'; return; }
+  document.getElementById('avail-count').textContent = allItems.filter(i => i.status === 'IN').length;
+  document.getElementById('out-count').textContent = allItems.filter(i => i.status === 'OUT').length;
+  document.getElementById('cat-count').textContent = [...new Set(allItems.map(i => i.category).filter(Boolean))].length;
+  const box = document.getElementById('results');
+  if (!allItems.length) { box.innerHTML = '<div class="message"><p>No items in the inventory yet.</p></div>'; return; }
+  if (!filtered.length) { box.innerHTML = '<div class="message"><p>No items match your filters.</p></div>'; return; }
+  const img = (i, w) => i.photo ? `<img src="${esc(driveThumb(i.photo, w))}" alt="${esc(i.name)}" loading="lazy" />` : PHOTO_NONE;
   if (view === 'grid') {
-    container.innerHTML = '<div class="grid">' + filtered.map(i => {
-      const inCart = cart.has(i.name);
-      return `<div class="card${inCart?' in-cart':''}">
-        <div class="card-img" onclick="openModal(${i._idx})">${i.photo?`<img src="${i.photo}" alt="${i.name}" />`:'<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="width:32px;height:32px;opacity:0.3;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>'}</div>
+    box.innerHTML = '<div class="grid">' + filtered.map(i => `<div class="card" onclick="openModal(${i._idx})" style="cursor:pointer;">
+        <div class="card-img">${img(i, 400)}</div>
         <div class="card-body">
-          <div class="card-top"><span class="card-name" onclick="openModal(${i._idx})">${i.name}</span></div>
-          <span class="cat-pill">${i.category}${i.subcategory?' · '+i.subcategory:''}</span>
+          <div class="card-top"><span class="card-name">${esc(i.name)}</span></div>
+          <span class="cat-pill">${esc(i.category)}${i.subcategory ? ' · ' + esc(i.subcategory) : ''}${+i.quantity > 1 ? ' · ×' + esc(i.quantity) : ''}</span>
           <div class="card-footer">
-            <div><div class="rental-label">Rental rate</div><div class="rental-val">${i.rental?'$'+i.rental:'—'}</div></div>
-            <div style="display:flex;gap:6px;align-items:center;">
-              <button class="more-chip" onclick="openModal(${i._idx})">More info</button>
-              <button class="cart-btn ${inCart?'cart-btn-remove':'cart-btn-add'}" onclick="toggleCart(${i._idx},event)">${inCart?'✓ Added':'+ Inquire'}</button>
-            </div>
+            <div>${showPrice(i) ? `<div class="rental-label">Rental rate</div><div class="rental-val">${money(i.rental)}</div>` : ''}${staff && i.location ? `<div class="rental-label" style="margin-top:2px;">${esc(i.location)}</div>` : ''}</div>
+            ${statusChip(i)}
           </div>
         </div>
-      </div>`;
-    }).join('') + '</div>';
+      </div>`).join('') + '</div>';
   } else {
-    container.innerHTML = '<div class="list">' + filtered.map(i => {
-      const inCart = cart.has(i.name);
-      return `<div class="list-row${inCart?' in-cart':''}">
-        <div class="list-thumb" onclick="openModal(${i._idx})">${i.photo?`<img src="${i.photo}" alt="${i.name}" />`:'<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;opacity:0.3;"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>'}</div>
-        <span class="list-name" onclick="openModal(${i._idx})">${i.name}</span>
-        <span class="list-cat"><span class="cat-pill">${i.category}</span></span>
-        <span class="list-loc">${i.location||'—'}</span>
-        <span class="list-price">${i.rental?'$'+i.rental:'—'}</span>
-        <button class="cart-btn ${inCart?'cart-btn-remove':'cart-btn-add'}" onclick="toggleCart(${i._idx},event)">${inCart?'✓':'+ Inquire'}</button>
-      </div>`;
-    }).join('') + '</div>';
+    box.innerHTML = '<div class="list">' + filtered.map(i => `<div class="list-row" onclick="openModal(${i._idx})" style="cursor:pointer;">
+        <div class="list-thumb">${i.photo ? img(i, 120) : ''}</div>
+        <span class="list-name">${esc(i.name)}</span>
+        <span class="list-cat"><span class="cat-pill">${esc(i.category)}</span></span>
+        <span class="list-loc">${staff ? esc(i.location || '—') : ''}</span>
+        <span class="list-price">${showPrice(i) ? money(i.rental) : ''}</span>
+        ${statusChip(i)}
+      </div>`).join('') + '</div>';
   }
 }
 
+paintStaff();
 loadData();
 </script>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v1</div>
 </body>
 </html>
