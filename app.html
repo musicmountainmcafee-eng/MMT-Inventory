@@ -6237,7 +6237,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v3</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -12778,7 +12778,7 @@ function ivStatusLine(i) {
   if (late > 0) return { cls: 'late', text: 'Out · ' + ivWho(i) + ' · ' + late + ' day' + (late === 1 ? '' : 's') + ' late' };
   return { cls: 'out', text: 'Out · ' + ivWho(i) + (i.dueBack ? ' · back ' + ivFmt(i.dueBack) : '') };
 }
-function ivPill(i) { return ivIsLate(i) ? '<span class="iv-pill late">Late</span>' : ivIsOut(i) ? '<span class="iv-pill out">Out</span>' : '<span class="iv-pill in">In</span>'; }
+function ivPill(i) { if (i.drop) return ''; return ivIsLate(i) ? '<span class="iv-pill late">Late</span>' : ivIsOut(i) ? '<span class="iv-pill out">Out</span>' : '<span class="iv-pill in">In</span>'; }
 
 function driveThumb(raw) {
   if (!raw) return '';
@@ -12800,9 +12800,7 @@ function ivGroupOf(i) { return i.drop ? (i.kind || 'No kind') : (i.category || '
 function ivDropNum(i) { const n = parseFloat(i.dropNo); return isNaN(n) ? 1e9 : n; }
 function ivSortFn() {
   if (!ivDrops()) return (a, b) => (a.category || 'zzz').localeCompare(b.category || 'zzz') || a.name.localeCompare(b.name);
-  const order = ivKinds();
-  const ki = i => { const k = order.indexOf(i.kind); return k < 0 ? 999 : k; };
-  return (a, b) => ki(a) - ki(b) || ivDropNum(a) - ivDropNum(b) || a.name.localeCompare(b.name);
+  return (a, b) => ivDropNum(a) - ivDropNum(b) || a.name.localeCompare(b.name);   // drop number order: 1, 2, 3…
 }
 function ivDset() { return iv.dset || { kinds: ['Full drop', 'Short', 'Split', 'Tab', 'Border', 'Scrim', 'Legs', 'Other'], cats: ['Exterior', 'Interior', 'Solid color', 'Abstract', 'Printed'], rack: { rows: 10, bays: 12, rowNames: {}, bayNames: {}, photos: {} }, imported: false }; }
 function ivKinds() { const l = ivDset().kinds.slice(); allItems.forEach(i => { if (i.drop && i.kind && !l.includes(i.kind)) l.push(i.kind); }); return l; }
@@ -13056,7 +13054,7 @@ function ivRender() {
   const top = `
     <div class="iv-top">
       <div class="iv-title"><b>${ivDrops() ? 'Drops' : 'Inventory'}</b><small>${ivE(sub)}</small></div>
-      <button class="iv-btn iv-desk-only" onclick="ivOpen({v:'outnow'})">Out now <span class="iv-badge${late.length ? ' late' : ''}">${out.length}${late.length ? ' · ' + late.length + ' late' : ''}</span></button>
+      ${ivDrops() ? '' : `<button class="iv-btn iv-desk-only" onclick="ivOpen({v:'outnow'})">Out now <span class="iv-badge${late.length ? ' late' : ''}">${out.length}${late.length ? ' · ' + late.length + ' late' : ''}</span></button>`}
       <button class="iv-btn iv-desk-only" onclick="ivOpenScan()">Scan</button>
       ${ivDrops() ? `<button class="iv-btn iv-desk-only" onclick="ivOpenRack()">Map</button>` : ''}
       <button class="iv-btn iv-desk-only" onclick="ivOpenLabels()">Labels</button>
@@ -13070,7 +13068,7 @@ function ivRender() {
     <div class="iv-findbar">
       <label class="iv-search">${IV_ICON.search}<input id="iv-q" aria-label="Search inventory" placeholder="Search name, tag, spot, show…" value="${ivE(iv.q)}" oninput="ivSearch(this.value)" autocomplete="off"></label>
       <div class="iv-chips iv-phone-only">
-        ${chip('all', 'All', ivAll().length)}${chip('in', 'In', ivAll().length - out.length)}${chip('out', 'Out', out.length)}${late.length ? chip('late', 'Late', late.length, ' late') : ''}
+        ${ivDrops() ? '' : `${chip('all', 'All', ivAll().length)}${chip('in', 'In', ivAll().length - out.length)}${chip('out', 'Out', out.length)}${late.length ? chip('late', 'Late', late.length, ' late') : ''}`}
         <select class="iv-chip${iv.cat ? ' on' : ''}" aria-label="${ivDrops() ? 'Kind' : 'Category'}" onchange="ivSetCat(this.value)"><option value="">${ivDrops() ? 'Kind' : 'Category'}</option>${cats.map(c => `<option${c === iv.cat ? ' selected' : ''}>${ivE(c)}</option>`).join('')}</select>
         ${ivDrops() ? `<select class="iv-chip${iv.dcat ? ' on' : ''}" aria-label="Category" onchange="iv.dcat=this.value;ivRender()"><option value="">Category</option>${ivDcats().filter(c => ivAll().some(i => ivCatList(i).includes(c))).map(c => `<option${c === iv.dcat ? ' selected' : ''}>${ivE(c)}</option>`).join('')}</select>` : ''}
       </div>
@@ -13091,6 +13089,7 @@ function ivPhoneBody(list, out, late) {
   out.forEach(i => { const k = i.currentShow || 'Out'; groups[k] = (groups[k] || 0) + 1; });
   const gtxt = Object.keys(groups).slice(0, 3).map(k => ivE(k) + ' ' + groups[k]).join(' · ');
   const card = out.length ? `<button class="iv-outcard" onclick="ivOpen({v:'outnow'})"><div><b>${out.length} out right now</b><span class="s">${gtxt}${late.length ? ` · <span style="color:var(--iv-late);font-weight:600">${late.length} past due</span>` : ''}</span></div><span class="go">Check in ›</span></button>` : '';
+  if (ivDrops()) return list.length ? `<div class="iv-list">${list.map(ivRowHTML).join('')}</div>` : `<div class="iv-empty">${ivAll().length ? 'Nothing matches.' : ivDropsEmpty()}</div>`;
   if (!list.length) return card + `<div class="iv-empty">${ivAll().length ? 'Nothing matches.' : (ivDrops() ? ivDropsEmpty() : 'No items yet. Tap + to add the first one.')}</div>`;
   let html = '', cat = null;
   list.forEach(i => {
@@ -13114,7 +13113,7 @@ function ivRowHTML(i) {
 function ivDeskBody(list, out, late, cats) {
   const side = (k, label, n, extra) => `<button class="iv-sideitem${iv.status === k && !iv.cat ? ' on' : ''}"${extra || ''} onclick="ivSetStatus('${k}', true)">${label} <small>${n}</small></button>`;
   const catBtn = c => `<button class="iv-sideitem${iv.cat === c ? ' on' : ''}" onclick="ivSetCat(${ivJ(iv.cat === c ? '' : c)})">${ivE(c)} <small>${ivAll().filter(i => ivGroupOf(i) === c).length}</small></button>`;
-  const sideHTML = `<div class="iv-side"><h4>STATUS</h4>${side('all', 'All', ivAll().length)}${side('in', 'In storage', ivAll().length - out.length)}${side('out', 'Out', out.length)}${side('late', 'Past due', late.length, ' style="color:var(--iv-late)"')}
+  const sideHTML = `<div class="iv-side">${ivDrops() ? `${side('all', 'All drops', ivAll().length)}` : `<h4>STATUS</h4>${side('all', 'All', ivAll().length)}${side('in', 'In storage', ivAll().length - out.length)}${side('out', 'Out', out.length)}${side('late', 'Past due', late.length, ' style="color:var(--iv-late)"')}`}
     <h4 style="padding-top:16px">${ivDrops() ? 'KIND' : 'CATEGORY'}</h4>${cats.map(catBtn).join('')}
     ${ivDrops() ? `<h4 style="padding-top:16px">CATEGORY</h4>${ivDcats().filter(c => ivAll().some(i => ivCatList(i).includes(c))).map(c => `<button class="iv-sideitem${iv.dcat === c ? ' on' : ''}" onclick="iv.dcat=${ivJ(iv.dcat === c ? '' : c)};ivRender()">${ivE(c)} <small>${ivAll().filter(i => ivCatList(i).includes(c)).length}</small></button>`).join('')}` : ''}</div>`;
   const cards = list.length ? `<div class="iv-grid">${list.map(i => {
@@ -13137,8 +13136,8 @@ function ivSelBar() {
   return `<div class="iv-selbar"><span class="t">${iv.sel.size} selected</span>
     <button class="iv-btn" onclick="ivSel.clear()">Clear</button>
     <button class="iv-btn" onclick="ivOpenLabels(true)">Labels</button>
-    ${anyOut ? `<button class="iv-btn${anyIn ? '' : ' pri'}" onclick="ivOpenCheckIn([...iv.sel].filter(id => ivIsOut(ivItem(id))))">Check in</button>` : ''}
-    ${anyIn ? `<button class="iv-btn pri" onclick="ivOpenCheckOut([...iv.sel].filter(id => !ivIsOut(ivItem(id))))">Check out</button>` : ''}
+    ${ivDrops() ? '' : anyOut ? `<button class="iv-btn${anyIn ? '' : ' pri'}" onclick="ivOpenCheckIn([...iv.sel].filter(id => ivIsOut(ivItem(id))))">Check in</button>` : ''}
+    ${ivDrops() ? '' : anyIn ? `<button class="iv-btn pri" onclick="ivOpenCheckOut([...iv.sel].filter(id => !ivIsOut(ivItem(id))))">Check out</button>` : ''}
   </div>`;
 }
 const ivSel = { clear() { iv.sel.clear(); ivRender(); } };
@@ -13179,7 +13178,7 @@ function ivItemHTML(i, inPane) {
       <span class="w">${ivE(ivStamp(h.when))}${h.staff ? '<br>' + ivE(h.staff) : ''}</span></div>`).join('') + (hist.length > 6 ? `<div class="iv-hist" style="border:none"><button class="iv-btn ghost sm" onclick="iv.hist.q=${ivJ(i.assetId)};ivOpen({v:'history'})">All ${hist.length} entries ›</button></div>` : '')
     : '<div class="iv-hint">No check-outs on record yet.</div>';
   const big = ivBig(i.photoRaw);
-  const actions = ivIsOut(i)
+  const actions = i.drop ? '' : ivIsOut(i)
     ? `<button class="iv-btn big go grow" onclick="ivOpenCheckIn([${ivJ(i.assetId)}])">Check in</button>`
     : `<button class="iv-btn big pri grow" onclick="ivOpenCheckOut([${ivJ(i.assetId)}])">Check out</button>`;
   return `
@@ -13189,7 +13188,7 @@ function ivItemHTML(i, inPane) {
     <div class="iv-info">
       <div style="display:flex;align-items:flex-start;gap:10px">
         <div style="flex:1;min-width:0"><h2 class="iv-h1">${ivE(i.name || '(no name)')}</h2><div class="iv-mono">${ivE((i.drop ? [i.dropNo ? 'Drop #' + i.dropNo : i.assetId, i.size, i.kind] : [i.tagId || i.assetId, i.category, i.subcategory]).filter(Boolean).join(' · '))}</div>${i.drop && i.cats ? `<div class="iv-wrap" style="margin-top:6px">${ivCatList(i).map(c => `<span class="iv-pill" style="background:var(--iv-out-bg);color:var(--iv-out)">${ivE(c)}</span>`).join('')}</div>` : ''}</div>
-        ${ivIsLate(i) ? '<span class="iv-pill late" style="margin-top:4px">Late</span>' : ivIsOut(i) ? '<span class="iv-pill out" style="margin-top:4px">Out</span>' : '<span class="iv-pill in" style="margin-top:4px">In storage</span>'}
+        ${i.drop ? '' : ivIsLate(i) ? '<span class="iv-pill late" style="margin-top:4px">Late</span>' : ivIsOut(i) ? '<span class="iv-pill out" style="margin-top:4px">Out</span>' : '<span class="iv-pill in" style="margin-top:4px">In storage</span>'}
       </div>
       ${ivIsOut(i) ? `<div class="iv-outbox${late > 0 ? ' late' : ''}"><div class="iv-k">OUT TO</div><b>${ivE(i.currentShow || '—')}</b><div class="iv-hint" style="margin-top:2px">${i.dueBack ? (late > 0 ? '<span class="iv-warn">Was due ' + ivFmt(i.dueBack) + ' · ' + late + ' day' + (late === 1 ? '' : 's') + ' late</span>' : 'Back by ' + ivFmt(i.dueBack)) : 'No due date'}${i.type ? ' · ' + ivE(i.type) : ''}</div></div>` : ''}
       <div class="iv-where">${IV_ICON.pin}<div style="flex:1"><div class="iv-k">STORED AT</div><b>${ivE(i.location || 'Not set')}</b></div>${i.drop ? `<button class="iv-btn sm" onclick="ivOpenRack(${ivJ(i.assetId)})">${ivRackSpot(i) ? 'See on map' : 'Put on map'}</button>` : ''}</div>
@@ -13201,10 +13200,10 @@ function ivItemHTML(i, inPane) {
       </div>
       ${i.notes ? `<div style="margin-top:14px"><div class="iv-k">NOTES</div><div class="iv-v" style="color:var(--text-muted)">${ivE(i.notes)}</div></div>` : ''}
       ${ivGalleryHTML(i)}
-      <div style="margin-top:16px"><div class="iv-k">HISTORY</div>${histHTML}</div>
+      ${i.drop ? '' : `<div style="margin-top:16px"><div class="iv-k">HISTORY</div>${histHTML}</div>`}
     </div>
     <div class="iv-actions"${inPane ? ' style="position:sticky;bottom:0"' : ''}>
-      <button class="iv-btn big" onclick="ivOpenLabels(false, [${ivJ(i.assetId)}])">Label</button>${i.drop ? `<button class="iv-btn big" onclick="ivStartMove(${ivJ(i.assetId)})">Move</button>` : ''}${actions}
+      <button class="iv-btn big" onclick="ivOpenLabels(false, [${ivJ(i.assetId)}])">Label</button>${i.drop ? `<button class="iv-btn big" onclick="ivStartMove(${ivJ(i.assetId)})">Move</button><button class="iv-btn big pri grow" onclick="ivOpenEdit(${ivJ(i.assetId)})">Edit</button>` : ''}${actions}
     </div>`;
 }
 
@@ -13961,6 +13960,11 @@ function ivScanCode(raw) {
   S.last = t; S.lastT = now;
   const it = ivScanFind(t);
   if (!it) { ivScanMsg('That code isn\'t one of our labels.', true); return; }
+  if (ivDrops()) {
+    if (!it.drop) { ivScanMsg(it.name + ' is a set piece, not a drop.', true); return; }
+    try { navigator.vibrate && navigator.vibrate(60); } catch (e) {}
+    ivCloseScan(); ivOpenItem(it.assetId); return;   // drops are looked up, not checked out
+  }
   if (S.ids.includes(it.assetId)) { ivScanMsg('Already in the list: ' + it.name); return; }
   S.ids.push(it.assetId);
   try { navigator.vibrate && navigator.vibrate(60); } catch (e) {}
@@ -13984,7 +13988,7 @@ function ivScanList() {
     <form style="display:flex;gap:8px" onsubmit="event.preventDefault();const x=this.elements.t;if(x.value.trim()){iv.scan.last='';ivScanCode(x.value);x.value='';}">
       <input name="t" class="iv-in" style="flex:1;margin:0" placeholder="${ivDrops() ? 'Or type a drop number, tag or ID' : 'Or type a tag or ID'}" autocomplete="off" aria-label="Type a tag or ID"><button class="iv-btn" type="submit">Add</button></form>
     <label class="iv-btn" style="justify-content:center;cursor:pointer">${IV_ICON.cam} Photo of a label<input type="file" accept="image/*" capture="environment" style="display:none" onchange="ivScanPhoto(this)"></label>
-    <div class="iv-scan-go">
+    ${ivDrops() ? '<div class="iv-hint" style="margin:0">Scan a drop label (or type its number) to open that drop.</div>' : ''}<div class="iv-scan-go"${ivDrops() ? ' style="display:none"' : ''}>
       <button class="iv-btn big pri" onclick="ivScanGo('out')"${nIn ? '' : ' disabled'}>Check out ${nIn || ''}</button>
       <button class="iv-btn big go" onclick="ivScanGo('in')"${nOut ? '' : ' disabled'}>Check in ${nOut || ''}</button>
     </div>`;
