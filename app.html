@@ -2549,6 +2549,24 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
     .hub-link { width: 100%; }
   }
 
+  /* ── Show timer card (Home) ─────────────────────────────────────────────── */
+  .htm-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px 12px; margin-bottom: 16px; }
+  .htm-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .htm-head b { font-size: 15px; }
+  .htm-sub { font-size: 12px; color: var(--text-muted); }
+  .htm-btn { font: 600 13px 'DM Sans', sans-serif; height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+  .htm-box { position: relative; width: 100%; max-width: 520px; aspect-ratio: 16 / 9; background: #000; border-radius: 10px; overflow: hidden; }
+  .htm-box iframe { position: absolute; left: 0; top: 0; width: 1280px !important; height: 720px !important; max-width: none !important; max-height: none !important; border: 0; transform-origin: 0 0; pointer-events: none; }
+  .htm-tap { position: absolute; inset: 0; z-index: 2; background: transparent; border: 0; cursor: zoom-in; }
+  .htm-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #bbb; font-size: 14px; text-align: center; padding: 20px; }
+  .htm-card.off .htm-box, .htm-card.off #htm-big { display: none; }
+  .htm-close { display: none; }
+  .htm-card.full { position: fixed; inset: 0; z-index: 10060; margin: 0; border-radius: 0; border: 0; background: #000; padding: 0; display: flex; align-items: center; justify-content: center; }
+  .htm-card.full .htm-head { display: none; }
+  .htm-card.full .htm-box { width: min(100vw, calc(100vh * 16 / 9)); max-width: none; border-radius: 0; }
+  .htm-card.full .htm-tap { cursor: default; }
+  .htm-card.full .htm-close { display: block; position: fixed; top: calc(12px + env(safe-area-inset-top)); right: 12px; z-index: 3; background: rgba(255,255,255,.15); color: #fff; border: 0; }
+
   /* ── BACKDROPS TAB (merged from drops.html — Session 4) ──────────────────── */
   #tab-backdrops .drp-wrap { padding: 20px; }
   #tab-backdrops .drp-toolbar { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; align-items:center; }
@@ -5226,6 +5244,19 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
     <!-- PARKED: Archive due banner -->
 
+    <!-- SECTION: SHOW TIMER (view only): the stage display's own code, with
+         everything it would send switched off. See "Show timer card" in the script. -->
+    <div class="htm-card" id="htm-card">
+      <div class="htm-head">
+        <b>Show timer</b><span class="htm-sub">what the stage display shows · view only</span>
+        <span style="flex:1"></span>
+        <button class="htm-btn" id="htm-big" onclick="htmFull(true)">Full screen</button>
+        <button class="htm-btn" id="htm-hide" onclick="htmToggle()">Hide</button>
+      </div>
+      <div class="htm-box" id="htm-box"><button class="htm-tap" aria-label="Show the timer full screen" onclick="htmFull(true)"></button></div>
+      <button class="htm-btn htm-close" onclick="htmFull(false)">✕ Close</button>
+    </div>
+
     <!-- SECTION: MAIN GRID -->
     <div class="home-main-grid">
 
@@ -6244,7 +6275,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v9</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v10</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -6436,7 +6467,88 @@ function onCrewPins(data) {
 
 loadData();
 
+// ── Show timer card (Home) ─────────────────────────────────────────────────
+// Shows exactly what the stage display shows, by running the display page's
+// own code (timer.html is fetched, never changed) in a frame on Home. A small
+// script runs first in that frame and switches off everything a display would
+// send: answers to the controller's connection check, history saves, settings
+// saves, anything posted to the relay or the Sheet. Its storage is a private
+// in-memory copy, its sound is off and it can't be tapped. So it never shows up
+// as a screen and can't change the show; it only listens.
+var HTM_SHIM = `<script>(function(){
+  var W = window;
+  function mem(seed) {
+    var d = {}; Object.keys(seed).forEach(function (k) { d[k] = String(seed[k]); });
+    return { getItem: function (k) { return Object.prototype.hasOwnProperty.call(d, k) ? d[k] : null; }, setItem: function (k, v) { d[k] = String(v); },
+      removeItem: function (k) { delete d[k]; }, clear: function () { d = {}; }, key: function (i) { return Object.keys(d)[i] || null; }, get length() { return Object.keys(d).length; } };
+  }
+  var seed = {};
+  try { var ls = W.parent.localStorage; ['mmt-timer-cfg', 'mmt-timer-shared', 'mmt-timer-skew'].forEach(function (k) { var v = ls.getItem(k); if (v != null) seed[k] = v; }); } catch (e) {}
+  seed['mmt-chime'] = '0'; seed['mmt-chime-cap'] = '0';
+  try { Object.defineProperty(W, 'localStorage', { configurable: true, value: mem(seed) }); } catch (e) {}
+  try { Object.defineProperty(W, 'sessionStorage', { configurable: true, value: mem({}) }); } catch (e) {}
+  var realFetch = W.fetch.bind(W);
+  W.fetch = function (u, o) {
+    var url = String((u && u.url) || u), m = String((o && o.method) || (u && u.method) || 'GET').toUpperCase();
+    if (m !== 'GET' || /action=save|\\/publish|\\/send\\b|[?&]message=/i.test(url)) { W.__mmtBlocked = (W.__mmtBlocked || 0) + 1; return Promise.resolve(new Response('{"success":true}', { status: 200, headers: { 'Content-Type': 'application/json' } })); }
+    return realFetch(u, o);
+  };
+  try { W.navigator.sendBeacon = function () { return true; }; } catch (e) {}
+  var RealWS = W.WebSocket;
+  if (RealWS) { var WS = function (a, b) { var s = b === undefined ? new RealWS(a) : new RealWS(a, b); s.send = function () { W.__mmtBlocked = (W.__mmtBlocked || 0) + 1; }; return s; };
+    WS.prototype = RealWS.prototype; ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'].forEach(function (k) { WS[k] = RealWS[k]; }); W.WebSocket = WS; }
+  try { W.XMLHttpRequest.prototype.send = function () { W.__mmtBlocked = (W.__mmtBlocked || 0) + 1; }; } catch (e) {}
+  try { Object.defineProperty(W, 'caches', { configurable: true, value: undefined }); } catch (e) {}
+  try { Object.defineProperty(W.navigator, 'wakeLock', { configurable: true, value: undefined }); } catch (e) {}
+  W.open = function () { return null; };
+  W.AudioContext = undefined; W.webkitAudioContext = undefined;
+  try { W.HTMLMediaElement.prototype.play = function () { return Promise.resolve(); }; } catch (e) {}
+  W.__mmtViewOnly = true;
+})();<\/script>`;
+var _htm = { url: '', frame: null, building: false, t: 0 };
+function htmOn() { try { return localStorage.getItem('mmt_home_timer') !== 'off'; } catch (e) { return true; } }
+async function htmBuild() {
+  const box = document.getElementById('htm-box');
+  if (!box || _htm.building || !htmOn()) return;
+  _htm.building = true;
+  let html = '';
+  try { const r = await fetch('timer.html?_=' + Date.now(), { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); html = await r.text(); }
+  catch (e) {
+    _htm.building = false;
+    if (!_htm.frame) box.insertAdjacentHTML('beforeend', '<div class="htm-msg">Couldn\'t load the timer. Trying again shortly.</div>');
+    clearTimeout(_htm.t); _htm.t = setTimeout(htmBuild, 30000); return;
+  }
+  if (!/<head[^>]*>/i.test(html)) { _htm.building = false; return; }
+  const base = new URL('timer.html', location.href).href;
+  html = html.replace(/<head[^>]*>/i, m => m + '<base href="' + base + '">' + HTM_SHIM);
+  if (_htm.url) URL.revokeObjectURL(_htm.url);
+  _htm.url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+  const f = document.createElement('iframe');
+  f.title = 'Show timer, view only'; f.tabIndex = -1; f.setAttribute('aria-hidden', 'true');
+  f.src = _htm.url + '#v=display&mode=full';
+  // The display reloads itself after an update; from here that lands outside
+  // the view-only frame, so build a fresh one instead.
+  f.onload = () => { let ok = false; try { ok = String(f.contentWindow.location.href).startsWith('blob:') && f.contentWindow.__mmtViewOnly; } catch (e) {} if (!ok) { f.onload = null; try { f.src = 'about:blank'; } catch (e) {} htmRebuildSoon(); } };
+  box.querySelectorAll('iframe, .htm-msg').forEach(n => n.remove());
+  box.appendChild(f); _htm.frame = f; _htm.building = false;
+  htmScale();
+}
+function htmRebuildSoon() { clearTimeout(_htm.t); _htm.t = setTimeout(() => { _htm.frame = null; htmBuild(); }, 1500); }
+function htmScale() { const box = document.getElementById('htm-box'), f = _htm.frame; if (box && f) f.style.transform = 'scale(' + (box.clientWidth / 1280) + ')'; }
+function htmFull(on) { const c = document.getElementById('htm-card'); if (!c || !_htm.frame) return; c.classList.toggle('full', !!on); document.body.classList.toggle('iv-ov-open', !!on); requestAnimationFrame(htmScale); }
+function htmToggle() {
+  const on = !htmOn();
+  try { localStorage.setItem('mmt_home_timer', on ? 'on' : 'off'); } catch (e) {}
+  htmPaint();
+  if (on) htmBuild(); else { clearTimeout(_htm.t); if (_htm.frame) { _htm.frame.remove(); _htm.frame = null; } }
+}
+function htmPaint() { const c = document.getElementById('htm-card'), b = document.getElementById('htm-hide'); if (c) c.classList.toggle('off', !htmOn()); if (b) b.textContent = htmOn() ? 'Hide' : 'Show'; }
+window.addEventListener('resize', htmScale);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { const c = document.getElementById('htm-card'); if (c && c.classList.contains('full')) htmFull(false); } });
+function htmStart() { htmPaint(); htmBuild(); try { new ResizeObserver(htmScale).observe(document.getElementById('htm-box')); } catch (e) {} }
+
 function initApp() {
+  setTimeout(() => { try { htmStart(); } catch (e) { console.warn('timer card', e); } }, 0);   // after the whole script has loaded
   applyRoleVisibility();
   loadCustomLinks();
   renderLinks();
