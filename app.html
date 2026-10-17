@@ -1646,6 +1646,13 @@ select.iv-chip { appearance: none; -webkit-appearance: none; padding-right: 28px
 
 /* desk layout */
 .iv-wide .iv-body { display: grid; grid-template-columns: 210px minmax(0, 1fr) 360px; align-items: start; min-height: calc(100vh - 140px); }
+.iv-wide .iv-body.iv-dbody { grid-template-columns: 170px minmax(0, 1fr); }
+.iv-wide .iv-body.iv-dbody.noside { grid-template-columns: minmax(0, 1fr); }
+.iv-dbody .iv-side { padding: 10px 6px; }
+.iv-dbar { display: flex; align-items: center; gap: 6px; padding: 10px 16px 0; flex-wrap: wrap; }
+.iv-dbody.v-s .iv-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.iv-dbody.v-s .iv-card .img { height: 84px; }
+.iv-dbody.v-s .iv-cbody { padding: 6px 8px 8px; }
 .iv-side { background: var(--surface); border-right: 1px solid var(--border); padding: 14px 10px; align-self: stretch; }
 .iv-side h4 { font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--text-muted); padding: 0 12px 8px; margin: 0; }
 .iv-side h4 + * { margin-top: 0; }
@@ -6237,7 +6244,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v4</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -13124,10 +13131,23 @@ function ivDeskBody(list, out, late, cats) {
       <div class="iv-cbody"><div class="iv-nm" style="font-size:14px">${ivE(i.name || '(no name)')}</div><div class="iv-sub">${ivE(i.tagId || i.assetId)}</div>
       <div class="row2"><span class="iv-loc ${s.cls}" style="margin:0">${ivE(s.text)}</span>${ivPill(i)}</div></div></div>`;
   }).join('')}</div>` : `<div class="iv-empty">${ivAll().length ? 'Nothing matches.' : (ivDrops() ? ivDropsEmpty() : 'No items yet. Use “Add item” to add the first one.')}</div>`;
+  if (ivDrops()) {
+    // Drops: no side pane (a drop opens as a pop-up), filters can be hidden, cards sized.
+    const v = ivDropView();
+    const bar = `<div class="iv-dbar"><button class="iv-btn sm" onclick="ivDropPref('side', !ivDropPrefs().side)">${ivDropPrefs().side ? '‹ Hide filters' : 'Filters ›'}</button>
+      <span style="flex:1"></span><span class="iv-hint" style="margin:0">Size</span>
+      ${[['s', 'Small'], ['m', 'Medium'], ['l', 'List']].map(([k, l]) => `<button class="iv-chip${v === k ? ' on' : ''}" onclick="ivDropPref('view','${k}')">${l}</button>`).join('')}</div>`;
+    const body = v === 'l' ? (list.length ? `<div class="iv-list">${list.map(ivRowHTML).join('')}</div>` : cards) : cards;
+    return `<div class="iv-body iv-dbody ${ivDropPrefs().side ? '' : 'noside'} v-${v}">${ivDropPrefs().side ? sideHTML : ''}<div>${bar}${body}</div></div>`;
+  }
   const it = iv.detail && ivItem(iv.detail);
   const pane = `<div class="iv-pane">${it ? ivItemHTML(it, true) : '<div class="iv-empty">Pick an item to see it here.</div>'}</div>`;
   return `<div class="iv-body">${sideHTML}<div>${cards}</div>${pane}</div>`;
 }
+
+function ivDropPrefs() { try { return Object.assign({ side: true, view: 's' }, JSON.parse(localStorage.getItem('mmt_drops_prefs') || '{}')); } catch (e) { return { side: true, view: 's' }; } }
+function ivDropView() { return ivDropPrefs().view; }
+function ivDropPref(k, v) { const p = ivDropPrefs(); p[k] = v; try { localStorage.setItem('mmt_drops_prefs', JSON.stringify(p)); } catch (e) {} ivRender(); }
 
 function ivSelBar() {
   if (!iv.sel.size) return '';
@@ -13158,7 +13178,7 @@ window.addEventListener('resize', () => {
 function ivOpenItem(id) {
   const it = ivItem(id);
   if (!it) return;
-  if (iv.wide) { iv.detail = it.assetId; iv.stack = iv.stack.filter(s => s.v !== 'item'); ivRenderOv(); ivRender(); return; }
+  if (iv.wide && !it.drop) { iv.detail = it.assetId; iv.stack = iv.stack.filter(s => s.v !== 'item'); ivRenderOv(); ivRender(); return; }
   ivOpen({ v: 'item', id: it.assetId });
 }
 
