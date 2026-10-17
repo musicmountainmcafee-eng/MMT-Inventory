@@ -6209,7 +6209,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v6</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.16 v7</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -13803,9 +13803,9 @@ function ivScanEl() {
   if (!el) { el = document.createElement('div'); el.id = 'iv-scan'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Scan items'); document.body.appendChild(el); }
   return el;
 }
-async function ivOpenScan() {
+async function ivOpenScan(keep) {
   if (!iv.loaded) { ivToast('The inventory is still loading.', { err: true }); return; }
-  const S = iv.scan = { ids: [], last: '', lastT: 0, stream: null, timer: 0, det: null, on: true };
+  const S = iv.scan = { ids: keep && iv.scan ? iv.scan.ids : [], last: '', lastT: 0, stream: null, timer: 0, det: null, on: true };
   const el = ivScanEl();
   el.innerHTML = `<div class="iv-scan-top"><button class="iv-ib" aria-label="Close scanner" onclick="ivCloseScan()">✕</button><b style="font-size:17px">Scan items</b><span>Hold each label up to the camera</span></div>
     <div class="iv-scan-cam"><video id="iv-scan-v" playsinline muted autoplay></video><div class="cam-off" id="iv-scan-off">Starting the camera…</div><div class="iv-scan-box"></div><div class="iv-scan-msg" id="iv-scan-msg" role="status" aria-live="polite"></div></div>
@@ -13822,9 +13822,9 @@ async function ivOpenScan() {
   } catch (e) {
     const name = (e && e.name) || 'Error', ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
     const how = !navigator.mediaDevices ? 'This browser has no live camera here.'
-      : name === 'NotAllowedError' ? (ios ? 'Camera access is off. On iPhone: Settings › Apps › Safari (or Chrome) › Camera › Allow, then reload.' : 'Camera access is blocked. Tap the lock or ⓘ by the address, allow Camera, then reload.')
+      : name === 'NotAllowedError' ? (ios ? 'Camera access is off for this site. In Safari: tap “aA” (or the page icon) by the address › Website Settings › Camera › Ask or Allow. From the home-screen app or Chrome: Settings › Apps › Safari or Chrome › Camera. Then reload.' : 'Camera access is blocked for this site. Tap the lock or ⓘ by the address › Permissions › Camera › Allow (or Reset), then reload.')
       : name === 'NotFoundError' ? 'No camera was found.' : name === 'NotReadableError' ? 'Another app is using the camera.' : 'The live camera didn\'t start (' + name + ').';
-    off.innerHTML = ivE(how) + '<br><br><b>You can still scan:</b> tap “Photo of a label” below.';
+    off.innerHTML = ivE(how) + `<br><button class="iv-btn" style="margin:12px auto 0" onclick="ivCloseScan(true);ivOpenScan(true)">Ask for the camera again</button><br><b>Or scan without it:</b> tap “Photo of a label” below.`;
     const box = el.querySelector('.iv-scan-box'); if (box) box.remove();
     return;
   }
@@ -13927,9 +13927,10 @@ function ivScanGo(kind) {
   ivCloseScan();
   if (kind === 'in') ivOpenCheckIn(ids); else ivOpenCheckOut(ids);
 }
-function ivCloseScan() {
+function ivCloseScan(keep) {
   const S = iv.scan;
   if (S) { S.on = false; clearTimeout(S.timer); if (S.stream) S.stream.getTracks().forEach(t => t.stop()); }
+  if (keep) return;
   const el = document.getElementById('iv-scan'); if (el) { el.className = ''; el.innerHTML = ''; }
   if (!ivTop()) document.body.classList.remove('iv-ov-open');
 }
