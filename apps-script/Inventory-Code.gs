@@ -434,8 +434,13 @@ function scriptApi_(method, url, body) {
   if (body) opt.payload = JSON.stringify(body);
   const r = UrlFetchApp.fetch(url, opt), code = r.getResponseCode(), text = r.getContentText();
   if (code >= 300) {
-    if (/has not been used|is disabled|SERVICE_DISABLED|User has not enabled the Apps Script API/i.test(text))
-      throw new Error('Turn on "Google Apps Script API" at script.google.com/home/usersettings, then try again.');
+    let msg = text;
+    try { msg = (JSON.parse(text).error || {}).message || text; } catch (err) {}
+    const link = (/https:\/\/console\.(developers|cloud)\.google\.com\/\S+/.exec(msg) || [''])[0];
+    if (/User has not enabled the Apps Script API/i.test(msg))
+      throw new Error('Turn on "Google Apps Script API" at script.google.com/home/usersettings, then try again. (Google said: ' + msg.slice(0, 200) + ')');
+    if (/has not been used|is disabled|SERVICE_DISABLED/i.test(msg))
+      throw new Error('This script is linked to its own Google Cloud project, and the Apps Script API is off there. Open this link, press Enable, wait a minute, then try again: ' + (link || 'console.cloud.google.com/apis/library/script.googleapis.com') + ' (Google said: ' + msg.slice(0, 200) + ')');
     if (code === 403 && /insufficient|scope/i.test(text))
       throw new Error('The script needs its permissions: replace appsscript.json with inventory-appsscript.json, run "setup" once, then try again.');
     throw new Error('Apps Script API ' + code + ': ' + text.slice(0, 200));

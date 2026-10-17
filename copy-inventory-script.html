@@ -468,8 +468,13 @@ function scriptApi_(method, url, body) {
   if (body) opt.payload = JSON.stringify(body);
   const r = UrlFetchApp.fetch(url, opt), code = r.getResponseCode(), text = r.getContentText();
   if (code &gt;= 300) {
-    if (/has not been used|is disabled|SERVICE_DISABLED|User has not enabled the Apps Script API/i.test(text))
-      throw new Error(&#x27;Turn on &quot;Google Apps Script API&quot; at script.google.com/home/usersettings, then try again.&#x27;);
+    let msg = text;
+    try { msg = (JSON.parse(text).error || {}).message || text; } catch (err) {}
+    const link = (/https:\/\/console\.(developers|cloud)\.google\.com\/\S+/.exec(msg) || [&#x27;&#x27;])[0];
+    if (/User has not enabled the Apps Script API/i.test(msg))
+      throw new Error(&#x27;Turn on &quot;Google Apps Script API&quot; at script.google.com/home/usersettings, then try again. (Google said: &#x27; + msg.slice(0, 200) + &#x27;)&#x27;);
+    if (/has not been used|is disabled|SERVICE_DISABLED/i.test(msg))
+      throw new Error(&#x27;This script is linked to its own Google Cloud project, and the Apps Script API is off there. Open this link, press Enable, wait a minute, then try again: &#x27; + (link || &#x27;console.cloud.google.com/apis/library/script.googleapis.com&#x27;) + &#x27; (Google said: &#x27; + msg.slice(0, 200) + &#x27;)&#x27;);
     if (code === 403 &amp;&amp; /insufficient|scope/i.test(text))
       throw new Error(&#x27;The script needs its permissions: replace appsscript.json with inventory-appsscript.json, run &quot;setup&quot; once, then try again.&#x27;);
     throw new Error(&#x27;Apps Script API &#x27; + code + &#x27;: &#x27; + text.slice(0, 200));
@@ -922,5 +927,5 @@ function deletePaint(ss, d) {
 <script>function cp(id){const t=document.getElementById(id);t.select();t.setSelectionRange(0,t.value.length);
 const done=()=>{document.getElementById(id+'-ok').textContent='Copied ('+t.value.length.toLocaleString()+' characters)';};
 (navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(done,()=>{document.execCommand('copy');done();});}</script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v2</div>
 </body></html>
