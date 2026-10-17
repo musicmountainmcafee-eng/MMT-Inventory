@@ -8,6 +8,12 @@
  *   New_Assets      a row is added when an item is added (same as before)
  *   Paint_Library   the paint colors
  *   Prefix_Table    read only: category prefixes and subcategory codes
+ *   KVStore         only its "catalog" row: the public catalog's settings
+ *                   (whether rental prices show)
+ *
+ * The public catalog (index.html) asks for action=catalog and gets only what
+ * the public may see. Everything else needs the staff key (the dashboard PIN),
+ * which the dashboard and the catalog's staff view send with each request.
  * Columns are found by their header text, so nothing has to move, and no
  * column is ever added, removed or renamed.
  *
@@ -17,7 +23,9 @@
  */
 const SHEET_ID  = '1ZC6eyjym1wLtPNG9G_rNFP_Txke1-VJtt7mrPsL0WOA';
 const WRITES_ON = false;
-const VERSION   = 'inv-1';
+const VERSION   = 'inv-2';
+// The dashboard PIN. Change it here and in the dashboard together.
+const STAFF_KEY = '1483';
 
 const TAB = { inv: 'Inventory', log: 'Form_Responses', added: 'New_Assets', paint: 'Paint_Library', prefix: 'Prefix_Table' };
 
@@ -67,6 +75,8 @@ function doGet(e) {
   try {
     const ss = book();
     let res;
+    if (p.action === 'catalog') return out(withVer(catalog(ss, staffOk(p))), cb);
+    if (p.action && !staffOk(p)) return out(withVer({ success: false, needKey: true, error: 'Staff PIN needed.' }), cb);
     switch (p.action) {
       case 'all':       res = { success: true, items: readItems(ss), history: readHistory(ss), paints: readPaints(ss), prefixes: readPrefixes(ss), nextId: nextAssetId(ss) }; break;
       case 'inventory': res = { success: true, items: readItems(ss) }; break;
@@ -75,8 +85,7 @@ function doGet(e) {
       case 'nextId':    res = { success: true, nextId: nextAssetId(ss) }; break;
       default:          res = { success: true, message: 'MMT Inventory running' };
     }
-    res.writesOn = WRITES_ON; res.version = VERSION;
-    return out(res, cb);
+    return out(withVer(res), cb);
   } catch (err) {
     return out({ success: false, error: String(err && err.message || err) }, cb);
   }
@@ -86,6 +95,8 @@ function doPost(e) {
   let data;
   try { data = JSON.parse(e.postData.contents); }
   catch (err) { return out({ success: false, error: 'Bad request' }); }
+  if (!staffOk(data)) return out({ success: false, needKey: true, error: 'Staff PIN needed.' });
+  if (data.action === 'catalogSet') return out(catalogSet(data));   // a setting, not inventory: allowed while WRITES_ON is false
   if (!WRITES_ON) return out({ success: false, readOnly: true, error: 'Saving is switched off in the inventory script (WRITES_ON = false).' });
   const lock = LockService.getScriptLock();
   try { lock.waitLock(20000); }
@@ -106,6 +117,55 @@ function doPost(e) {
     SpreadsheetApp.flush();
     lock.releaseLock();
   }
+}
+
+// ── Catalog ─────────────────────────────────────────────────────────────────
+function staffOk(p) { return !STAFF_KEY || String((p && p.key) || '') === STAFF_KEY; }
+function withVer(res) { res.writesOn = WRITES_ON; res.version = VERSION; return res; }
+
+// Settings live in the KVStore tab, row "catalog", as readable JSON.
+function catalogSettings(ss) {
+  const sh = ss.getSheetByName('KVStore');
+  const def = { showRental: false };
+  if (!sh) return def;
+  const v = sh.getDataRange().getValues();
+  for (let i = 1; i < v.length; i++) if (str(v[i][0]) === 'catalog') {
+    try { return Object.assign(def, JSON.parse(v[i][1])); } catch (err) { return def; }
+  }
+  return def;
+}
+
+// The public get what a renter may see; staff get everything.
+function catalog(ss, staff) {
+  const settings = catalogSettings(ss);
+  const items = readItems(ss).map(it => {
+    if (staff) return it;
+    const pub = { assetId: it.assetId, tagId: it.tagId, name: it.name, quantity: it.quantity, photo: it.photo,
+      category: it.category, subcategory: it.subcategory, status: it.status === 'OUT' ? 'OUT' : 'IN',
+      dueBack: it.status === 'OUT' ? it.dueBack : '' };
+    if (settings.showRental) pub.rental = it.rental;
+    return pub;
+  });
+  return { success: true, staff, settings, items };
+}
+
+function catalogSet(d) {
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(20000); } catch (err) { return { success: false, error: 'The Sheet is busy, try again in a moment.' }; }
+  try {
+    const ss = book();
+    const sh = ss.getSheetByName('KVStore');
+    if (!sh) return { success: false, error: 'The Sheet has no "KVStore" tab.' };
+    const cur = catalogSettings(ss);
+    if (typeof d.showRental === 'boolean') cur.showRental = d.showRental;
+    const json = JSON.stringify(cur);
+    const v = sh.getDataRange().getValues();
+    let row = -1;
+    for (let i = 1; i < v.length; i++) if (str(v[i][0]) === 'catalog') { row = i + 1; break; }
+    if (row < 0) sh.appendRow(['catalog', json]); else sh.getRange(row, 2).setValue(json);
+    SpreadsheetApp.flush();
+    return { success: true, settings: cur };
+  } finally { lock.releaseLock(); }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
