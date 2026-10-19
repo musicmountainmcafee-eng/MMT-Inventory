@@ -3030,6 +3030,8 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #scripts-editor .se-dark { display: inline-flex; align-items: center; justify-content: center; }
   /* Crew permissions */
   body.crew-role .crew-hide { display: none !important; }
+  body.crew-role .sidebar-divider { display: none !important; }
+  body.crew-no-cuesheet [onclick^="openCueSheetPage"] { display: none !important; }
   /* Links elsewhere (Home cards, menus) into a section crew can't see. */
   body.crew-no-notes [onclick*="switchTab('notes')"] { display: none !important; }
   body.crew-no-scripts [onclick*="switchTab('scripts')"] { display: none !important; }
@@ -5499,6 +5501,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
       <a class="sidebar-link" href="#storagemap" data-tab="storagemap" onclick="switchTab('storagemap');closeSidebarMobile();return false;" data-label="Storage Map"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5zM9 4v13.5M15 6.5V20"/></svg></span><span class="sl-label">Storage Map</span></a>
       <a class="sidebar-link" href="#drops" data-tab="drops" onclick="switchTab('drops');closeSidebarMobile();return false;" data-label="Drops"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18M7 4V2M17 4V2M5 4v13c2.3 1.6 4.7 1.6 7 0s4.7-1.6 7 0V4"/></svg></span><span class="sl-label">Drops</span></a>
       <a class="sidebar-link" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');closeSidebarMobile();return false;" data-label="Scripts"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM8 7.5h.01M8 12h.01M8 16.5h.01M11 8h5M11 12h5M11 16h3"/></svg></span><span class="sl-label">Scripts</span></a>
+      <a class="sidebar-link" href="cue-list.html" data-link="cuesheet" onclick="openCueSheetFromMenu();closeSidebarMobile();return false;" data-label="Cue Sheet"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1zM3 9h18M8.5 9v11M11.5 12.5h6M11.5 16h6"/></svg></span><span class="sl-label">Cue Sheet</span></a>
       <a class="sidebar-link" href="#checklists" data-tab="checklists" onclick="switchTab('checklists');closeSidebarMobile();return false;" data-label="Pre-Show Checklists"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4.5H6a1 1 0 00-1 1V20a1 1 0 001 1h12a1 1 0 001-1V5.5a1 1 0 00-1-1h-1M9 3h6v3H9zM9 13.5l2 2 4-4.5"/></svg></span><span class="sl-label">Pre-Show Checklists</span></a>
       <a class="sidebar-link" href="#reference" data-tab="reference" onclick="switchTab('reference');closeSidebarMobile();return false;" data-label="Reference Photos"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.8-2.5h6.4L17 8h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1zM8.5 13.5a3.5 3.5 0 107 0a3.5 3.5 0 10-7 0"/></svg></span><span class="sl-label">Reference Photos</span></a>
       <!-- PARKED: Show Archive sidebar link -->
@@ -6641,7 +6644,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.18 dev7</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.18 dev8</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7082,12 +7085,12 @@ function warmTabsInOrder() {
 // TD. Until it has been saved once, the defaults below apply. This decides
 // what the dashboard shows and lets you tap; it is not a lock on the data.
 const CREW_SECTIONS = [
-  ['notes', 'Notes'], ['scripts', 'Scripts'], ['checklists', 'Pre-Show Checklists'],
+  ['home', 'Home'], ['notes', 'Notes'], ['scripts', 'Scripts'], ['cuesheet', 'Cue Sheet'], ['checklists', 'Pre-Show Checklists'],
   ['inventory', 'Set Piece Catalogue'], ['storagemap', 'Storage Map'], ['drops', 'Drops'], ['reference', 'Reference Photos'],
   ['calendar', 'Show Calendar'], ['todo', 'To Do'], ['todo2', 'To Do 2 (beta)'], ['shopping', 'Shopping Lists'], ['cleaning', 'Cleaning Log']
 ];
 const CREW_PERMS_DEFAULT = {
-  tabs: { notes: true, scripts: true, checklists: true, inventory: true, storagemap: true, drops: true, reference: false, calendar: false, todo: false, todo2: false, shopping: false, cleaning: false },
+  tabs: { home: false, notes: false, scripts: true, cuesheet: true, checklists: false, inventory: false, storagemap: false, drops: false, reference: false, calendar: false, todo: false, todo2: false, shopping: false, cleaning: false },
   edit: { scripts: true, inventory: false }
 };
 function crewPermsNorm(v) {
@@ -7101,9 +7104,15 @@ function crewPermsNorm(v) {
 let crewPerms = (() => { try { return crewPermsNorm(JSON.parse(localStorage.getItem('mmt_crew_perms') || 'null')); } catch (e) { return crewPermsNorm(null); } })();
 function crewOn() { return typeof userRole !== 'undefined' && userRole === 'crew'; }
 function crewCanSee(tab) {
-  if (!crewOn() || tab === 'home') return true;
+  if (!crewOn()) return true;
   if (tab === 'sidework' || tab === 'daytracker') return false;
   return !!crewPerms.tabs[tab];
+}
+// Where crew land: Home if they have it, else the first section they can see.
+function crewHomeTab() {
+  if (!crewOn() || crewPerms.tabs.home) return 'home';
+  const first = CREW_SECTIONS.map(x => x[0]).find(k => k !== 'cuesheet' && crewPerms.tabs[k]);
+  return first || 'home';
 }
 function crewCanEdit(area) { return !crewOn() || !!crewPerms.edit[area]; }
 function crewViewOnly(what) {
@@ -7115,10 +7124,10 @@ function applyCrewPerms() {
   document.body.classList.toggle('crew-inv-ro', crew && !crewPerms.edit.inventory);
   document.body.classList.toggle('crew-scripts-ro', crew && !crewPerms.edit.scripts);
   CREW_SECTIONS.forEach(([k]) => document.body.classList.toggle('crew-no-' + k, crew && !crewPerms.tabs[k]));
-  document.querySelectorAll('.sidebar-link[data-tab], .bottom-tab[data-tab]').forEach(a => {
-    a.classList.toggle('crew-hide', !crewCanSee(a.getAttribute('data-tab')));
+  document.querySelectorAll('.sidebar-link[data-tab], .bottom-tab[data-tab], .sidebar-link[data-link]').forEach(a => {
+    a.classList.toggle('crew-hide', !crewCanSee(a.getAttribute('data-tab') || a.getAttribute('data-link')));
   });
-  try { if (typeof currentTab !== 'undefined' && !crewCanSee(currentTab)) switchTab('home'); } catch (e) {}
+  try { if (typeof currentTab !== 'undefined' && !crewCanSee(currentTab)) switchTab(crewHomeTab()); } catch (e) {}
   // Scripts view only: running views only, never the editor.
   try { if (crew && !crewPerms.edit.scripts && typeof runView !== 'undefined' && runView === 'normal' && document.getElementById('scripts-editor').classList.contains('open')) setRunView('a'); } catch (e) {}
 }
@@ -7152,6 +7161,13 @@ window.addEventListener('load', function guardInventoryForCrew() {
   if (typeof sm === 'function') window.smSave = function () { if (!crewCanEdit('inventory')) { crewViewOnly('The storage map'); return false; } return sm.apply(this, arguments); };
 });
 
+// Sidebar › Cue Sheet: the cue sheet page, on the script open in the editor
+// (or the one this device used last; the page has its own picker too).
+function openCueSheetFromMenu() {
+  try { if (typeof showId !== 'undefined' && showId) { openCueSheetPage(); return; } } catch (e) {}
+  window.open('cue-list.html', '_blank');
+}
+
 // Settings › Crew permissions (TD only).
 function renderCrewPermsUI() {
   const box = document.getElementById('crew-perms-box');
@@ -7159,12 +7175,11 @@ function renderCrewPermsUI() {
   const p = crewPerms;
   const tick = (id, on, label, sub) => `<label class="cp-row"><input type="checkbox" id="${id}"${on ? ' checked' : ''}/><span>${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ''}</span></label>`;
   box.innerHTML = `<div class="cp-head">Can see</div>
-    <label class="cp-row cp-fixed"><input type="checkbox" checked disabled/><span>Home<small>Always</small></span></label>
     ${CREW_SECTIONS.map(([k, l]) => tick('cp-tab-' + k, p.tabs[k], l)).join('')}
     <div class="cp-head">Can change</div>
     ${tick('cp-edit-scripts', p.edit.scripts, 'Scripts', 'Mark, move and delete cues, the set change grid and the cue sheet. Off: running views (A and B) only.')}
     ${tick('cp-edit-inventory', p.edit.inventory, 'Set pieces, drops and storage map', 'Add, edit, check in and out, move. Off: look up and scan only.')}
-    <p class="cp-note">Side Job Notes and Settings are never shown to crew. Checklists: crew can tick items, not edit the lists. Notes: crew can edit.</p>`;
+    <p class="cp-note">With Home off, crew open straight to the first section they can see. Side Job Notes and Settings are never shown to crew. Checklists: crew can tick items, not edit the lists. Notes: crew can edit.</p>`;
 }
 async function saveCrewPerms() {
   const val = id => { const el = document.getElementById(id); return !!(el && el.checked); };
@@ -7225,7 +7240,7 @@ let currentTab = 'home';
 
 function switchTab(tab) {
   if (!TABS.includes(tab)) tab = 'home';
-  if (typeof crewCanSee === 'function' && !crewCanSee(tab)) tab = 'home';
+  if (typeof crewCanSee === 'function' && !crewCanSee(tab)) tab = crewHomeTab();
   if (tab !== 'scripts') window._ssPendingShow = '';   // a show waiting for its script lets go
   currentTab = tab;
   // Leaving Notes must drop the window-filling mode, or every other tab
@@ -9058,7 +9073,7 @@ function gsMark(text, q) {
 // Collect every searchable record from live app state.
 function gsCollect() {
   const out = [];
-  const GS_TAB = { tasks: 'todo', shopping: 'shopping', photos: 'reference', notes: 'notes', archive: 'notes' };
+  const GS_TAB = { inventory: 'inventory', tasks: 'todo', shopping: 'shopping', photos: 'reference', notes: 'notes', archive: 'notes' };
   const push = (type, title, sub, action, thumb) => {
     if (typeof crewCanSee === 'function' && GS_TAB[type] && !crewCanSee(GS_TAB[type])) return;
     out.push({ type, title: title || '', sub: sub || '', action, thumb: thumb || '' });
