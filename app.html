@@ -2824,6 +2824,26 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #mv-drawer .mvd-title em { font-style: normal; color: var(--cue-text-faint); font-weight: 400; margin-left: 6px; }
   #mv-drawer .mvd-close { background: none; border: none; color: var(--cue-text-muted); font-size:18px; cursor: pointer; line-height: 1; padding: 2px 6px; }
   #mv-drawer .mvd-close:hover { color: var(--cue-text); }
+  #mv-drawer .mvd-acts { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  #mv-drawer .mvd-act { background: none; border: 1px solid var(--cue-border); border-radius: 6px; color: var(--cue-text-muted); font: 600 12px 'DM Sans', system-ui, sans-serif; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
+  #mv-drawer .mvd-act:hover { color: var(--cue-text); border-color: var(--cue-text-faint); }
+  #mv-drawer .mvd-act-del { color: var(--cue-red); border-color: var(--cue-red); }
+  #mv-drawer .mvd-act-del:hover { color: #fff; background: var(--cue-red); border-color: var(--cue-red); }
+  #cue-form-acts { display: none; gap: 8px; margin: 4px 0 2px; }
+  #scripts-editor.has-sel #cue-form-acts { display: flex; }
+  #cue-form-acts .top-btn { flex: 1; justify-content: center; }
+  #cue-form-acts .cfa-del { color: var(--cue-red); border-color: var(--cue-red); }
+  #move-cue-overlay .mc-pager { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  #move-cue-overlay .mc-pager input { width: 80px; margin: 0; text-align: center; }
+  #move-cue-overlay .mc-pager .top-btn { min-width: 40px; min-height: 40px; font-size: 18px; justify-content: center; }
+  #move-cue-overlay #mc-of { font-size: 13px; color: #8b8ba6; }
+  #move-cue-overlay .mc-opt { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; text-transform: none; letter-spacing: 0; margin: 0 0 8px; cursor: pointer; }
+  #move-cue-overlay .mc-opt input { width: auto; margin: 0; }
+  #move-cue-overlay .mc-note { font-size: 12px; color: #8b8ba6; margin: 6px 0 4px; }
+  #scripts-editor #cue-form-acts button { background: #fff !important; color: #282828 !important; border: 1px solid #dcdbe4 !important; padding: 8px 6px !important; font-size: 13px !important; }
+  #scripts-editor #cue-form-acts button.cfa-del { color: #c0392b !important; border-color: #e7b3ad !important; }
+  #move-cue-overlay label.mc-opt { display: flex !important; min-height: 0 !important; padding: 6px 0 !important; color: #282828 !important; font-size: 15px !important; text-transform: none !important; letter-spacing: 0 !important; }
+  #dev-badge { position: fixed; bottom: 4px; left: 8px; z-index: 999; background: #f39c12; color: #fff; font: 700 11px system-ui, sans-serif; padding: 2px 8px; border-radius: 4px; pointer-events: none; letter-spacing: .05em; }
   #mv-drawer .mvd-body { flex: 1; overflow: auto; padding: 8px 12px 12px; }
   #mv-drawer table.mv-grid { border-collapse: separate; border-spacing: 0 3px; width: 100%; }
   #mv-drawer table.mv-grid th { font-size:12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--cue-text-faint); padding: 0 4px 3px; text-align: left; }
@@ -6100,7 +6120,11 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
         <div class="mvd-grip" onmousedown="mvdStartResize(event)" title="Drag to resize"></div>
         <div class="mvd-head">
           <div class="mvd-title" id="mvd-title">Set Change</div>
-          <button class="mvd-close" onclick="closeMoveDrawer()" title="Close (Esc)" aria-label="Close (Esc)">✕</button>
+          <span class="mvd-acts">
+            <button type="button" class="mvd-act" onclick="openMoveCue(mvDrawerCueId)" title="Move this set change to another page">Move to page</button>
+            <button type="button" class="mvd-act mvd-act-del" onclick="deleteCue(mvDrawerCueId)" title="Delete this set change and its moves">Delete</button>
+            <button class="mvd-close" onclick="closeMoveDrawer()" title="Close (Esc)" aria-label="Close (Esc)">✕</button>
+          </span>
         </div>
         <div class="mvd-body" id="mvd-body"></div>
       </div>
@@ -6125,6 +6149,10 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
         <img id="cue-line-crop" style="display:none;width:100%;border:1px solid var(--cue-border, #ddd);border-radius:6px;margin-bottom:6px;" alt="Script line" />
         <input type="text" id="cue-line" placeholder="Cue line (trigger text)" oninput="onCueFormInput()" disabled />
         <input type="text" id="cue-desc" placeholder="Notes (optional)" oninput="onCueFormInput()" disabled />
+        <div id="cue-form-acts">
+          <button type="button" class="top-btn" onclick="openMoveCue(selectedCueId)">Move to page</button>
+          <button type="button" class="top-btn cfa-del" onclick="deleteCue(selectedCueId)">Delete cue</button>
+        </div>
         <div id="cue-edit-hint" style="font-size:12px;color:var(--cue-text-faint);line-height:1.4;">Draw a cue on the script (pick a type, then drag), then select it here to fill in details.</div>
       </div>
       <div class="row-resizer" id="type-resizer" title="Drag to resize"></div>
@@ -6177,6 +6205,27 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
       <button class="top-btn se-touch-only" onclick="ceShowOnScript()">Show in script</button>
       <button class="top-btn" onclick="closeCueEdit()">Cancel</button>
       <button class="top-btn primary" onclick="saveCueEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts: move a cue (or a whole page of cues) to another page -->
+<div class="cue-edit-overlay" id="move-cue-overlay" onclick="if(event.target===this)closeMoveCue()">
+  <div class="cue-edit" style="max-width:380px;">
+    <h3 id="mc-title">Move cue</h3>
+    <label>To page</label>
+    <div class="mc-pager">
+      <button type="button" class="top-btn" onclick="mcStep(-1)" aria-label="Page before">−</button>
+      <input type="number" id="mc-page" min="1" inputmode="numeric" onkeydown="if(event.key==='Enter'){event.preventDefault();doMoveCue();}" />
+      <button type="button" class="top-btn" onclick="mcStep(1)" aria-label="Page after">+</button>
+      <span id="mc-of"></span>
+    </div>
+    <label class="mc-opt"><input type="radio" name="mc-what" value="one" checked /> <span id="mc-one">Just this cue</span></label>
+    <label class="mc-opt"><input type="radio" name="mc-what" value="page" /> <span id="mc-all">Every cue on this page</span></label>
+    <div class="mc-note">It keeps the same spot on the new page. Drag it to the right line after.</div>
+    <div class="cue-edit-btns">
+      <button type="button" class="top-btn" onclick="closeMoveCue()">Cancel</button>
+      <button type="button" class="top-btn primary" onclick="doMoveCue()">Move</button>
     </div>
   </div>
 </div>
@@ -6318,7 +6367,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v12</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.18 v1</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -12374,6 +12423,13 @@ updateOnlineState();
 // That's confusing when you've just pushed a change. This compares the build
 // tag of the running copy against the one on the server and offers a reload.
 const RUNNING_BUILD = ((document.getElementById('build-tag') || {}).textContent || '').trim();
+// The dev copy (app-dev.html) checks itself for updates, not the live page,
+// and wears a DEV badge so the two can't be mixed up.
+const IS_DEV_PAGE = /app-dev\.html$/i.test(location.pathname);
+const BUILD_FILE = IS_DEV_PAGE ? 'app-dev.html' : 'app.html';
+if (IS_DEV_PAGE) {
+  try { document.title = 'MMT Dashboard DEV'; const b = document.createElement('div'); b.id = 'dev-badge'; b.textContent = 'DEV'; document.body.appendChild(b); } catch (e) {}
+}
 
 function showNewBuildBar(tag) {
   if (document.getElementById('new-build-bar')) return;
@@ -12388,7 +12444,7 @@ function showNewBuildBar(tag) {
 
 function checkForNewBuild() {
   if (!RUNNING_BUILD || netDown()) return;
-  fetch('app.html', { cache: 'reload' })
+  fetch(BUILD_FILE, { cache: 'reload' })
     .then(r => r.ok ? r.text() : null)
     .then(t => {
       if (!t) return;
@@ -18236,7 +18292,11 @@ function saveCueEdit() {
   if (val('ce-action') !== sh.action) c.action = val('ce-action').trim();
   if (val('ce-line') !== sh.cueLine) c.cueLine = val('ce-line').trim();
   if (val('ce-notes') !== sh.notes) { c.notes = val('ce-notes').trim(); c.description = c.notes; }
-  if (val('ce-page') !== sh.page) c.page = parseInt(val('ce-page')) || c.page;
+  // A new page moves the mark on the script too, so the two never disagree.
+  if (val('ce-page') !== sh.page) {
+    const np = parseInt(val('ce-page'), 10);
+    if (Number.isFinite(np) && np >= 1 && (!totalPages || np <= totalPages)) moveCuesToPage([c.id], np);
+  }
   // Update annotation label if exists
   const t = cueTypes.find(t => t.id === c.type);
   Object.values(annotations).forEach(pageAnns => {
@@ -18254,6 +18314,10 @@ function saveCueEdit() {
 function deleteCue(id) {
   const target = id || editingCueId || selectedCueId;
   if (!target) return;
+  // A set change carries its moves (pieces, who, spike), so ask first.
+  const tc = cues.find(c => c.id === target);
+  const nMv = tc && Array.isArray(tc.moves) ? tc.moves.filter(m => m && (m.piece || m.action || m.who || m.spike || m.notes)).length : 0;
+  if (nMv && !confirm('Delete ' + (tc.number || 'this set change') + ' and its ' + nMv + ' move' + (nMv > 1 ? 's' : '') + '?\n\nYou can undo it straight after.')) return;
   // Kept so the delete can be undone: the cue, where it sat in the list, and
   // its marks on the script.
   const at = cues.findIndex(c => c.id === target);
@@ -18279,6 +18343,116 @@ function undeleteCue(g) {
   g.marks.forEach(m => { const arr = annotations[m.page] = annotations[m.page] || []; arr.splice(Math.min(m.i, arr.length), 0, m.a); });
   renderCueList(); redrawAnnotations(); saveShowData();
   toast((g.cue.number || 'Cue') + ' is back');
+}
+
+// ── MOVE A CUE TO ANOTHER PAGE ──────────────────────────────────────────────
+// A cue lives in two places: its page number (cue.page) and its mark on the
+// script (annotations[page]). Both move together, so the cue list, the script
+// and the cue sheet always agree. The mark keeps its spot on the new page.
+// Nothing else about the cue changes: same id, number, moves, who, spike.
+let _mcCueId = null;
+// Where the cue's mark is (falls back to its page number if it has no mark).
+function cueMarkPage(id) {
+  for (const p of Object.keys(annotations)) {
+    if ((annotations[p] || []).some(a => a && a.type === 'cue' && a.cueId === id)) return parseInt(p, 10);
+  }
+  const c = cues.find(x => x.id === id);
+  return c ? (parseInt(c.page, 10) || 1) : 1;
+}
+function cuesOnPage(p) { return cues.filter(c => cueMarkPage(c.id) === p); }
+
+function openMoveCue(id) {
+  const c = cues.find(x => x.id === id);
+  if (!c) return;
+  _mcCueId = id;
+  const from = cueMarkPage(id);
+  const n = cuesOnPage(from).length;
+  const isShift = c.type === SHIFT_TYPE_ID;
+  document.getElementById('mc-title').textContent = 'Move ' + (c.number || (isShift ? 'set change' : 'cue')) + ' from page ' + from;
+  document.getElementById('mc-one').textContent = 'Just ' + (c.number || 'this cue');
+  document.getElementById('mc-all').textContent = 'All ' + n + ' cue' + (n !== 1 ? 's' : '') + ' on page ' + from;
+  document.querySelector('#move-cue-overlay input[value="page"]').closest('label').style.display = n > 1 ? '' : 'none';
+  document.querySelector('#move-cue-overlay input[value="one"]').checked = true;
+  const inp = document.getElementById('mc-page');
+  inp.max = totalPages || '';
+  inp.value = Math.min(from + 1, totalPages || from + 1);
+  document.getElementById('mc-of').textContent = totalPages ? 'of ' + totalPages : '';
+  document.getElementById('move-cue-overlay').classList.add('open');
+  if (!seIsTouch()) setTimeout(() => { inp.focus(); inp.select(); }, 30);
+}
+function closeMoveCue() {
+  document.getElementById('move-cue-overlay').classList.remove('open');
+  _mcCueId = null;
+}
+function mcStep(d) {
+  const inp = document.getElementById('mc-page');
+  const v = (parseInt(inp.value, 10) || 1) + d;
+  inp.value = Math.max(1, Math.min(totalPages || v, v));
+}
+function doMoveCue() {
+  const id = _mcCueId;
+  const c = cues.find(x => x.id === id);
+  if (!c) { closeMoveCue(); return; }
+  const from = cueMarkPage(id);
+  const to = parseInt(document.getElementById('mc-page').value, 10);
+  if (!Number.isFinite(to) || to < 1 || (totalPages && to > totalPages)) { toast('Pick a page from 1 to ' + totalPages); return; }
+  if (to === from) { toast('It’s already on page ' + from); return; }
+  const all = (document.querySelector('#move-cue-overlay input[name="mc-what"]:checked') || {}).value === 'page';
+  const ids = all ? cuesOnPage(from).map(x => x.id) : [id];
+  closeMoveCue();
+  const moved = moveCuesToPage(ids, to);
+  if (!moved.length) return;
+  renderCueList(); redrawAnnotations(); saveShowData();
+  // Take the script to the new page so it can be dragged onto the right line.
+  if (!seIsNarrow()) {
+    goToPage(to);
+    setTimeout(() => { try { selectCue(id); } catch (e) {} }, 250);
+  }
+  const what = moved.length > 1 ? moved.length + ' cues' : (c.number || 'Cue');
+  toastUndo(what + ' moved to page ' + to, () => {
+    moveCuesBack(moved);
+    renderCueList(); redrawAnnotations(); saveShowData();
+    if (!seIsNarrow()) goToPage(from);
+    toast(what + ' back on page ' + from);
+  });
+}
+// Moves each cue and its marks; returns what's needed to put them back.
+function moveCuesToPage(ids, to) {
+  const moved = [];
+  ids.forEach(id => {
+    const c = cues.find(x => x.id === id);
+    if (!c) return;
+    const rec = { id, page: c.page, marks: [] };
+    Object.keys(annotations).forEach(p => {
+      const arr = annotations[p];
+      if (!Array.isArray(arr)) return;
+      for (let i = arr.length - 1; i >= 0; i--) {
+        const a = arr[i];
+        if (!a || a.type !== 'cue' || a.cueId !== id || String(p) === String(to)) continue;
+        arr.splice(i, 1);
+        (annotations[to] = annotations[to] || []).push(a);
+        rec.marks.push({ from: p, a });
+      }
+    });
+    c.page = to;
+    moved.push(rec);
+  });
+  return moved;
+}
+function moveCuesBack(moved) {
+  moved.forEach(rec => {
+    const c = cues.find(x => x.id === rec.id);
+    if (!c) return;                     // deleted since: nothing to put back
+    c.page = rec.page;
+    rec.marks.forEach(m => {
+      Object.keys(annotations).forEach(p => {
+        const arr = annotations[p];
+        if (!Array.isArray(arr) || String(p) === String(m.from)) return;
+        const i = arr.findIndex(a => a && a.type === 'cue' && a.cueId === rec.id);
+        if (i >= 0) { const [a] = arr.splice(i, 1); (annotations[m.from] = annotations[m.from] || []).push(a); }
+      });
+    });
+  });
 }
 // A message with an Undo button, for a few seconds.
 function toastUndo(msg, undo) {
@@ -20869,6 +21043,8 @@ document.addEventListener('keydown', e => {
   // aren't mid-edit in one of its fields. Handled before the `typing` bail-out
   // below, because opening the modal focuses a field and would otherwise
   // swallow the key forever.
+  const mcOv = document.getElementById('move-cue-overlay');
+  if (mcOv && mcOv.classList.contains('open')) { if (e.key === 'Escape') { e.preventDefault(); closeMoveCue(); } return; }
   if (e.key === 'Escape' && mvDrawerCueId) { closeMoveDrawer(); return; }
   const cueModal = document.getElementById('cue-edit-overlay');
   if (cueModal && cueModal.classList.contains('open')) {
