@@ -604,6 +604,10 @@
     border: 1px solid var(--grid); border-radius: 999px; padding: 1px 8px; }
   table.cs.pl tr.pl-dim td { opacity: 0.42; }
   table.cs.pl .photo-chip { padding: 4px 10px; }
+  /* Edit mode in the same layout: tap a move to open it; + Add move under each change. */
+  table.cs.pl tr.pl-addrow td { border-top: none !important; padding-top: 0; padding-bottom: 6px; }
+  table.cs.pl tr.pl-addrow .mv-plus { border: none; color: var(--purple); padding: 6px 2px; font-weight: 500; }
+  table.cs.pl tr.mv-sel td { background: var(--purple-light) !important; opacity: 1; }
 
   /* Wings: big type for reading at arm's length; dark unless Red is picked. */
   [data-layout="wings"] table.cs.pl { font-size: calc(var(--ct-fs) * 1.3); }
@@ -1791,7 +1795,8 @@ try {
   else if (_narrowMQ.addListener) _narrowMQ.addListener(_onNarrow);
 } catch(e) {}
 
-function plotOn(){ return !editMode && view === 'cues'; }
+// Edit mode draws the same layout; tapping a move opens it in the bottom sheet.
+function plotOn(){ return view === 'cues'; }
 // Wings folds the page number under the cue number to give the words room; a
 // phone-width screen stacks further, into four columns.
 function plMode(){ return (_narrowMQ && _narrowMQ.matches) ? 'compact' : layout === 'wings' ? 'merged' : 'full'; }
@@ -1827,8 +1832,11 @@ function plRow(c, band, mode){
   const t = typeOf(c.type);
   const notes = c.notes || c.description || '';
   const isShift = c.type === SHIFT_TYPE_ID;
-  const moves = isShift ? (c.moves || []) : [];
-  const open = (c.id in expanded) ? expanded[c.id] : true;
+  let moves = isShift ? (c.moves || []) : [];
+  // Edit mode: an empty set change still gets a row to tap, and every change
+  // stays open so each move can be reached.
+  if (editMode && isShift && !moves.length) moves = [{ piece:'', action:'', who:'', spike:'', notes:'' }];
+  const open = editMode ? true : (c.id in expanded) ? expanded[c.id] : true;
   const merged = mode !== 'full', compact = mode === 'compact';
 
   const useCrop = !c.cueLine && c.lineCrop && !/^data:/.test(c.lineCrop);
@@ -1885,6 +1893,26 @@ function plRow(c, band, mode){
     return tr('pl-top pl-tap', tap) + cells({ cue: cueCell, pg, span: true,
       piece: `<span class="pl-piece">${esc(c.action || 'Set change')}</span><br><span class="pl-moves">${moves.length} move${moves.length !== 1 ? 's' : ''} ▾</span>`,
       action: '', who: '', spike: '', notes: esc(notes) }) + '</tr>';
+  }
+
+  if (editMode){
+    const cols = compact ? 4 : merged ? 6 : 7;
+    return moves.map((m, i) => {
+      const first = i === 0, last = i === moves.length - 1;
+      const cls = [first ? 'pl-top' : '', 'pl-tap', 'mv-edit'];
+      if (activeWho && !onMove(m, activeWho)) cls.push('pl-dim');
+      if (moveSheet && moveSheet.cueId === String(c.id) && moveSheet.idx === i) cls.push('mv-sel');
+      const blank = !m.piece && !m.action && !m.who && !m.spike && !(m.spikeIds || []).length && !m.notes;
+      return tr(cls.filter(Boolean).join(' '), ` data-mv="${esc(m.id || '')}" onclick="openMove('${esc(c.id)}', ${i})"`) + cells({
+        cue: first ? cueCell : '', pg: first ? pg : '',
+        piece: blank ? '<span class="mv-empty">Tap to add a move</span>'
+          : `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
+        action: esc(m.action || ''), who: esc(m.who || ''), spike: plSpikeHTML(m),
+        notes: (first && notes ? `<span class="pl-cuenote">${esc(notes)}</span>` : '') + esc(m.notes || '')
+      }) + '</tr>' + (last
+        ? tr('pl-addrow') + `<td colspan="${cols}"><button class="mv-plus" onclick="event.stopPropagation(); sheetAddMove('${esc(c.id)}')">+ Add move</button></td></tr>`
+        : '');
+    }).join('');
   }
 
   return moves.map((m, i) => {
@@ -4356,6 +4384,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.18 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v1</div>
 </body>
 </html>
