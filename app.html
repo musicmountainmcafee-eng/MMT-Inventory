@@ -2843,6 +2843,74 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #scripts-editor #cue-form-acts button { background: #fff !important; color: #282828 !important; border: 1px solid #dcdbe4 !important; padding: 8px 6px !important; font-size: 13px !important; }
   #scripts-editor #cue-form-acts button.cfa-del { color: #c0392b !important; border-color: #e7b3ad !important; }
   #move-cue-overlay label.mc-opt { display: flex !important; min-height: 0 !important; padding: 6px 0 !important; color: #282828 !important; font-size: 15px !important; text-transform: none !important; letter-spacing: 0 !important; }
+  /* ── Running mode (A · Cards, B · Step) ─────────────────────────────── */
+  .run-switch { display: inline-flex; border: 1px solid #dcdbe4; border-radius: 10px; overflow: hidden; flex-shrink: 0; background: #fff; }
+  .run-switch button { border: 0 !important; border-radius: 0 !important; background: none; color: #55556a; font: 600 13px 'DM Sans', system-ui, sans-serif; padding: 0 12px; min-height: 36px; cursor: pointer; white-space: nowrap; }
+  .run-switch button + button { border-left: 1px solid #dcdbe4 !important; }
+  .run-switch button.on { background: #534AB7; color: #fff; }
+  body.se-touch .run-switch button { min-height: 42px; padding: 0 14px; font-size: 14px; }
+  #run-bar { display: none; }
+  #run-overlay { display: none; }
+  #scripts-editor.running .cue-main { position: relative; }
+  #scripts-editor.running #run-overlay { display: block; position: absolute; inset: 0; pointer-events: none; z-index: 15; overflow: hidden; }
+  #scripts-editor.running #run-overlay svg { position: absolute; left: 0; top: 0; }
+  #scripts-editor.running .tool-sidebar,
+  #scripts-editor.running .place-banner,
+  #scripts-editor.running #mv-drawer,
+  #scripts-editor.running .cue-panel > :not(#run-bar) { display: none !important; }
+  #scripts-editor.running .cue-panel { width: clamp(320px, 36vw, 480px) !important; background: #fff; }
+  #scripts-editor.running #run-bar { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; background: #fff; color: #141414; font-family: 'DM Sans', system-ui, sans-serif; }
+  #run-bar .run-headbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px 10px; font-size: 13px; color: #6b6b78; background: #fff; }
+  #run-bar .run-headbar > div { display: flex; align-items: center; gap: 10px; }
+  #run-bar .run-headbar b { font-size: 16px; color: #141414; }
+  #scripts-editor.run-b #run-bar .run-headbar { position: sticky; top: 0; z-index: 2; border-bottom: 1px solid #eeedf3; }
+  #run-bar .run-live { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 99px; background: #e8f6ee; color: #146c3a; font-size: 12px; font-weight: 700; }
+  #run-bar .run-live i { width: 7px; height: 7px; border-radius: 99px; background: #1f8f4e; }
+  #run-bar .run-empty { padding: 24px 14px; color: #6b6b78; font-size: 14px; }
+  #run-bar .run-cards { position: relative; flex: 0 0 auto; }
+  #run-bar .run-card { position: absolute; left: 14px; right: 14px; box-sizing: border-box; border: 1px solid #e4e3ec; border-radius: 12px; padding: 10px 12px; background: #fff; display: flex; flex-direction: column; gap: 5px; cursor: pointer; transition: box-shadow .2s, border-color .2s; }
+  #run-bar .run-card.run-shift { background: #f7f7fa; border-color: #c9c7d9; }
+  #run-bar .run-card.run-scene { padding: 6px 12px; background: #f0eef9; border-color: #e0ddf3; color: #4a3f9a; font-weight: 700; font-size: 13px; }
+  #run-bar .run-hit { border-color: #534AB7 !important; box-shadow: 0 0 0 3px rgba(83,74,183,.25); }
+  #run-bar .run-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #run-bar .run-chip { color: #fff; font: 700 11px 'DM Sans', system-ui, sans-serif; padding: 3px 8px; border-radius: 99px; white-space: nowrap; letter-spacing: .02em; }
+  #run-bar .run-num { font-size: 17px; font-weight: 700; }
+  #run-bar .run-act { font-size: 16px; font-weight: 500; }
+  #run-bar .run-sub { font-size: 13px; color: #6b6b78; line-height: 1.35; }
+  #run-bar .run-moves { display: grid; grid-template-columns: auto 1fr auto; gap: 3px 10px; font-size: 14px; align-items: baseline; }
+  #run-bar .run-who { color: #534AB7; font-weight: 600; text-align: right; }
+  #run-bar .run-more { display: flex; gap: 8px; padding: 0 14px; }
+  #run-bar .run-more:empty { display: none; }
+  #run-bar .run-more button { flex: 1; min-height: 36px; border: 1px dashed #c9c7d9; border-radius: 10px; background: #fff; color: #534AB7; font: 600 13px 'DM Sans', sans-serif; cursor: pointer; }
+  #run-bar .run-foot { margin-top: auto; position: sticky; bottom: 0; background: #fff; border-top: 1px solid #eeedf3; padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 2; }
+  #run-bar .run-nextpg { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; color: #6b6b78; }
+  #run-bar .run-nextpg b { color: #141414; margin-right: 2px; }
+  #run-bar .run-list { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 14px; }
+  #run-bar .run-row, #run-bar .run-item { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid #e4e3ec; border-radius: 12px; background: #fff; cursor: pointer; font-family: 'DM Sans', system-ui, sans-serif; color: #141414; min-height: 48px; }
+  #run-bar .run-row b { font-size: 14px; white-space: nowrap; }
+  #run-bar .run-rowact { flex: 1; font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #run-bar .run-row.run-done { color: #8a8a98; border-color: transparent; background: none; }
+  #run-bar .run-item { flex-direction: column; align-items: stretch; gap: 6px; }
+  #run-bar .run-item.run-next { border: 2px solid #534AB7; background: #f3f2fc; padding: 12px 14px; }
+  #run-bar .run-bigact { font-size: 20px; font-weight: 700; }
+  #run-bar .run-item.run-open .run-bigact { font-size: 16px; font-weight: 500; }
+  #run-bar .run-nextlbl { font-size: 12px; font-weight: 700; color: #534AB7; letter-spacing: .06em; }
+  #run-bar .run-n { width: 24px; height: 24px; border-radius: 99px; color: #fff; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  #run-bar .run-scene { font-size: 12px; font-weight: 700; color: #4a3f9a; letter-spacing: .04em; text-transform: uppercase; padding: 6px 2px 0; }
+  #run-bar .run-foot-b { display: flex; gap: 10px; }
+  #run-bar .run-foot-b button { min-height: 52px; border-radius: 12px; font: 700 16px 'DM Sans', sans-serif; cursor: pointer; }
+  #run-bar .run-back { padding: 0 16px; border: 1px solid #dcdbe4; background: #fff; color: #141414; font-weight: 600 !important; }
+  #run-bar .run-go { flex: 1; border: 0; background: #534AB7; color: #fff; }
+  #run-bar .run-foot-b button:disabled { opacity: .45; cursor: default; }
+  #run-overlay .run-pin { position: absolute; border-radius: 99px; color: #fff; font: 700 12px 'DM Sans', system-ui, sans-serif; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+  #run-overlay .run-hl { position: absolute; border: 3px solid #534AB7; border-radius: 5px; background: rgba(83,74,183,.10); box-sizing: border-box; }
+  @media (max-width: 768px) {
+    .run-switch { order: 3; }
+    #scripts-editor.running .sv-switch, #scripts-editor.running.compact .sv-switch { display: none !important; }
+    #scripts-editor.running .cue-main { flex-direction: column; }
+    #scripts-editor.running .viewer { flex: 1 1 55% !important; min-height: 0 !important; }
+    #scripts-editor.running .cue-panel { display: flex !important; flex: 0 0 45% !important; width: 100% !important; min-height: 0; overflow: hidden; }
+  }
   #dev-badge { position: fixed; bottom: 4px; left: 8px; z-index: 999; background: #f39c12; color: #fff; font: 700 11px system-ui, sans-serif; padding: 2px 8px; border-radius: 4px; pointer-events: none; letter-spacing: .05em; }
   #mv-drawer .mvd-body { flex: 1; overflow: auto; padding: 8px 12px 12px; }
   #mv-drawer table.mv-grid { border-collapse: separate; border-spacing: 0 3px; width: 100%; }
@@ -6057,6 +6125,11 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
       <button class="sv-btn on" data-sv="script" onclick="setScriptsView('script')">Script</button>
       <button class="sv-btn"    data-sv="cues"   onclick="setScriptsView('cues')">Cues</button>
     </div>
+    <div class="run-switch" id="run-switch" role="group" aria-label="View">
+      <button type="button" data-rv="normal" class="on" aria-pressed="true" onclick="setRunView('normal')" title="Edit the script">Normal</button>
+      <button type="button" data-rv="a" aria-pressed="false" onclick="setRunView('a')" title="Running: each cue's card beside its line">A · Cards</button>
+      <button type="button" data-rv="b" aria-pressed="false" onclick="setRunView('b')" title="Running: step through the cues in order">B · Step</button>
+    </div>
     <div class="cue-topbar-actions">
       <button class="top-btn se-link" onclick="openCueSheetPage()">Cue sheet</button>
       <button class="top-btn se-link" onclick="openSpikeMap()">Spike map</button>
@@ -6088,6 +6161,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
     <button class="tool-btn" onclick="undo()" title="Undo" aria-label="Undo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg></button>
   </div>
   <div class="cue-main">
+    <div id="run-overlay" aria-hidden="true"></div>
     <!-- PDF VIEWER -->
     <div class="viewer">
       <div class="page-nav">
@@ -6131,6 +6205,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
     </div>
     <!-- CUE PANEL -->
     <div class="cue-panel" id="cue-panel">
+      <div id="run-bar" aria-live="polite"></div>
       <div class="panel-resizer" id="panel-resizer" title="Drag to resize"></div>
       <div class="cue-panel-header">
         <h3>Cues</h3>
@@ -6367,7 +6442,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.18 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.18 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -16306,6 +16381,7 @@ function applyScriptZoom(persist) {
   if (info) info.textContent = Math.round(zoomLevel * 100) + '%';
   // A phone's pinch level means nothing on the desk, so only the desk remembers.
   if (persist !== false && !seIsTouch()) { try { localStorage.setItem('mmt_zoom', String(zoomLevel)); } catch (e) {} }
+  if (seRunning()) runSchedLayout();
 }
 
 function zoomIn() {
@@ -16451,6 +16527,8 @@ let dragOffset = null;   // offset from grab point to marker origin
 let dragMoved = false;   // did the pointer move enough to count as a drag
 
 drawCanvas.addEventListener('pointerdown', e => {
+  // Running: the script can't be changed. A tap on a cue lights its card.
+  if (seRunning()) { _runTap = { id: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now(), pos: getPos(e) }; return; }
   // Touchscreen, not marking: let the browser scroll. Only a clean tap counts.
   if (seFingerScrolls(e)) {
     _seTap = { id: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now(), pos: getPos(e) };
@@ -16528,6 +16606,7 @@ drawCanvas.addEventListener('pointerdown', e => {
 });
 
 drawCanvas.addEventListener('pointermove', e => {
+  if (seRunning()) { if (_runTap && Math.hypot(e.clientX - _runTap.x, e.clientY - _runTap.y) > 10) _runTap = null; return; }
   if (seFingerScrolls(e)) {
     if (_seTap && Math.hypot(e.clientX - _seTap.x, e.clientY - _seTap.y) > 10) _seTap = null;
     return;
@@ -16633,6 +16712,11 @@ drawCanvas.addEventListener('pointerleave', () => {
 });
 
 drawCanvas.addEventListener('pointerup', e => {
+  if (seRunning()) {
+    const t = _runTap; _runTap = null;
+    if (t && t.id === e.pointerId && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 10 && Date.now() - t.t < 600) runTapAt(t.pos);
+    return;
+  }
   if (seFingerScrolls(e)) {
     const t = _seTap; _seTap = null;
     if (t && t.id === e.pointerId && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 10 && Date.now() - t.t < 500) seTapAt(t.pos);
@@ -17174,7 +17258,11 @@ function redrawAnnotations() {
   const ctx = drawCanvas.getContext('2d');
   ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
   const anns = annotations[currentPage] || [];
-  anns.forEach(a => drawAnnotation(ctx, a));
+  // Running A: the cards and their lines carry the labels, so the page shows
+  // just the boxes (nothing stored changes, this is drawing only).
+  const bare = seRunning() && !runListMode();
+  anns.forEach(a => (bare && a && a.type === 'cue') ? runDrawBox(ctx, a) : drawAnnotation(ctx, a));
+  if (seRunning()) runSync();
 }
 
 // Takes back this device's last stroke on the page, never someone else's.
@@ -17399,6 +17487,7 @@ function ctMovesHTML(c) {
   }).join('');
 }
 function renderCueList() {
+  if (seRunning()) { try { runSync(); } catch (e) {} }
   const sorted = cuesInScriptOrder();
   // Cue set may have changed, so the page selector's dots need re-deriving.
   try { renderPageSelect(); } catch(e) {}
@@ -18439,6 +18528,371 @@ function moveCuesToPage(ids, to) {
   });
   return moved;
 }
+
+// ── RUNNING MODE ─────────────────────────────────────────────────────────────
+// Two read-only views for running a show, picked next to Normal:
+//   A · Cards: the cues on the page sit in the bar level with their lines on
+//       the script, each joined to its line. They follow the script as it
+//       scrolls or zooms.
+//   B · Step: the page's cues as a numbered list (numbers next to each line on
+//       the script). The next cue is opened out; "Done, next cue" steps on, and
+//       at the end of a page turns it.
+// Nothing here writes to the script. Placing, dragging, deleting and typing
+// are switched off; edits from other devices still come in and show. Which
+// view is picked is kept on this device; B's done ticks live only in memory
+// for the script that is open.
+let runView = 'normal';
+let _runDone = new Set(), _runDoneOrder = [], _runDoneSid = '';
+let _runSig = '', _runRaf = 0, _runTap = null, _runWired = false;
+
+function seRunning() { return runView === 'a' || runView === 'b'; }
+// A on a narrow screen has no room beside the script, so it lists instead.
+function runListMode() { return runView === 'b' || seIsNarrow(); }
+function runSavedView() {
+  try { const v = localStorage.getItem('mmt_run_view'); return (v === 'a' || v === 'b') ? v : 'normal'; } catch (e) { return 'normal'; }
+}
+
+function setRunView(v, quiet) {
+  v = (v === 'a' || v === 'b') ? v : 'normal';
+  const changed = v !== runView;
+  runView = v;
+  try { localStorage.setItem('mmt_run_view', v); } catch (e) {}
+  const ed = document.getElementById('scripts-editor');
+  if (ed) {
+    ed.classList.toggle('running', v !== 'normal');
+    ed.classList.toggle('run-a', v === 'a');
+    ed.classList.toggle('run-b', v === 'b');
+  }
+  document.querySelectorAll('#run-switch button').forEach(b => {
+    const on = b.getAttribute('data-rv') === v;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  if (v !== 'normal') {
+    try { closeCueEdit(); } catch (e) {}
+    try { closeMoveCue(); } catch (e) {}
+    try { clearCueSelection(); } catch (e) {}
+    try { setPlaceMode(false); } catch (e) {}
+    try { if (seIsNarrow() && _scriptsView !== 'script') setScriptsView('script'); } catch (e) {}
+  }
+  runWire();
+  _runSig = '';
+  if (v === 'normal') { const ov = document.getElementById('run-overlay'); if (ov) ov.innerHTML = ''; }
+  // The script column just changed width: lay the page out again to fit.
+  if (changed && !quiet && typeof pdfDoc !== 'undefined' && pdfDoc) setTimeout(() => { try { renderPage(); } catch (e) {} }, 60);
+  runSync();
+}
+
+function runWire() {
+  if (_runWired) return;
+  _runWired = true;
+  const wrap = document.getElementById('canvas-wrap');
+  if (wrap) wrap.addEventListener('scroll', runSchedLayout, { passive: true });
+  window.addEventListener('resize', () => { _runSig = ''; runSync(); });
+  const bar = document.getElementById('run-bar');
+  if (bar) {
+    bar.addEventListener('scroll', runSchedLayout, { passive: true });
+    bar.addEventListener('click', runBarClick);
+  }
+  try { if (window.ResizeObserver && wrap) new ResizeObserver(runSchedLayout).observe(wrap); } catch (e) {}
+}
+
+function runTypeOf(c) {
+  const t = cueTypes.find(x => x.id === c.type);
+  return { color: t ? t.color : '#8a8a98', name: t ? t.name : (c.type || 'Cue') };
+}
+function runMarkOf(id, page) {
+  return (annotations[page || currentPage] || []).find(a => a && a.type === 'cue' && a.cueId === id) || null;
+}
+function runCuesOn(p) {
+  return cuesInScriptOrder(cues.filter(c => c && cueMarkPage(c.id) === p));
+}
+function runSteps(list) { return list.filter(c => c.type !== SCENE_TYPE_ID); }
+function runNextId(list) { const s = runSteps(list).find(c => !_runDone.has(c.id)); return s ? s.id : null; }
+
+// Where a cue's mark is on screen right now.
+function runBox(a) {
+  const cv = document.getElementById('draw-canvas');
+  if (!cv || !a) return null;
+  const r = cv.getBoundingClientRect();
+  if (!cv.width || !r.width) return null;
+  const s = r.width / cv.width;
+  let x, y, w, h;
+  if (a.rect) { x = a.rect.x; y = a.rect.y; w = a.rect.w; h = a.rect.h; }
+  else if (a.cx !== undefined) { x = a.cx - 10; y = a.cy - 10; w = 20; h = 20; }
+  else if (a.x !== undefined) { x = a.x - 10; y = a.y - 10; w = 20; h = 20; }
+  else if (a.labelX !== undefined) { x = a.labelX; y = a.labelY - 12; w = 40; h = 24; }
+  else return null;
+  if (w < 0) { x += w; w = -w; }
+  if (h < 0) { y += h; h = -h; }
+  return { l: r.left + x * s, t: r.top + y * s, w: w * s, h: h * s };
+}
+
+// Rebuild the bar only when what it shows changed; positions every time.
+function runSync() {
+  if (!seRunning()) return;
+  if (_runDoneSid !== showId) { _runDone = new Set(); _runDoneOrder = []; _runDoneSid = showId; }
+  const list = runCuesOn(currentPage);
+  const sig = [runView, runListMode() ? 1 : 0, currentPage, totalPages,
+    JSON.stringify(list.map(c => [c.id, c.type, c.number, c.action, c.cueLine, c.notes, c.moves])),
+    _runDoneOrder.join(','), JSON.stringify(cueTypes.map(t => [t.id, t.color, t.name])),
+    JSON.stringify(runCuesOn(currentPage + 1).map(c => [c.id, c.type, c.number, c.action]))].join('|');
+  if (sig !== _runSig) { _runSig = sig; runRender(list); }
+  runSchedLayout();
+}
+
+function runChip(c) {
+  const t = runTypeOf(c);
+  return `<span class="run-chip" style="background:${escA(t.color)}">${esc(t.name)}</span>`;
+}
+function runLabel(c) {
+  const t = runTypeOf(c);
+  return esc(seShortNum(c.number, t.name) || c.number || '');
+}
+function runSubHTML(c) {
+  const sub = [];
+  if (c.cueLine) sub.push('On “' + esc(c.cueLine) + '”');
+  const n = c.notes || c.description;
+  if (n) sub.push(esc(n));
+  return sub.length ? `<div class="run-sub">${sub.join(' · ')}</div>` : '';
+}
+function runMovesHTML(c) {
+  if (c.type !== SHIFT_TYPE_ID) return '';
+  const ms = (c.moves || []).filter(m => m && (m.piece || m.action || m.who));
+  if (!ms.length) return '<div class="run-sub">No moves yet</div>';
+  return `<div class="run-moves">${ms.map(m =>
+    `<b>${esc(m.piece || '')}</b><span>${esc(m.action || '')}</span><span class="run-who">${esc(m.who || '')}</span>`).join('')}</div>`;
+}
+function runSceneHTML(c) {
+  const label = [c.number, c.action].map(v => String(v || '').trim()).filter(Boolean).join(' · ') || 'Scene';
+  return `<div class="run-scene" data-cue="${escA(c.id)}">${esc(label)}</div>`;
+}
+function runCardHTML(c) {
+  if (c.type === SCENE_TYPE_ID) return runSceneHTML(c).replace('class="run-scene"', 'class="run-card run-scene"');
+  return `<div class="run-card${c.type === SHIFT_TYPE_ID ? ' run-shift' : ''}" data-cue="${escA(c.id)}">
+    <div class="run-head">${runChip(c)}<span class="run-num">${runLabel(c)}</span><span class="run-act">${esc(c.action || '')}</span></div>
+    ${runSubHTML(c)}${runMovesHTML(c)}</div>`;
+}
+function runNextPageHTML() {
+  if (currentPage >= totalPages) return '<div class="run-nextpg">End of script</div>';
+  const nx = runCuesOn(currentPage + 1).filter(c => c.type !== SCENE_TYPE_ID);
+  const chips = nx.slice(0, 6).map(c => { const t = runTypeOf(c); return `<span class="run-chip" style="background:${escA(t.color)}">${esc(c.number || t.name)}</span>`; }).join('');
+  return `<div class="run-nextpg"><b>Page ${currentPage + 1}</b>${chips || '<span>No cues</span>'}${nx.length > 6 ? `<span>+${nx.length - 6}</span>` : ''}</div>`;
+}
+
+function runRender(list) {
+  const bar = document.getElementById('run-bar');
+  if (!bar) return;
+  const steps = runSteps(list);
+  const nDone = steps.filter(c => _runDone.has(c.id)).length;
+  const head = `<div class="run-headbar">
+      <div><span class="run-live"><i></i>Running</span><b>Page ${currentPage}</b></div>
+      <span>${runView === 'b' ? (nDone + ' of ' + steps.length + ' done') : (steps.length + ' cue' + (steps.length !== 1 ? 's' : ''))}</span>
+    </div>`;
+  if (!list.length) {
+    bar.innerHTML = head + '<div class="run-empty">No cues on this page.</div>' + (runView === 'b' ? runFootHTML(list) : `<div class="run-foot">${runNextPageHTML()}</div>`);
+    return;
+  }
+  if (!runListMode()) {
+    bar.innerHTML = head + `<div class="run-cards" id="run-cards">${list.map(runCardHTML).join('')}</div>
+      <div class="run-more" id="run-more"></div><div class="run-foot">${runNextPageHTML()}</div>`;
+    return;
+  }
+  // Numbered list (B, or A on a narrow screen).
+  const nextId = runView === 'b' ? runNextId(list) : null;
+  let n = 0;
+  const rows = list.map(c => {
+    if (c.type === SCENE_TYPE_ID) return runSceneHTML(c);
+    n++;
+    const t = runTypeOf(c), done = runView === 'b' && _runDone.has(c.id);
+    if (c.id === nextId || runView === 'a') {
+      return `<button type="button" class="run-item${c.id === nextId ? ' run-next' : ' run-open'}" data-cue="${escA(c.id)}">
+        <div class="run-head"><span class="run-n" style="background:${escA(t.color)}">${n}</span>${c.id === nextId ? '<span class="run-nextlbl">NEXT</span>' : ''}${runChip(c)}<span class="run-num">${runLabel(c)}</span></div>
+        <div class="run-bigact">${esc(c.action || '')}</div>${runSubHTML(c)}${runMovesHTML(c)}</button>`;
+    }
+    return `<button type="button" class="run-row${done ? ' run-done' : ''}" data-cue="${escA(c.id)}">
+      <span class="run-n" style="background:${done ? '#b9b8c6' : escA(t.color)}">${n}</span>
+      <b>${esc(c.number || t.name)}</b><span class="run-rowact">${esc(c.action || '')}</span>
+      ${done ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f8f4e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Done"><path d="M5 12l5 5 9-10"/></svg>' : ''}
+    </button>`;
+  }).join('');
+  bar.innerHTML = head + `<div class="run-list">${rows}</div>` + (runView === 'b' ? runFootHTML(list) : `<div class="run-foot">${runNextPageHTML()}</div>`);
+}
+function runFootHTML(list) {
+  const left = runSteps(list).some(c => !_runDone.has(c.id));
+  const main = left ? 'Done, next cue' : (currentPage < totalPages ? 'Next page →' : 'End of script');
+  return `<div class="run-foot run-foot-b">
+    <button type="button" class="run-back" data-act="back"${_runDoneOrder.length ? '' : ' disabled'}>Back one</button>
+    <button type="button" class="run-go" data-act="go"${!left && currentPage >= totalPages ? ' disabled' : ''}>${main}</button>
+  </div>`;
+}
+
+function runGo() {
+  const list = runCuesOn(currentPage);
+  const id = runNextId(list);
+  if (id) { _runDone.add(id); _runDoneOrder.push(id); runSync(); return; }
+  if (currentPage < totalPages) { nextPage(); const w = document.getElementById('canvas-wrap'); if (w) w.scrollTop = 0; }
+}
+function runBack() {
+  const id = _runDoneOrder.pop();
+  if (!id) return;
+  _runDone.delete(id);
+  const c = cues.find(x => x.id === id);
+  const p = c ? cueMarkPage(id) : currentPage;
+  if (p !== currentPage && typeof goToPage === 'function') goToPage(p);
+  runSync();
+}
+function runToggle(id) {
+  if (_runDone.has(id)) { _runDone.delete(id); _runDoneOrder = _runDoneOrder.filter(x => x !== id); }
+  else { _runDone.add(id); _runDoneOrder.push(id); }
+  runSync();
+}
+function runBarClick(e) {
+  const act = e.target.closest('[data-act]');
+  if (act) { if (act.dataset.act === 'go') runGo(); else if (act.dataset.act === 'back') runBack(); else if (act.dataset.act === 'down') runScrollTo(1); else if (act.dataset.act === 'up') runScrollTo(-1); return; }
+  const el = e.target.closest('[data-cue]');
+  if (!el) return;
+  const id = el.getAttribute('data-cue');
+  const c = cues.find(x => x.id === id);
+  if (!c) return;
+  if (runView === 'b' && c.type !== SCENE_TYPE_ID) { runToggle(id); return; }
+  runShow(id);
+}
+// Bring a cue's line into view and pulse it.
+function runShow(id) {
+  const a = runMarkOf(id);
+  if (!a) return;
+  const b = runBox(a), wrap = document.getElementById('canvas-wrap');
+  if (b && wrap) {
+    const wr = wrap.getBoundingClientRect();
+    if (b.t < wr.top + 20 || b.t + b.h > wr.bottom - 20) wrap.scrollBy({ top: b.t - wr.top - wr.height / 3, behavior: 'smooth' });
+  }
+  try { flashCueMarker(a); } catch (e) {}
+  document.querySelectorAll('#run-bar .run-hit').forEach(x => x.classList.remove('run-hit'));
+  const el = document.querySelector('#run-bar [data-cue="' + id + '"]');
+  if (el) { el.classList.add('run-hit'); setTimeout(() => el.classList.remove('run-hit'), 1200); }
+}
+function runScrollTo(dir) {
+  const wrap = document.getElementById('canvas-wrap');
+  if (wrap) wrap.scrollBy({ top: dir * wrap.clientHeight * 0.7, behavior: 'smooth' });
+}
+// A tap on the script while running: a cue under it lights its card.
+function runTapAt(pos) {
+  let id = null;
+  try { id = seIsTouch() ? seHitTestTouch(pos) : cueHitTest(pos); } catch (e) {}
+  if (!id) return;
+  const el = document.querySelector('#run-bar [data-cue="' + id + '"]');
+  if (el) {
+    if (el.scrollIntoView) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    el.classList.add('run-hit'); setTimeout(() => el.classList.remove('run-hit'), 1200);
+  }
+  try { const a = runMarkOf(id); if (a) flashCueMarker(a); } catch (e) {}
+}
+function runKey(e) {
+  if (e.key === 'ArrowLeft') { prevPage(); return; }
+  if (e.key === 'ArrowRight') { nextPage(); return; }
+  if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomIn(); return; }
+  if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomOut(); return; }
+  if (e.key === '0') { e.preventDefault(); zoomReset(); return; }
+  if (runView !== 'b') return;
+  if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); runGo(); }
+  else if (e.key === 'Backspace' || e.key === 'ArrowUp') { e.preventDefault(); runBack(); }
+}
+
+function runDrawBox(ctx, a) {
+  const col = a.color || '#8a8a98';
+  ctx.save();
+  ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.fillStyle = col + '30';
+  if (a.spot && a.rect) {
+    const r = a.rect;
+    ctx.beginPath(); ctx.ellipse(r.x + r.w / 2, r.y + r.h / 2, Math.abs(r.w / 2), Math.abs(r.h / 2), 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  } else if (a.spot) {
+    ctx.beginPath(); ctx.arc(a.cx, a.cy, a.radius || 24, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  } else if (a.rect) {
+    const r = a.rect;
+    ctx.fillRect(r.x, r.y, r.w, r.h); ctx.strokeRect(r.x, r.y, r.w, r.h);
+  } else { ctx.restore(); drawAnnotation(ctx, a); return; }
+  ctx.restore();
+}
+function runSchedLayout() {
+  if (_runRaf) return;
+  _runRaf = requestAnimationFrame(() => { _runRaf = 0; try { runLayout(); } catch (e) {} });
+}
+function runLayout() {
+  const ov = document.getElementById('run-overlay');
+  if (!ov) return;
+  if (!seRunning()) { ov.innerHTML = ''; return; }
+  const wrapEl = document.getElementById('canvas-wrap');
+  if (!wrapEl) return;
+  const main = ov.getBoundingClientRect(), wrap = wrapEl.getBoundingClientRect();
+  const list = runCuesOn(currentPage);
+  const marks = {};
+  list.forEach(c => { const a = runMarkOf(c.id); marks[c.id] = a ? runBox(a) : null; });
+  const shown = b => b && b.t + b.h > wrap.top && b.t < wrap.bottom && wrap.height > 0;
+  let svg = '', html = '';
+
+  if (!runListMode()) {
+    const box = document.getElementById('run-cards');
+    if (box) {
+      const br = box.getBoundingClientRect();
+      const rows = [...box.querySelectorAll('.run-card')].map(el => {
+        const b = marks[el.getAttribute('data-cue')];
+        return { el, b, want: b ? (b.t + b.h / 2 - br.top - 20) : null, h: el.offsetHeight };
+      });
+      let prev = 0;
+      rows.forEach(r => {
+        const top = Math.max(0, r.want == null ? prev : Math.max(r.want, prev));
+        r.top = top;
+        r.el.style.top = Math.round(top) + 'px';
+        prev = top + r.h + 8;
+      });
+      box.style.height = Math.round(prev) + 'px';
+      let above = 0, below = 0;
+      const bar = document.getElementById('run-bar'), barR = bar ? bar.getBoundingClientRect() : null;
+      rows.forEach(r => {
+        if (!r.b) return;
+        if (r.b.t + r.b.h <= wrap.top) above++;
+        else if (r.b.t >= wrap.bottom) below++;
+        if (!shown(r.b)) return;
+        const cr = r.el.getBoundingClientRect();
+        if (barR && (cr.top + 20 < barR.top || cr.top + 20 > barR.bottom)) return;
+        const c = cues.find(x => x.id === r.el.getAttribute('data-cue'));
+        const col = c ? runTypeOf(c).color : '#8a8a98';
+        const x1 = r.b.l + r.b.w - main.left, y1 = r.b.t + r.b.h / 2 - main.top;
+        const x2 = cr.left - main.left, y2 = cr.top + 20 - main.top;
+        const xe = wrap.right - main.left;
+        const k1 = Math.max(x1 + 6, xe - 34);
+        svg += `<path d="M${x1.toFixed(1)} ${y1.toFixed(1)} H${k1.toFixed(1)} L${(xe + 6).toFixed(1)} ${y2.toFixed(1)} H${x2.toFixed(1)}" fill="none" stroke="${escA(col)}" stroke-width="2"/>`;
+      });
+      const more = document.getElementById('run-more');
+      if (more) {
+        const h = (above ? `<button type="button" data-act="up">↑ ${above} above</button>` : '') + (below ? `<button type="button" data-act="down">↓ ${below} below</button>` : '');
+        if (more.innerHTML !== h) more.innerHTML = h;
+      }
+    }
+  } else {
+    // Numbers beside each line, matching the list.
+    const nextId = runView === 'b' ? runNextId(list) : null;
+    let n = 0;
+    list.forEach(c => {
+      if (c.type === SCENE_TYPE_ID) return;
+      n++;
+      const b = marks[c.id];
+      if (!shown(b)) return;
+      const done = runView === 'b' && _runDone.has(c.id), isNext = c.id === nextId;
+      const sz = isNext ? 30 : 24;
+      const left = Math.max(wrap.left + 2, b.l - sz - 6) - main.left, top = b.t + b.h / 2 - sz / 2 - main.top;
+      const bg = done ? '#b9b8c6' : isNext ? '#534AB7' : runTypeOf(c).color;
+      if (isNext) html += `<div class="run-hl" style="left:${(b.l - 4 - main.left).toFixed(1)}px;top:${(b.t - 4 - main.top).toFixed(1)}px;width:${(b.w + 8).toFixed(1)}px;height:${(b.h + 8).toFixed(1)}px"></div>`;
+      html += `<div class="run-pin" style="left:${left.toFixed(1)}px;top:${top.toFixed(1)}px;width:${sz}px;height:${sz}px;background:${escA(bg)}">${n}</div>`;
+    });
+  }
+  // Nothing drawn outside the script and the bar.
+  const clip = `<clipPath id="run-clip"><rect x="${(wrap.left - main.left).toFixed(1)}" y="${(wrap.top - main.top).toFixed(1)}" width="${(main.width - (wrap.left - main.left)).toFixed(1)}" height="${wrap.height.toFixed(1)}"/></clipPath>`;
+  const out = `<svg width="${main.width.toFixed(0)}" height="${main.height.toFixed(0)}" aria-hidden="true"><defs>${clip}</defs><g clip-path="url(#run-clip)">${svg}</g></svg>${html}`;
+  if (ov.innerHTML !== out) ov.innerHTML = out;
+}
+
 function moveCuesBack(moved) {
   moved.forEach(rec => {
     const c = cues.find(x => x.id === rec.id);
@@ -21056,6 +21510,7 @@ document.addEventListener('keydown', e => {
     return; // modal is up — don't run the page/tool shortcuts underneath it
   }
 
+  if (seRunning()) { if (!typing) runKey(e); return; }
   if (typing) return;
   if (e.key === 'ArrowLeft') prevPage();
   if (e.key === 'ArrowRight') nextPage();
@@ -21073,6 +21528,7 @@ document.addEventListener('keydown', e => {
 function openScriptsEditor() {
   const ed = document.getElementById('scripts-editor');
   if (ed) ed.classList.add('open');
+  try { setRunView(runSavedView(), true); } catch (e) {}
   renderPage(); renderCueTypes(); renderCueList(); renderColorSwatches();
   initCuePanelResize();
   initCueFormResize();
