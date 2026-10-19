@@ -555,6 +555,65 @@
     #move-sheet .ms-g3 .ms-f:last-child { grid-column: 1 / -1; }
   }
 
+  /* ── LAYOUTS: Sheet / Wings ────────────────────────────────────────────────
+     The read view drawn like the set change plot PDF: CUE / PG / PIECE /
+     ACTION / WHO / SPIKE / NOTES, dark scene bars, whole changes shaded as one
+     block. Two layouts: Sheet, and Wings (big type, dark). Display only — Edit mode keeps its own layout. */
+  :root { --bar-bg: #26262d; --bar-ink: #ffffff; --bar-meta: rgba(255,255,255,0.7) }
+  [data-theme="dark"] { --bar-bg: #d6d6e4; --bar-ink: #161625; --bar-meta: rgba(22,22,37,0.65) }
+  [data-theme="red"]  { --bar-bg: #3a0a0a; --bar-ink: #ff9a90; --bar-meta: #c25555 }
+
+  table.cs.pl td { border-bottom: none; }
+  table.cs.pl tr.pl-top td { border-top: 2px solid var(--rule); }
+  table.cs.pl tr.pl-row:not(.pl-top) td { border-top: 1px solid var(--grid); }
+  table.cs.pl tr.pl-row td { padding-top: 9px; padding-bottom: 9px; }
+  table.cs.pl tr.pl-tap td { cursor: pointer; }
+  table.cs.pl tr.scene td {
+    background: var(--bar-bg); color: var(--bar-ink); box-shadow: none;
+    font-size: 1em; letter-spacing: 0.04em; padding: 9px 12px;
+  }
+  table.cs.pl tr.scene:hover td { background: var(--bar-bg); }
+  table.cs.pl .scene-pg { color: var(--bar-meta); }
+  .pl-num { font-weight: 700; color: var(--ink); font-size: 1.04em; }
+  .pl-num .cs-chip { margin-right: 5px; }
+  table.cs.pl td.cs-line { color: var(--ink-3); }
+  .pl-pgsub { display: block; font-family: 'DM Mono', monospace; font-size: 0.74em; color: var(--ink-meta); margin-top: 3px; font-weight: 400; }
+  .pl-pg { font-family: 'DM Mono', monospace; font-size: 0.92em; color: var(--ink-3); }
+  .pl-piece { font-weight: 700; color: var(--ink); }
+  .pl-cueact { display: block; margin-top: 3px; font-size: 0.86em; font-weight: 400; color: var(--ink-meta); }
+  .pl-act { color: var(--ink-2); }
+  .pl-who { color: var(--ink-2); }
+  .pl-notes { color: var(--ink-3); }
+  .pl-notes .pl-cuenote { display: block; margin-bottom: 3px; }
+  .pl-spk { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 4px; }
+  .pl-spk svg { flex: none; margin-top: 2px; }
+  .pl-spk > span { min-width: 0; }
+  .pl-spk b { display: block; font-weight: 700; color: var(--ink); line-height: 1.25; overflow-wrap: break-word; }
+  .pl-spk small { display: block; font-size: 0.84em; color: var(--ink-meta); }
+  .pl-spk.spk-gone { color: var(--ink-meta); font-style: italic; }
+  .pl-spk-typed { display: block; color: var(--ink-3); }
+  .pl-num + .pl-linetxt { display: block; margin-top: 4px; }
+  .pl-linetxt .cs-crop { max-height: 70px; }
+  .pl-actsub { display: block; margin-top: 2px; color: var(--ink-3); }
+  @media (max-width: 700px) {
+    .pl-spk { flex-direction: column; gap: 3px; }
+    .pl-spk b, table.cs.pl td { overflow-wrap: anywhere; }
+    table.cs.pl .pl-notes .pl-spk + .pl-spk-typed, table.cs.pl .pl-notes .pl-spk:last-of-type { margin-bottom: 6px; }
+  }
+  .pl-moves { display: inline-block; margin-top: 4px; font-size: 0.78em; font-weight: 600; color: var(--ink-meta);
+    border: 1px solid var(--grid); border-radius: 999px; padding: 1px 8px; }
+  table.cs.pl tr.pl-dim td { opacity: 0.42; }
+  table.cs.pl .photo-chip { padding: 4px 10px; }
+
+  /* Wings: big type for reading at arm's length; dark unless Red is picked. */
+  [data-layout="wings"] table.cs.pl { font-size: calc(var(--ct-fs) * 1.3); }
+  [data-layout="wings"] table.cs.pl th { font-size: 0.6em; }
+  [data-layout="wings"] table.cs.pl tr.pl-row td { padding-top: 12px; padding-bottom: 12px; }
+  [data-layout="wings"] .pl-num { font-size: 1.12em; }
+  [data-layout="wings"] .sheet { border-radius: 0; }
+  @media (max-width: 760px) {
+    table.cs.pl td, table.cs.pl th { padding-left: 5px; padding-right: 5px; }
+  }
 </style>
 </head>
 <body>
@@ -599,6 +658,7 @@
         </div>
       </div>
       <button class="top-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Dark mode">🌙</button>
+      <button class="top-btn" id="layout-btn" onclick="cycleLayout()" title="Switch layout: Sheet or Wings">Layout: Sheet</button>
       <button class="top-btn" id="photo-btn" onclick="setPhotos(!showPhotos)" title="Show or hide all line photos">Photos</button>
       <button class="top-btn" id="awake-btn" onclick="toggleAwake()" title="Keep the screen on">Awake</button>
       <button class="top-btn" id="export-btn" onclick="openExport()" title="Download the cue sheet or set change plot">Export</button>
@@ -664,6 +724,12 @@
     <label>Script</label>
     <div id="script-list"><div class="note">Loading scripts…</div></div>
 
+    <label style="margin-top:18px;">Layout</label>
+    <div class="size-row" id="layout-row">
+      <button data-lay="sheet" onclick="setLayout('sheet')">Sheet</button>
+      <button data-lay="wings" onclick="setLayout('wings')">Wings</button>
+    </div>
+
     <label style="margin-top:18px;">Theme</label>
     <div class="size-row" id="theme-row">
       <button data-th="light" onclick="applyTheme('light')">Light</button>
@@ -701,6 +767,10 @@ try {
   var _own = localStorage.getItem('mmt_cuelist_theme');
   var _t = (_own === 'light' || _own === 'dark' || _own === 'red')
     ? _own : (localStorage.getItem('mmt_theme') === 'dark' ? 'dark' : 'light');
+  var _lay = localStorage.getItem('mmt_cuelist_layout');
+  if (_lay !== 'wings') _lay = 'sheet';
+  document.documentElement.setAttribute('data-layout', _lay);
+  if (_lay === 'wings' && _t === 'light') _t = 'dark';
   if (_t !== 'light') document.documentElement.setAttribute('data-theme', _t);
 } catch(e) {}
 </script>
@@ -822,6 +892,7 @@ function unlock(){
 function start(){
   setSize(parseInt(lsGet('mmt_cuelist_size','13'),10) || 13);
   setPhotos(lsGet('mmt_cuelist_photos','1') !== '0');
+  setLayout(layout, true);
   applyTheme(currentTheme(), false);
   // Deep links from the dashboard's Show Hub:
   //   ?script=<driveId>   open that script rather than the last one used here
@@ -1316,11 +1387,13 @@ function render(){
   if (!isCues) return renderPresetSheet();
 
   const el = document.getElementById('sheet-body');
+  const plot = plotOn();
+  const mode = plot ? plMode() : 'full';
+  const NC = plot ? ({ full: 7, merged: 6, compact: 4 })[mode] : 5;
   const title = `<div class="sheet-title">
       <h2>${esc(ssTitle(scriptId, scriptName))} — Cue Sheet</h2>
       <div class="upd" id="upd">—</div>
     </div>`;
-
   if (!cues.length){
     el.innerHTML = title + '<div class="cs-empty"><b>No cues on this script yet.</b>Place cues in the Scripts tab and they appear here.</div>';
     measureHeader(); return;
@@ -1351,18 +1424,30 @@ function render(){
     shown += visible.length;
     if (!visible.length) return;
     if (g.label){
-      if (!firstBand) body += '<tr class="scene-gap"><td colspan="5"></td></tr>';
-      body += `<tr class="scene"><td colspan="5">${esc(g.label)}${
+      if (!firstBand && !plot) body += '<tr class="scene-gap"><td colspan="5"></td></tr>';
+      body += `<tr class="scene"><td colspan="${NC}">${esc(g.label)}${
         g.page != null ? `<span class="scene-pg">p.${esc(g.page)}</span>` : ''}</td></tr>`;
       band = false; firstBand = false;
     }
-    visible.forEach(c => { body += cueRow(c, band); band = !band; });
+    visible.forEach(c => { body += plot ? plRow(c, band, mode) : cueRow(c, band); band = !band; });
   });
 
   if (!shown){
     const what = query ? 'Nothing matches that search.' : 'No ' + esc(typeOf(activeType).name) + ' cues.';
     const how  = query ? 'Try fewer words, or clear the type filter.' : 'Tap the type again for all cues.';
     el.innerHTML = title + `<div class="cs-empty"><b>${what}</b>${how}</div>`;
+  } else if (plot){
+    const cols = {
+      full:    [['Cue',19],['PG',5],['Piece',18],['Action',10],['Who',13],['Spike',16],['Notes',19]],
+      merged:  [['Cue / PG',20],['Piece',18],['Action',10],['Who',14],['Spike',17],['Notes',21]],
+      compact: [['Cue',27],['Piece',27],['Who',19],['Spike / Notes',27]]
+    }[mode];
+    el.innerHTML = title + `<table class="cs pl">
+      <colgroup>${cols.map(c => `<col style="width:${c[1]}%">`).join('')}</colgroup>
+      <thead><tr>${cols.map(c => `<th>${c[0]}</th>`).join('')}</tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+    <div class="sheet-foot"><span>Music Mountain Theatre</span><span>${shown} of ${total} cues</span></div>`;
   } else {
     el.innerHTML = title + `<table class="cs">
       <colgroup>
@@ -1691,6 +1776,129 @@ function cueRow(c, band){
 }
 
 
+
+// ══ LAYOUTS: Sheet / Wings ═══════════════════════════════════════════════════
+// The read view drawn like the set change plot PDF. Display only: nothing here
+// writes, and Edit mode keeps the layout above. Remembered per device.
+const LAYOUTS = ['sheet', 'wings'];
+const LAYOUT_NAME = { sheet: 'Sheet', wings: 'Wings' };
+let layout = (function(){ const l = lsGet('mmt_cuelist_layout', ''); return LAYOUTS.indexOf(l) !== -1 ? l : 'sheet'; })();
+let _narrowMQ = null;
+try {
+  _narrowMQ = window.matchMedia('(max-width: 700px)');
+  const _onNarrow = () => { if (cues.length) render(); };
+  if (_narrowMQ.addEventListener) _narrowMQ.addEventListener('change', _onNarrow);
+  else if (_narrowMQ.addListener) _narrowMQ.addListener(_onNarrow);
+} catch(e) {}
+
+function plotOn(){ return !editMode && view === 'cues'; }
+// Wings folds the page number under the cue number to give the words room; a
+// phone-width screen stacks further, into four columns.
+function plMode(){ return (_narrowMQ && _narrowMQ.matches) ? 'compact' : layout === 'wings' ? 'merged' : 'full'; }
+
+function setLayout(l, quiet){
+  if (LAYOUTS.indexOf(l) === -1) l = 'sheet';
+  layout = l;
+  lsSet('mmt_cuelist_layout', l);
+  document.documentElement.setAttribute('data-layout', l);
+  const btn = document.getElementById('layout-btn');
+  if (btn) btn.textContent = 'Layout: ' + LAYOUT_NAME[l];
+  document.querySelectorAll('#layout-row button').forEach(b => b.classList.toggle('on', b.dataset.lay === l));
+  applyTheme(currentTheme(), false);
+  if (!quiet) { render(); measureHeader(); }
+}
+function cycleLayout(){ setLayout(LAYOUTS[(LAYOUTS.indexOf(layout) + 1) % LAYOUTS.length]); }
+
+// Spike as the PDF prints it: the tape drawing, the label in bold, the tape
+// colours underneath, then anything typed.
+function plSpikeHTML(m){
+  m = spkEff(m);
+  const html = spkOfMove(m, scriptId).map(e => e
+    ? `<span class="pl-spk">${spkSVG(e, 30, 15)}<span><b>${spkEsc(spkLabel(e))}</b>${
+        e.label ? `<small>${spkEsc(spkTapeName(e))}</small>` : ''}</span></span>`
+    : `<span class="pl-spk spk-gone">removed spike</span>`).join('')
+    + (m && m.spike ? `<span class="pl-spk-typed">${spkEsc(m.spike)}</span>` : '');
+  return m && m._inh && html ? `<span class="spk-inh" title="From Before House">${html}</span>` : html;
+}
+
+// mode: 'full' (8 columns, like the PDF), 'merged' (page number under the cue
+// number: Wings), 'compact' (phone width: four columns, the same facts stacked).
+function plRow(c, band, mode){
+  const t = typeOf(c.type);
+  const notes = c.notes || c.description || '';
+  const isShift = c.type === SHIFT_TYPE_ID;
+  const moves = isShift ? (c.moves || []) : [];
+  const open = (c.id in expanded) ? expanded[c.id] : true;
+  const merged = mode !== 'full', compact = mode === 'compact';
+
+  const useCrop = !c.cueLine && c.lineCrop && !/^data:/.test(c.lineCrop);
+  const cropOn = showPhotos || revealed[c.id];
+  let lineCell = '';
+  if (c.cueLine) lineCell = esc(c.cueLine);
+  else if (useCrop && cropOn) {
+    lineCell = `<img class="cs-crop" src="${esc(c.lineCrop)}" alt="Script line" loading="lazy"
+                     onclick="event.stopPropagation(); this.classList.toggle('zoom');"
+                     onerror="this.style.display='none'">`;
+  } else if (useCrop) {
+    lineCell = `<button class="photo-chip" onclick="event.stopPropagation(); revealPhoto('${esc(c.id)}')">Show line photo</button>`;
+  }
+
+  // No number column: the cue line leads. Cue types other than set changes
+  // keep their coloured chip and number so they can't be mistaken for one.
+  const chip = isShift ? '' : `<span class="pl-num"><span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>${esc(shortNumber(c, t.name))}</span>`;
+  const cueCell = chip + (lineCell ? `<span class="pl-linetxt">${lineCell}</span>` : '')
+    + (merged ? `<span class="pl-pgsub">p.${esc(c.page || '?')}</span>` : '');
+
+  const tr = (extra, attrs) => {
+    const a = ['pl-row'];
+    if (band) a.push('band');
+    if (changedIds.has(c.id)) a.push('changed');
+    if (extra) a.push(extra);
+    return `<tr class="${a.join(' ')}" data-cue="${esc(c.id)}" data-page="${esc(c.page || '')}"${attrs || ''}>`;
+  };
+  // One row's cells, in whichever shape the mode wants.
+  const cells = r => {
+    if (compact) return `
+      <td class="cs-line">${r.cue}</td>
+      <td>${r.piece}${r.action ? `<span class="pl-actsub">${r.action}</span>` : ''}</td>
+      <td class="pl-who">${r.who}</td>
+      <td class="pl-notes">${r.spike}${r.notes}</td>`;
+    return `
+      <td class="cs-line">${r.cue}</td>
+      ${merged ? '' : `<td class="pl-pg">${r.pg}</td>`}
+      ${r.span ? `<td class="pl-act" colspan="2">${r.piece}</td>`
+               : `<td>${r.piece}</td><td class="pl-act">${r.action}</td>`}
+      <td class="pl-who">${r.who}</td>
+      <td>${r.spike}</td>
+      <td class="pl-notes">${r.notes}</td>`;
+  };
+  const pg = esc(c.page || '');
+
+  // Not a set change, or one with nothing entered yet: a single row.
+  if (!moves.length){
+    return tr('pl-top') + cells({ cue: cueCell, pg, span: true,
+      piece: esc(c.action || ''), action: '', who: '', spike: '', notes: esc(notes) }) + '</tr>';
+  }
+
+  const tap = ` onclick="toggle('${esc(c.id)}')"`;
+  if (!open){
+    return tr('pl-top pl-tap', tap) + cells({ cue: cueCell, pg, span: true,
+      piece: `<span class="pl-piece">${esc(c.action || 'Set change')}</span><br><span class="pl-moves">${moves.length} move${moves.length !== 1 ? 's' : ''} ▾</span>`,
+      action: '', who: '', spike: '', notes: esc(notes) }) + '</tr>';
+  }
+
+  return moves.map((m, i) => {
+    const first = i === 0;
+    const cls = [first ? 'pl-top' : '', 'pl-tap'];
+    if (activeWho && !onMove(m, activeWho)) cls.push('pl-dim');
+    return tr(cls.filter(Boolean).join(' '), tap + ` data-mv="${esc(m.id || '')}"`) + cells({
+      cue: first ? cueCell : '', pg: first ? pg : '',
+      piece: `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
+      action: esc(m.action || ''), who: esc(m.who || ''), spike: plSpikeHTML(m),
+      notes: (first && notes ? `<span class="pl-cuenote">${esc(notes)}</span>` : '') + esc(m.notes || '')
+    }) + '</tr>';
+  }).join('');
+}
 
 // ══ EXPORTS ══════════════════════════════════════════════════════════════════
 // The cue sheet PDF, the set change plot PDF and the set change spreadsheet
@@ -4106,9 +4314,12 @@ const THEME_ICON = { light: '☀️', dark: '🌙', red: '🔴' };
 
 function applyTheme(t, persist){
   if (THEMES.indexOf(t) === -1) t = 'light';
-  document.documentElement.setAttribute('data-theme', t === 'light' ? '' : t);
+  // The Wings layout is dark unless Red is picked; the saved theme is untouched,
+  // so leaving Wings puts back whatever was chosen.
+  const shown = (typeof layout !== 'undefined' && layout === 'wings' && t === 'light') ? 'dark' : t;
+  document.documentElement.setAttribute('data-theme', shown === 'light' ? '' : shown);
   const btn = document.getElementById('theme-toggle');
-  if (btn) btn.textContent = THEME_ICON[t];
+  if (btn) btn.textContent = THEME_ICON[shown];
   document.querySelectorAll('#theme-row button').forEach(b => b.classList.toggle('on', b.dataset.th === t));
   if (persist !== false){
     lsSet('mmt_cuelist_theme', t);
@@ -4124,6 +4335,8 @@ function currentTheme(){
   return lsGet('mmt_theme','') === 'dark' ? 'dark' : 'light';   // follow the dashboard
 }
 function toggleDarkMode(){
+  // In Wings, light isn't on offer, so the button flips between dark and red.
+  if (layout === 'wings') return applyTheme(currentTheme() === 'red' ? 'dark' : 'red');
   applyTheme(THEMES[(THEMES.indexOf(currentTheme()) + 1) % THEMES.length]);
 }
 
@@ -4143,6 +4356,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.15 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.18 v1</div>
 </body>
 </html>
