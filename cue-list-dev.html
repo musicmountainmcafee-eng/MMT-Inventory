@@ -2237,7 +2237,7 @@ async function exportSetChangePlot() {
   const GRID = [205, 205, 214];
   const HEAD_BG = [232, 232, 240];
   const SCENE_BAR = [38, 38, 46];       // black bar = scene
-  const BREAK_RULE = [150, 150, 162];   // grey rule = next change, same scene
+  const BREAK_RULE = [38, 38, 46];      // heavy dark rule = next change, same scene (no shading)
   const BLOCK_TINT = [237, 238, 243];   // every other change, so blocks read as units
 
   // Widths total the printable 704pt so the table squares off at both margins.
@@ -2332,9 +2332,9 @@ async function exportSetChangePlot() {
     y += h;
   }
   function drawBreakRule() {
-    doc.setDrawColor(...BREAK_RULE); doc.setLineWidth(1.4);
+    doc.setDrawColor(...BREAK_RULE); doc.setLineWidth(2);
     doc.line(M, y, M + TABLE_W, y);
-    y += 1.4;
+    y += 2;
   }
 
   drawTitle();
@@ -2404,7 +2404,6 @@ async function exportSetChangePlot() {
         drawSceneBar('Before house opens (cont.)', true);
         drawPresetHead();
       }
-      if (pShade) { doc.setFillColor(...BLOCK_TINT); doc.rect(M, y, TABLE_W, rowH, 'F'); }
       doc.setFontSize(FS); doc.setTextColor(30,30,30);
       PC.forEach((c, k) => {
         doc.setFont('helvetica', c.bold ? 'bold' : 'normal');
@@ -2506,7 +2505,6 @@ async function exportSetChangePlot() {
       // A single row taller than a whole page: draw it and let it clip rather
       // than loop forever adding empty pages.
       if (y + r.h > pageH - MARGIN_BOTTOM && y > 90) newPage(true);
-      if (shaded) { doc.setFillColor(...BLOCK_TINT); doc.rect(M, y, TABLE_W, r.h, 'F'); }
       doc.setFontSize(FS); doc.setTextColor(30,30,30);
       COLS.forEach((col, i) => {
         doc.setFont('helvetica', col.bold ? 'bold' : 'normal');
@@ -2548,7 +2546,7 @@ async function exportSetChangePlot() {
   sections.forEach(sec => {
     const barH = sec.label ? SCENE_BAR_H : 0;
     const secH = barH + sec.blocks.reduce((t, b) => t + b.h, 0)
-                      + Math.max(0, sec.blocks.length - 1) * 1.4;
+                      + Math.max(0, sec.blocks.length - 1) * 2;
 
     const act = actOf(sec.label);
     // Only a move between two KNOWN acts counts. Going from an unnumbered
@@ -2700,7 +2698,6 @@ async function exportSetChangePlot() {
       else if (!firstInScene) drawBreakRule();
       b.rows.forEach(r => {
         if (y + r.h > pageH - MARGIN_BOTTOM && y > 90) crewPage(true);
-        if (shade) { doc.setFillColor(...BLOCK_TINT); doc.rect(M, y, TABLE_W, r.h, 'F'); }
         doc.setFontSize(FS); doc.setTextColor(30,30,30);
         CC.forEach((col, k) => {
           doc.setFont('helvetica', col.bold ? 'bold' : 'normal');
@@ -2941,7 +2938,7 @@ const XL = {
   GRID:   'FFCDCDD6',
   HEAD:   'FFE8E8F0',
   SCENE:  'FF26262E',   // black bar = scene
-  RULE:   'FF9696A2',   // grey rule = next change, same scene
+  RULE:   'FF26262E',   // heavy dark rule = next change, same scene (no shading)
   TINT:   'FFEDEEF3',   // every other change, so blocks read as units
   INK:    'FF16161C',
   MUTED:  'FF9696A0',
@@ -2971,7 +2968,7 @@ async function exportSetChangeXLSX() {
   }
 
   const thin   = { style: 'thin',   color: { argb: XL.GRID } };
-  const rule   = { style: 'medium', color: { argb: XL.RULE } };
+  const rule   = { style: 'thick', color: { argb: XL.RULE } };
   const titleR = { style: 'medium', color: { argb: XL.INK  } };
   const headB  = { style: 'thin',   color: { argb: 'FF8C8C9B' } };
 
@@ -3076,7 +3073,6 @@ async function exportSetChangeXLSX() {
             // everywhere else. This is what makes a block read as a block.
             top: (mi === 0 && bi > 0) ? rule : thin
           };
-          if (tint) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.TINT } };
         });
         r++;
       });
@@ -3112,7 +3108,6 @@ async function exportSetChangeXLSX() {
         cell.font = { size: XL_FS, bold: i === 0, name: 'Helvetica' };
         cell.alignment = { vertical: 'top', wrapText: i !== 0 };
         cell.border = { top: thin, left: thin, right: thin, bottom: thin };
-        if (idx % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.TINT } };
       });
     });
   }
@@ -3209,7 +3204,6 @@ async function exportSetChangeXLSX() {
         cell.alignment = { vertical: 'top', wrapText: c.wrap };
         cell.border = { left: thin, right: thin, bottom: thin,
           top: (firstOfChange && !firstInScene) ? rule : thin };
-        if (tint) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.TINT } };
       });
       cr++; prevC = it.c; firstInScene = false;
     });
@@ -4648,6 +4642,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v3 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v4 dev</div>
 </body>
 </html>
