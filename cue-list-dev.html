@@ -697,7 +697,7 @@
     <div class="export-opts">
       <button class="export-opt" onclick="runExport('cues')"><b>Cue sheet</b><span>PDF of every cue, with line photos</span></button>
       <button class="export-opt" onclick="runExport('plot')"><b>Set change plot</b><span>PDF for the deck: Before House, every change, then a page for each person</span></button>
-      <button class="export-opt" onclick="runExport('xlsx')"><b>Set change plot (Excel)</b><span>The same plot as a spreadsheet</span></button>
+      <button class="export-opt" onclick="runExport('xlsx')"><b>Set change plot (Excel)</b><span>The same plot as a spreadsheet, with a tab for each person</span></button>
       <button class="export-opt" onclick="runExport('spikes')"><b>Spike key</b><span>PDF to post backstage: each piece, its tape and spike notes</span></button>
     </div>
     <div class="modal-btns"><button class="top-btn" onclick="closeExport()">Cancel</button></div>
@@ -3087,6 +3087,104 @@ async function exportSetChangeXLSX() {
     });
   }
 
+  // ── One tab per person ─────────────────────────────────────────────────────
+  // Matches the crew pages at the end of the plot PDF: only the moves that
+  // person is on, in running order under the same scene bars, with WITH naming
+  // whoever else is on the move. Moves with nobody named get the last tab.
+  const CREW_COLS = [
+    { key: 'num',    label: '#',      width: 6,  wrap: false, bold: true  },
+    { key: 'cue',    label: 'CUE',    width: 28, wrap: true,  bold: false },
+    { key: 'pg',     label: 'PG',     width: 6,  wrap: false, bold: false },
+    { key: 'piece',  label: 'PIECE',  width: 26, wrap: true,  bold: true  },
+    { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
+    { key: 'spike',  label: 'SPIKE',  width: 24, wrap: true,  bold: false },
+    { key: 'notes',  label: 'NOTES',  width: 27, wrap: true,  bold: false },
+    { key: 'with',   label: 'WITH',   width: 16, wrap: true,  bold: false },
+  ];
+  const NOBODY = '\u0000nobody';
+  const crew = new Map();   // lower-case name -> { name, items: [{ scene, c, m, others }] }
+  {
+    const SCENE_LABELS = sceneLabels();
+    let sceneNow = '';
+    cuesInScriptOrder().forEach(c => {
+      if (isSceneCue(c)) { sceneNow = SCENE_LABELS[c.id] || c.number || ''; return; }
+      if (c.type !== SHIFT_TYPE_ID) return;
+      (c.moves || []).forEach(m => {
+        const names = whoNames(m.who);
+        (names.length ? names : [NOBODY]).forEach(n => {
+          const k = n === NOBODY ? NOBODY : n.toLowerCase();
+          if (!crew.has(k)) crew.set(k, { name: n === NOBODY ? 'No one assigned' : n, items: [] });
+          crew.get(k).items.push({ scene: sceneNow, c, m, others: names.filter(o => o.toLowerCase() !== k) });
+        });
+      });
+    });
+  }
+  const people = [...crew.entries()].filter(([k]) => k !== NOBODY).map(([, v]) => v)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (crew.has(NOBODY)) people.push(crew.get(NOBODY));
+
+  // Tab names: Excel allows 31 characters, none of []:*?/\, and no repeats
+  // (it ignores case when checking).
+  const usedTabs = new Set(wb.worksheets.map(w => w.name.toLowerCase()));
+  const tabName = name => {
+    let base = String(name).replace(/[\[\]:*?\/\\]/g, ' ').replace(/^'+|'+$/g, '').trim().slice(0, 31) || 'Crew';
+    let t = base, n = 2;
+    while (usedTabs.has(t.toLowerCase())) { const suf = ' (' + n++ + ')'; t = base.slice(0, 31 - suf.length) + suf; }
+    usedTabs.add(t.toLowerCase());
+    return t;
+  };
+
+  const CLAST = String.fromCharCode(64 + CREW_COLS.length);   // 'H'
+  people.forEach(person => {
+    const changeCount = new Set(person.items.map(it => it.c.id)).size;
+    const moveCount = person.items.length;
+    const cs = wb.addWorksheet(tabName(person.name), {
+      views: [{ state: 'frozen', ySplit: 4 }],
+      pageSetup: {
+        orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+        printTitlesRow: '1:4',
+        margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 }
+      }
+    });
+    cs.columns = CREW_COLS.map(c => ({ key: c.key, width: c.width }));
+    titleBlock(cs, CLAST, person.name,
+      moveCount + ' move' + (moveCount !== 1 ? 's' : '') + ' in ' + changeCount + ' change' + (changeCount !== 1 ? 's' : ''));
+    cs.getCell('A2').value = showName + ' · Set Changes · Updated ' + exportedStr;
+    headerRow(cs, 4, CREW_COLS.map(c => c.label));
+
+    let cr = 5, pScene = null, tint = true, prevC = null, firstInScene = true;
+    person.items.forEach(it => {
+      if (it.scene !== pScene) {
+        pScene = it.scene;
+        if (pScene) { sceneBar(cs, cr, pScene, CLAST); cr++; }
+        tint = true; prevC = null; firstInScene = true;
+      }
+      const firstOfChange = it.c !== prevC;
+      if (firstOfChange) { tint = !tint; }
+      const vals = {
+        num:    firstOfChange ? changeShortNum(it.c.number) : '',
+        cue:    String(it.m.trigger || (firstOfChange ? (it.c.cueLine || '') : '')),
+        pg:     firstOfChange ? String(it.c.page || '') : '',
+        piece:  String(it.m.piece  || ''),
+        action: String(it.m.action || ''),
+        spike:  spkMoveText(it.m, showId),
+        notes:  String(it.m.notes  || ''),
+        with:   it.others.join(', ')
+      };
+      const row = cs.getRow(cr);
+      CREW_COLS.forEach((c, i) => {
+        const cell = row.getCell(i + 1);
+        cell.value = vals[c.key] || null;
+        cell.font = { size: XL_FS, bold: c.bold, name: 'Helvetica' };
+        cell.alignment = { vertical: 'top', wrapText: c.wrap };
+        cell.border = { left: thin, right: thin, bottom: thin,
+          top: (firstOfChange && !firstInScene) ? rule : thin };
+        if (tint) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.TINT } };
+      });
+      cr++; prevC = it.c; firstInScene = false;
+    });
+  });
+
   try {
     const buf = await wb.xlsx.writeBuffer();
     downloadBlob(new Blob([buf], {
@@ -4520,6 +4618,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v2 dev</div>
 </body>
 </html>
