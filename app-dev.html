@@ -6690,7 +6690,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.20 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.20 v2 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -17256,8 +17256,12 @@ function seUpdateLayout() {
   let touch = false;
   try { touch = window.matchMedia('(pointer: coarse)').matches; } catch (e) {}
   document.body.classList.toggle('se-touch', touch);
-  // Phones only (not an iPad or a computer).
-  document.body.classList.toggle('se-phone', touch && /iPhone|iPod|Android.*Mobile/i.test(navigator.userAgent || ''));
+  // Phones only (not an iPad or a computer). An unfolded foldable reports
+  // itself like a tablet, so screen size decides too: a touch screen whose
+  // long side is 1000 points or less is a phone (every iPad is bigger).
+  let small = false;
+  try { small = Math.max(screen.width || 0, screen.height || 0) <= 1000; } catch (e) {}
+  document.body.classList.toggle('se-phone', touch && (small || /iPhone|iPod|Android.*Mobile/i.test(navigator.userAgent || '')));
   const ed = document.getElementById('scripts-editor');
   if (ed) ed.classList.add('compact');
 }
