@@ -4924,6 +4924,10 @@ table td { font-size: 14px !important; }
   #scripts-editor.compact .row-resizer { display: none !important; }
   #scripts-editor.compact:not(.show-types) .type-manager { display: none !important; }
   #scripts-editor.compact:not(.has-sel) .cue-add { display: none !important; }
+  body.se-phone #scripts-editor.sel-shift .cue-add,
+  body.se-phone #scripts-editor.sel-shift #row-resizer,
+  body.se-phone #scripts-editor:has(#mv-drawer.open) .cue-add,
+  body.se-phone #scripts-editor:has(#mv-drawer.open) #row-resizer { display: none !important; }
   #scripts-editor.compact:not(.sv-cues) .cue-list { flex: 1 1 auto !important; min-height: 0; height: auto !important; max-height: none !important; }
   #scripts-editor.compact:not(.sv-cues) .cue-add,
   #scripts-editor.compact:not(.sv-cues) .type-manager {
@@ -6688,7 +6692,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.20 v1</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -17254,6 +17258,16 @@ function seUpdateLayout() {
   let touch = false;
   try { touch = window.matchMedia('(pointer: coarse)').matches; } catch (e) {}
   document.body.classList.toggle('se-touch', touch);
+  // Phones only (not an iPad or a computer). An unfolded foldable reports
+  // itself like a tablet, so screen size decides too: a touch screen whose
+  // long side is 1000 points or less is a phone (every iPad is bigger).
+  // Any Android device or iPhone counts (an iPad or a computer never says
+  // Android); otherwise a small touch screen.
+  let small = false;
+  try { small = touch && Math.max(screen.width || 0, screen.height || 0) <= 1000; } catch (e) {}
+  const phone = /Android|iPhone|iPod/i.test(navigator.userAgent || '') || small;
+  document.body.classList.toggle('se-phone', phone);
+  try { const b = document.getElementById('dev-badge'); if (b) b.textContent = phone ? 'DEV · phone' : 'DEV'; } catch (e) {}
   const ed = document.getElementById('scripts-editor');
   if (ed) ed.classList.add('compact');
 }
@@ -19478,6 +19492,9 @@ function loadCueIntoForm(cueId, focusNum) {
   fields.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = false; });
   const edSel = document.getElementById('scripts-editor');
   if (edSel) edSel.classList.add('has-sel');
+  // A set change on a phone: its drawer along the bottom is the editor, so the
+  // details box on the right stays out of the way.
+  if (edSel) edSel.classList.toggle('sel-shift', c.type === SHIFT_TYPE_ID);
   if (modeEl) modeEl.textContent = 'Editing ' + (c.number || 'cue') + ' — saves automatically';
   if (hint) hint.style.display = 'none';
   if (focusNum && !seIsTouch()) {
@@ -19499,6 +19516,7 @@ function clearCueForm() {
   const modeEl = document.getElementById('cue-form-mode');
   const hint = document.getElementById('cue-edit-hint');
   const edSel = document.getElementById('scripts-editor');
+  if (edSel) edSel.classList.remove('sel-shift');
   if (edSel) edSel.classList.remove('has-sel');
   if (modeEl) modeEl.textContent = 'Select a cue to edit';
   if (hint) hint.style.display = 'block';
