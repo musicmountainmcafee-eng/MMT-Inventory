@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Cue Sheet — MMT</title>
@@ -499,10 +499,11 @@
   #move-sheet { position: fixed; inset: 0; z-index: 450; display: none; background: rgba(20,20,37,0.22); }
   #move-sheet.open { display: block; }
   #move-sheet .ms-panel {
-    position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 760px;
+    position: absolute; left: 0; right: 0; bottom: var(--kb, 0px); margin: 0 auto; max-width: 760px;
     background: var(--surface); color: var(--text);
     border-radius: 20px 20px 0 0; box-shadow: 0 -12px 36px rgba(0,0,0,0.25);
-    padding: 8px 20px calc(18px + var(--safe-b)); max-height: 78vh; overflow-y: auto; box-sizing: border-box;
+    padding: 8px 20px calc(18px + var(--safe-b)); max-height: min(78vh, calc(var(--vvh, 100vh) - 16px)); overflow-y: auto; box-sizing: border-box;
+    overscroll-behavior: contain;
     font-size: 16px;
   }
   #move-sheet .ms-grip { width: 44px; height: 5px; border-radius: 3px; background: var(--border); margin: 0 auto 10px; }
@@ -4372,6 +4373,30 @@ function sheetField(field, value){
   refreshSheetRows(c);
 }
 
+// The on-screen keyboard: some phones lay it over the page instead of
+// shrinking it, which left the bottom of the move sheet behind it. Track the
+// part of the screen that's actually visible, sit the sheet just above the
+// keyboard, cap its height to what's left (it scrolls inside), and keep the
+// box being typed in in view.
+(function fitSheetToKeyboard(){
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const root = document.documentElement;
+  const fit = () => {
+    const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    root.style.setProperty('--kb', kb + 'px');
+    root.style.setProperty('--vvh', Math.round(vv.height) + 'px');
+    const a = document.activeElement;
+    if (kb && a && a.closest && a.closest('#move-sheet .ms-panel') && a.scrollIntoView) a.scrollIntoView({ block: 'nearest' });
+  };
+  vv.addEventListener('resize', fit);
+  vv.addEventListener('scroll', fit);
+  document.addEventListener('focusin', e => {
+    if (e.target && e.target.closest && e.target.closest('#move-sheet .ms-panel')) setTimeout(fit, 300);
+  });
+  fit();
+})();
+
 // Edit mode: tapping a box opens the move with that same box ready to type in,
 // cursor at the end of what's there (nothing selected, so a stray key can't
 // wipe it). Called inside the tap, so phones raise the keyboard.
@@ -4732,6 +4757,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.20 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.20 v2 dev</div>
 </body>
 </html>
