@@ -565,7 +565,11 @@
   [data-theme="red"]  { --bar-bg: #3a0a0a; --bar-ink: #ff9a90; --bar-meta: #c25555 }
 
   table.cs.pl td { border-bottom: none; }
-  table.cs.pl tr.pl-top td { border-top: 2px solid var(--rule); }
+  table.cs.pl tr.pl-top td { border-top: 3px solid var(--ink); }
+  table.cs.pl tr.band td { background: transparent; }
+  table.cs.pl tr.scene + tr.pl-top td { border-top-width: 0; }
+  table.cs.pl td.pl-numc { font-weight: 700; color: var(--ink); white-space: nowrap; }
+  table.cs.pl td.pl-numc .cs-chip { display: table; margin: 0 0 3px; }
   table.cs.pl tr.pl-row:not(.pl-top) td { border-top: 1px solid var(--grid); }
   table.cs.pl tr.pl-row td { padding-top: 9px; padding-bottom: 9px; }
   table.cs.pl tr.pl-tap td { cursor: pointer; }
@@ -1399,7 +1403,7 @@ function render(){
   const el = document.getElementById('sheet-body');
   const plot = plotOn();
   const mode = plot ? plMode() : 'full';
-  const NC = plot ? ({ full: 7, merged: 6, compact: 4 })[mode] : 5;
+  const NC = plot ? ({ full: 8, merged: 7, compact: 5 })[mode] : 5;
   const title = `<div class="sheet-title">
       <h2>${esc(ssTitle(scriptId, scriptName))} — Cue Sheet</h2>
       <div class="upd" id="upd">—</div>
@@ -1448,9 +1452,9 @@ function render(){
     el.innerHTML = title + `<div class="cs-empty"><b>${what}</b>${how}</div>`;
   } else if (plot){
     const cols = {
-      full:    [['Cue',19],['PG',5],['Piece',18],['Action',10],['Who',13],['Spike',16],['Notes',19]],
-      merged:  [['Cue / PG',20],['Piece',18],['Action',10],['Who',14],['Spike',17],['Notes',21]],
-      compact: [['Cue',27],['Piece',27],['Who',19],['Spike / Notes',27]]
+      full:    [['#',5],['Cue',17],['PG',5],['Piece',17],['Action',10],['Who',12],['Spike',15],['Notes',19]],
+      merged:  [['#',6],['Cue / PG',18],['Piece',17],['Action',10],['Who',13],['Spike',16],['Notes',20]],
+      compact: [['#',9],['Cue',25],['Piece',24],['Who',17],['Spike / Notes',25]]
     }[mode];
     el.innerHTML = title + `<table class="cs pl">
       <colgroup>${cols.map(c => `<col style="width:${c[1]}%">`).join('')}</colgroup>
@@ -1865,7 +1869,7 @@ function plRow(c, band, mode){
   // Set changes lead with their change number, called over headset; other cue
   // types keep their coloured chip and number so they can't be mistaken for one.
   const chip = isShift ? `<span class="pl-num">${esc(changeShortNum(shortNumber(c, t.name)))}</span>` : `<span class="pl-num"><span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>${esc(shortNumber(c, t.name))}</span>`;
-  const cueCell = chip + (lineCell ? `<span class="pl-linetxt">${lineCell}</span>` : '')
+  const cueCell = (lineCell ? `<span class="pl-linetxt">${lineCell}</span>` : '')
     + (merged ? `<span class="pl-pgsub">p.${esc(c.page || '?')}</span>` : '');
 
   const tr = (extra, attrs) => {
@@ -1878,11 +1882,13 @@ function plRow(c, band, mode){
   // One row's cells, in whichever shape the mode wants.
   const cells = r => {
     if (compact) return `
+      <td class="pl-numc">${r.num || ''}</td>
       <td class="cs-line">${r.cue}</td>
       <td>${r.piece}${r.action ? `<span class="pl-actsub">${r.action}</span>` : ''}</td>
       <td class="pl-who">${r.who}</td>
       <td class="pl-notes">${r.spike}${r.notes}</td>`;
     return `
+      <td class="pl-numc">${r.num || ''}</td>
       <td class="cs-line">${r.cue}</td>
       ${merged ? '' : `<td class="pl-pg">${r.pg}</td>`}
       ${r.span ? `<td class="pl-act" colspan="2">${r.piece}</td>`
@@ -1895,19 +1901,19 @@ function plRow(c, band, mode){
 
   // Not a set change, or one with nothing entered yet: a single row.
   if (!moves.length){
-    return tr('pl-top') + cells({ cue: cueCell, pg, span: true,
+    return tr('pl-top') + cells({ num: chip, cue: cueCell, pg, span: true,
       piece: esc(c.action || ''), action: '', who: '', spike: '', notes: esc(notes) }) + '</tr>';
   }
 
   const tap = ` onclick="toggle('${esc(c.id)}')"`;
   if (!open){
-    return tr('pl-top pl-tap', tap) + cells({ cue: cueCell, pg, span: true,
+    return tr('pl-top pl-tap', tap) + cells({ num: chip, cue: cueCell, pg, span: true,
       piece: `<span class="pl-piece">${esc(c.action || 'Set change')}</span><br><span class="pl-moves">${moves.length} move${moves.length !== 1 ? 's' : ''} ▾</span>`,
       action: '', who: '', spike: '', notes: esc(notes) }) + '</tr>';
   }
 
   if (editMode){
-    const cols = compact ? 4 : merged ? 6 : 7;
+    const cols = compact ? 5 : merged ? 7 : 8;
     return moves.map((m, i) => {
       const first = i === 0, last = i === moves.length - 1;
       const cls = [first ? 'pl-top' : '', 'pl-tap', 'mv-edit'];
@@ -1915,7 +1921,7 @@ function plRow(c, band, mode){
       if (moveSheet && moveSheet.cueId === String(c.id) && moveSheet.idx === i) cls.push('mv-sel');
       const blank = !m.piece && !m.action && !m.who && !m.spike && !(m.spikeIds || []).length && !m.notes;
       return tr(cls.filter(Boolean).join(' '), ` data-mv="${esc(m.id || '')}" onclick="openMove('${esc(c.id)}', ${i})"`) + cells({
-        cue: first ? cueCell : '', pg: first ? pg : '',
+        num: first ? chip : '', cue: first ? cueCell : '', pg: first ? pg : '',
         piece: blank ? '<span class="mv-empty">Tap to add a move</span>'
           : `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
         action: esc(m.action || ''), who: esc(m.who || ''), spike: plSpikeHTML(m),
@@ -1931,7 +1937,7 @@ function plRow(c, band, mode){
     const cls = [first ? 'pl-top' : '', 'pl-tap'];
     if (activeWho && !onMove(m, activeWho)) cls.push('pl-dim');
     return tr(cls.filter(Boolean).join(' '), tap + ` data-mv="${esc(m.id || '')}"`) + cells({
-      cue: first ? cueCell : '', pg: first ? pg : '',
+      num: first ? chip : '', cue: first ? cueCell : '', pg: first ? pg : '',
       piece: `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
       action: esc(m.action || ''), who: esc(m.who || ''), spike: plSpikeHTML(m),
       notes: (first && notes ? `<span class="pl-cuenote">${esc(notes)}</span>` : '') + esc(m.notes || '')
@@ -4703,6 +4709,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v6 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v7 dev</div>
 </body>
 </html>
