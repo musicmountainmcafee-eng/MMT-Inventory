@@ -1441,7 +1441,7 @@ function render(){
     if (g.label){
       if (!firstBand && !plot) body += '<tr class="scene-gap"><td colspan="5"></td></tr>';
       body += `<tr class="scene"><td colspan="${NC}">${esc(g.label)}${
-        g.page != null ? `<span class="scene-pg">p.${esc(g.page)}</span>` : ''}</td></tr>`;
+        g.page != null ? `<span class="scene-pg">pg. ${esc(g.page)}</span>` : ''}</td></tr>`;
       band = false; firstBand = false;
     }
     visible.forEach(c => { body += plot ? plRow(c, band, mode) : cueRow(c, band); band = !band; });
@@ -1453,7 +1453,7 @@ function render(){
     el.innerHTML = title + `<div class="cs-empty"><b>${what}</b>${how}</div>`;
   } else if (plot){
     const cols = {
-      full:    [['#',5],['Cue',17],['PG',5],['Piece',17],['Action',10],['Who',12],['Spike',15],['Notes',19]],
+      full:    [['#',5],['Cue',16],['PG',6],['Piece',17],['Action',10],['Who',12],['Spike',15],['Notes',19]],
       merged:  [['#',6],['Cue / PG',18],['Piece',17],['Action',10],['Who',13],['Spike',16],['Notes',20]],
       compact: [['#',9],['Cue',25],['Piece',24],['Who',17],['Spike / Notes',25]]
     }[mode];
@@ -1706,7 +1706,7 @@ function cueRow(c, band){
 
   const accent = ` style="--shift-accent:${esc(t.color)}"`;
   const cueCell = `<span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span><span class="cs-num">${esc(shortNumber(c, t.name))}</span>
-      <span class="cs-pg">p.${esc(c.page || '?')}</span>`;
+      <span class="cs-pg">pg. ${esc(c.page || '?')}</span>`;
 
   const rowCls = c2 => {
     const a = [];
@@ -1869,14 +1869,14 @@ function plRow(c, band, mode){
   // keep their coloured chip and number so they can't be mistaken for one.
   // Set changes lead with their change number, called over headset; other cue
   // types keep their coloured chip and number so they can't be mistaken for one.
-  const chip = isShift ? `<span class="pl-num">${esc(changeShortNum(shortNumber(c, t.name)))}</span>` : `<span class="pl-num"><span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>${esc(shortNumber(c, t.name))}</span>`;
+  const chip = isShift ? `<span class="pl-num">#${esc(changeShortNum(shortNumber(c, t.name)))}</span>` : `<span class="pl-num"><span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>${esc(shortNumber(c, t.name))}</span>`;
   // Every move row repeats the change's number, cue line and page, so each
   // row reads on its own. A line photo shows on the first row only.
   const typedLine = c.cueLine ? `<span class="pl-linetxt">${esc(c.cueLine)}</span>` : '';
-  const pgSub = merged ? `<span class="pl-pgsub">p.${esc(c.page || '?')}</span>` : '';
+  const pgSub = merged ? `<span class="pl-pgsub">pg. ${esc(c.page || '?')}</span>` : '';
   const cueRest = typedLine + pgSub;
   const cueCell = (lineCell ? `<span class="pl-linetxt">${lineCell}</span>` : '')
-    + (merged ? `<span class="pl-pgsub">p.${esc(c.page || '?')}</span>` : '');
+    + (merged ? `<span class="pl-pgsub">pg. ${esc(c.page || '?')}</span>` : '');
 
   const tr = (extra, attrs) => {
     const a = ['pl-row'];
@@ -1903,7 +1903,7 @@ function plRow(c, band, mode){
       <td>${r.spike}</td>
       <td class="pl-notes">${r.notes}</td>`;
   };
-  const pg = esc(c.page || '');
+  const pg = c.page ? 'pg. ' + esc(c.page) : '';
 
   // Not a set change, or one with nothing entered yet: a single row.
   if (!moves.length){
@@ -2271,9 +2271,9 @@ async function exportSetChangePlot() {
   // spent on a phrase that repeats every block. Split: a narrow number to call
   // over headset, and the trigger itself in the space that frees up.
   const COLS = [
-    { key: 'num',    label: '#',         w: 30,  bold: true },
-    { key: 'cue',    label: 'CUE',       w: 130 },
-    { key: 'pg',     label: 'PG',        w: 30  },
+    { key: 'num',    label: '#',         w: 34,  bold: true },
+    { key: 'cue',    label: 'CUE',       w: 114 },
+    { key: 'pg',     label: 'PG',        w: 42  },
     { key: 'piece',  label: 'PIECE',     w: 130, bold: true },
     { key: 'action', label: 'ACTION',    w: 68  },
     { key: 'who',    label: 'WHO',       w: 88  },
@@ -2505,10 +2505,10 @@ async function exportSetChangePlot() {
     const moves = (c.moves && c.moves.length) ? c.moves : [{}];
     const built = moves.map((m, i) => {
       const cells = {
-        num:    [shortNum(c.number)],
+        num:    ['#' + shortNum(c.number)],
         // m.trigger only survives on data a device hasn't migrated yet.
         cue:    wrap(m.trigger || c.cueLine || '', 1),
-        pg:     [String(c.page || '')],
+        pg:     [c.page ? 'pg. ' + c.page : ''],
         piece:  wrap(m.piece,  3),
         action: wrap(m.action, 4),
         who:    wrap(m.who,    5),
@@ -2613,9 +2613,9 @@ async function exportSetChangePlot() {
   // that move. Moves with nobody named get a page of their own at the end, so
   // a gap shows up instead of falling between everyone's lists.
   const CC = [
-    { key: 'num',    label: '#',      w: 30,  bold: true },
-    { key: 'cue',    label: 'CUE',    w: 150 },
-    { key: 'pg',     label: 'PG',     w: 30  },
+    { key: 'num',    label: '#',      w: 34,  bold: true },
+    { key: 'cue',    label: 'CUE',    w: 134 },
+    { key: 'pg',     label: 'PG',     w: 42  },
     { key: 'piece',  label: 'PIECE',  w: 140, bold: true },
     { key: 'action', label: 'ACTION', w: 70  },
     { key: 'spike',  label: 'SPIKE',  w: 112 },
@@ -2691,9 +2691,9 @@ async function exportSetChangePlot() {
       const last = blocks[blocks.length - 1];
       const firstOfChange = !last || last.c !== it.c;
       const cells = {
-        num:    [shortNum(it.c.number)],
+        num:    ['#' + shortNum(it.c.number)],
         cue:    cwrap(it.m.trigger || it.c.cueLine || '', 1),
-        pg:     [String(it.c.page || '')],
+        pg:     [it.c.page ? 'pg. ' + it.c.page : ''],
         piece:  cwrap(it.m.piece, 3),
         action: cwrap(it.m.action, 4),
         spike:  spikeCell(it.m),
@@ -2827,10 +2827,10 @@ function setChangeSections() {
     cur.blocks.push(moves.map((m, i) => ({
       // Number, cue line and page belong to the change, not the move, so they
       // print once at the top of the block — same as the PDF.
-      num:    changeShortNum(c.number),
+      num:    '#' + changeShortNum(c.number),
       // m.trigger only survives on data a device hasn't migrated yet.
       cue:    String(m.trigger || c.cueLine || ''),
-      pg:     String(c.page || ''),
+      pg:     c.page ? 'pg. ' + c.page : '',
       piece:  String(m.piece  || ''),
       action: String(m.action || ''),
       who:    String(m.who    || ''),
@@ -2936,9 +2936,9 @@ function loadExcelJS() {
 // so rounding can't trip fitToWidth into scaling the whole sheet down.
 //   pixels = round(w * 7) + 5 per column, at 96dpi.
 const XLSX_COLS = [
-  { key: 'num',    label: '#',      width: 6,  wrap: false, bold: true  },
+  { key: 'num',    label: '#',      width: 7,  wrap: false, bold: true  },
   { key: 'cue',    label: 'CUE',    width: 25, wrap: true,  bold: false },
-  { key: 'pg',     label: 'PG',     width: 6,  wrap: false, bold: false },
+  { key: 'pg',     label: 'PG',     width: 8,  wrap: false, bold: false },
   { key: 'piece',  label: 'PIECE',  width: 25, wrap: true,  bold: true  },
   { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
   { key: 'who',    label: 'WHO',    width: 16, wrap: true,  bold: false },
@@ -3140,9 +3140,9 @@ async function exportSetChangeXLSX() {
   // person is on, in running order under the same scene bars, with WITH naming
   // whoever else is on the move. Moves with nobody named get the last tab.
   const CREW_COLS = [
-    { key: 'num',    label: '#',      width: 6,  wrap: false, bold: true  },
+    { key: 'num',    label: '#',      width: 7,  wrap: false, bold: true  },
     { key: 'cue',    label: 'CUE',    width: 28, wrap: true,  bold: false },
-    { key: 'pg',     label: 'PG',     width: 6,  wrap: false, bold: false },
+    { key: 'pg',     label: 'PG',     width: 8,  wrap: false, bold: false },
     { key: 'piece',  label: 'PIECE',  width: 26, wrap: true,  bold: true  },
     { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
     { key: 'spike',  label: 'SPIKE',  width: 24, wrap: true,  bold: false },
@@ -3210,9 +3210,9 @@ async function exportSetChangeXLSX() {
       const firstOfChange = it.c !== prevC;
       if (firstOfChange) { tint = !tint; }
       const vals = {
-        num:    changeShortNum(it.c.number),
+        num:    '#' + changeShortNum(it.c.number),
         cue:    String(it.m.trigger || it.c.cueLine || ''),
-        pg:     String(it.c.page || ''),
+        pg:     it.c.page ? 'pg. ' + it.c.page : '',
         piece:  String(it.m.piece  || ''),
         action: String(it.m.action || ''),
         spike:  spkMoveText(it.m, showId),
@@ -3483,7 +3483,7 @@ async function exportCueSheet() {
       // Script page is greyed metadata under the number — scene dividers head
       // the sheet now, so the page has to travel with each individual cue.
       doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(150,150,160);
-      doc.text('p.' + (c.page || '?'), X[0] + PAD, y + PAD + 17);
+      doc.text('pg. ' + (c.page || '?'), X[0] + PAD, y + PAD + 17);
 
       doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
       doc.setTextColor(40,40,40);
@@ -4461,7 +4461,7 @@ function renderMoveSheet(){
     <div class="ms-head">
       <span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>
       <span class="ms-num">${esc(shortNumber(c, t.name))}</span>
-      <span class="ms-of">· move ${moveSheet.idx + 1} of ${c.moves.length} · p.${esc(c.page || '?')}</span>
+      <span class="ms-of">· move ${moveSheet.idx + 1} of ${c.moves.length} · pg. ${esc(c.page || '?')}</span>
       <span style="flex:1"></span>
       <button class="ms-icon" aria-label="Previous move" onclick="sheetStep(-1)"${at <= 0 ? ' disabled' : ''}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
@@ -4535,7 +4535,7 @@ function renderPageJump(){
     .filter(p => p != null).sort((a,b) => a - b);
   const cur = sel.value;
   sel.innerHTML = '<option value="">Page…</option>' +
-    pages.map(p => `<option value="${esc(p)}">p. ${esc(p)}</option>`).join('');
+    pages.map(p => `<option value="${esc(p)}">pg. ${esc(p)}</option>`).join('');
   if (pages.map(String).includes(cur)) sel.value = cur;
 }
 
@@ -4715,6 +4715,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v8 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v9 dev</div>
 </body>
 </html>

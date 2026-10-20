@@ -6688,7 +6688,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v5 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v6 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -20833,9 +20833,9 @@ async function exportSetChangePlot() {
   // spent on a phrase that repeats every block. Split: a narrow number to call
   // over headset, and the trigger itself in the space that frees up.
   const COLS = [
-    { key: 'num',    label: '#',         w: 30,  bold: true },
-    { key: 'cue',    label: 'CUE',       w: 130 },
-    { key: 'pg',     label: 'PG',        w: 30  },
+    { key: 'num',    label: '#',         w: 34,  bold: true },
+    { key: 'cue',    label: 'CUE',       w: 114 },
+    { key: 'pg',     label: 'PG',        w: 42  },
     { key: 'piece',  label: 'PIECE',     w: 130, bold: true },
     { key: 'action', label: 'ACTION',    w: 68  },
     { key: 'who',    label: 'WHO',       w: 88  },
@@ -21067,10 +21067,10 @@ async function exportSetChangePlot() {
     const moves = (c.moves && c.moves.length) ? c.moves : [{}];
     const built = moves.map((m, i) => {
       const cells = {
-        num:    [shortNum(c.number)],
+        num:    ['#' + shortNum(c.number)],
         // m.trigger only survives on data a device hasn't migrated yet.
         cue:    wrap(m.trigger || c.cueLine || '', 1),
-        pg:     [String(c.page || '')],
+        pg:     [c.page ? 'pg. ' + c.page : ''],
         piece:  wrap(m.piece,  3),
         action: wrap(m.action, 4),
         who:    wrap(m.who,    5),
@@ -21175,9 +21175,9 @@ async function exportSetChangePlot() {
   // that move. Moves with nobody named get a page of their own at the end, so
   // a gap shows up instead of falling between everyone's lists.
   const CC = [
-    { key: 'num',    label: '#',      w: 30,  bold: true },
-    { key: 'cue',    label: 'CUE',    w: 150 },
-    { key: 'pg',     label: 'PG',     w: 30  },
+    { key: 'num',    label: '#',      w: 34,  bold: true },
+    { key: 'cue',    label: 'CUE',    w: 134 },
+    { key: 'pg',     label: 'PG',     w: 42  },
     { key: 'piece',  label: 'PIECE',  w: 140, bold: true },
     { key: 'action', label: 'ACTION', w: 70  },
     { key: 'spike',  label: 'SPIKE',  w: 112 },
@@ -21253,9 +21253,9 @@ async function exportSetChangePlot() {
       const last = blocks[blocks.length - 1];
       const firstOfChange = !last || last.c !== it.c;
       const cells = {
-        num:    [shortNum(it.c.number)],
+        num:    ['#' + shortNum(it.c.number)],
         cue:    cwrap(it.m.trigger || it.c.cueLine || '', 1),
-        pg:     [String(it.c.page || '')],
+        pg:     [it.c.page ? 'pg. ' + it.c.page : ''],
         piece:  cwrap(it.m.piece, 3),
         action: cwrap(it.m.action, 4),
         spike:  spikeCell(it.m),
@@ -21529,10 +21529,10 @@ function setChangeSections() {
     cur.blocks.push(moves.map((m, i) => ({
       // Number, cue line and page belong to the change, not the move, so they
       // print once at the top of the block — same as the PDF.
-      num:    changeShortNum(c.number),
+      num:    '#' + changeShortNum(c.number),
       // m.trigger only survives on data a device hasn't migrated yet.
       cue:    String(m.trigger || c.cueLine || ''),
-      pg:     String(c.page || ''),
+      pg:     c.page ? 'pg. ' + c.page : '',
       piece:  String(m.piece  || ''),
       action: String(m.action || ''),
       who:    String(m.who    || ''),
@@ -21638,9 +21638,9 @@ function loadExcelJS() {
 // so rounding can't trip fitToWidth into scaling the whole sheet down.
 //   pixels = round(w * 7) + 5 per column, at 96dpi.
 const XLSX_COLS = [
-  { key: 'num',    label: '#',      width: 6,  wrap: false, bold: true  },
+  { key: 'num',    label: '#',      width: 7,  wrap: false, bold: true  },
   { key: 'cue',    label: 'CUE',    width: 25, wrap: true,  bold: false },
-  { key: 'pg',     label: 'PG',     width: 6,  wrap: false, bold: false },
+  { key: 'pg',     label: 'PG',     width: 8,  wrap: false, bold: false },
   { key: 'piece',  label: 'PIECE',  width: 25, wrap: true,  bold: true  },
   { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
   { key: 'who',    label: 'WHO',    width: 16, wrap: true,  bold: false },
@@ -21842,9 +21842,9 @@ async function exportSetChangeXLSX() {
   // person is on, in running order under the same scene bars, with WITH naming
   // whoever else is on the move. Moves with nobody named get the last tab.
   const CREW_COLS = [
-    { key: 'num',    label: '#',      width: 6,  wrap: false, bold: true  },
+    { key: 'num',    label: '#',      width: 7,  wrap: false, bold: true  },
     { key: 'cue',    label: 'CUE',    width: 28, wrap: true,  bold: false },
-    { key: 'pg',     label: 'PG',     width: 6,  wrap: false, bold: false },
+    { key: 'pg',     label: 'PG',     width: 8,  wrap: false, bold: false },
     { key: 'piece',  label: 'PIECE',  width: 26, wrap: true,  bold: true  },
     { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
     { key: 'spike',  label: 'SPIKE',  width: 24, wrap: true,  bold: false },
@@ -21912,9 +21912,9 @@ async function exportSetChangeXLSX() {
       const firstOfChange = it.c !== prevC;
       if (firstOfChange) { tint = !tint; }
       const vals = {
-        num:    changeShortNum(it.c.number),
+        num:    '#' + changeShortNum(it.c.number),
         cue:    String(it.m.trigger || it.c.cueLine || ''),
-        pg:     String(it.c.page || ''),
+        pg:     it.c.page ? 'pg. ' + it.c.page : '',
         piece:  String(it.m.piece  || ''),
         action: String(it.m.action || ''),
         spike:  spkMoveText(it.m, showId),
@@ -22185,7 +22185,7 @@ async function exportCueSheet() {
       // Script page is greyed metadata under the number — scene dividers head
       // the sheet now, so the page has to travel with each individual cue.
       doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(150,150,160);
-      doc.text('p.' + (c.page || '?'), X[0] + PAD, y + PAD + 17);
+      doc.text('pg. ' + (c.page || '?'), X[0] + PAD, y + PAD + 17);
 
       doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
       doc.setTextColor(40,40,40);
