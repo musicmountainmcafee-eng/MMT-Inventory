@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Cue Sheet — MMT</title>
@@ -499,10 +499,11 @@
   #move-sheet { position: fixed; inset: 0; z-index: 450; display: none; background: rgba(20,20,37,0.22); }
   #move-sheet.open { display: block; }
   #move-sheet .ms-panel {
-    position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 760px;
+    position: absolute; left: 0; right: 0; bottom: var(--kb, 0px); margin: 0 auto; max-width: 760px;
     background: var(--surface); color: var(--text);
     border-radius: 20px 20px 0 0; box-shadow: 0 -12px 36px rgba(0,0,0,0.25);
-    padding: 8px 20px calc(18px + var(--safe-b)); max-height: 78vh; overflow-y: auto; box-sizing: border-box;
+    padding: 8px 20px calc(18px + var(--safe-b)); max-height: min(78vh, calc(var(--vvh, 100vh) - 16px)); overflow-y: auto; box-sizing: border-box;
+    overscroll-behavior: contain;
     font-size: 16px;
   }
   #move-sheet .ms-grip { width: 44px; height: 5px; border-radius: 3px; background: var(--border); margin: 0 auto 10px; }
@@ -525,6 +526,7 @@
     .edit-state { order: 10; flex: 1 0 100%; padding: 0 0 2px; font-size: 12px; white-space: normal; }
   }
   #move-sheet .ms-grid { display: grid; gap: 10px; margin-bottom: 10px; }
+  #move-sheet .ms-in:focus { outline: none; border-color: var(--purple); box-shadow: 0 0 0 3px var(--purple-light); }
   #move-sheet .ms-cueline { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
   #move-sheet .ms-g2 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
   #move-sheet .ms-g3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); }
@@ -1887,21 +1889,22 @@ function plRow(c, band, mode){
   };
   // One row's cells, in whichever shape the mode wants.
   const cells = r => {
+    // data-f names the box each cell opens in the move sheet (Edit mode).
     if (compact) return `
       <td class="pl-numc">${r.num || ''}</td>
-      <td class="cs-line">${r.cue}</td>
-      <td>${r.piece}${r.action ? `<span class="pl-actsub">${r.action}</span>` : ''}</td>
-      <td class="pl-who">${r.who}</td>
-      <td class="pl-notes">${r.spike}${r.notes}</td>`;
+      <td class="cs-line" data-f="cueLine">${r.cue}</td>
+      <td data-f="piece">${r.piece}${r.action ? `<span class="pl-actsub" data-f="action">${r.action}</span>` : ''}</td>
+      <td class="pl-who" data-f="who">${r.who}</td>
+      <td class="pl-notes" data-f="notes">${r.spike ? `<span data-f="spike">${r.spike}</span>` : ''}${r.notes}</td>`;
     return `
       <td class="pl-numc">${r.num || ''}</td>
-      <td class="cs-line">${r.cue}</td>
+      <td class="cs-line" data-f="cueLine">${r.cue}</td>
       ${merged ? '' : `<td class="pl-pg">${r.pg}</td>`}
-      ${r.span ? `<td class="pl-act" colspan="2">${r.piece}</td>`
-               : `<td>${r.piece}</td><td class="pl-act">${r.action}</td>`}
-      <td class="pl-who">${r.who}</td>
-      <td>${r.spike}</td>
-      <td class="pl-notes">${r.notes}</td>`;
+      ${r.span ? `<td class="pl-act" colspan="2" data-f="piece">${r.piece}</td>`
+               : `<td data-f="piece">${r.piece}</td><td class="pl-act" data-f="action">${r.action}</td>`}
+      <td class="pl-who" data-f="who">${r.who}</td>
+      <td data-f="spike">${r.spike}</td>
+      <td class="pl-notes" data-f="notes">${r.notes}</td>`;
   };
   const pg = c.page ? 'pg. ' + esc(c.page) : '';
 
@@ -1926,7 +1929,7 @@ function plRow(c, band, mode){
       if (activeWho && !onMove(m, activeWho)) cls.push('pl-dim');
       if (moveSheet && moveSheet.cueId === String(c.id) && moveSheet.idx === i) cls.push('mv-sel');
       const blank = !m.piece && !m.action && !m.who && !m.spike && !(m.spikeIds || []).length && !m.notes;
-      return tr(cls.filter(Boolean).join(' '), ` data-mv="${esc(m.id || '')}" onclick="openMove('${esc(c.id)}', ${i})"`) + cells({
+      return tr(cls.filter(Boolean).join(' '), ` data-mv="${esc(m.id || '')}" onclick="openMoveAt(event, '${esc(c.id)}', ${i})"`) + cells({
         num: chip, cue: first ? cueCell : cueRest, pg,
         piece: blank ? '<span class="mv-empty">Tap to add a move</span>'
           : `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
@@ -4370,6 +4373,45 @@ function sheetField(field, value){
   refreshSheetRows(c);
 }
 
+// The on-screen keyboard: some phones lay it over the page instead of
+// shrinking it, which left the bottom of the move sheet behind it. Track the
+// part of the screen that's actually visible, sit the sheet just above the
+// keyboard, cap its height to what's left (it scrolls inside), and keep the
+// box being typed in in view.
+(function fitSheetToKeyboard(){
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const root = document.documentElement;
+  const fit = () => {
+    const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    root.style.setProperty('--kb', kb + 'px');
+    root.style.setProperty('--vvh', Math.round(vv.height) + 'px');
+    const a = document.activeElement;
+    if (kb && a && a.closest && a.closest('#move-sheet .ms-panel') && a.scrollIntoView) a.scrollIntoView({ block: 'nearest' });
+  };
+  vv.addEventListener('resize', fit);
+  vv.addEventListener('scroll', fit);
+  document.addEventListener('focusin', e => {
+    if (e.target && e.target.closest && e.target.closest('#move-sheet .ms-panel')) setTimeout(fit, 300);
+  });
+  fit();
+})();
+
+// Edit mode: tapping a box opens the move with that same box ready to type in,
+// cursor at the end of what's there (nothing selected, so a stray key can't
+// wipe it). Called inside the tap, so phones raise the keyboard.
+const MS_BOX = { cueLine: 'ms-cueLine', piece: 'ms-piece', action: 'ms-action', who: 'ms-who', spike: 'ms-spike', notes: 'ms-notes' };
+function openMoveAt(e, cueId, idx){
+  const cell = e && e.target && e.target.closest ? e.target.closest('[data-f]') : null;
+  const f = cell ? cell.dataset.f : '';
+  openMove(cueId, idx);
+  const box = MS_BOX[f] && document.getElementById(MS_BOX[f]);
+  if (!box) return;
+  box.focus();
+  try { const n = box.value.length; box.setSelectionRange(n, n); } catch (err) {}
+  if (box.scrollIntoView) box.scrollIntoView({ block: 'nearest' });
+}
+
 function openCueLine(cueId){
   openMove(cueId, 0);
   const i = document.getElementById('ms-cueLine');
@@ -4715,6 +4757,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.20 v1</div>
 </body>
 </html>
