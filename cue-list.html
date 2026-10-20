@@ -4056,16 +4056,22 @@ function sheetField(field, value){
   mvField(c.id, moveSheet.idx, field, value);
   if (field === 'action') syncActionPills(value);
   if (field === 'who') syncWhoPills(value);
-  // Keep the row under the sheet in step without rebuilding the whole table.
-  const row = document.querySelector('tr.mv-sel');
-  const m = c.moves[moveSheet.idx];
-  if (row){
-    row.cells[1].innerHTML = blankMove(m) ? '<span class="mv-empty">Tap to add a move</span>'
-      : `<span class="mv-piece">${esc(m.piece || '')}</span>${m.action ? `<span class="mv-act">${esc(m.action)}</span>` : ''}`;
-    row.cells[2].textContent = m.who || '';
-    row.cells[3].innerHTML = `<span class="mv-spike spk-line">${spkChipsHTML(m, scriptId)}</span>`;
-    row.cells[4].innerHTML = m.notes ? `<span class="mv-note">${esc(m.notes)}</span>` : '';
-  }
+  // Keep the rows under the sheet in step without rebuilding the whole table.
+  refreshSheetRows(c);
+}
+
+// Redraw just this set change's rows, in whatever layout the page is in, so
+// what's typed in the sheet shows behind it as it's typed.
+function refreshSheetRows(c){
+  if (!c || !plotOn()) return;
+  const rows = document.querySelectorAll('tr[data-cue="' + CSS.escape(String(c.id)) + '"]');
+  if (!rows.length) return;
+  const band = rows[0].classList.contains('band');
+  const tmp = document.createElement('tbody');
+  tmp.innerHTML = plRow(c, band, plMode());
+  const first = rows[0];
+  Array.from(tmp.children).forEach(n => first.parentNode.insertBefore(n, first));
+  rows.forEach(r => r.remove());
 }
 
 // Tap a swatch to add or remove that spike colour on this move.
@@ -4079,12 +4085,7 @@ function sheetSpike(id){
   mvField(c.id, moveSheet.idx, 'spikeIds', cur);
   const box = document.getElementById('ms-spikes');
   if (box) box.innerHTML = spkPickerHTML(scriptId, cur, 'sheetSpike');
-  const row = document.querySelector('tr.mv-sel');
-  if (row) {
-    row.cells[1].innerHTML = blankMove(m) ? '<span class="mv-empty">Tap to add a move</span>'
-      : `<span class="mv-piece">${esc(m.piece || '')}</span>${m.action ? `<span class="mv-act">${esc(m.action)}</span>` : ''}`;
-    row.cells[3].innerHTML = `<span class="mv-spike spk-line">${spkChipsHTML(m, scriptId)}</span>`;
-  }
+  refreshSheetRows(c);
 }
 
 function sheetPick(field, value){
@@ -4384,6 +4385,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v2</div>
 </body>
 </html>

@@ -525,6 +525,7 @@
     .edit-state { order: 10; flex: 1 0 100%; padding: 0 0 2px; font-size: 12px; white-space: normal; }
   }
   #move-sheet .ms-grid { display: grid; gap: 10px; margin-bottom: 10px; }
+  #move-sheet .ms-cueline { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
   #move-sheet .ms-g2 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
   #move-sheet .ms-g3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); }
   #move-sheet .ms-f { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
@@ -608,6 +609,7 @@
   table.cs.pl tr.pl-addrow td { border-top: none !important; padding-top: 0; padding-bottom: 6px; }
   table.cs.pl tr.pl-addrow .mv-plus { border: none; color: var(--purple); padding: 6px 2px; font-weight: 500; }
   table.cs.pl tr.mv-sel td { background: var(--purple-light) !important; opacity: 1; }
+  .pl-addline { font: inherit; color: var(--purple); font-weight: 600; background: none; border: 1px dashed var(--purple); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
 
   /* Wings: big type for reading at arm's length; dark unless Red is picked. */
   [data-layout="wings"] table.cs.pl { font-size: calc(var(--ct-fs) * 1.3); }
@@ -944,8 +946,8 @@ function start(){
   // are held on this device. Offer them back rather than letting them rot.
   try {
     const draft = getDraft();
-    if (draft && ((draft.moves && Object.keys(draft.moves).length) || (draft.presets && Object.keys(draft.presets).length))) {
-      const n = Object.keys(draft.moves || {}).length + Object.keys(draft.presets || {}).length;
+    if (draft && ((draft.moves && Object.keys(draft.moves).length) || (draft.presets && Object.keys(draft.presets).length) || (draft.lines && Object.keys(draft.lines).length))) {
+      const n = Object.keys(draft.moves || {}).length + Object.keys(draft.presets || {}).length + Object.keys(draft.lines || {}).length;
       const when = new Date(draft.at || Date.now()).toLocaleString('en-US',
         { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
       setTimeout(() => {
@@ -962,6 +964,10 @@ function start(){
           if (draft.presets) {
             presetBaseline = draft.presetBaseline || presetBaseline;
             Object.keys(draft.presets).forEach(k => { if (draft.presets[k]) { presets[k] = draft.presets[k]; editedPresets[k] = true; } });
+          }
+          if (draft.lines) {
+            lineBaseline = Object.assign({}, lineBaseline, draft.lineBaseline || {});
+            Object.keys(draft.lines).forEach(id => { const c = cues.find(x => String(x.id) === String(id)); if (c) { c.cueLine = draft.lines[id]; editedLines[id] = true; } });
           }
           markDirty(); render();
         }
@@ -1158,7 +1164,7 @@ function fetchCues(showLoading){
     d => {
       // Editing started while this was on its way: it's older than what's
       // being edited, so it mustn't replace it.
-      if (editMode || editSaving || Object.keys(editedCues).length || Object.keys(editedPresets).length) return;
+      if (editMode || editSaving || clPending()) return;
       if (!d || !d.success || !d.cueData){ setStatus('no cue data', 'stale'); render(); return; }
       const hash = JSON.stringify([d.cueData.cues, d.cueData.cueTypes, d.cueData.presets]);
       const same = hash === lastHash;
@@ -1851,6 +1857,9 @@ function plRow(c, band, mode){
     lineCell = `<button class="photo-chip" onclick="event.stopPropagation(); revealPhoto('${esc(c.id)}')">Show line photo</button>`;
   }
 
+  // Edit mode: a set change with no typed line asks for one; tapping it opens
+  // the sheet with the cursor in the Cue line box.
+  if (editMode && isShift && !c.cueLine) lineCell = `<button type="button" class="pl-addline" onclick="event.stopPropagation(); openCueLine('${esc(c.id)}')">+ Add cue line</button>` + (lineCell ? ' ' + lineCell : '');
   // No number column: the cue line leads. Cue types other than set changes
   // keep their coloured chip and number so they can't be mistaken for one.
   const chip = isShift ? '' : `<span class="pl-num"><span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>${esc(shortNumber(c, t.name))}</span>`;
@@ -3523,6 +3532,11 @@ let editLoadedRev = null;
 let editSaving    = false;
 let presetBaseline = {};       // key -> JSON of the preset when editing began
 let editedPresets  = {};       // key -> true
+// A set change's cue line, typed in the move sheet. Saved like a move: merged
+// box by box into whatever the Sheet has, so nobody else's edit is lost.
+let lineBaseline   = {};       // cueId -> cue line when editing began
+let editedLines    = {};       // cueId -> true
+function clPending(){ return Object.keys(editedCues).length + Object.keys(editedPresets).length + Object.keys(editedLines).length; }
 let presetSheet    = null;     // { key } while the preset panel is open
 
 function draftKey(){ return 'mmt_cuelist_draft_' + scriptId; }
@@ -3536,7 +3550,9 @@ function saveDraft(){
     });
     const pOut = {};
     Object.keys(editedPresets).forEach(k => { pOut[k] = presets[k] || null; });
-    const v = JSON.stringify({ at: Date.now(), rev: editLoadedRev, baseline: editBaseline, moves: out, presetBaseline, presets: pOut });
+    const lOut = {};
+    Object.keys(editedLines).forEach(id => { const c = cues.find(x => String(x.id) === String(id)); if (c) lOut[id] = String(c.cueLine || ''); });
+    const v = JSON.stringify({ at: Date.now(), rev: editLoadedRev, baseline: editBaseline, moves: out, presetBaseline, presets: pOut, lineBaseline, lines: lOut });
     for (let pass = 0; pass < 3; pass++) {
       try { localStorage.setItem(draftKey(), v); break; } catch(e) {
         // Full: make room from copies that can be fetched again.
@@ -3567,11 +3583,14 @@ function setEditMode(on){
     editLoadedRev = loadedRev;
     cues.forEach(c => { if (c.type === SHIFT_TYPE_ID) editBaseline[c.id] = (c.id in keepC && oldB[c.id]) ? oldB[c.id] : JSON.parse(JSON.stringify(c.moves || [])); });
     presetBaseline = {}; editedPresets = Object.assign({}, keepP);
+    const keepL = editedLines, oldLB = lineBaseline;
+    lineBaseline = {}; editedLines = Object.assign({}, keepL);
+    cues.forEach(c => { if (c.type === SHIFT_TYPE_ID) lineBaseline[c.id] = (c.id in keepL && c.id in oldLB) ? oldLB[c.id] : String(c.cueLine || ''); });
     Object.keys(presets).forEach(k => { presetBaseline[k] = (k in keepP && oldPB[k]) ? oldPB[k] : JSON.stringify(presets[k]); });
     if (!pollTimer) schedulePoll();
     render();
   } else {
-    if (Object.keys(editedCues).length || Object.keys(editedPresets).length) saveMoveEdits();
+    if (clPending()) saveMoveEdits();
     else { schedulePoll(); render(); }
   }
 }
@@ -3609,7 +3628,7 @@ function markDirty(){
   clAutoSave();
   const el = document.getElementById('edit-state');
   if (!el) return;
-  const n = Object.keys(editedCues).length + Object.keys(editedPresets).length;
+  const n = clPending();
   el.className = 'edit-state dirty';
   el.textContent = n ? n + ' change' + (n !== 1 ? 's' : '') + ' not saved yet' : '';
   measureHeader();
@@ -3824,12 +3843,15 @@ function clAdopt(data){
   const keepMoves = {}, keepP = {};
   Object.keys(editedCues).forEach(id => { const c = cues.find(x => String(x.id) === String(id)); if (c) keepMoves[id] = JSON.parse(JSON.stringify(c.moves || [])); });
   Object.keys(editedPresets).forEach(k => { if (presets[k]) keepP[k] = JSON.parse(JSON.stringify(presets[k])); });
+  const keepL = {};
+  Object.keys(editedLines).forEach(id => { const c = cues.find(x => String(x.id) === String(id)); if (c) keepL[id] = String(c.cueLine || ''); });
   applyPayload(JSON.parse(JSON.stringify(data)));
-  cues.forEach(c => { if (c.id in keepMoves) c.moves = keepMoves[c.id]; });
+  cues.forEach(c => { if (c.id in keepMoves) c.moves = keepMoves[c.id]; if (c.id in keepL) c.cueLine = keepL[c.id]; });
   Object.keys(keepP).forEach(k => { presets[k] = keepP[k]; });
   if (editMode) {
     cues.forEach(c => { if (c.type === SHIFT_TYPE_ID && !(c.id in keepMoves)) editBaseline[c.id] = JSON.parse(JSON.stringify(c.moves || [])); });
     Object.keys(presets).forEach(k => { if (!(k in keepP)) presetBaseline[k] = JSON.stringify(presets[k]); });
+    cues.forEach(c => { if (c.type === SHIFT_TYPE_ID && !(c.id in keepL)) lineBaseline[c.id] = String(c.cueLine || ''); });
   }
   loadedRev = data._rev != null ? data._rev : loadedRev;
   lastHash = JSON.stringify([data.cues, data.cueTypes, data.presets]);
@@ -3847,7 +3869,8 @@ function saveMoveEdits(forceRead){
   clearTimeout(_clAutoT);
   const ids = Object.keys(editedCues);
   const pKeys = Object.keys(editedPresets);
-  if (!ids.length && !pKeys.length){ schedulePoll(); render(); return; }
+  const lIds = Object.keys(editedLines);
+  if (!ids.length && !pKeys.length && !lIds.length){ schedulePoll(); render(); return; }
   editSaving = true;
 
   const el = document.getElementById('edit-state');
@@ -3859,6 +3882,8 @@ function saveMoveEdits(forceRead){
     if (c) ours[id] = JSON.parse(JSON.stringify(c.moves || []));
   });
   pKeys.forEach(k => { oursP[k] = JSON.parse(JSON.stringify(presets[k] || {})); });
+  const oursL = {};
+  lIds.forEach(id => { const c = cues.find(x => String(x.id) === String(id)); if (c) oursL[id] = String(c.cueLine || ''); });
   const offline = () => {
     editSaving = false;
     if (el){ el.className = 'edit-state error'; el.textContent = 'Not saved yet — no signal. Your edits are safe on this device; trying again.'; }
@@ -3883,6 +3908,14 @@ function saveMoveEdits(forceRead){
       const base = JSON.parse(presetBaseline[k] || 'null') || csBlankLike(oursP[k], theirs);
       data.presets[k] = csMergeObj(base, oursP[k], theirs, 'presets.' + k, clashes);
       pApplied.push(k);
+    });
+    const lApplied = [];
+    Object.keys(oursL).forEach(id => {
+      const tgt = (data.cues || []).find(x => String(x.id) === String(id));
+      if (!tgt) { if (!conflicts.some(x => String(x.id) === String(id))) conflicts.push({ id, why: 'the set change no longer exists on the Sheet' }); return; }
+      const v = csPick(id in lineBaseline ? lineBaseline[id] : '', oursL[id], String(tgt.cueLine || ''), 'cues.' + id + '.cueLine', clashes);
+      if (v) tgt.cueLine = v; else delete tgt.cueLine;
+      lApplied.push(id);
     });
     const baseRev = freshRev;
     data._rev = baseRev + 1;
@@ -3923,6 +3956,11 @@ function saveMoveEdits(forceRead){
         editBaseline[id] = JSON.parse(JSON.stringify(ours[id]));
         if (!c || JSON.stringify(c.moves || []) === JSON.stringify(ours[id])) delete editedCues[id];
       });
+      lApplied.forEach(id => {
+        lineBaseline[id] = oursL[id];
+        const c = cues.find(x => String(x.id) === String(id));
+        if (!c || String(c.cueLine || '') === oursL[id]) delete editedLines[id];
+      });
       pApplied.forEach(k => {
         presetBaseline[k] = JSON.stringify(oursP[k]);
         if (JSON.stringify(presets[k] || {}) === JSON.stringify(oursP[k])) delete editedPresets[k];
@@ -3938,7 +3976,7 @@ function saveMoveEdits(forceRead){
           + '. Your version is still on this device.');
       } else {
         if (el){ el.className = 'edit-state saved'; el.textContent = 'Saved'; setTimeout(() => { if (el.textContent === 'Saved') el.textContent = ''; }, 2500); }
-        if (editMode || _saveAgain || Object.keys(editedCues).length || Object.keys(editedPresets).length) saveDraft();
+        if (editMode || _saveAgain || clPending()) saveDraft();
         else {
           clearDraft();
           const btn = document.getElementById('edit-btn');
@@ -4084,13 +4122,13 @@ function prPaint(){
 (function(){ const f = window.render; if (typeof f === 'function') window.render = function(){ const r = f.apply(this, arguments); try { if (_prPeople.length) prPaint(); } catch(e){} return r; }; })();
 // Leaving with changes not saved yet: send them now (they're kept on this
 // device either way, and go next time if this doesn't make it).
-function clUnsaved(){ return Object.keys(editedCues).length + Object.keys(editedPresets).length > 0; }
+function clUnsaved(){ return clPending() > 0; }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && clUnsaved()) { saveDraft(); if (!editSaving) saveMoveEdits(); } });
 window.addEventListener('beforeunload', e => { if (clUnsaved()) { saveDraft(); e.preventDefault(); e.returnValue = ''; return ''; } });
 window.addEventListener('pagehide', () => { try { if (scriptId) fetch(SCRIPT_URL + '?action=getCueRev&scriptId=' + encodeURIComponent(scriptId) + '&me=' + encodeURIComponent(prDevId()) + '&bye=1', { mode: 'no-cors', keepalive: true }); } catch(e){} });
 function clAutoSave(){
   clearTimeout(_clAutoT);
-  _clAutoT = setTimeout(() => { if (Object.keys(editedCues).length || Object.keys(editedPresets).length) saveMoveEdits(); }, 1500);
+  _clAutoT = setTimeout(() => { if (clPending()) saveMoveEdits(); }, 1500);
 }
 
 
@@ -4314,16 +4352,39 @@ function sheetField(field, value){
   mvField(c.id, moveSheet.idx, field, value);
   if (field === 'action') syncActionPills(value);
   if (field === 'who') syncWhoPills(value);
-  // Keep the row under the sheet in step without rebuilding the whole table.
-  const row = document.querySelector('tr.mv-sel');
-  const m = c.moves[moveSheet.idx];
-  if (row){
-    row.cells[1].innerHTML = blankMove(m) ? '<span class="mv-empty">Tap to add a move</span>'
-      : `<span class="mv-piece">${esc(m.piece || '')}</span>${m.action ? `<span class="mv-act">${esc(m.action)}</span>` : ''}`;
-    row.cells[2].textContent = m.who || '';
-    row.cells[3].innerHTML = `<span class="mv-spike spk-line">${spkChipsHTML(m, scriptId)}</span>`;
-    row.cells[4].innerHTML = m.notes ? `<span class="mv-note">${esc(m.notes)}</span>` : '';
-  }
+  // Keep the rows under the sheet in step without rebuilding the whole table.
+  refreshSheetRows(c);
+}
+
+function openCueLine(cueId){
+  openMove(cueId, 0);
+  const i = document.getElementById('ms-cueLine');
+  if (i) i.focus();
+}
+
+// The cue line belongs to the set change, not the move: every move's sheet
+// shows the same box.
+function sheetCueLine(value){
+  const c = sheetCue();
+  if (!c) return;
+  c.cueLine = value;
+  editedLines[c.id] = true;
+  saveDraft(); markDirty();
+  refreshSheetRows(c);
+}
+
+// Redraw just this set change's rows, in whatever layout the page is in, so
+// what's typed in the sheet shows behind it as it's typed.
+function refreshSheetRows(c){
+  if (!c || !plotOn()) return;
+  const rows = document.querySelectorAll('tr[data-cue="' + CSS.escape(String(c.id)) + '"]');
+  if (!rows.length) return;
+  const band = rows[0].classList.contains('band');
+  const tmp = document.createElement('tbody');
+  tmp.innerHTML = plRow(c, band, plMode());
+  const first = rows[0];
+  Array.from(tmp.children).forEach(n => first.parentNode.insertBefore(n, first));
+  rows.forEach(r => r.remove());
 }
 
 // Tap a swatch to add or remove that spike colour on this move.
@@ -4337,12 +4398,7 @@ function sheetSpike(id){
   mvField(c.id, moveSheet.idx, 'spikeIds', cur);
   const box = document.getElementById('ms-spikes');
   if (box) box.innerHTML = spkPickerHTML(scriptId, cur, 'sheetSpike');
-  const row = document.querySelector('tr.mv-sel');
-  if (row) {
-    row.cells[1].innerHTML = blankMove(m) ? '<span class="mv-empty">Tap to add a move</span>'
-      : `<span class="mv-piece">${esc(m.piece || '')}</span>${m.action ? `<span class="mv-act">${esc(m.action)}</span>` : ''}`;
-    row.cells[3].innerHTML = `<span class="mv-spike spk-line">${spkChipsHTML(m, scriptId)}</span>`;
-  }
+  refreshSheetRows(c);
 }
 
 function sheetPick(field, value){
@@ -4398,6 +4454,9 @@ function renderMoveSheet(){
       <button class="ms-icon" aria-label="Next move" onclick="sheetStep(1)"${at < 0 || at >= refs.length - 1 ? ' disabled' : ''}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
+    <label class="ms-f ms-cueline"><span>Cue line · for the whole change</span>
+      <input id="ms-cueLine" class="ms-in" value="${esc(c.cueLine || '')}" placeholder="Type the line this change goes on"
+        autocomplete="off" enterkeyhint="done" oninput="sheetCueLine(this.value)" onkeydown="if(event.key==='Enter')this.blur()"></label>
     <div class="ms-grid ms-g2">
       <label class="ms-f"><span>Piece</span>${inp('piece', 'e.g. Main Curtain', ' strong')}</label>
       <label class="ms-f"><span>Action</span>${inp('action', 'e.g. In')}</label>
@@ -4642,6 +4701,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v4 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v5 dev</div>
 </body>
 </html>
