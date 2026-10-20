@@ -1070,7 +1070,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev22';
+var VERSION='3.4-dev23';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2312,6 +2312,33 @@ function paintIdent(f,now,clockMode){
   }
 }
 var identKey='';
+// The end-of-show clock fills the screen like the running timer does: it's
+// measured as "00:00 PM" so it stays one size all night (12:59 doesn't jump),
+// and gets whatever room the message leaves. A long message shrinks to fit
+// the width instead of being cut off.
+var eosFitKey='';
+function fitEOS(){
+  var main=document.querySelector('.eomain'),msg=$('eomsg'),clk=$('eoclock');
+  if(!main||$('eosfull').hidden)return;
+  var k=msg.textContent+'|'+innerWidth+'|'+innerHeight+'|'+(document.fonts?document.fonts.status:'');
+  if(k===eosFitKey)return;eosFitKey=k;
+  var real=clk.innerHTML,ap=clk.querySelector('span');
+  msg.style.fontSize='';
+  var W=main.clientWidth,H=main.clientHeight;
+  msg.style.whiteSpace='nowrap';
+  var mw=msg.scrollWidth,ms=parseFloat(getComputedStyle(msg).fontSize);
+  if(mw>W*0.96)msg.style.fontSize=(ms*W*0.96/mw)+'px';
+  clk.style.fontSize='100px';
+  clk.innerHTML='00:00<span>'+(ap?ap.textContent:'PM')+'</span>';
+  var cw=clk.scrollWidth||1,ch=clk.offsetHeight||1;
+  clk.innerHTML=real;
+  var gap=parseFloat(getComputedStyle(clk).marginTop)||0;
+  var room=H-msg.offsetHeight-gap;
+  var size=Math.min(W*0.96/cw*100,room*0.98/ch*100);
+  clk.style.fontSize=Math.max(40,size)+'px';
+}
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){eosFitKey='';fitEOS()});
+window.addEventListener('resize',function(){eosFitKey='';fitEOS()});
 // End of show on the displays: the message and the time of day, big, with the
 // end time underneath. Running time and act lengths stay in the SM's report.
 function paintEOS(f,now){
@@ -2326,6 +2353,7 @@ function paintEOS(f,now){
     $('eoclock').innerHTML=hh+'<span>'+ap+'</span>';
     $('eoended').innerHTML='ENDED <b></b>';$('eoended').querySelector('b').textContent=clockOf(f.when);
     $('eocall').hidden=!m;if(m)$('eocall').textContent=m;
+    fitEOS();
     return;
   }
   // corner layout (the ATEM key)
