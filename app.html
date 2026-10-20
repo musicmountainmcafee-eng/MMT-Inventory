@@ -3132,6 +3132,11 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #dev-badge { position: fixed; bottom: 4px; left: 8px; z-index: 999; background: #f39c12; color: #fff; font: 700 11px system-ui, sans-serif; padding: 2px 8px; border-radius: 4px; pointer-events: none; letter-spacing: .05em; }
   #mv-drawer .mvd-body { flex: 1; overflow: auto; padding: 8px 12px 12px; }
   #mv-drawer table.mv-grid { border-collapse: separate; border-spacing: 0 3px; width: 100%; }
+  #mv-drawer .mvd-line { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; }
+  #mv-drawer .mvd-line > span { flex: none; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--cue-text-faint); }
+  #mv-drawer .mvd-line input { flex: 1; min-width: 0; font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--cue-border); border-radius: 8px; background: var(--cue-surface); color: var(--cue-text); box-sizing: border-box; }
+  #mv-drawer .mvd-line input:focus { outline: none; border-color: var(--shift-color, #7c5cbf); box-shadow: 0 0 0 2px rgba(124,92,191,.18); }
+  #mv-drawer .mvd-line input::placeholder { color: var(--shift-color, #7c5cbf); font-weight: 600; opacity: .85; }
   #mv-drawer table.mv-grid th { font-size:12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--cue-text-faint); padding: 0 4px 3px; text-align: left; }
   #mv-drawer table.mv-grid td { padding: 0 4px; vertical-align: middle; }
   #mv-drawer table.mv-grid input {
@@ -6683,7 +6688,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7204,7 +7209,7 @@ window.addEventListener('load', function guardInventoryForCrew() {
 // (or the one this device used last; the page has its own picker too).
 function openCueSheetFromMenu() {
   try { if (typeof showId !== 'undefined' && showId) { openCueSheetPage(); return; } } catch (e) {}
-  window.open('cue-list.html', '_blank');
+  window.open(CUE_PAGE + '', '_blank');
 }
 
 // Settings › Crew permissions (TD only).
@@ -10928,7 +10933,7 @@ function hubOpenPlot() {
   } else if (typeof toast === 'function') {
     toast('No script pinned for ' + ((sh && sh.name) || 'this show') + ' — opening the last one used');
   }
-  window.open('cue-list.html?' + q.join('&'), '_blank');
+  window.open(CUE_PAGE + '?' + q.join('&'), '_blank');
 }
 
 // The spike tape key for this show (spike-map.html), on the pinned script.
@@ -12863,6 +12868,8 @@ const RUNNING_BUILD = ((document.getElementById('build-tag') || {}).textContent 
 // and wears a DEV badge so the two can't be mixed up.
 const IS_DEV_PAGE = /app-dev\.html$/i.test(location.pathname);
 const BUILD_FILE = IS_DEV_PAGE ? 'app-dev.html' : 'app.html';
+// The dev dashboard opens the dev cue sheet, so the two are tested together.
+var CUE_PAGE = IS_DEV_PAGE ? 'cue-list-dev.html' : 'cue-list.html';
 if (IS_DEV_PAGE) {
   try { document.title = 'MMT Dashboard DEV'; const b = document.createElement('div'); b.id = 'dev-badge'; b.textContent = 'DEV'; document.body.appendChild(b); } catch (e) {}
 }
@@ -17162,7 +17169,9 @@ drawCanvas.addEventListener('pointerup', e => {
 
       // Instantly crop the script image under the box (zero delay — no OCR, no
       // network) so the actual line is visible even though it's not typed text.
-      const lineCrop = cropScriptLine(rect);
+      // Set changes take no photo: their cue line gets typed in later, in the
+      // set change's drawer. Every other cue keeps the photo.
+      const lineCrop = typeId === SHIFT_TYPE_ID ? '' : cropScriptLine(rect);
 
       // Position the label in the right margin, vertically level with the marker
       // center so the leader line runs straight across (no downward angle).
@@ -17895,6 +17904,35 @@ function renderCueList() {
   }
 }
 
+// A set change's cue line, typed in its drawer. Enter or clicking away saves
+// it; Escape puts back what was there.
+let _ctRebuild = false;
+function ctLineKey(e, inp) {
+  if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); inp.value = inp.defaultValue; inp.blur(); }
+}
+function setCueLineInline(id, value) {
+  if (_ctRebuild) return;
+  const c = cues.find(x => String(x.id) === String(id));
+  if (!c) return;
+  const v = String(value || '').trim();
+  const inp = document.getElementById('mvd-cueline');
+  if (inp) { inp.value = v; inp.defaultValue = v; }
+  if (v === String(c.cueLine || '')) return;
+  c.cueLine = v;
+  // Keep the cue form in step if this cue is the one loaded in it.
+  if (selectedCueId === c.id) {
+    const f = document.getElementById('cue-line');
+    if (f) f.value = v;
+    if (typeof _cfShown === 'object' && _cfShown) _cfShown.cueLine = v;
+  }
+  // Just this row's cell: no list rebuild, so a click that moved the cursor
+  // out (onto another cue, say) still lands.
+  const cell = document.querySelector('.cue-table tr[data-cue-id="' + CSS.escape(String(id)) + '"] .ct-line');
+  if (cell) cell.textContent = v;
+  saveShowData();
+}
+
 // ── PRESETS (before house opens) ─────────────────────────────────────────────
 function openPresets() {
   renderPresets();
@@ -18329,7 +18367,7 @@ function openCueSheetPage(view) {
   if (name) q.push('name=' + encodeURIComponent(name));
   if (view === 'shift') q.push('type=shift');
   if (view === 'presets') { q.push('view=presets'); q.push('edit=1'); }
-  window.open('cue-list.html' + (q.length ? '?' + q.join('&') : ''), '_blank');
+  window.open(CUE_PAGE + '' + (q.length ? '?' + q.join('&') : ''), '_blank');
 }
 
 // "SHIFT 3" under a SHIFT chip reads as just "3".
@@ -18421,19 +18459,27 @@ function renderMoveDrawer(focusFirst) {
         onclick="moveDelete('${c.id}','${m.id}')">✕</button></td>
   </tr>`).join('');
 
-  body.innerHTML = `<table class="mv-grid">
+  // Replacing the drawer takes the cursor out of the cue line box, which would
+  // fire its save mid-rebuild; a sync redraw carries the text over instead.
+  _ctRebuild = true;
+  try { body.innerHTML = `<label class="mvd-line"><span>Cue line</span><input id="mvd-cueline" type="text"
+        value="${escA(c.cueLine || '')}" placeholder="+ Add cue line" autocomplete="off" enterkeyhint="done"
+        onkeydown="ctLineKey(event, this)" onchange="setCueLineInline('${c.id}', this.value)" /></label>
+    <table class="mv-grid">
       <thead><tr>${MOVE_COLS.map(col => `<th>${col.label}</th>`).join('')}<th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <button class="mv-add" onclick="moveAdd('${c.id}')">+ Add move</button>`;
+    <button class="mv-add" onclick="moveAdd('${c.id}')">+ Add move</button>`; } finally { _ctRebuild = false; }
 
   // An empty change is the common case right after placing the cue, so give it
   // a row to type into rather than making you click Add first.
   if (!moves.length) { moveAdd(c.id); return; }
   // On a touchscreen a focused box pops the keyboard over half the screen, so
   // nothing gets the caret until you tap it yourself.
+  // Opening a change that already has its moves but no cue line yet (lines
+  // come later): the caret goes to the cue line. Otherwise the first move.
   if (focusFirst && !seIsTouch()) {
-    const first = body.querySelector('input');
+    const first = !c.cueLine ? document.getElementById('mvd-cueline') : body.querySelector('.mv-grid input');
     if (first) { first.focus(); first.select(); }
   }
 }
@@ -20157,7 +20203,12 @@ function csRepaint() {
         const ae = document.activeElement, body = document.getElementById('mvd-body');
         let keep = null;
         if (ae && body && body.contains(ae) && ae.dataset && ae.dataset.move) keep = { move: ae.dataset.move, key: ae.dataset.key, val: ae.value, s: ae.selectionStart, e: ae.selectionEnd };
+        const keepLine = ae && ae.id === 'mvd-cueline' ? { val: ae.value, d: ae.defaultValue, s: ae.selectionStart, e: ae.selectionEnd } : null;
         renderMoveDrawer(false);
+        if (keepLine) {
+          const el = document.getElementById('mvd-cueline');
+          if (el) { el.defaultValue = keepLine.d; el.value = keepLine.val; el.focus(); try { el.setSelectionRange(keepLine.s, keepLine.e); } catch(e) {} }
+        }
         if (keep) {
           const el = body.querySelector(`input[data-move="${keep.move}"][data-key="${keep.key}"]`);
           if (el) { el.value = keep.val; el.focus(); try { el.setSelectionRange(keep.s, keep.e); } catch(e) {} }
@@ -20771,7 +20822,7 @@ async function exportSetChangePlot() {
   const GRID = [205, 205, 214];
   const HEAD_BG = [232, 232, 240];
   const SCENE_BAR = [38, 38, 46];       // black bar = scene
-  const BREAK_RULE = [150, 150, 162];   // grey rule = next change, same scene
+  const BREAK_RULE = [38, 38, 46];      // heavy dark rule = next change, same scene (no shading)
   const BLOCK_TINT = [237, 238, 243];   // every other change, so blocks read as units
 
   // Widths total the printable 704pt so the table squares off at both margins.
@@ -20782,9 +20833,9 @@ async function exportSetChangePlot() {
   // spent on a phrase that repeats every block. Split: a narrow number to call
   // over headset, and the trigger itself in the space that frees up.
   const COLS = [
-    { key: 'num',    label: '#',         w: 30,  bold: true },
-    { key: 'cue',    label: 'CUE',       w: 130 },
-    { key: 'pg',     label: 'PG',        w: 30  },
+    { key: 'num',    label: '#',         w: 34,  bold: true },
+    { key: 'cue',    label: 'CUE',       w: 114 },
+    { key: 'pg',     label: 'PG',        w: 42  },
     { key: 'piece',  label: 'PIECE',     w: 130, bold: true },
     { key: 'action', label: 'ACTION',    w: 68  },
     { key: 'who',    label: 'WHO',       w: 88  },
@@ -20837,11 +20888,18 @@ async function exportSetChangePlot() {
   // Whichever scene we're inside, so a page that opens mid-scene can say so
   // rather than starting with unlabelled rows.
   let curScene = '';
+  let lastAct = null;
 
   // withCont=false when a scene is being moved to this page deliberately — it's
   // about to draw its own bar, and a "(cont.)" above it would be a lie.
+  // Each page remembers which section it belongs to (Preset, Act 1, a
+  // person's name) so the footer can count pages within that section.
+  const pageTag = [];
+  const tagPage = l => { pageTag[doc.internal.getNumberOfPages()] = l; };
+  let pageFn = null;   // the crew pages swap in their own page builder
   function newPage(withCont) {
-    doc.addPage(); drawTitle(); drawHeader();
+    if (pageFn) return pageFn(withCont);
+    doc.addPage(); tagPage(lastAct !== null ? 'Act ' + lastAct : 'PLOT'); drawTitle(); drawHeader();
     if (withCont !== false && curScene) drawSceneBar(curScene + ' (cont.)', true);
   }
   function ensureRoom(h) {
@@ -20859,12 +20917,13 @@ async function exportSetChangePlot() {
     y += h;
   }
   function drawBreakRule() {
-    doc.setDrawColor(...BREAK_RULE); doc.setLineWidth(1.4);
+    doc.setDrawColor(...BREAK_RULE); doc.setLineWidth(2);
     doc.line(M, y, M + TABLE_W, y);
-    y += 1.4;
+    y += 2;
   }
 
   drawTitle();
+  tagPage('PLOT');
 
   // ── Before house opens ─────────────────────────────────────────────────────
   // Its own short table ahead of the plot proper: what's onstage or standing by
@@ -20898,6 +20957,7 @@ async function exportSetChangePlot() {
       y += hh;
     };
 
+    tagPage('Preset');
     drawSceneBar('Before house opens');
     drawPresetHead();
 
@@ -20925,11 +20985,10 @@ async function exportSetChangePlot() {
       // A long piece list runs on, and the continuation needs its own bar and
       // column header or the rows arrive unlabelled.
       if (y + rowH > pageH - MARGIN_BOTTOM) {
-        doc.addPage(); drawTitle();
+        doc.addPage(); tagPage('Preset'); drawTitle();
         drawSceneBar('Before house opens (cont.)', true);
         drawPresetHead();
       }
-      if (pShade) { doc.setFillColor(...BLOCK_TINT); doc.rect(M, y, TABLE_W, rowH, 'F'); }
       doc.setFontSize(FS); doc.setTextColor(30,30,30);
       PC.forEach((c, k) => {
         doc.setFont('helvetica', c.bold ? 'bold' : 'normal');
@@ -20955,7 +21014,7 @@ async function exportSetChangePlot() {
 
     // The presets are a standing reference, not part of the running order — so
     // they get the sheet to themselves and the plot opens on a clean page.
-    doc.addPage();
+    doc.addPage(); tagPage('PLOT');
     drawTitle();
     curScene = '';
   }
@@ -21008,10 +21067,10 @@ async function exportSetChangePlot() {
     const moves = (c.moves && c.moves.length) ? c.moves : [{}];
     const built = moves.map((m, i) => {
       const cells = {
-        num:    [i === 0 ? shortNum(c.number) : ''],
+        num:    ['#' + shortNum(c.number)],
         // m.trigger only survives on data a device hasn't migrated yet.
-        cue:    wrap(m.trigger || (i === 0 ? (c.cueLine || '') : ''), 1),
-        pg:     [i === 0 ? String(c.page || '') : ''],
+        cue:    wrap(m.trigger || c.cueLine || '', 1),
+        pg:     [c.page ? 'pg. ' + c.page : ''],
         piece:  wrap(m.piece,  3),
         action: wrap(m.action, 4),
         who:    wrap(m.who,    5),
@@ -21031,7 +21090,6 @@ async function exportSetChangePlot() {
       // A single row taller than a whole page: draw it and let it clip rather
       // than loop forever adding empty pages.
       if (y + r.h > pageH - MARGIN_BOTTOM && y > 90) newPage(true);
-      if (shaded) { doc.setFillColor(...BLOCK_TINT); doc.rect(M, y, TABLE_W, r.h, 'F'); }
       doc.setFontSize(FS); doc.setTextColor(30,30,30);
       COLS.forEach((col, i) => {
         doc.setFont('helvetica', col.bold ? 'bold' : 'normal');
@@ -21070,12 +21128,10 @@ async function exportSetChangePlot() {
     m = t.match(/^act\s*(\d+)/i);
     return m ? m[1] : null;
   };
-  let lastAct = null;
-
   sections.forEach(sec => {
     const barH = sec.label ? SCENE_BAR_H : 0;
     const secH = barH + sec.blocks.reduce((t, b) => t + b.h, 0)
-                      + Math.max(0, sec.blocks.length - 1) * 1.4;
+                      + Math.max(0, sec.blocks.length - 1) * 2;
 
     const act = actOf(sec.label);
     // Only a move between two KNOWN acts counts. Going from an unnumbered
@@ -21096,6 +21152,7 @@ async function exportSetChangePlot() {
       newPage(false);
     }
 
+    if (act !== null && pageTag[doc.internal.getNumberOfPages()] === 'PLOT') tagPage('Act ' + act);
     if (sec.label) { curScene = sec.label; drawSceneBar(sec.label); }
 
     let shade = false, first = true;
@@ -21112,15 +21169,172 @@ async function exportSetChangePlot() {
     });
   });
 
+  // ── Crew pages ─────────────────────────────────────────────────────────────
+  // After the full plot, one page per person: only the moves their name is on,
+  // in running order, under the same scene bars. WITH names whoever else is on
+  // that move. Moves with nobody named get a page of their own at the end, so
+  // a gap shows up instead of falling between everyone's lists.
+  const CC = [
+    { key: 'num',    label: '#',      w: 34,  bold: true },
+    { key: 'cue',    label: 'CUE',    w: 134 },
+    { key: 'pg',     label: 'PG',     w: 42  },
+    { key: 'piece',  label: 'PIECE',  w: 140, bold: true },
+    { key: 'action', label: 'ACTION', w: 70  },
+    { key: 'spike',  label: 'SPIKE',  w: 112 },
+    { key: 'notes',  label: 'NOTES',  w: 112 },
+    { key: 'with',   label: 'WITH',   w: 60  },
+  ];
+  const CX = []; { let x = M; for (const c of CC) { CX.push(x); x += c.w; } }
+  const cwrap = (txt, k) => doc.splitTextToSize(String(txt || ''), CC[k].w - PAD*2);
+
+  const NOBODY = '\u0000nobody';
+  const crew = new Map();   // lower-case name -> { name, items: [{ scene, c, m }] }
+  let sceneNow = '';
+  ordered.forEach(c => {
+    if (isSceneCue(c)) { sceneNow = SCENE_LABELS[c.id] || c.number || ''; return; }
+    if (c.type !== SHIFT_TYPE_ID) return;
+    (c.moves || []).forEach(m => {
+      const names = whoNames(m.who);
+      const keys = names.length ? names : [NOBODY];
+      keys.forEach(n => {
+        const k = n === NOBODY ? NOBODY : n.toLowerCase();
+        if (!crew.has(k)) crew.set(k, { name: n === NOBODY ? 'No one assigned' : n, items: [] });
+        crew.get(k).items.push({ scene: sceneNow, c, m, others: names.filter(o => o.toLowerCase() !== k) });
+      });
+    });
+  });
+  const people = [...crew.entries()].filter(([k]) => k !== NOBODY).map(([, v]) => v)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (crew.has(NOBODY)) people.push(crew.get(NOBODY));
+
+  people.forEach(person => {
+    const changeCount = new Set(person.items.map(it => it.c.id)).size;
+    const moveCount = person.items.length;
+    let pScene = '';
+
+    const crewTitle = () => {
+      y = 54;
+      doc.setFont('helvetica','bold'); doc.setFontSize(22); doc.setTextColor(22,22,28);
+      doc.text(person.name, M, y);
+      const nameW = doc.getTextWidth(person.name);
+      doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(120,120,132);
+      doc.text(moveCount + ' move' + (moveCount !== 1 ? 's' : '') + ' in ' + changeCount + ' change' + (changeCount !== 1 ? 's' : ''), M + nameW + 10, y);
+      y += 14;
+      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(150,150,160);
+      doc.text(showName + ' · Set Changes · Updated ' + exportedStr, M, y);
+      y += 7;
+      doc.setDrawColor(38,38,46); doc.setLineWidth(1.1);
+      doc.line(M, y, M + TABLE_W, y);
+      y += 13;
+    };
+    const crewHead = () => {
+      const h = 18;
+      doc.setFillColor(...HEAD_BG); doc.rect(M, y, TABLE_W, h, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(90,90,105);
+      CC.forEach((c, k) => doc.text(c.label, CX[k] + PAD, y + 12));
+      doc.setDrawColor(...GRID); doc.setLineWidth(0.5);
+      CC.forEach((c, k) => doc.line(CX[k], y, CX[k], y + h));
+      doc.line(M + TABLE_W, y, M + TABLE_W, y + h);
+      doc.setDrawColor(140,140,155); doc.setLineWidth(0.9);
+      doc.line(M, y + h, M + TABLE_W, y + h);
+      y += h;
+    };
+    const crewPage = cont => {
+      doc.addPage(); tagPage(person.name); crewTitle(); crewHead();
+      if (cont && pScene) drawSceneBar(pScene + ' (cont.)', true);
+    };
+    pageFn = crewPage;
+
+    // Measure each row, grouped into one block per change so a change's
+    // moves stay together and shade as a unit.
+    doc.setFontSize(FS);
+    const blocks = [];
+    person.items.forEach(it => {
+      const last = blocks[blocks.length - 1];
+      const firstOfChange = !last || last.c !== it.c;
+      const cells = {
+        num:    ['#' + shortNum(it.c.number)],
+        cue:    cwrap(it.m.trigger || it.c.cueLine || '', 1),
+        pg:     [it.c.page ? 'pg. ' + it.c.page : ''],
+        piece:  cwrap(it.m.piece, 3),
+        action: cwrap(it.m.action, 4),
+        spike:  spikeCell(it.m),
+        notes:  cwrap(it.m.notes, 6),
+        with:   cwrap(it.others.join(', '), 7),
+      };
+      const lines = Math.max(...CC.map(col => cells[col.key].length), 1);
+      const row = { cells, h: Math.max(MIN_ROW, lines * LEAD + PAD*2) };
+      if (firstOfChange) blocks.push({ c: it.c, scene: it.scene, rows: [row], h: row.h });
+      else { last.rows.push(row); last.h += row.h; }
+    });
+
+    crewPage(false);
+    let shade = false, firstInScene = true;
+    blocks.forEach(b => {
+      if (b.scene !== pScene) {
+        // Never strand a scene bar at the foot of a page: start the person's
+        // next page instead (their own header, not the plot's).
+        if (b.scene && y + 18 + Math.min(b.h, 60) > pageH - MARGIN_BOTTOM && y > 140) { pScene = ''; crewPage(false); }
+        pScene = b.scene;
+        if (pScene) drawSceneBar(pScene, true);
+        shade = false; firstInScene = true;
+      }
+      if (y + b.h > pageH - MARGIN_BOTTOM && y > 90 && b.h <= pageH - MARGIN_BOTTOM - 140) { crewPage(true); firstInScene = true; }
+      else if (!firstInScene) drawBreakRule();
+      b.rows.forEach(r => {
+        if (y + r.h > pageH - MARGIN_BOTTOM && y > 90) crewPage(true);
+        doc.setFontSize(FS); doc.setTextColor(30,30,30);
+        CC.forEach((col, k) => {
+          doc.setFont('helvetica', col.bold ? 'bold' : 'normal');
+          r.cells[col.key].forEach((ln, li) => {
+            const base = y + PAD + LEAD - 3 + li * LEAD;
+            if (typeof ln === 'string') { doc.text(ln, CX[k] + PAD, base); return; }
+            if (ln.e) spkDrawPDF(doc, ln.e, CX[k] + PAD, base - 8, 15, 9);
+            doc.setFont('helvetica', ln.bold ? 'bold' : 'normal');
+            doc.setFontSize(ln.small ? FS - 1.5 : FS);
+            if (ln.small) doc.setTextColor(90, 90, 98);
+            doc.text(ln.t, CX[k] + PAD + ln.ind, base);
+            doc.setFontSize(FS); doc.setTextColor(30, 30, 30);
+            doc.setFont('helvetica', col.bold ? 'bold' : 'normal');
+          });
+        });
+        doc.setDrawColor(...GRID); doc.setLineWidth(0.4);
+        CC.forEach((col, k) => doc.line(CX[k], y, CX[k], y + r.h));
+        doc.line(M + TABLE_W, y, M + TABLE_W, y + r.h);
+        doc.line(M, y + r.h, M + TABLE_W, y + r.h);
+        y += r.h;
+      });
+      shade = !shade; firstInScene = false;
+    });
+  });
+
   if (!anyScene) toast('No scene markers found — plot has no scene bars');
 
   // Page N of M, right-aligned on the title baseline. Has to run after the last
   // page exists, so it's a second pass rather than part of drawTitle.
+  pageFn = null;
   const totalPages = doc.internal.getNumberOfPages();
+  // Plot pages from before any act number take the act that follows them;
+  // a show with no act numbers at all just says Set Changes.
+  for (let i = totalPages; i >= 1; i--) {
+    if (pageTag[i] !== 'PLOT') continue;
+    let j = i + 1; while (j <= totalPages && pageTag[j] === 'PLOT') j++;
+    pageTag[i] = (j <= totalPages && /^Act /.test(pageTag[j] || '')) ? pageTag[j] : 'Set Changes';
+  }
+  // Count pages within each run of the same section: "Act 1 · 2 of 7".
+  const secOf = [], secLen = {};
+  for (let i = 1, run = 0; i <= totalPages; i++) {
+    run = (i > 1 && pageTag[i] === pageTag[i - 1]) ? run + 1 : 1;
+    secOf[i] = run;
+    secLen[i] = run;
+    for (let k = i - run + 1; k <= i; k++) secLen[k] = run;
+  }
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(150,150,160);
     doc.text('Page ' + i + ' of ' + totalPages, M + TABLE_W, 52, { align: 'right' });
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(90,90,105);
+    doc.text((pageTag[i] || 'Set Changes') + '  ·  ' + secOf[i] + ' of ' + secLen[i], M + TABLE_W, pageH - 22, { align: 'right' });
   }
 
   const safe = showName.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
@@ -21315,10 +21529,10 @@ function setChangeSections() {
     cur.blocks.push(moves.map((m, i) => ({
       // Number, cue line and page belong to the change, not the move, so they
       // print once at the top of the block — same as the PDF.
-      num:    i === 0 ? changeShortNum(c.number) : '',
+      num:    '#' + changeShortNum(c.number),
       // m.trigger only survives on data a device hasn't migrated yet.
-      cue:    String(m.trigger || (i === 0 ? (c.cueLine || '') : '')),
-      pg:     i === 0 ? String(c.page || '') : '',
+      cue:    String(m.trigger || c.cueLine || ''),
+      pg:     c.page ? 'pg. ' + c.page : '',
       piece:  String(m.piece  || ''),
       action: String(m.action || ''),
       who:    String(m.who    || ''),
@@ -21424,9 +21638,9 @@ function loadExcelJS() {
 // so rounding can't trip fitToWidth into scaling the whole sheet down.
 //   pixels = round(w * 7) + 5 per column, at 96dpi.
 const XLSX_COLS = [
-  { key: 'num',    label: '#',      width: 6,  wrap: false, bold: true  },
+  { key: 'num',    label: '#',      width: 7,  wrap: false, bold: true  },
   { key: 'cue',    label: 'CUE',    width: 25, wrap: true,  bold: false },
-  { key: 'pg',     label: 'PG',     width: 6,  wrap: false, bold: false },
+  { key: 'pg',     label: 'PG',     width: 8,  wrap: false, bold: false },
   { key: 'piece',  label: 'PIECE',  width: 25, wrap: true,  bold: true  },
   { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
   { key: 'who',    label: 'WHO',    width: 16, wrap: true,  bold: false },
@@ -21449,7 +21663,7 @@ const XL = {
   GRID:   'FFCDCDD6',
   HEAD:   'FFE8E8F0',
   SCENE:  'FF26262E',   // black bar = scene
-  RULE:   'FF9696A2',   // grey rule = next change, same scene
+  RULE:   'FF26262E',   // heavy dark rule = next change, same scene (no shading)
   TINT:   'FFEDEEF3',   // every other change, so blocks read as units
   INK:    'FF16161C',
   MUTED:  'FF9696A0',
@@ -21479,7 +21693,7 @@ async function exportSetChangeXLSX() {
   }
 
   const thin   = { style: 'thin',   color: { argb: XL.GRID } };
-  const rule   = { style: 'medium', color: { argb: XL.RULE } };
+  const rule   = { style: 'thick', color: { argb: XL.RULE } };
   const titleR = { style: 'medium', color: { argb: XL.INK  } };
   const headB  = { style: 'thin',   color: { argb: 'FF8C8C9B' } };
 
@@ -21584,7 +21798,6 @@ async function exportSetChangeXLSX() {
             // everywhere else. This is what makes a block read as a block.
             top: (mi === 0 && bi > 0) ? rule : thin
           };
-          if (tint) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.TINT } };
         });
         r++;
       });
@@ -21620,10 +21833,106 @@ async function exportSetChangeXLSX() {
         cell.font = { size: XL_FS, bold: i === 0, name: 'Helvetica' };
         cell.alignment = { vertical: 'top', wrapText: i !== 0 };
         cell.border = { top: thin, left: thin, right: thin, bottom: thin };
-        if (idx % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.TINT } };
       });
     });
   }
+
+  // ── One tab per person ─────────────────────────────────────────────────────
+  // Matches the crew pages at the end of the plot PDF: only the moves that
+  // person is on, in running order under the same scene bars, with WITH naming
+  // whoever else is on the move. Moves with nobody named get the last tab.
+  const CREW_COLS = [
+    { key: 'num',    label: '#',      width: 7,  wrap: false, bold: true  },
+    { key: 'cue',    label: 'CUE',    width: 28, wrap: true,  bold: false },
+    { key: 'pg',     label: 'PG',     width: 8,  wrap: false, bold: false },
+    { key: 'piece',  label: 'PIECE',  width: 26, wrap: true,  bold: true  },
+    { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
+    { key: 'spike',  label: 'SPIKE',  width: 24, wrap: true,  bold: false },
+    { key: 'notes',  label: 'NOTES',  width: 27, wrap: true,  bold: false },
+    { key: 'with',   label: 'WITH',   width: 16, wrap: true,  bold: false },
+  ];
+  const NOBODY = '\u0000nobody';
+  const crew = new Map();   // lower-case name -> { name, items: [{ scene, c, m, others }] }
+  {
+    const SCENE_LABELS = sceneLabels();
+    let sceneNow = '';
+    cuesInScriptOrder().forEach(c => {
+      if (isSceneCue(c)) { sceneNow = SCENE_LABELS[c.id] || c.number || ''; return; }
+      if (c.type !== SHIFT_TYPE_ID) return;
+      (c.moves || []).forEach(m => {
+        const names = whoNames(m.who);
+        (names.length ? names : [NOBODY]).forEach(n => {
+          const k = n === NOBODY ? NOBODY : n.toLowerCase();
+          if (!crew.has(k)) crew.set(k, { name: n === NOBODY ? 'No one assigned' : n, items: [] });
+          crew.get(k).items.push({ scene: sceneNow, c, m, others: names.filter(o => o.toLowerCase() !== k) });
+        });
+      });
+    });
+  }
+  const people = [...crew.entries()].filter(([k]) => k !== NOBODY).map(([, v]) => v)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (crew.has(NOBODY)) people.push(crew.get(NOBODY));
+
+  // Tab names: Excel allows 31 characters, none of []:*?/\, and no repeats
+  // (it ignores case when checking).
+  const usedTabs = new Set(wb.worksheets.map(w => w.name.toLowerCase()));
+  const tabName = name => {
+    let base = String(name).replace(/[\[\]:*?\/\\]/g, ' ').replace(/^'+|'+$/g, '').trim().slice(0, 31) || 'Crew';
+    let t = base, n = 2;
+    while (usedTabs.has(t.toLowerCase())) { const suf = ' (' + n++ + ')'; t = base.slice(0, 31 - suf.length) + suf; }
+    usedTabs.add(t.toLowerCase());
+    return t;
+  };
+
+  const CLAST = String.fromCharCode(64 + CREW_COLS.length);   // 'H'
+  people.forEach(person => {
+    const changeCount = new Set(person.items.map(it => it.c.id)).size;
+    const moveCount = person.items.length;
+    const cs = wb.addWorksheet(tabName(person.name), {
+      views: [{ state: 'frozen', ySplit: 4 }],
+      pageSetup: {
+        orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+        printTitlesRow: '1:4',
+        margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 }
+      }
+    });
+    cs.columns = CREW_COLS.map(c => ({ key: c.key, width: c.width }));
+    titleBlock(cs, CLAST, person.name,
+      moveCount + ' move' + (moveCount !== 1 ? 's' : '') + ' in ' + changeCount + ' change' + (changeCount !== 1 ? 's' : ''));
+    cs.getCell('A2').value = showName + ' · Set Changes · Updated ' + exportedStr;
+    headerRow(cs, 4, CREW_COLS.map(c => c.label));
+
+    let cr = 5, pScene = null, tint = true, prevC = null, firstInScene = true;
+    person.items.forEach(it => {
+      if (it.scene !== pScene) {
+        pScene = it.scene;
+        if (pScene) { sceneBar(cs, cr, pScene, CLAST); cr++; }
+        tint = true; prevC = null; firstInScene = true;
+      }
+      const firstOfChange = it.c !== prevC;
+      if (firstOfChange) { tint = !tint; }
+      const vals = {
+        num:    '#' + changeShortNum(it.c.number),
+        cue:    String(it.m.trigger || it.c.cueLine || ''),
+        pg:     it.c.page ? 'pg. ' + it.c.page : '',
+        piece:  String(it.m.piece  || ''),
+        action: String(it.m.action || ''),
+        spike:  spkMoveText(it.m, showId),
+        notes:  String(it.m.notes  || ''),
+        with:   it.others.join(', ')
+      };
+      const row = cs.getRow(cr);
+      CREW_COLS.forEach((c, i) => {
+        const cell = row.getCell(i + 1);
+        cell.value = vals[c.key] || null;
+        cell.font = { size: XL_FS, bold: c.bold, name: 'Helvetica' };
+        cell.alignment = { vertical: 'top', wrapText: c.wrap };
+        cell.border = { left: thin, right: thin, bottom: thin,
+          top: (firstOfChange && !firstInScene) ? rule : thin };
+      });
+      cr++; prevC = it.c; firstInScene = false;
+    });
+  });
 
   try {
     const buf = await wb.xlsx.writeBuffer();
@@ -21876,7 +22185,7 @@ async function exportCueSheet() {
       // Script page is greyed metadata under the number — scene dividers head
       // the sheet now, so the page has to travel with each individual cue.
       doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(150,150,160);
-      doc.text('p.' + (c.page || '?'), X[0] + PAD, y + PAD + 17);
+      doc.text('pg. ' + (c.page || '?'), X[0] + PAD, y + PAD + 17);
 
       doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
       doc.setTextColor(40,40,40);

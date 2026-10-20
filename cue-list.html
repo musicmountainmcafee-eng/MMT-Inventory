@@ -525,6 +525,7 @@
     .edit-state { order: 10; flex: 1 0 100%; padding: 0 0 2px; font-size: 12px; white-space: normal; }
   }
   #move-sheet .ms-grid { display: grid; gap: 10px; margin-bottom: 10px; }
+  #move-sheet .ms-cueline { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
   #move-sheet .ms-g2 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
   #move-sheet .ms-g3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); }
   #move-sheet .ms-f { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
@@ -564,7 +565,12 @@
   [data-theme="red"]  { --bar-bg: #3a0a0a; --bar-ink: #ff9a90; --bar-meta: #c25555 }
 
   table.cs.pl td { border-bottom: none; }
-  table.cs.pl tr.pl-top td { border-top: 2px solid var(--rule); }
+  table.cs.pl tr.pl-top td { border-top: 3px solid var(--ink); }
+  table.cs.pl tr.band td { background: transparent; }
+  table.cs.pl tr.scene + tr.pl-top td { border-top-width: 0; }
+  table.cs.pl td.pl-numc { font-weight: 700; color: var(--ink); white-space: nowrap; }
+  table.cs.pl td.pl-numc .pl-num { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+  table.cs.pl td.pl-numc .cs-chip { margin: 0; }
   table.cs.pl tr.pl-row:not(.pl-top) td { border-top: 1px solid var(--grid); }
   table.cs.pl tr.pl-row td { padding-top: 9px; padding-bottom: 9px; }
   table.cs.pl tr.pl-tap td { cursor: pointer; }
@@ -608,6 +614,7 @@
   table.cs.pl tr.pl-addrow td { border-top: none !important; padding-top: 0; padding-bottom: 6px; }
   table.cs.pl tr.pl-addrow .mv-plus { border: none; color: var(--purple); padding: 6px 2px; font-weight: 500; }
   table.cs.pl tr.mv-sel td { background: var(--purple-light) !important; opacity: 1; }
+  .pl-addline { font: inherit; color: var(--purple); font-weight: 600; background: none; border: 1px dashed var(--purple); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
 
   /* Wings: big type for reading at arm's length; dark unless Red is picked. */
   [data-layout="wings"] table.cs.pl { font-size: calc(var(--ct-fs) * 1.3); }
@@ -696,8 +703,8 @@
     <h3>Export</h3>
     <div class="export-opts">
       <button class="export-opt" onclick="runExport('cues')"><b>Cue sheet</b><span>PDF of every cue, with line photos</span></button>
-      <button class="export-opt" onclick="runExport('plot')"><b>Set change plot</b><span>PDF for the deck: Before House, then every change</span></button>
-      <button class="export-opt" onclick="runExport('xlsx')"><b>Set change plot (Excel)</b><span>The same plot as a spreadsheet</span></button>
+      <button class="export-opt" onclick="runExport('plot')"><b>Set change plot</b><span>PDF for the deck: Before House, every change, then a page for each person</span></button>
+      <button class="export-opt" onclick="runExport('xlsx')"><b>Set change plot (Excel)</b><span>The same plot as a spreadsheet, with a tab for each person</span></button>
       <button class="export-opt" onclick="runExport('spikes')"><b>Spike key</b><span>PDF to post backstage: each piece, its tape and spike notes</span></button>
     </div>
     <div class="modal-btns"><button class="top-btn" onclick="closeExport()">Cancel</button></div>
@@ -944,8 +951,8 @@ function start(){
   // are held on this device. Offer them back rather than letting them rot.
   try {
     const draft = getDraft();
-    if (draft && ((draft.moves && Object.keys(draft.moves).length) || (draft.presets && Object.keys(draft.presets).length))) {
-      const n = Object.keys(draft.moves || {}).length + Object.keys(draft.presets || {}).length;
+    if (draft && ((draft.moves && Object.keys(draft.moves).length) || (draft.presets && Object.keys(draft.presets).length) || (draft.lines && Object.keys(draft.lines).length))) {
+      const n = Object.keys(draft.moves || {}).length + Object.keys(draft.presets || {}).length + Object.keys(draft.lines || {}).length;
       const when = new Date(draft.at || Date.now()).toLocaleString('en-US',
         { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
       setTimeout(() => {
@@ -962,6 +969,10 @@ function start(){
           if (draft.presets) {
             presetBaseline = draft.presetBaseline || presetBaseline;
             Object.keys(draft.presets).forEach(k => { if (draft.presets[k]) { presets[k] = draft.presets[k]; editedPresets[k] = true; } });
+          }
+          if (draft.lines) {
+            lineBaseline = Object.assign({}, lineBaseline, draft.lineBaseline || {});
+            Object.keys(draft.lines).forEach(id => { const c = cues.find(x => String(x.id) === String(id)); if (c) { c.cueLine = draft.lines[id]; editedLines[id] = true; } });
           }
           markDirty(); render();
         }
@@ -1158,7 +1169,7 @@ function fetchCues(showLoading){
     d => {
       // Editing started while this was on its way: it's older than what's
       // being edited, so it mustn't replace it.
-      if (editMode || editSaving || Object.keys(editedCues).length || Object.keys(editedPresets).length) return;
+      if (editMode || editSaving || clPending()) return;
       if (!d || !d.success || !d.cueData){ setStatus('no cue data', 'stale'); render(); return; }
       const hash = JSON.stringify([d.cueData.cues, d.cueData.cueTypes, d.cueData.presets]);
       const same = hash === lastHash;
@@ -1393,7 +1404,7 @@ function render(){
   const el = document.getElementById('sheet-body');
   const plot = plotOn();
   const mode = plot ? plMode() : 'full';
-  const NC = plot ? ({ full: 7, merged: 6, compact: 4 })[mode] : 5;
+  const NC = plot ? ({ full: 8, merged: 7, compact: 5 })[mode] : 5;
   const title = `<div class="sheet-title">
       <h2>${esc(ssTitle(scriptId, scriptName))} — Cue Sheet</h2>
       <div class="upd" id="upd">—</div>
@@ -1430,7 +1441,7 @@ function render(){
     if (g.label){
       if (!firstBand && !plot) body += '<tr class="scene-gap"><td colspan="5"></td></tr>';
       body += `<tr class="scene"><td colspan="${NC}">${esc(g.label)}${
-        g.page != null ? `<span class="scene-pg">p.${esc(g.page)}</span>` : ''}</td></tr>`;
+        g.page != null ? `<span class="scene-pg">pg. ${esc(g.page)}</span>` : ''}</td></tr>`;
       band = false; firstBand = false;
     }
     visible.forEach(c => { body += plot ? plRow(c, band, mode) : cueRow(c, band); band = !band; });
@@ -1442,9 +1453,9 @@ function render(){
     el.innerHTML = title + `<div class="cs-empty"><b>${what}</b>${how}</div>`;
   } else if (plot){
     const cols = {
-      full:    [['Cue',19],['PG',5],['Piece',18],['Action',10],['Who',13],['Spike',16],['Notes',19]],
-      merged:  [['Cue / PG',20],['Piece',18],['Action',10],['Who',14],['Spike',17],['Notes',21]],
-      compact: [['Cue',27],['Piece',27],['Who',19],['Spike / Notes',27]]
+      full:    [['#',5],['Cue',16],['PG',6],['Piece',17],['Action',10],['Who',12],['Spike',15],['Notes',19]],
+      merged:  [['#',6],['Cue / PG',18],['Piece',17],['Action',10],['Who',13],['Spike',16],['Notes',20]],
+      compact: [['#',9],['Cue',25],['Piece',24],['Who',17],['Spike / Notes',25]]
     }[mode];
     el.innerHTML = title + `<table class="cs pl">
       <colgroup>${cols.map(c => `<col style="width:${c[1]}%">`).join('')}</colgroup>
@@ -1695,7 +1706,7 @@ function cueRow(c, band){
 
   const accent = ` style="--shift-accent:${esc(t.color)}"`;
   const cueCell = `<span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span><span class="cs-num">${esc(shortNumber(c, t.name))}</span>
-      <span class="cs-pg">p.${esc(c.page || '?')}</span>`;
+      <span class="cs-pg">pg. ${esc(c.page || '?')}</span>`;
 
   const rowCls = c2 => {
     const a = [];
@@ -1851,11 +1862,21 @@ function plRow(c, band, mode){
     lineCell = `<button class="photo-chip" onclick="event.stopPropagation(); revealPhoto('${esc(c.id)}')">Show line photo</button>`;
   }
 
+  // Edit mode: a set change with no typed line asks for one; tapping it opens
+  // the sheet with the cursor in the Cue line box.
+  if (editMode && isShift && !c.cueLine) lineCell = `<button type="button" class="pl-addline" onclick="event.stopPropagation(); openCueLine('${esc(c.id)}')">+ Add cue line</button>` + (lineCell ? ' ' + lineCell : '');
   // No number column: the cue line leads. Cue types other than set changes
   // keep their coloured chip and number so they can't be mistaken for one.
-  const chip = isShift ? '' : `<span class="pl-num"><span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>${esc(shortNumber(c, t.name))}</span>`;
-  const cueCell = chip + (lineCell ? `<span class="pl-linetxt">${lineCell}</span>` : '')
-    + (merged ? `<span class="pl-pgsub">p.${esc(c.page || '?')}</span>` : '');
+  // Set changes lead with their change number, called over headset; other cue
+  // types keep their coloured chip and number so they can't be mistaken for one.
+  const chip = isShift ? `<span class="pl-num">#${esc(changeShortNum(shortNumber(c, t.name)))}</span>` : `<span class="pl-num"><span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>${esc(shortNumber(c, t.name))}</span>`;
+  // Every move row repeats the change's number, cue line and page, so each
+  // row reads on its own. A line photo shows on the first row only.
+  const typedLine = c.cueLine ? `<span class="pl-linetxt">${esc(c.cueLine)}</span>` : '';
+  const pgSub = merged ? `<span class="pl-pgsub">pg. ${esc(c.page || '?')}</span>` : '';
+  const cueRest = typedLine + pgSub;
+  const cueCell = (lineCell ? `<span class="pl-linetxt">${lineCell}</span>` : '')
+    + (merged ? `<span class="pl-pgsub">pg. ${esc(c.page || '?')}</span>` : '');
 
   const tr = (extra, attrs) => {
     const a = ['pl-row'];
@@ -1867,11 +1888,13 @@ function plRow(c, band, mode){
   // One row's cells, in whichever shape the mode wants.
   const cells = r => {
     if (compact) return `
+      <td class="pl-numc">${r.num || ''}</td>
       <td class="cs-line">${r.cue}</td>
       <td>${r.piece}${r.action ? `<span class="pl-actsub">${r.action}</span>` : ''}</td>
       <td class="pl-who">${r.who}</td>
       <td class="pl-notes">${r.spike}${r.notes}</td>`;
     return `
+      <td class="pl-numc">${r.num || ''}</td>
       <td class="cs-line">${r.cue}</td>
       ${merged ? '' : `<td class="pl-pg">${r.pg}</td>`}
       ${r.span ? `<td class="pl-act" colspan="2">${r.piece}</td>`
@@ -1880,23 +1903,23 @@ function plRow(c, band, mode){
       <td>${r.spike}</td>
       <td class="pl-notes">${r.notes}</td>`;
   };
-  const pg = esc(c.page || '');
+  const pg = c.page ? 'pg. ' + esc(c.page) : '';
 
   // Not a set change, or one with nothing entered yet: a single row.
   if (!moves.length){
-    return tr('pl-top') + cells({ cue: cueCell, pg, span: true,
+    return tr('pl-top') + cells({ num: chip, cue: cueCell, pg, span: true,
       piece: esc(c.action || ''), action: '', who: '', spike: '', notes: esc(notes) }) + '</tr>';
   }
 
   const tap = ` onclick="toggle('${esc(c.id)}')"`;
   if (!open){
-    return tr('pl-top pl-tap', tap) + cells({ cue: cueCell, pg, span: true,
+    return tr('pl-top pl-tap', tap) + cells({ num: chip, cue: cueCell, pg, span: true,
       piece: `<span class="pl-piece">${esc(c.action || 'Set change')}</span><br><span class="pl-moves">${moves.length} move${moves.length !== 1 ? 's' : ''} ▾</span>`,
       action: '', who: '', spike: '', notes: esc(notes) }) + '</tr>';
   }
 
   if (editMode){
-    const cols = compact ? 4 : merged ? 6 : 7;
+    const cols = compact ? 5 : merged ? 7 : 8;
     return moves.map((m, i) => {
       const first = i === 0, last = i === moves.length - 1;
       const cls = [first ? 'pl-top' : '', 'pl-tap', 'mv-edit'];
@@ -1904,7 +1927,7 @@ function plRow(c, band, mode){
       if (moveSheet && moveSheet.cueId === String(c.id) && moveSheet.idx === i) cls.push('mv-sel');
       const blank = !m.piece && !m.action && !m.who && !m.spike && !(m.spikeIds || []).length && !m.notes;
       return tr(cls.filter(Boolean).join(' '), ` data-mv="${esc(m.id || '')}" onclick="openMove('${esc(c.id)}', ${i})"`) + cells({
-        cue: first ? cueCell : '', pg: first ? pg : '',
+        num: chip, cue: first ? cueCell : cueRest, pg,
         piece: blank ? '<span class="mv-empty">Tap to add a move</span>'
           : `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
         action: esc(m.action || ''), who: esc(m.who || ''), spike: plSpikeHTML(m),
@@ -1920,7 +1943,7 @@ function plRow(c, band, mode){
     const cls = [first ? 'pl-top' : '', 'pl-tap'];
     if (activeWho && !onMove(m, activeWho)) cls.push('pl-dim');
     return tr(cls.filter(Boolean).join(' '), tap + ` data-mv="${esc(m.id || '')}"`) + cells({
-      cue: first ? cueCell : '', pg: first ? pg : '',
+      num: chip, cue: first ? cueCell : cueRest, pg,
       piece: `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
       action: esc(m.action || ''), who: esc(m.who || ''), spike: plSpikeHTML(m),
       notes: (first && notes ? `<span class="pl-cuenote">${esc(notes)}</span>` : '') + esc(m.notes || '')
@@ -2237,7 +2260,7 @@ async function exportSetChangePlot() {
   const GRID = [205, 205, 214];
   const HEAD_BG = [232, 232, 240];
   const SCENE_BAR = [38, 38, 46];       // black bar = scene
-  const BREAK_RULE = [150, 150, 162];   // grey rule = next change, same scene
+  const BREAK_RULE = [38, 38, 46];      // heavy dark rule = next change, same scene (no shading)
   const BLOCK_TINT = [237, 238, 243];   // every other change, so blocks read as units
 
   // Widths total the printable 704pt so the table squares off at both margins.
@@ -2248,9 +2271,9 @@ async function exportSetChangePlot() {
   // spent on a phrase that repeats every block. Split: a narrow number to call
   // over headset, and the trigger itself in the space that frees up.
   const COLS = [
-    { key: 'num',    label: '#',         w: 30,  bold: true },
-    { key: 'cue',    label: 'CUE',       w: 130 },
-    { key: 'pg',     label: 'PG',        w: 30  },
+    { key: 'num',    label: '#',         w: 34,  bold: true },
+    { key: 'cue',    label: 'CUE',       w: 114 },
+    { key: 'pg',     label: 'PG',        w: 42  },
     { key: 'piece',  label: 'PIECE',     w: 130, bold: true },
     { key: 'action', label: 'ACTION',    w: 68  },
     { key: 'who',    label: 'WHO',       w: 88  },
@@ -2303,11 +2326,18 @@ async function exportSetChangePlot() {
   // Whichever scene we're inside, so a page that opens mid-scene can say so
   // rather than starting with unlabelled rows.
   let curScene = '';
+  let lastAct = null;
 
   // withCont=false when a scene is being moved to this page deliberately — it's
   // about to draw its own bar, and a "(cont.)" above it would be a lie.
+  // Each page remembers which section it belongs to (Preset, Act 1, a
+  // person's name) so the footer can count pages within that section.
+  const pageTag = [];
+  const tagPage = l => { pageTag[doc.internal.getNumberOfPages()] = l; };
+  let pageFn = null;   // the crew pages swap in their own page builder
   function newPage(withCont) {
-    doc.addPage(); drawTitle(); drawHeader();
+    if (pageFn) return pageFn(withCont);
+    doc.addPage(); tagPage(lastAct !== null ? 'Act ' + lastAct : 'PLOT'); drawTitle(); drawHeader();
     if (withCont !== false && curScene) drawSceneBar(curScene + ' (cont.)', true);
   }
   function ensureRoom(h) {
@@ -2325,12 +2355,13 @@ async function exportSetChangePlot() {
     y += h;
   }
   function drawBreakRule() {
-    doc.setDrawColor(...BREAK_RULE); doc.setLineWidth(1.4);
+    doc.setDrawColor(...BREAK_RULE); doc.setLineWidth(2);
     doc.line(M, y, M + TABLE_W, y);
-    y += 1.4;
+    y += 2;
   }
 
   drawTitle();
+  tagPage('PLOT');
 
   // ── Before house opens ─────────────────────────────────────────────────────
   // Its own short table ahead of the plot proper: what's onstage or standing by
@@ -2364,6 +2395,7 @@ async function exportSetChangePlot() {
       y += hh;
     };
 
+    tagPage('Preset');
     drawSceneBar('Before house opens');
     drawPresetHead();
 
@@ -2391,11 +2423,10 @@ async function exportSetChangePlot() {
       // A long piece list runs on, and the continuation needs its own bar and
       // column header or the rows arrive unlabelled.
       if (y + rowH > pageH - MARGIN_BOTTOM) {
-        doc.addPage(); drawTitle();
+        doc.addPage(); tagPage('Preset'); drawTitle();
         drawSceneBar('Before house opens (cont.)', true);
         drawPresetHead();
       }
-      if (pShade) { doc.setFillColor(...BLOCK_TINT); doc.rect(M, y, TABLE_W, rowH, 'F'); }
       doc.setFontSize(FS); doc.setTextColor(30,30,30);
       PC.forEach((c, k) => {
         doc.setFont('helvetica', c.bold ? 'bold' : 'normal');
@@ -2421,7 +2452,7 @@ async function exportSetChangePlot() {
 
     // The presets are a standing reference, not part of the running order — so
     // they get the sheet to themselves and the plot opens on a clean page.
-    doc.addPage();
+    doc.addPage(); tagPage('PLOT');
     drawTitle();
     curScene = '';
   }
@@ -2474,10 +2505,10 @@ async function exportSetChangePlot() {
     const moves = (c.moves && c.moves.length) ? c.moves : [{}];
     const built = moves.map((m, i) => {
       const cells = {
-        num:    [i === 0 ? shortNum(c.number) : ''],
+        num:    ['#' + shortNum(c.number)],
         // m.trigger only survives on data a device hasn't migrated yet.
-        cue:    wrap(m.trigger || (i === 0 ? (c.cueLine || '') : ''), 1),
-        pg:     [i === 0 ? String(c.page || '') : ''],
+        cue:    wrap(m.trigger || c.cueLine || '', 1),
+        pg:     [c.page ? 'pg. ' + c.page : ''],
         piece:  wrap(m.piece,  3),
         action: wrap(m.action, 4),
         who:    wrap(m.who,    5),
@@ -2497,7 +2528,6 @@ async function exportSetChangePlot() {
       // A single row taller than a whole page: draw it and let it clip rather
       // than loop forever adding empty pages.
       if (y + r.h > pageH - MARGIN_BOTTOM && y > 90) newPage(true);
-      if (shaded) { doc.setFillColor(...BLOCK_TINT); doc.rect(M, y, TABLE_W, r.h, 'F'); }
       doc.setFontSize(FS); doc.setTextColor(30,30,30);
       COLS.forEach((col, i) => {
         doc.setFont('helvetica', col.bold ? 'bold' : 'normal');
@@ -2536,12 +2566,10 @@ async function exportSetChangePlot() {
     m = t.match(/^act\s*(\d+)/i);
     return m ? m[1] : null;
   };
-  let lastAct = null;
-
   sections.forEach(sec => {
     const barH = sec.label ? SCENE_BAR_H : 0;
     const secH = barH + sec.blocks.reduce((t, b) => t + b.h, 0)
-                      + Math.max(0, sec.blocks.length - 1) * 1.4;
+                      + Math.max(0, sec.blocks.length - 1) * 2;
 
     const act = actOf(sec.label);
     // Only a move between two KNOWN acts counts. Going from an unnumbered
@@ -2562,6 +2590,7 @@ async function exportSetChangePlot() {
       newPage(false);
     }
 
+    if (act !== null && pageTag[doc.internal.getNumberOfPages()] === 'PLOT') tagPage('Act ' + act);
     if (sec.label) { curScene = sec.label; drawSceneBar(sec.label); }
 
     let shade = false, first = true;
@@ -2578,15 +2607,172 @@ async function exportSetChangePlot() {
     });
   });
 
+  // ── Crew pages ─────────────────────────────────────────────────────────────
+  // After the full plot, one page per person: only the moves their name is on,
+  // in running order, under the same scene bars. WITH names whoever else is on
+  // that move. Moves with nobody named get a page of their own at the end, so
+  // a gap shows up instead of falling between everyone's lists.
+  const CC = [
+    { key: 'num',    label: '#',      w: 34,  bold: true },
+    { key: 'cue',    label: 'CUE',    w: 134 },
+    { key: 'pg',     label: 'PG',     w: 42  },
+    { key: 'piece',  label: 'PIECE',  w: 140, bold: true },
+    { key: 'action', label: 'ACTION', w: 70  },
+    { key: 'spike',  label: 'SPIKE',  w: 112 },
+    { key: 'notes',  label: 'NOTES',  w: 112 },
+    { key: 'with',   label: 'WITH',   w: 60  },
+  ];
+  const CX = []; { let x = M; for (const c of CC) { CX.push(x); x += c.w; } }
+  const cwrap = (txt, k) => doc.splitTextToSize(String(txt || ''), CC[k].w - PAD*2);
+
+  const NOBODY = '\u0000nobody';
+  const crew = new Map();   // lower-case name -> { name, items: [{ scene, c, m }] }
+  let sceneNow = '';
+  ordered.forEach(c => {
+    if (isSceneCue(c)) { sceneNow = SCENE_LABELS[c.id] || c.number || ''; return; }
+    if (c.type !== SHIFT_TYPE_ID) return;
+    (c.moves || []).forEach(m => {
+      const names = whoNames(m.who);
+      const keys = names.length ? names : [NOBODY];
+      keys.forEach(n => {
+        const k = n === NOBODY ? NOBODY : n.toLowerCase();
+        if (!crew.has(k)) crew.set(k, { name: n === NOBODY ? 'No one assigned' : n, items: [] });
+        crew.get(k).items.push({ scene: sceneNow, c, m, others: names.filter(o => o.toLowerCase() !== k) });
+      });
+    });
+  });
+  const people = [...crew.entries()].filter(([k]) => k !== NOBODY).map(([, v]) => v)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (crew.has(NOBODY)) people.push(crew.get(NOBODY));
+
+  people.forEach(person => {
+    const changeCount = new Set(person.items.map(it => it.c.id)).size;
+    const moveCount = person.items.length;
+    let pScene = '';
+
+    const crewTitle = () => {
+      y = 54;
+      doc.setFont('helvetica','bold'); doc.setFontSize(22); doc.setTextColor(22,22,28);
+      doc.text(person.name, M, y);
+      const nameW = doc.getTextWidth(person.name);
+      doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(120,120,132);
+      doc.text(moveCount + ' move' + (moveCount !== 1 ? 's' : '') + ' in ' + changeCount + ' change' + (changeCount !== 1 ? 's' : ''), M + nameW + 10, y);
+      y += 14;
+      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(150,150,160);
+      doc.text(showName + ' · Set Changes · Updated ' + exportedStr, M, y);
+      y += 7;
+      doc.setDrawColor(38,38,46); doc.setLineWidth(1.1);
+      doc.line(M, y, M + TABLE_W, y);
+      y += 13;
+    };
+    const crewHead = () => {
+      const h = 18;
+      doc.setFillColor(...HEAD_BG); doc.rect(M, y, TABLE_W, h, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(90,90,105);
+      CC.forEach((c, k) => doc.text(c.label, CX[k] + PAD, y + 12));
+      doc.setDrawColor(...GRID); doc.setLineWidth(0.5);
+      CC.forEach((c, k) => doc.line(CX[k], y, CX[k], y + h));
+      doc.line(M + TABLE_W, y, M + TABLE_W, y + h);
+      doc.setDrawColor(140,140,155); doc.setLineWidth(0.9);
+      doc.line(M, y + h, M + TABLE_W, y + h);
+      y += h;
+    };
+    const crewPage = cont => {
+      doc.addPage(); tagPage(person.name); crewTitle(); crewHead();
+      if (cont && pScene) drawSceneBar(pScene + ' (cont.)', true);
+    };
+    pageFn = crewPage;
+
+    // Measure each row, grouped into one block per change so a change's
+    // moves stay together and shade as a unit.
+    doc.setFontSize(FS);
+    const blocks = [];
+    person.items.forEach(it => {
+      const last = blocks[blocks.length - 1];
+      const firstOfChange = !last || last.c !== it.c;
+      const cells = {
+        num:    ['#' + shortNum(it.c.number)],
+        cue:    cwrap(it.m.trigger || it.c.cueLine || '', 1),
+        pg:     [it.c.page ? 'pg. ' + it.c.page : ''],
+        piece:  cwrap(it.m.piece, 3),
+        action: cwrap(it.m.action, 4),
+        spike:  spikeCell(it.m),
+        notes:  cwrap(it.m.notes, 6),
+        with:   cwrap(it.others.join(', '), 7),
+      };
+      const lines = Math.max(...CC.map(col => cells[col.key].length), 1);
+      const row = { cells, h: Math.max(MIN_ROW, lines * LEAD + PAD*2) };
+      if (firstOfChange) blocks.push({ c: it.c, scene: it.scene, rows: [row], h: row.h });
+      else { last.rows.push(row); last.h += row.h; }
+    });
+
+    crewPage(false);
+    let shade = false, firstInScene = true;
+    blocks.forEach(b => {
+      if (b.scene !== pScene) {
+        // Never strand a scene bar at the foot of a page: start the person's
+        // next page instead (their own header, not the plot's).
+        if (b.scene && y + 18 + Math.min(b.h, 60) > pageH - MARGIN_BOTTOM && y > 140) { pScene = ''; crewPage(false); }
+        pScene = b.scene;
+        if (pScene) drawSceneBar(pScene, true);
+        shade = false; firstInScene = true;
+      }
+      if (y + b.h > pageH - MARGIN_BOTTOM && y > 90 && b.h <= pageH - MARGIN_BOTTOM - 140) { crewPage(true); firstInScene = true; }
+      else if (!firstInScene) drawBreakRule();
+      b.rows.forEach(r => {
+        if (y + r.h > pageH - MARGIN_BOTTOM && y > 90) crewPage(true);
+        doc.setFontSize(FS); doc.setTextColor(30,30,30);
+        CC.forEach((col, k) => {
+          doc.setFont('helvetica', col.bold ? 'bold' : 'normal');
+          r.cells[col.key].forEach((ln, li) => {
+            const base = y + PAD + LEAD - 3 + li * LEAD;
+            if (typeof ln === 'string') { doc.text(ln, CX[k] + PAD, base); return; }
+            if (ln.e) spkDrawPDF(doc, ln.e, CX[k] + PAD, base - 8, 15, 9);
+            doc.setFont('helvetica', ln.bold ? 'bold' : 'normal');
+            doc.setFontSize(ln.small ? FS - 1.5 : FS);
+            if (ln.small) doc.setTextColor(90, 90, 98);
+            doc.text(ln.t, CX[k] + PAD + ln.ind, base);
+            doc.setFontSize(FS); doc.setTextColor(30, 30, 30);
+            doc.setFont('helvetica', col.bold ? 'bold' : 'normal');
+          });
+        });
+        doc.setDrawColor(...GRID); doc.setLineWidth(0.4);
+        CC.forEach((col, k) => doc.line(CX[k], y, CX[k], y + r.h));
+        doc.line(M + TABLE_W, y, M + TABLE_W, y + r.h);
+        doc.line(M, y + r.h, M + TABLE_W, y + r.h);
+        y += r.h;
+      });
+      shade = !shade; firstInScene = false;
+    });
+  });
+
   if (!anyScene) toast('No scene markers found — plot has no scene bars');
 
   // Page N of M, right-aligned on the title baseline. Has to run after the last
   // page exists, so it's a second pass rather than part of drawTitle.
+  pageFn = null;
   const totalPages = doc.internal.getNumberOfPages();
+  // Plot pages from before any act number take the act that follows them;
+  // a show with no act numbers at all just says Set Changes.
+  for (let i = totalPages; i >= 1; i--) {
+    if (pageTag[i] !== 'PLOT') continue;
+    let j = i + 1; while (j <= totalPages && pageTag[j] === 'PLOT') j++;
+    pageTag[i] = (j <= totalPages && /^Act /.test(pageTag[j] || '')) ? pageTag[j] : 'Set Changes';
+  }
+  // Count pages within each run of the same section: "Act 1 · 2 of 7".
+  const secOf = [], secLen = {};
+  for (let i = 1, run = 0; i <= totalPages; i++) {
+    run = (i > 1 && pageTag[i] === pageTag[i - 1]) ? run + 1 : 1;
+    secOf[i] = run;
+    secLen[i] = run;
+    for (let k = i - run + 1; k <= i; k++) secLen[k] = run;
+  }
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(150,150,160);
     doc.text('Page ' + i + ' of ' + totalPages, M + TABLE_W, 52, { align: 'right' });
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(90,90,105);
+    doc.text((pageTag[i] || 'Set Changes') + '  ·  ' + secOf[i] + ' of ' + secLen[i], M + TABLE_W, pageH - 22, { align: 'right' });
   }
 
   const safe = showName.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
@@ -2641,10 +2827,10 @@ function setChangeSections() {
     cur.blocks.push(moves.map((m, i) => ({
       // Number, cue line and page belong to the change, not the move, so they
       // print once at the top of the block — same as the PDF.
-      num:    i === 0 ? changeShortNum(c.number) : '',
+      num:    '#' + changeShortNum(c.number),
       // m.trigger only survives on data a device hasn't migrated yet.
-      cue:    String(m.trigger || (i === 0 ? (c.cueLine || '') : '')),
-      pg:     i === 0 ? String(c.page || '') : '',
+      cue:    String(m.trigger || c.cueLine || ''),
+      pg:     c.page ? 'pg. ' + c.page : '',
       piece:  String(m.piece  || ''),
       action: String(m.action || ''),
       who:    String(m.who    || ''),
@@ -2750,9 +2936,9 @@ function loadExcelJS() {
 // so rounding can't trip fitToWidth into scaling the whole sheet down.
 //   pixels = round(w * 7) + 5 per column, at 96dpi.
 const XLSX_COLS = [
-  { key: 'num',    label: '#',      width: 6,  wrap: false, bold: true  },
+  { key: 'num',    label: '#',      width: 7,  wrap: false, bold: true  },
   { key: 'cue',    label: 'CUE',    width: 25, wrap: true,  bold: false },
-  { key: 'pg',     label: 'PG',     width: 6,  wrap: false, bold: false },
+  { key: 'pg',     label: 'PG',     width: 8,  wrap: false, bold: false },
   { key: 'piece',  label: 'PIECE',  width: 25, wrap: true,  bold: true  },
   { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
   { key: 'who',    label: 'WHO',    width: 16, wrap: true,  bold: false },
@@ -2775,7 +2961,7 @@ const XL = {
   GRID:   'FFCDCDD6',
   HEAD:   'FFE8E8F0',
   SCENE:  'FF26262E',   // black bar = scene
-  RULE:   'FF9696A2',   // grey rule = next change, same scene
+  RULE:   'FF26262E',   // heavy dark rule = next change, same scene (no shading)
   TINT:   'FFEDEEF3',   // every other change, so blocks read as units
   INK:    'FF16161C',
   MUTED:  'FF9696A0',
@@ -2805,7 +2991,7 @@ async function exportSetChangeXLSX() {
   }
 
   const thin   = { style: 'thin',   color: { argb: XL.GRID } };
-  const rule   = { style: 'medium', color: { argb: XL.RULE } };
+  const rule   = { style: 'thick', color: { argb: XL.RULE } };
   const titleR = { style: 'medium', color: { argb: XL.INK  } };
   const headB  = { style: 'thin',   color: { argb: 'FF8C8C9B' } };
 
@@ -2910,7 +3096,6 @@ async function exportSetChangeXLSX() {
             // everywhere else. This is what makes a block read as a block.
             top: (mi === 0 && bi > 0) ? rule : thin
           };
-          if (tint) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.TINT } };
         });
         r++;
       });
@@ -2946,10 +3131,106 @@ async function exportSetChangeXLSX() {
         cell.font = { size: XL_FS, bold: i === 0, name: 'Helvetica' };
         cell.alignment = { vertical: 'top', wrapText: i !== 0 };
         cell.border = { top: thin, left: thin, right: thin, bottom: thin };
-        if (idx % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.TINT } };
       });
     });
   }
+
+  // ── One tab per person ─────────────────────────────────────────────────────
+  // Matches the crew pages at the end of the plot PDF: only the moves that
+  // person is on, in running order under the same scene bars, with WITH naming
+  // whoever else is on the move. Moves with nobody named get the last tab.
+  const CREW_COLS = [
+    { key: 'num',    label: '#',      width: 7,  wrap: false, bold: true  },
+    { key: 'cue',    label: 'CUE',    width: 28, wrap: true,  bold: false },
+    { key: 'pg',     label: 'PG',     width: 8,  wrap: false, bold: false },
+    { key: 'piece',  label: 'PIECE',  width: 26, wrap: true,  bold: true  },
+    { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
+    { key: 'spike',  label: 'SPIKE',  width: 24, wrap: true,  bold: false },
+    { key: 'notes',  label: 'NOTES',  width: 27, wrap: true,  bold: false },
+    { key: 'with',   label: 'WITH',   width: 16, wrap: true,  bold: false },
+  ];
+  const NOBODY = '\u0000nobody';
+  const crew = new Map();   // lower-case name -> { name, items: [{ scene, c, m, others }] }
+  {
+    const SCENE_LABELS = sceneLabels();
+    let sceneNow = '';
+    cuesInScriptOrder().forEach(c => {
+      if (isSceneCue(c)) { sceneNow = SCENE_LABELS[c.id] || c.number || ''; return; }
+      if (c.type !== SHIFT_TYPE_ID) return;
+      (c.moves || []).forEach(m => {
+        const names = whoNames(m.who);
+        (names.length ? names : [NOBODY]).forEach(n => {
+          const k = n === NOBODY ? NOBODY : n.toLowerCase();
+          if (!crew.has(k)) crew.set(k, { name: n === NOBODY ? 'No one assigned' : n, items: [] });
+          crew.get(k).items.push({ scene: sceneNow, c, m, others: names.filter(o => o.toLowerCase() !== k) });
+        });
+      });
+    });
+  }
+  const people = [...crew.entries()].filter(([k]) => k !== NOBODY).map(([, v]) => v)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (crew.has(NOBODY)) people.push(crew.get(NOBODY));
+
+  // Tab names: Excel allows 31 characters, none of []:*?/\, and no repeats
+  // (it ignores case when checking).
+  const usedTabs = new Set(wb.worksheets.map(w => w.name.toLowerCase()));
+  const tabName = name => {
+    let base = String(name).replace(/[\[\]:*?\/\\]/g, ' ').replace(/^'+|'+$/g, '').trim().slice(0, 31) || 'Crew';
+    let t = base, n = 2;
+    while (usedTabs.has(t.toLowerCase())) { const suf = ' (' + n++ + ')'; t = base.slice(0, 31 - suf.length) + suf; }
+    usedTabs.add(t.toLowerCase());
+    return t;
+  };
+
+  const CLAST = String.fromCharCode(64 + CREW_COLS.length);   // 'H'
+  people.forEach(person => {
+    const changeCount = new Set(person.items.map(it => it.c.id)).size;
+    const moveCount = person.items.length;
+    const cs = wb.addWorksheet(tabName(person.name), {
+      views: [{ state: 'frozen', ySplit: 4 }],
+      pageSetup: {
+        orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+        printTitlesRow: '1:4',
+        margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 }
+      }
+    });
+    cs.columns = CREW_COLS.map(c => ({ key: c.key, width: c.width }));
+    titleBlock(cs, CLAST, person.name,
+      moveCount + ' move' + (moveCount !== 1 ? 's' : '') + ' in ' + changeCount + ' change' + (changeCount !== 1 ? 's' : ''));
+    cs.getCell('A2').value = showName + ' · Set Changes · Updated ' + exportedStr;
+    headerRow(cs, 4, CREW_COLS.map(c => c.label));
+
+    let cr = 5, pScene = null, tint = true, prevC = null, firstInScene = true;
+    person.items.forEach(it => {
+      if (it.scene !== pScene) {
+        pScene = it.scene;
+        if (pScene) { sceneBar(cs, cr, pScene, CLAST); cr++; }
+        tint = true; prevC = null; firstInScene = true;
+      }
+      const firstOfChange = it.c !== prevC;
+      if (firstOfChange) { tint = !tint; }
+      const vals = {
+        num:    '#' + changeShortNum(it.c.number),
+        cue:    String(it.m.trigger || it.c.cueLine || ''),
+        pg:     it.c.page ? 'pg. ' + it.c.page : '',
+        piece:  String(it.m.piece  || ''),
+        action: String(it.m.action || ''),
+        spike:  spkMoveText(it.m, showId),
+        notes:  String(it.m.notes  || ''),
+        with:   it.others.join(', ')
+      };
+      const row = cs.getRow(cr);
+      CREW_COLS.forEach((c, i) => {
+        const cell = row.getCell(i + 1);
+        cell.value = vals[c.key] || null;
+        cell.font = { size: XL_FS, bold: c.bold, name: 'Helvetica' };
+        cell.alignment = { vertical: 'top', wrapText: c.wrap };
+        cell.border = { left: thin, right: thin, bottom: thin,
+          top: (firstOfChange && !firstInScene) ? rule : thin };
+      });
+      cr++; prevC = it.c; firstInScene = false;
+    });
+  });
 
   try {
     const buf = await wb.xlsx.writeBuffer();
@@ -3202,7 +3483,7 @@ async function exportCueSheet() {
       // Script page is greyed metadata under the number — scene dividers head
       // the sheet now, so the page has to travel with each individual cue.
       doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(150,150,160);
-      doc.text('p.' + (c.page || '?'), X[0] + PAD, y + PAD + 17);
+      doc.text('pg. ' + (c.page || '?'), X[0] + PAD, y + PAD + 17);
 
       doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
       doc.setTextColor(40,40,40);
@@ -3265,6 +3546,11 @@ let editLoadedRev = null;
 let editSaving    = false;
 let presetBaseline = {};       // key -> JSON of the preset when editing began
 let editedPresets  = {};       // key -> true
+// A set change's cue line, typed in the move sheet. Saved like a move: merged
+// box by box into whatever the Sheet has, so nobody else's edit is lost.
+let lineBaseline   = {};       // cueId -> cue line when editing began
+let editedLines    = {};       // cueId -> true
+function clPending(){ return Object.keys(editedCues).length + Object.keys(editedPresets).length + Object.keys(editedLines).length; }
 let presetSheet    = null;     // { key } while the preset panel is open
 
 function draftKey(){ return 'mmt_cuelist_draft_' + scriptId; }
@@ -3278,7 +3564,9 @@ function saveDraft(){
     });
     const pOut = {};
     Object.keys(editedPresets).forEach(k => { pOut[k] = presets[k] || null; });
-    const v = JSON.stringify({ at: Date.now(), rev: editLoadedRev, baseline: editBaseline, moves: out, presetBaseline, presets: pOut });
+    const lOut = {};
+    Object.keys(editedLines).forEach(id => { const c = cues.find(x => String(x.id) === String(id)); if (c) lOut[id] = String(c.cueLine || ''); });
+    const v = JSON.stringify({ at: Date.now(), rev: editLoadedRev, baseline: editBaseline, moves: out, presetBaseline, presets: pOut, lineBaseline, lines: lOut });
     for (let pass = 0; pass < 3; pass++) {
       try { localStorage.setItem(draftKey(), v); break; } catch(e) {
         // Full: make room from copies that can be fetched again.
@@ -3309,11 +3597,14 @@ function setEditMode(on){
     editLoadedRev = loadedRev;
     cues.forEach(c => { if (c.type === SHIFT_TYPE_ID) editBaseline[c.id] = (c.id in keepC && oldB[c.id]) ? oldB[c.id] : JSON.parse(JSON.stringify(c.moves || [])); });
     presetBaseline = {}; editedPresets = Object.assign({}, keepP);
+    const keepL = editedLines, oldLB = lineBaseline;
+    lineBaseline = {}; editedLines = Object.assign({}, keepL);
+    cues.forEach(c => { if (c.type === SHIFT_TYPE_ID) lineBaseline[c.id] = (c.id in keepL && c.id in oldLB) ? oldLB[c.id] : String(c.cueLine || ''); });
     Object.keys(presets).forEach(k => { presetBaseline[k] = (k in keepP && oldPB[k]) ? oldPB[k] : JSON.stringify(presets[k]); });
     if (!pollTimer) schedulePoll();
     render();
   } else {
-    if (Object.keys(editedCues).length || Object.keys(editedPresets).length) saveMoveEdits();
+    if (clPending()) saveMoveEdits();
     else { schedulePoll(); render(); }
   }
 }
@@ -3351,7 +3642,7 @@ function markDirty(){
   clAutoSave();
   const el = document.getElementById('edit-state');
   if (!el) return;
-  const n = Object.keys(editedCues).length + Object.keys(editedPresets).length;
+  const n = clPending();
   el.className = 'edit-state dirty';
   el.textContent = n ? n + ' change' + (n !== 1 ? 's' : '') + ' not saved yet' : '';
   measureHeader();
@@ -3566,12 +3857,15 @@ function clAdopt(data){
   const keepMoves = {}, keepP = {};
   Object.keys(editedCues).forEach(id => { const c = cues.find(x => String(x.id) === String(id)); if (c) keepMoves[id] = JSON.parse(JSON.stringify(c.moves || [])); });
   Object.keys(editedPresets).forEach(k => { if (presets[k]) keepP[k] = JSON.parse(JSON.stringify(presets[k])); });
+  const keepL = {};
+  Object.keys(editedLines).forEach(id => { const c = cues.find(x => String(x.id) === String(id)); if (c) keepL[id] = String(c.cueLine || ''); });
   applyPayload(JSON.parse(JSON.stringify(data)));
-  cues.forEach(c => { if (c.id in keepMoves) c.moves = keepMoves[c.id]; });
+  cues.forEach(c => { if (c.id in keepMoves) c.moves = keepMoves[c.id]; if (c.id in keepL) c.cueLine = keepL[c.id]; });
   Object.keys(keepP).forEach(k => { presets[k] = keepP[k]; });
   if (editMode) {
     cues.forEach(c => { if (c.type === SHIFT_TYPE_ID && !(c.id in keepMoves)) editBaseline[c.id] = JSON.parse(JSON.stringify(c.moves || [])); });
     Object.keys(presets).forEach(k => { if (!(k in keepP)) presetBaseline[k] = JSON.stringify(presets[k]); });
+    cues.forEach(c => { if (c.type === SHIFT_TYPE_ID && !(c.id in keepL)) lineBaseline[c.id] = String(c.cueLine || ''); });
   }
   loadedRev = data._rev != null ? data._rev : loadedRev;
   lastHash = JSON.stringify([data.cues, data.cueTypes, data.presets]);
@@ -3589,7 +3883,8 @@ function saveMoveEdits(forceRead){
   clearTimeout(_clAutoT);
   const ids = Object.keys(editedCues);
   const pKeys = Object.keys(editedPresets);
-  if (!ids.length && !pKeys.length){ schedulePoll(); render(); return; }
+  const lIds = Object.keys(editedLines);
+  if (!ids.length && !pKeys.length && !lIds.length){ schedulePoll(); render(); return; }
   editSaving = true;
 
   const el = document.getElementById('edit-state');
@@ -3601,6 +3896,8 @@ function saveMoveEdits(forceRead){
     if (c) ours[id] = JSON.parse(JSON.stringify(c.moves || []));
   });
   pKeys.forEach(k => { oursP[k] = JSON.parse(JSON.stringify(presets[k] || {})); });
+  const oursL = {};
+  lIds.forEach(id => { const c = cues.find(x => String(x.id) === String(id)); if (c) oursL[id] = String(c.cueLine || ''); });
   const offline = () => {
     editSaving = false;
     if (el){ el.className = 'edit-state error'; el.textContent = 'Not saved yet — no signal. Your edits are safe on this device; trying again.'; }
@@ -3625,6 +3922,14 @@ function saveMoveEdits(forceRead){
       const base = JSON.parse(presetBaseline[k] || 'null') || csBlankLike(oursP[k], theirs);
       data.presets[k] = csMergeObj(base, oursP[k], theirs, 'presets.' + k, clashes);
       pApplied.push(k);
+    });
+    const lApplied = [];
+    Object.keys(oursL).forEach(id => {
+      const tgt = (data.cues || []).find(x => String(x.id) === String(id));
+      if (!tgt) { if (!conflicts.some(x => String(x.id) === String(id))) conflicts.push({ id, why: 'the set change no longer exists on the Sheet' }); return; }
+      const v = csPick(id in lineBaseline ? lineBaseline[id] : '', oursL[id], String(tgt.cueLine || ''), 'cues.' + id + '.cueLine', clashes);
+      if (v) tgt.cueLine = v; else delete tgt.cueLine;
+      lApplied.push(id);
     });
     const baseRev = freshRev;
     data._rev = baseRev + 1;
@@ -3665,6 +3970,11 @@ function saveMoveEdits(forceRead){
         editBaseline[id] = JSON.parse(JSON.stringify(ours[id]));
         if (!c || JSON.stringify(c.moves || []) === JSON.stringify(ours[id])) delete editedCues[id];
       });
+      lApplied.forEach(id => {
+        lineBaseline[id] = oursL[id];
+        const c = cues.find(x => String(x.id) === String(id));
+        if (!c || String(c.cueLine || '') === oursL[id]) delete editedLines[id];
+      });
       pApplied.forEach(k => {
         presetBaseline[k] = JSON.stringify(oursP[k]);
         if (JSON.stringify(presets[k] || {}) === JSON.stringify(oursP[k])) delete editedPresets[k];
@@ -3680,7 +3990,7 @@ function saveMoveEdits(forceRead){
           + '. Your version is still on this device.');
       } else {
         if (el){ el.className = 'edit-state saved'; el.textContent = 'Saved'; setTimeout(() => { if (el.textContent === 'Saved') el.textContent = ''; }, 2500); }
-        if (editMode || _saveAgain || Object.keys(editedCues).length || Object.keys(editedPresets).length) saveDraft();
+        if (editMode || _saveAgain || clPending()) saveDraft();
         else {
           clearDraft();
           const btn = document.getElementById('edit-btn');
@@ -3826,13 +4136,13 @@ function prPaint(){
 (function(){ const f = window.render; if (typeof f === 'function') window.render = function(){ const r = f.apply(this, arguments); try { if (_prPeople.length) prPaint(); } catch(e){} return r; }; })();
 // Leaving with changes not saved yet: send them now (they're kept on this
 // device either way, and go next time if this doesn't make it).
-function clUnsaved(){ return Object.keys(editedCues).length + Object.keys(editedPresets).length > 0; }
+function clUnsaved(){ return clPending() > 0; }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && clUnsaved()) { saveDraft(); if (!editSaving) saveMoveEdits(); } });
 window.addEventListener('beforeunload', e => { if (clUnsaved()) { saveDraft(); e.preventDefault(); e.returnValue = ''; return ''; } });
 window.addEventListener('pagehide', () => { try { if (scriptId) fetch(SCRIPT_URL + '?action=getCueRev&scriptId=' + encodeURIComponent(scriptId) + '&me=' + encodeURIComponent(prDevId()) + '&bye=1', { mode: 'no-cors', keepalive: true }); } catch(e){} });
 function clAutoSave(){
   clearTimeout(_clAutoT);
-  _clAutoT = setTimeout(() => { if (Object.keys(editedCues).length || Object.keys(editedPresets).length) saveMoveEdits(); }, 1500);
+  _clAutoT = setTimeout(() => { if (clPending()) saveMoveEdits(); }, 1500);
 }
 
 
@@ -4060,6 +4370,23 @@ function sheetField(field, value){
   refreshSheetRows(c);
 }
 
+function openCueLine(cueId){
+  openMove(cueId, 0);
+  const i = document.getElementById('ms-cueLine');
+  if (i) i.focus();
+}
+
+// The cue line belongs to the set change, not the move: every move's sheet
+// shows the same box.
+function sheetCueLine(value){
+  const c = sheetCue();
+  if (!c) return;
+  c.cueLine = value;
+  editedLines[c.id] = true;
+  saveDraft(); markDirty();
+  refreshSheetRows(c);
+}
+
 // Redraw just this set change's rows, in whatever layout the page is in, so
 // what's typed in the sheet shows behind it as it's typed.
 function refreshSheetRows(c){
@@ -4134,13 +4461,16 @@ function renderMoveSheet(){
     <div class="ms-head">
       <span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>
       <span class="ms-num">${esc(shortNumber(c, t.name))}</span>
-      <span class="ms-of">· move ${moveSheet.idx + 1} of ${c.moves.length} · p.${esc(c.page || '?')}</span>
+      <span class="ms-of">· move ${moveSheet.idx + 1} of ${c.moves.length} · pg. ${esc(c.page || '?')}</span>
       <span style="flex:1"></span>
       <button class="ms-icon" aria-label="Previous move" onclick="sheetStep(-1)"${at <= 0 ? ' disabled' : ''}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
       <button class="ms-icon" aria-label="Next move" onclick="sheetStep(1)"${at < 0 || at >= refs.length - 1 ? ' disabled' : ''}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
+    <label class="ms-f ms-cueline"><span>Cue line · for the whole change</span>
+      <input id="ms-cueLine" class="ms-in" value="${esc(c.cueLine || '')}" placeholder="Type the line this change goes on"
+        autocomplete="off" enterkeyhint="done" oninput="sheetCueLine(this.value)" onkeydown="if(event.key==='Enter')this.blur()"></label>
     <div class="ms-grid ms-g2">
       <label class="ms-f"><span>Piece</span>${inp('piece', 'e.g. Main Curtain', ' strong')}</label>
       <label class="ms-f"><span>Action</span>${inp('action', 'e.g. In')}</label>
@@ -4205,7 +4535,7 @@ function renderPageJump(){
     .filter(p => p != null).sort((a,b) => a - b);
   const cur = sel.value;
   sel.innerHTML = '<option value="">Page…</option>' +
-    pages.map(p => `<option value="${esc(p)}">p. ${esc(p)}</option>`).join('');
+    pages.map(p => `<option value="${esc(p)}">pg. ${esc(p)}</option>`).join('');
   if (pages.map(String).includes(cur)) sel.value = cur;
 }
 
@@ -4385,6 +4715,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v3</div>
 </body>
 </html>
