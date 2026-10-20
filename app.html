@@ -6692,7 +6692,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.20 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.20 v3</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -21339,25 +21339,6 @@ async function exportSetChangePlot() {
     let j = i + 1; while (j <= totalPages && pageTag[j] === 'PLOT') j++;
     pageTag[i] = (j <= totalPages && /^Act /.test(pageTag[j] || '')) ? pageTag[j] : 'Set Changes';
   }
-  // Bookmarks, the PDF reader's sidebar: Before House, each act, then each
-  // person under Crew, each pointing at its section's first page.
-  try {
-    const crewNames = new Set(people.map(p => p.name));
-    let crewNode = null, prevTag = null;
-    for (let i = 1; i <= totalPages; i++) {
-      const tag = pageTag[i] || 'Set Changes';
-      if (tag === prevTag) continue;
-      prevTag = tag;
-      if (crewNames.has(tag)) {
-        if (!crewNode) crewNode = doc.outline.add(null, 'Crew', { pageNumber: i });
-        doc.outline.add(crewNode, tag, { pageNumber: i });
-      } else {
-        doc.outline.add(null, tag === 'Preset' ? 'Before House' : tag, { pageNumber: i });
-      }
-    }
-    // Open with the bookmarks showing, where the reader allows it.
-    doc.internal.events.subscribe('putCatalog', () => doc.internal.write('/PageMode /UseOutlines'));
-  } catch (e) {}
   // Count pages within each run of the same section: "Act 1 · 2 of 7".
   const secOf = [], secLen = {};
   for (let i = 1, run = 0; i <= totalPages; i++) {
