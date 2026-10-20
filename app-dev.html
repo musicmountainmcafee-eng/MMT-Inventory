@@ -3132,6 +3132,11 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #dev-badge { position: fixed; bottom: 4px; left: 8px; z-index: 999; background: #f39c12; color: #fff; font: 700 11px system-ui, sans-serif; padding: 2px 8px; border-radius: 4px; pointer-events: none; letter-spacing: .05em; }
   #mv-drawer .mvd-body { flex: 1; overflow: auto; padding: 8px 12px 12px; }
   #mv-drawer table.mv-grid { border-collapse: separate; border-spacing: 0 3px; width: 100%; }
+  #mv-drawer .mvd-line { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; }
+  #mv-drawer .mvd-line > span { flex: none; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--cue-text-faint); }
+  #mv-drawer .mvd-line input { flex: 1; min-width: 0; font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--cue-border); border-radius: 8px; background: var(--cue-surface); color: var(--cue-text); box-sizing: border-box; }
+  #mv-drawer .mvd-line input:focus { outline: none; border-color: var(--shift-color, #7c5cbf); box-shadow: 0 0 0 2px rgba(124,92,191,.18); }
+  #mv-drawer .mvd-line input::placeholder { color: var(--shift-color, #7c5cbf); font-weight: 600; opacity: .85; }
   #mv-drawer table.mv-grid th { font-size:12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--cue-text-faint); padding: 0 4px 3px; text-align: left; }
   #mv-drawer table.mv-grid td { padding: 0 4px; vertical-align: middle; }
   #mv-drawer table.mv-grid input {
@@ -3262,11 +3267,6 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #scripts-editor .cue-table .ct-num { font-family: 'DM Mono', monospace; font-weight: 600; font-size:12px; white-space: nowrap; }
   #scripts-editor .cue-table .ct-action { color: var(--cue-text); }
   #scripts-editor .cue-table .ct-line { color: var(--cue-text-muted); font-style: italic; font-size:12px; }
-  #scripts-editor .cue-table .ct-line-in { padding-top: 4px; padding-bottom: 4px; }
-  #scripts-editor .cue-table .ct-lineinput { width: 100%; min-width: 120px; box-sizing: border-box; font: inherit; font-size: 13px; font-style: normal; color: var(--cue-text, inherit); background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 5px 7px; }
-  #scripts-editor .cue-table .ct-lineinput:hover { border-color: var(--cue-border, rgba(127,127,140,.35)); }
-  #scripts-editor .cue-table .ct-lineinput:focus { outline: none; border-color: #7c5cbf; background: var(--cue-bg, #fff); box-shadow: 0 0 0 2px rgba(124,92,191,.18); }
-  #scripts-editor .cue-table .ct-lineinput::placeholder { color: #7c5cbf; font-weight: 600; opacity: .85; }
   #scripts-editor table.mv-grid input {
     width: 100%; box-sizing: border-box; padding: 4px 6px; font-size:12px;
     font-family: 'DM Sans', sans-serif; background: var(--cue-surface);
@@ -6688,7 +6688,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v2 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v3 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -17169,8 +17169,8 @@ drawCanvas.addEventListener('pointerup', e => {
 
       // Instantly crop the script image under the box (zero delay — no OCR, no
       // network) so the actual line is visible even though it's not typed text.
-      // Set changes take no photo: their cue line gets typed in later. Every
-      // other cue keeps the photo, which reads better than typing for those.
+      // Set changes take no photo: their cue line gets typed in later, in the
+      // set change's drawer. Every other cue keeps the photo.
       const lineCrop = typeId === SHIFT_TYPE_ID ? '' : cropScriptLine(rect);
 
       // Position the label in the right margin, vertically level with the marker
@@ -17870,14 +17870,7 @@ function renderCueList() {
     return;
   }
   renderSetVocab();
-  // A rebuild mid-typing (a sync landing, say) mustn't throw away the cursor.
-  const ae = document.activeElement;
-  const keep = ae && ae.classList && ae.classList.contains('ct-lineinput')
-    ? { id: ae.dataset.cue, v: ae.value, d: ae.defaultValue, a: ae.selectionStart, b: ae.selectionEnd } : null;
-  // Replacing the list takes the cursor out of the box, which would fire its
-  // save mid-rebuild; the text is carried over below instead.
-  _ctRebuild = true;
-  try { el.innerHTML = `<table class="cue-table">
+  el.innerHTML = `<table class="cue-table">
     <thead><tr><th>Type</th><th>#</th><th>Action</th><th>Cue Line</th><th>Notes</th><th>Pg</th></tr></thead>
     <tbody>${sorted.map(c => {
       const t = cueTypes.find(t => t.id === c.type);
@@ -17897,18 +17890,13 @@ function renderCueList() {
         <td><span class="ct-type" style="background:${color}">${typeName}</span></td>
         <td class="ct-num">${esc(num)}</td>
         <td class="ct-action">${esc(c.action || '')}${isShift ? `<span class="ct-moves">${ctMovesHTML(c)}</span>` : ''}</td>
-        ${isShift && !seRunning() ? `<td class="ct-line ct-line-in" onclick="event.stopPropagation()"><input class="ct-lineinput" data-cue="${esc(c.id)}" value="${esc(c.cueLine || '')}" placeholder="+ Add cue line" aria-label="Cue line for ${esc(c.number || 'this set change')}" autocomplete="off" enterkeyhint="done" onkeydown="ctLineKey(event, this)" onchange="setCueLineInline('${esc(c.id)}', this.value)"></td>` :
-        `<td class="ct-line">${c.cueLine ? esc(c.cueLine) : (c.lineCrop ? '<span class="ct-linepic" title="Script line captured as an image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg>Line</span>' : '')}</td>`}
+        <td class="ct-line">${c.cueLine ? esc(c.cueLine) : (c.lineCrop ? '<span class="ct-linepic" title="Script line captured as an image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg>Line</span>' : '')}</td>
         <td class="ct-notes">${esc(c.notes || c.description || '')}</td>
         <td>p.${c.page}</td>
       </tr>`;
       return row;
     }).join('')}</tbody>
-  </table>`; } finally { _ctRebuild = false; }
-  if (keep) {
-    const inp = el.querySelector('.ct-lineinput[data-cue="' + CSS.escape(keep.id) + '"]');
-    if (inp) { inp.defaultValue = keep.d; inp.value = keep.v; inp.focus(); try { inp.setSelectionRange(keep.a, keep.b); } catch (e) {} }
-  }
+  </table>`;
   // Re-apply persistent selection highlight after rebuild
   if (selectedCueId) {
     const row = el.querySelector('.cue-table tr[data-cue-id="' + selectedCueId + '"]');
@@ -17916,30 +17904,32 @@ function renderCueList() {
   }
 }
 
-// Type a set change's cue line straight into the list. Enter or tapping away
-// saves it; Escape puts back what was there.
+// A set change's cue line, typed in its drawer. Enter or clicking away saves
+// it; Escape puts back what was there.
+let _ctRebuild = false;
 function ctLineKey(e, inp) {
   if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
-  else if (e.key === 'Escape') { e.preventDefault(); inp.value = inp.defaultValue; inp.blur(); }
+  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); inp.value = inp.defaultValue; inp.blur(); }
 }
-let _ctRebuild = false;
 function setCueLineInline(id, value) {
   if (_ctRebuild) return;
   const c = cues.find(x => String(x.id) === String(id));
   if (!c) return;
   const v = String(value || '').trim();
+  const inp = document.getElementById('mvd-cueline');
+  if (inp) { inp.value = v; inp.defaultValue = v; }
   if (v === String(c.cueLine || '')) return;
   c.cueLine = v;
-  // The box already shows it; no rebuild, so a tap that moved the cursor out
-  // (onto a row, say) still lands.
-  const inp = document.querySelector('.ct-lineinput[data-cue="' + CSS.escape(String(id)) + '"]');
-  if (inp) { inp.value = v; inp.defaultValue = v; }
-  // Keep the cue form in step if this cue is the one open in it.
+  // Keep the cue form in step if this cue is the one loaded in it.
   if (selectedCueId === c.id) {
     const f = document.getElementById('cue-line');
     if (f) f.value = v;
     if (typeof _cfShown === 'object' && _cfShown) _cfShown.cueLine = v;
   }
+  // Just this row's cell: no list rebuild, so a click that moved the cursor
+  // out (onto another cue, say) still lands.
+  const cell = document.querySelector('.cue-table tr[data-cue-id="' + CSS.escape(String(id)) + '"] .ct-line');
+  if (cell) cell.textContent = v;
   saveShowData();
 }
 
@@ -18469,19 +18459,27 @@ function renderMoveDrawer(focusFirst) {
         onclick="moveDelete('${c.id}','${m.id}')">✕</button></td>
   </tr>`).join('');
 
-  body.innerHTML = `<table class="mv-grid">
+  // Replacing the drawer takes the cursor out of the cue line box, which would
+  // fire its save mid-rebuild; a sync redraw carries the text over instead.
+  _ctRebuild = true;
+  try { body.innerHTML = `<label class="mvd-line"><span>Cue line</span><input id="mvd-cueline" type="text"
+        value="${escA(c.cueLine || '')}" placeholder="+ Add cue line" autocomplete="off" enterkeyhint="done"
+        onkeydown="ctLineKey(event, this)" onchange="setCueLineInline('${c.id}', this.value)" /></label>
+    <table class="mv-grid">
       <thead><tr>${MOVE_COLS.map(col => `<th>${col.label}</th>`).join('')}<th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <button class="mv-add" onclick="moveAdd('${c.id}')">+ Add move</button>`;
+    <button class="mv-add" onclick="moveAdd('${c.id}')">+ Add move</button>`; } finally { _ctRebuild = false; }
 
   // An empty change is the common case right after placing the cue, so give it
   // a row to type into rather than making you click Add first.
   if (!moves.length) { moveAdd(c.id); return; }
   // On a touchscreen a focused box pops the keyboard over half the screen, so
   // nothing gets the caret until you tap it yourself.
+  // Opening a change that already has its moves but no cue line yet (lines
+  // come later): the caret goes to the cue line. Otherwise the first move.
   if (focusFirst && !seIsTouch()) {
-    const first = body.querySelector('input');
+    const first = !c.cueLine ? document.getElementById('mvd-cueline') : body.querySelector('.mv-grid input');
     if (first) { first.focus(); first.select(); }
   }
 }
@@ -20205,7 +20203,12 @@ function csRepaint() {
         const ae = document.activeElement, body = document.getElementById('mvd-body');
         let keep = null;
         if (ae && body && body.contains(ae) && ae.dataset && ae.dataset.move) keep = { move: ae.dataset.move, key: ae.dataset.key, val: ae.value, s: ae.selectionStart, e: ae.selectionEnd };
+        const keepLine = ae && ae.id === 'mvd-cueline' ? { val: ae.value, d: ae.defaultValue, s: ae.selectionStart, e: ae.selectionEnd } : null;
         renderMoveDrawer(false);
+        if (keepLine) {
+          const el = document.getElementById('mvd-cueline');
+          if (el) { el.defaultValue = keepLine.d; el.value = keepLine.val; el.focus(); try { el.setSelectionRange(keepLine.s, keepLine.e); } catch(e) {} }
+        }
         if (keep) {
           const el = body.querySelector(`input[data-move="${keep.move}"][data-key="${keep.key}"]`);
           if (el) { el.value = keep.val; el.focus(); try { el.setSelectionRange(keep.s, keep.e); } catch(e) {} }

@@ -1862,7 +1862,9 @@ function plRow(c, band, mode){
   if (editMode && isShift && !c.cueLine) lineCell = `<button type="button" class="pl-addline" onclick="event.stopPropagation(); openCueLine('${esc(c.id)}')">+ Add cue line</button>` + (lineCell ? ' ' + lineCell : '');
   // No number column: the cue line leads. Cue types other than set changes
   // keep their coloured chip and number so they can't be mistaken for one.
-  const chip = isShift ? '' : `<span class="pl-num"><span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>${esc(shortNumber(c, t.name))}</span>`;
+  // Set changes lead with their change number, called over headset; other cue
+  // types keep their coloured chip and number so they can't be mistaken for one.
+  const chip = isShift ? `<span class="pl-num">${esc(changeShortNum(shortNumber(c, t.name)))}</span>` : `<span class="pl-num"><span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>${esc(shortNumber(c, t.name))}</span>`;
   const cueCell = chip + (lineCell ? `<span class="pl-linetxt">${lineCell}</span>` : '')
     + (merged ? `<span class="pl-pgsub">p.${esc(c.page || '?')}</span>` : '');
 
@@ -4701,6 +4703,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v5 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v6 dev</div>
 </body>
 </html>
