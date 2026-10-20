@@ -569,7 +569,8 @@
   table.cs.pl tr.band td { background: transparent; }
   table.cs.pl tr.scene + tr.pl-top td { border-top-width: 0; }
   table.cs.pl td.pl-numc { font-weight: 700; color: var(--ink); white-space: nowrap; }
-  table.cs.pl td.pl-numc .cs-chip { display: table; margin: 0 0 3px; }
+  table.cs.pl td.pl-numc .pl-num { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+  table.cs.pl td.pl-numc .cs-chip { margin: 0; }
   table.cs.pl tr.pl-row:not(.pl-top) td { border-top: 1px solid var(--grid); }
   table.cs.pl tr.pl-row td { padding-top: 9px; padding-bottom: 9px; }
   table.cs.pl tr.pl-tap td { cursor: pointer; }
@@ -1869,6 +1870,11 @@ function plRow(c, band, mode){
   // Set changes lead with their change number, called over headset; other cue
   // types keep their coloured chip and number so they can't be mistaken for one.
   const chip = isShift ? `<span class="pl-num">${esc(changeShortNum(shortNumber(c, t.name)))}</span>` : `<span class="pl-num"><span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>${esc(shortNumber(c, t.name))}</span>`;
+  // Every move row repeats the change's number, cue line and page, so each
+  // row reads on its own. A line photo shows on the first row only.
+  const typedLine = c.cueLine ? `<span class="pl-linetxt">${esc(c.cueLine)}</span>` : '';
+  const pgSub = merged ? `<span class="pl-pgsub">p.${esc(c.page || '?')}</span>` : '';
+  const cueRest = typedLine + pgSub;
   const cueCell = (lineCell ? `<span class="pl-linetxt">${lineCell}</span>` : '')
     + (merged ? `<span class="pl-pgsub">p.${esc(c.page || '?')}</span>` : '');
 
@@ -1921,7 +1927,7 @@ function plRow(c, band, mode){
       if (moveSheet && moveSheet.cueId === String(c.id) && moveSheet.idx === i) cls.push('mv-sel');
       const blank = !m.piece && !m.action && !m.who && !m.spike && !(m.spikeIds || []).length && !m.notes;
       return tr(cls.filter(Boolean).join(' '), ` data-mv="${esc(m.id || '')}" onclick="openMove('${esc(c.id)}', ${i})"`) + cells({
-        num: first ? chip : '', cue: first ? cueCell : '', pg: first ? pg : '',
+        num: chip, cue: first ? cueCell : cueRest, pg,
         piece: blank ? '<span class="mv-empty">Tap to add a move</span>'
           : `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
         action: esc(m.action || ''), who: esc(m.who || ''), spike: plSpikeHTML(m),
@@ -1937,7 +1943,7 @@ function plRow(c, band, mode){
     const cls = [first ? 'pl-top' : '', 'pl-tap'];
     if (activeWho && !onMove(m, activeWho)) cls.push('pl-dim');
     return tr(cls.filter(Boolean).join(' '), tap + ` data-mv="${esc(m.id || '')}"`) + cells({
-      num: first ? chip : '', cue: first ? cueCell : '', pg: first ? pg : '',
+      num: chip, cue: first ? cueCell : cueRest, pg,
       piece: `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
       action: esc(m.action || ''), who: esc(m.who || ''), spike: plSpikeHTML(m),
       notes: (first && notes ? `<span class="pl-cuenote">${esc(notes)}</span>` : '') + esc(m.notes || '')
@@ -2499,10 +2505,10 @@ async function exportSetChangePlot() {
     const moves = (c.moves && c.moves.length) ? c.moves : [{}];
     const built = moves.map((m, i) => {
       const cells = {
-        num:    [i === 0 ? shortNum(c.number) : ''],
+        num:    [shortNum(c.number)],
         // m.trigger only survives on data a device hasn't migrated yet.
-        cue:    wrap(m.trigger || (i === 0 ? (c.cueLine || '') : ''), 1),
-        pg:     [i === 0 ? String(c.page || '') : ''],
+        cue:    wrap(m.trigger || c.cueLine || '', 1),
+        pg:     [String(c.page || '')],
         piece:  wrap(m.piece,  3),
         action: wrap(m.action, 4),
         who:    wrap(m.who,    5),
@@ -2685,9 +2691,9 @@ async function exportSetChangePlot() {
       const last = blocks[blocks.length - 1];
       const firstOfChange = !last || last.c !== it.c;
       const cells = {
-        num:    [firstOfChange ? shortNum(it.c.number) : ''],
-        cue:    firstOfChange ? cwrap(it.m.trigger || it.c.cueLine || '', 1) : [''],
-        pg:     [firstOfChange ? String(it.c.page || '') : ''],
+        num:    [shortNum(it.c.number)],
+        cue:    cwrap(it.m.trigger || it.c.cueLine || '', 1),
+        pg:     [String(it.c.page || '')],
         piece:  cwrap(it.m.piece, 3),
         action: cwrap(it.m.action, 4),
         spike:  spikeCell(it.m),
@@ -2821,10 +2827,10 @@ function setChangeSections() {
     cur.blocks.push(moves.map((m, i) => ({
       // Number, cue line and page belong to the change, not the move, so they
       // print once at the top of the block — same as the PDF.
-      num:    i === 0 ? changeShortNum(c.number) : '',
+      num:    changeShortNum(c.number),
       // m.trigger only survives on data a device hasn't migrated yet.
-      cue:    String(m.trigger || (i === 0 ? (c.cueLine || '') : '')),
-      pg:     i === 0 ? String(c.page || '') : '',
+      cue:    String(m.trigger || c.cueLine || ''),
+      pg:     String(c.page || ''),
       piece:  String(m.piece  || ''),
       action: String(m.action || ''),
       who:    String(m.who    || ''),
@@ -3204,9 +3210,9 @@ async function exportSetChangeXLSX() {
       const firstOfChange = it.c !== prevC;
       if (firstOfChange) { tint = !tint; }
       const vals = {
-        num:    firstOfChange ? changeShortNum(it.c.number) : '',
-        cue:    String(it.m.trigger || (firstOfChange ? (it.c.cueLine || '') : '')),
-        pg:     firstOfChange ? String(it.c.page || '') : '',
+        num:    changeShortNum(it.c.number),
+        cue:    String(it.m.trigger || it.c.cueLine || ''),
+        pg:     String(it.c.page || ''),
         piece:  String(it.m.piece  || ''),
         action: String(it.m.action || ''),
         spike:  spkMoveText(it.m, showId),
@@ -4709,6 +4715,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v7 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v8 dev</div>
 </body>
 </html>

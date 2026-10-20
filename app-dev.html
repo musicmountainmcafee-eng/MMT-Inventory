@@ -6688,7 +6688,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v4 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v5 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -21067,10 +21067,10 @@ async function exportSetChangePlot() {
     const moves = (c.moves && c.moves.length) ? c.moves : [{}];
     const built = moves.map((m, i) => {
       const cells = {
-        num:    [i === 0 ? shortNum(c.number) : ''],
+        num:    [shortNum(c.number)],
         // m.trigger only survives on data a device hasn't migrated yet.
-        cue:    wrap(m.trigger || (i === 0 ? (c.cueLine || '') : ''), 1),
-        pg:     [i === 0 ? String(c.page || '') : ''],
+        cue:    wrap(m.trigger || c.cueLine || '', 1),
+        pg:     [String(c.page || '')],
         piece:  wrap(m.piece,  3),
         action: wrap(m.action, 4),
         who:    wrap(m.who,    5),
@@ -21253,9 +21253,9 @@ async function exportSetChangePlot() {
       const last = blocks[blocks.length - 1];
       const firstOfChange = !last || last.c !== it.c;
       const cells = {
-        num:    [firstOfChange ? shortNum(it.c.number) : ''],
-        cue:    firstOfChange ? cwrap(it.m.trigger || it.c.cueLine || '', 1) : [''],
-        pg:     [firstOfChange ? String(it.c.page || '') : ''],
+        num:    [shortNum(it.c.number)],
+        cue:    cwrap(it.m.trigger || it.c.cueLine || '', 1),
+        pg:     [String(it.c.page || '')],
         piece:  cwrap(it.m.piece, 3),
         action: cwrap(it.m.action, 4),
         spike:  spikeCell(it.m),
@@ -21529,10 +21529,10 @@ function setChangeSections() {
     cur.blocks.push(moves.map((m, i) => ({
       // Number, cue line and page belong to the change, not the move, so they
       // print once at the top of the block — same as the PDF.
-      num:    i === 0 ? changeShortNum(c.number) : '',
+      num:    changeShortNum(c.number),
       // m.trigger only survives on data a device hasn't migrated yet.
-      cue:    String(m.trigger || (i === 0 ? (c.cueLine || '') : '')),
-      pg:     i === 0 ? String(c.page || '') : '',
+      cue:    String(m.trigger || c.cueLine || ''),
+      pg:     String(c.page || ''),
       piece:  String(m.piece  || ''),
       action: String(m.action || ''),
       who:    String(m.who    || ''),
@@ -21912,9 +21912,9 @@ async function exportSetChangeXLSX() {
       const firstOfChange = it.c !== prevC;
       if (firstOfChange) { tint = !tint; }
       const vals = {
-        num:    firstOfChange ? changeShortNum(it.c.number) : '',
-        cue:    String(it.m.trigger || (firstOfChange ? (it.c.cueLine || '') : '')),
-        pg:     firstOfChange ? String(it.c.page || '') : '',
+        num:    changeShortNum(it.c.number),
+        cue:    String(it.m.trigger || it.c.cueLine || ''),
+        pg:     String(it.c.page || ''),
         piece:  String(it.m.piece  || ''),
         action: String(it.m.action || ''),
         spike:  spkMoveText(it.m, showId),
