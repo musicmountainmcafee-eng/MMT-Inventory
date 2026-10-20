@@ -2303,11 +2303,18 @@ async function exportSetChangePlot() {
   // Whichever scene we're inside, so a page that opens mid-scene can say so
   // rather than starting with unlabelled rows.
   let curScene = '';
+  let lastAct = null;
 
   // withCont=false when a scene is being moved to this page deliberately — it's
   // about to draw its own bar, and a "(cont.)" above it would be a lie.
+  // Each page remembers which section it belongs to (Preset, Act 1, a
+  // person's name) so the footer can count pages within that section.
+  const pageTag = [];
+  const tagPage = l => { pageTag[doc.internal.getNumberOfPages()] = l; };
+  let pageFn = null;   // the crew pages swap in their own page builder
   function newPage(withCont) {
-    doc.addPage(); drawTitle(); drawHeader();
+    if (pageFn) return pageFn(withCont);
+    doc.addPage(); tagPage(lastAct !== null ? 'Act ' + lastAct : 'PLOT'); drawTitle(); drawHeader();
     if (withCont !== false && curScene) drawSceneBar(curScene + ' (cont.)', true);
   }
   function ensureRoom(h) {
@@ -2331,6 +2338,7 @@ async function exportSetChangePlot() {
   }
 
   drawTitle();
+  tagPage('PLOT');
 
   // ── Before house opens ─────────────────────────────────────────────────────
   // Its own short table ahead of the plot proper: what's onstage or standing by
@@ -2364,6 +2372,7 @@ async function exportSetChangePlot() {
       y += hh;
     };
 
+    tagPage('Preset');
     drawSceneBar('Before house opens');
     drawPresetHead();
 
@@ -2391,7 +2400,7 @@ async function exportSetChangePlot() {
       // A long piece list runs on, and the continuation needs its own bar and
       // column header or the rows arrive unlabelled.
       if (y + rowH > pageH - MARGIN_BOTTOM) {
-        doc.addPage(); drawTitle();
+        doc.addPage(); tagPage('Preset'); drawTitle();
         drawSceneBar('Before house opens (cont.)', true);
         drawPresetHead();
       }
@@ -2421,7 +2430,7 @@ async function exportSetChangePlot() {
 
     // The presets are a standing reference, not part of the running order — so
     // they get the sheet to themselves and the plot opens on a clean page.
-    doc.addPage();
+    doc.addPage(); tagPage('PLOT');
     drawTitle();
     curScene = '';
   }
@@ -2536,8 +2545,6 @@ async function exportSetChangePlot() {
     m = t.match(/^act\s*(\d+)/i);
     return m ? m[1] : null;
   };
-  let lastAct = null;
-
   sections.forEach(sec => {
     const barH = sec.label ? SCENE_BAR_H : 0;
     const secH = barH + sec.blocks.reduce((t, b) => t + b.h, 0)
@@ -2562,6 +2569,7 @@ async function exportSetChangePlot() {
       newPage(false);
     }
 
+    if (act !== null && pageTag[doc.internal.getNumberOfPages()] === 'PLOT') tagPage('Act ' + act);
     if (sec.label) { curScene = sec.label; drawSceneBar(sec.label); }
 
     let shade = false, first = true;
@@ -2649,9 +2657,10 @@ async function exportSetChangePlot() {
       y += h;
     };
     const crewPage = cont => {
-      doc.addPage(); crewTitle(); crewHead();
+      doc.addPage(); tagPage(person.name); crewTitle(); crewHead();
       if (cont && pScene) drawSceneBar(pScene + ' (cont.)', true);
     };
+    pageFn = crewPage;
 
     // Measure each row, grouped into one block per change so a change's
     // moves stay together and shade as a unit.
@@ -2680,8 +2689,11 @@ async function exportSetChangePlot() {
     let shade = false, firstInScene = true;
     blocks.forEach(b => {
       if (b.scene !== pScene) {
+        // Never strand a scene bar at the foot of a page: start the person's
+        // next page instead (their own header, not the plot's).
+        if (b.scene && y + 18 + Math.min(b.h, 60) > pageH - MARGIN_BOTTOM && y > 140) { pScene = ''; crewPage(false); }
         pScene = b.scene;
-        if (pScene) drawSceneBar(pScene);
+        if (pScene) drawSceneBar(pScene, true);
         shade = false; firstInScene = true;
       }
       if (y + b.h > pageH - MARGIN_BOTTOM && y > 90 && b.h <= pageH - MARGIN_BOTTOM - 140) { crewPage(true); firstInScene = true; }
@@ -2718,11 +2730,29 @@ async function exportSetChangePlot() {
 
   // Page N of M, right-aligned on the title baseline. Has to run after the last
   // page exists, so it's a second pass rather than part of drawTitle.
+  pageFn = null;
   const totalPages = doc.internal.getNumberOfPages();
+  // Plot pages from before any act number take the act that follows them;
+  // a show with no act numbers at all just says Set Changes.
+  for (let i = totalPages; i >= 1; i--) {
+    if (pageTag[i] !== 'PLOT') continue;
+    let j = i + 1; while (j <= totalPages && pageTag[j] === 'PLOT') j++;
+    pageTag[i] = (j <= totalPages && /^Act /.test(pageTag[j] || '')) ? pageTag[j] : 'Set Changes';
+  }
+  // Count pages within each run of the same section: "Act 1 · 2 of 7".
+  const secOf = [], secLen = {};
+  for (let i = 1, run = 0; i <= totalPages; i++) {
+    run = (i > 1 && pageTag[i] === pageTag[i - 1]) ? run + 1 : 1;
+    secOf[i] = run;
+    secLen[i] = run;
+    for (let k = i - run + 1; k <= i; k++) secLen[k] = run;
+  }
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(150,150,160);
     doc.text('Page ' + i + ' of ' + totalPages, M + TABLE_W, 52, { align: 'right' });
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(90,90,105);
+    doc.text((pageTag[i] || 'Set Changes') + '  ·  ' + secOf[i] + ' of ' + secLen[i], M + TABLE_W, pageH - 22, { align: 'right' });
   }
 
   const safe = showName.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
@@ -4618,6 +4648,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v2 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.19 v3 dev</div>
 </body>
 </html>
