@@ -605,6 +605,8 @@ body.techbuild #panel>:not(.bar):not(#techpanel):not(#updban){display:none!impor
 .titem:last-child{border-bottom:0}
 .titem.run{background:#1A1408}
 .titem.locked{opacity:.5}
+.titem.call{background:#0B1622}
+.titem .ctag{font-size:13px;color:var(--clock);letter-spacing:.04em}
 .titem .l1{display:grid;grid-template-columns:132px 1fr 40px;gap:6px}
 .titem .l2{display:flex;align-items:center;gap:8px}
 .titem input{min-height:42px;padding:6px 8px}
@@ -1070,7 +1072,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev24';
+var VERSION='3.4-dev25';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2610,10 +2612,45 @@ function techBehind(T,now){
 function techNextRun(T){var from=T.idx==null?0:T.idx+1;for(var i=from;i<T.items.length;i++)if(T.items[i].run)return i;return -1}
 function techSnap(T){var c=JSON.parse(JSON.stringify(T));delete c.undo;return c}
 function techCommit(T,extra){commit(Object.assign({tech:T},extra||{}))}
+// Actors called: every tech day opens with it, and it starts on its own at its
+// time, no GO. Every screen works it out from the clock, so the displays switch
+// even before the controller has saved it; the controller then saves it so the
+// timing and history are right. Started late (the day was set up after call),
+// it counts from when the day was set up.
+function techMadeAt(T){var n=parseInt(String(T.id||'').replace('tech-',''),10);return isFinite(n)?n:0}
+function techCallDue(T,now){
+  if(!T||T.done||T.idx!=null||!T.items.length||!T.items[0].call)return 0;
+  var st=Math.max(techAt(T,0),techMadeAt(T));return now>=st?st:0;
+}
+function techView(T,now){
+  var st=techCallDue(T,now);if(!st)return T;
+  return Object.assign({},T,{idx:0,started:st,held:0,holdAt:0,extra:0});
+}
+var techAutoBusy=false;
+function techAutoCall(now){
+  if(isDisplay||techAutoBusy)return;
+  var T=S.tech,st=techCallDue(T,now);if(!st)return;
+  techAutoBusy=true;
+  setTimeout(function(){
+    techAutoBusy=false;
+    var T2=S.tech;if(!techCallDue(T2,nowMs()))return;
+    var n=JSON.parse(JSON.stringify(T2));n.idx=0;n.started=st;n.held=0;n.holdAt=0;n.extra=0;n.inRun=false;n.undo=null;
+    techCommit(n,{msg:null});
+  },0);
+}
+function techCallItem(at){return {id:tid(),name:'Actors called',at:at,min:15,run:false,call:true}}
+function techEnsureCall(items){
+  if(items[0]&&items[0].call)return items;
+  for(var i=0;i<items.length;i++)if(items[i].call||/^\s*actors?'?\s+called\s*$/i.test(items[i].name||'')){
+    var it=items.splice(i,1)[0];it.call=true;it.run=false;items.unshift(it);return items;
+  }
+  items.unshift(techCallItem(items.length?addMin(items[0].at,-15):techDefaultStart()));
+  return items;
+}
 
 // GO: start the first item, or log the one running and start the next.
 function techGo(){
-  var now=nowMs(),T=S.tech;if(!T||T.done||techComplete(T))return;
+  var now=nowMs(),T=techView(S.tech,now);if(!T||T.done||techComplete(T))return;
   if(T.undo&&Math.abs(now-T.undo.at)<GO_GUARD_MS){if(!remoteAt)toast('GO ignored: it was just pressed');return}
   var snap=techSnap(T),n=JSON.parse(JSON.stringify(T));
   if(n.idx!=null&&n.items[n.idx]){var it=n.items[n.idx];n.log=(n.log||[]).concat([{id:it.id,start:n.started,end:now,held:techHeld(n,now)}])}
@@ -2636,13 +2673,13 @@ function techUndo(){
   techCommit(T.undo.snap,x);
 }
 function techHold(){
-  var now=nowMs(),T=S.tech;if(!T||T.idx==null||techComplete(T)||T.done)return;
+  var now=nowMs(),T=techView(S.tech,now);if(!T||T.idx==null||techComplete(T)||T.done)return;
   var n=Object.assign({},T);
   if(n.holdAt){n.held=(n.held||0)+(now-n.holdAt);n.holdAt=0}else n.holdAt=now;
   techCommit(n);
 }
 function techAdjust(sec){
-  var T=S.tech;if(!T||T.idx==null||techComplete(T)||T.done||!sec)return;
+  var T=techView(S.tech,nowMs());if(!T||T.idx==null||techComplete(T)||T.done||!sec)return;
   var it=T.items[T.idx],n=Object.assign({},T);
   n.extra=Math.max(-(it.min||0)*6e4,(n.extra||0)+sec*1000);techCommit(n);
 }
@@ -2695,7 +2732,7 @@ function openTechBuilder(show,stage,edit){
   if(edit&&S.tech)techDraft={show:S.tech.show,stage:S.tech.stage,items:JSON.parse(JSON.stringify(S.tech.items)),edit:true,lock:S.tech.idx==null?0:Math.min(S.tech.items.length,S.tech.idx+1)};
   else{
     var tpl=(cfg.techTpl&&cfg.techTpl[stage])||[];
-    techDraft={show:show,stage:stage,items:tpl.map(function(t){return Object.assign({},t,{id:tid()})}),edit:false,lock:0};
+    techDraft={show:show,stage:stage,items:techEnsureCall(tpl.map(function(t){return Object.assign({},t,{id:tid()})})),edit:false,lock:0};
   }
   techChipEditing=false;rtClose();document.body.classList.add('techbuild');$('techpanel').hidden=false;drawTechBuilder();window.scrollTo(0,0);
 }
@@ -2725,20 +2762,22 @@ function drawTechBuilder(){
   if(!techDraft.items.length){box.innerHTML='<p class="muted" style="padding:14px 4px">Tap the buttons above to add the day’s schedule, in order. Each item starts when the one before it is planned to end; change any time or length.</p>'}
   techDraft.items.forEach(function(it,i){
     var locked=i<techDraft.lock;
-    var r=document.createElement('div');r.className='titem'+(it.run?' run':'')+(locked?' locked':'');
+    var r=document.createElement('div');r.className='titem'+(it.run?' run':'')+(it.call?' call':'')+(locked?' locked':'');
     r.innerHTML='<div class="l1"><input class="tt" type="time" aria-label="Start time"><input class="tn" placeholder="What is it?" aria-label="Item name" autocomplete="off"><button class="tx" aria-label="Remove">×</button></div>'+
       '<div class="l2"><label class="tm"><input class="tl" type="number" inputmode="numeric" min="1" aria-label="Length in minutes"> min</label>'+
       '<label class="tr"><input type="checkbox" class="trun"> Full run</label><button class="tu" aria-label="Move up">↑</button><button class="td" aria-label="Move down">↓</button></div>';
     var q=function(s){return r.querySelector(s)};
     q('.tt').value=it.at;q('.tn').value=it.name;q('.tl').value=it.min;q('.trun').checked=!!it.run;
+    if(it.call){q('.tx').disabled=true;q('.tx').style.visibility='hidden';q('.tu').disabled=true;q('.td').disabled=true;q('.trun').closest('label').outerHTML='<span class="ctag">Starts on its own at this time</span>'}
+    if(i===1&&techDraft.items[0].call)q('.tu').disabled=true;
     if(locked){r.querySelectorAll('input,button').forEach(function(e){e.disabled=true})}
     q('.tt').onchange=function(){if(this.value){it.at=this.value}};
     q('.tn').oninput=function(){it.name=this.value};
     q('.tl').oninput=function(){var v=parseInt(this.value,10);if(v>0)it.min=v};
-    q('.trun').onchange=function(){it.run=this.checked;r.classList.toggle('run',it.run)};
+    if(q('.trun'))q('.trun').onchange=function(){it.run=this.checked;r.classList.toggle('run',it.run)};
     q('.tx').onclick=function(){techDraft.items.splice(i,1);drawTechBuilder()};
-    q('.tu').onclick=function(){if(i>techDraft.lock){var a=techDraft.items;a.splice(i-1,0,a.splice(i,1)[0]);drawTechBuilder()}};
-    q('.td').onclick=function(){var a=techDraft.items;if(i<a.length-1){a.splice(i+1,0,a.splice(i,1)[0]);drawTechBuilder()}};
+    q('.tu').onclick=function(){if(i>techDraft.lock&&!(i===1&&techDraft.items[0].call)&&!it.call){var a=techDraft.items;a.splice(i-1,0,a.splice(i,1)[0]);drawTechBuilder()}};
+    q('.td').onclick=function(){var a=techDraft.items;if(i<a.length-1&&!it.call){a.splice(i+1,0,a.splice(i,1)[0]);drawTechBuilder()}};
     box.appendChild(r);
   });
 }
@@ -2761,12 +2800,12 @@ function drawChipEditor(){
 }
 $('techchipedit').onclick=function(){techChipEditing=!techChipEditing;if(!techChipEditing)cfg.techChips=techChipList().filter(function(c){return (c.name||'').trim()});drawTechBuilder()};
 $('techchipreset').onclick=function(){if(!confirm('Put the standard buttons back?'))return;delete cfg.techChips;persist();drawTechBuilder()};
-function techClean(items){return items.filter(function(it){return (it.name||'').trim()}).map(function(it){return {id:it.id||tid(),name:it.name.trim(),at:it.at,min:Math.max(1,it.min||1),run:!!it.run}})}
+function techClean(items){return items.filter(function(it){return it.call||(it.name||'').trim()}).map(function(it){var c={id:it.id||tid(),name:(it.name||'').trim()||'Actors called',at:it.at,min:Math.max(1,it.min||1),run:!it.call&&!!it.run};if(it.call)c.call=true;return c})}
 $('techcancel').onclick=function(){var ed=techDraft&&techDraft.edit;closeTechBuilder();if(!ed)rtFirst()};
-$('techload').onclick=function(){var tpl=cfg.techTpl[techDraft.stage]||[];if(techDraft.items.length&&!confirm('Replace this list with the saved template?'))return;techDraft.items=tpl.map(function(t){return Object.assign({},t,{id:tid()})});drawTechBuilder()};
+$('techload').onclick=function(){var tpl=cfg.techTpl[techDraft.stage]||[];if(techDraft.items.length&&!confirm('Replace this list with the saved template?'))return;techDraft.items=techEnsureCall(tpl.map(function(t){return Object.assign({},t,{id:tid()})}));drawTechBuilder()};
 $('techsavetpl').onclick=function(){
   var items=techClean(techDraft.items);if(!items.length)return;
-  cfg.techTpl=cfg.techTpl||{};cfg.techTpl[techDraft.stage]=items.map(function(it){return {name:it.name,at:it.at,min:it.min,run:it.run}});
+  cfg.techTpl=cfg.techTpl||{};cfg.techTpl[techDraft.stage]=items.map(function(it){var c={name:it.name,at:it.at,min:it.min,run:it.run};if(it.call)c.call=true;return c});
   persist();drawTechBuilder();toast('Saved as the '+(techDraft.stage==='kids'?"Children's":'Mainstage')+' template');
 };
 $('techgo').onclick=function(){
@@ -2789,7 +2828,8 @@ function techRows(T,now,max){
 }
 function lenTxt(m){return m>=60?(Math.floor(m/60)+' hr'+(m%60?' '+pad(m%60):'')):m+' min'}
 function paintTech(now){
-  var T=S.tech,m=msgNow(now);
+  techAutoCall(now);
+  var T=techView(S.tech,now),m=msgNow(now);
   document.body.classList.add('techmode');
   var cur=T.idx!=null&&!techComplete(T)?T.items[T.idx]:null;
   var left=cur?techLeft(T,now):0,over=cur&&left<0;
@@ -2815,7 +2855,7 @@ function paintTech(now){
   $('cface').textContent=big;$('cface').className='face'+(T.holdAt?' held':'');$('cface').style.color=over?'var(--amber)':'';
   var rl=$('crail');rl.hidden=!cur;
   if(cur){var tot=(cur.min||0)*6e4+(T.extra||0);$('crailfill').style.width=Math.min(100,Math.max(0,(tot-left)/tot*100)).toFixed(1)+'%';$('crailfill').style.background=over?'var(--hot)':''}
-  $('cends').textContent=T.idx==null?(techAt(T,0)>now?'Starts '+clockOf(techAt(T,0))+'. Press GO when you’re ready.':'Press GO to start the day.'):cur?(over?'Over. Was due to end '+clockOf(techAt(T,T.idx)+(cur.min||0)*6e4)+'.':'Started '+clockOf(T.started)+' · ends '+clockOf(T.started+(cur.min||0)*6e4+(T.extra||0)+techHeld(T,now))):'Every item is done. Tap End tech day for the report.';
+  $('cends').textContent=T.idx==null?(techAt(T,0)>now?(T.items[0]&&T.items[0].call?'Starts on its own at '+clockOf(techAt(T,0))+'. GO starts it early.':'Starts '+clockOf(techAt(T,0))+'. Press GO when you’re ready.'):'Press GO to start the day.'):cur?(over?'Over. Was due to end '+clockOf(techAt(T,T.idx)+(cur.min||0)*6e4)+'.':'Started '+clockOf(T.started)+' · ends '+clockOf(T.started+(cur.min||0)*6e4+(T.extra||0)+techHeld(T,now))):'Every item is done. Tap End tech day for the report.';
   var runLine=nr>=0?T.items[nr].name+(bmin>1?' scheduled ':' about ')+clockOf(techAt(T,nr)):'';
   $('cproj').textContent=(bmin>1?'Running '+bmin+' min behind':'')+(bmin>1&&runLine?' · ':'')+runLine;
   $('cproj').classList.toggle('long',bmin>1);
