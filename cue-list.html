@@ -408,6 +408,8 @@
   .edit-state.saved  { color: #3b6d11; }
   .edit-state.error  { color: #b02a20; }
   #edit-btn.on { background: var(--purple); color: #fff; border-color: var(--purple); }
+  /* Crew whose "Can change: Scripts" is off: look, don't touch. */
+  body.cl-readonly #edit-btn, body.cl-readonly #pr-guard { display: none !important; }
   body.editing .cs-crop, body.editing .photo-chip { display: none; }
   .mv-in {
     width: 100%; font: inherit; font-size: 0.92em;
@@ -804,8 +806,68 @@ try {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
-const CORRECT_PIN = '1483';
+const CORRECT_PIN = '1483';   // the TD PIN (same as app.html TD_PIN)
 const POLL_MS = 15000;
+
+// ── Who is signed in ────────────────────────────────────────────────────────
+// Crew PINs are the same ones set in the dashboard's Settings (TeamConfig in
+// the Sheet: crewPins { name: pin }). This page shares the dashboard's storage,
+// so it starts from the list the dashboard last saw, then asks the Sheet.
+// Crew permissions (KV 'crew_perms', set in Settings) decide whether crew can
+// open the cue sheet at all, and whether they can edit it ("Can change:
+// Scripts" covers the cue sheet).
+let clRole = '';        // 'td' or 'crew'
+let clName = '';
+let clCrewPins = {'1234': 'Kyle', '2234': 'Tristan'};   // pin -> name; same defaults as app.html
+let clPinsFromSheet = false;
+let clCrewPerms = { cuesheet: true, editScripts: true }; // app.html CREW_PERMS_DEFAULT
+(function clLoadCachedCrew(){
+  try { const c = JSON.parse(localStorage.getItem('mmt_crew_pins') || 'null'); if (c && typeof c === 'object' && Object.keys(c).length) clCrewPins = c; } catch(e){}
+  try { clApplyPermsValue(JSON.parse(localStorage.getItem('mmt_crew_perms') || 'null')); } catch(e){}
+})();
+function clApplyPermsValue(v){
+  if (!v || typeof v !== 'object') return;
+  if (v.tabs && 'cuesheet' in v.tabs) clCrewPerms.cuesheet = !!v.tabs.cuesheet;
+  if (v.edit && 'scripts' in v.edit) clCrewPerms.editScripts = !!v.edit.scripts;
+}
+function clIsCrew(){ return clRole === 'crew'; }
+function cueReadOnly(){ return clIsCrew() && !clCrewPerms.editScripts; }
+function clViewOnlyToast(){ toast('The cue sheet is view only for crew. Ask Mac to change it.'); }
+function clApplyRole(){
+  document.body.classList.toggle('cl-readonly', cueReadOnly());
+  if (cueReadOnly() && typeof editMode !== 'undefined' && editMode) setEditMode(false);
+}
+function clFetchCrewPins(done){
+  jsonp(SCRIPT_URL + '?action=getTeamConfig&_=' + Date.now(), d => {
+    const pins = d && d.teamConfig && d.teamConfig.crewPins;
+    if (pins && typeof pins === 'object'){
+      const next = {};
+      Object.entries(pins).forEach(([name, pin]) => { if (/^\d{4}$/.test(String(pin))) next[String(pin)] = name; });
+      if (Object.keys(next).length){
+        clCrewPins = next; clPinsFromSheet = true;
+        lsSet('mmt_crew_pins', JSON.stringify(next));
+      }
+    }
+    done && done();
+  }, () => { done && done(); });
+}
+function clFetchCrewPerms(){
+  jsonp(SCRIPT_URL + '?action=getKV&key=crew_perms&_=' + Date.now(), d => {
+    if (!d || d.success === false) return;
+    clApplyPermsValue(d.value || null);
+    if (d.value) lsSet('mmt_crew_perms', JSON.stringify(d.value));
+    if (clIsCrew() && !clCrewPerms.cuesheet){ clSignOut('The cue sheet is turned off for crew. Ask Mac to turn it on.'); return; }
+    clApplyRole();
+  }, () => {});
+}
+function clSignOut(msg){
+  clRole = ''; clName = '';
+  try { ['mmt_cuelist_ok','mmt_cuelist_role','mmt_cuelist_name'].forEach(k => localStorage.removeItem(k)); } catch(e){}
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('pin-screen').style.display = '';
+  pinEntry = ''; updateDots();
+  if (msg) document.getElementById('pin-error').textContent = msg;
+}
 
 const SCENE_TYPE_ID = 'scene';
 const SHIFT_TYPE_ID = 'shift';
@@ -887,18 +949,62 @@ function pinPress(val){
   if (pinEntry.length === 4) setTimeout(checkPin, 120);
 }
 function pinClear(){ pinEntry = ''; updateDots(); document.getElementById('pin-error').textContent = ''; }
-function checkPin(){
-  if (pinEntry === CORRECT_PIN){ lsSet('mmt_cuelist_ok','1'); unlock(); }
-  else {
-    document.getElementById('pin-error').textContent = 'Incorrect PIN';
+function checkPin(_retried){
+  const pin = pinEntry;
+  const fail = msg => {
+    document.getElementById('pin-error').textContent = msg;
     pinEntry = ''; updateDots();
-    setTimeout(() => { document.getElementById('pin-error').textContent = ''; }, 2000);
+    setTimeout(() => { document.getElementById('pin-error').textContent = ''; }, 2500);
+  };
+  if (pin === CORRECT_PIN){ signIn('td', 'TD'); return; }
+  if (clCrewPins[pin]){
+    if (!clCrewPerms.cuesheet){ fail('The cue sheet is turned off for crew. Ask Mac.'); return; }
+    signIn('crew', clCrewPins[pin]);
+    return;
   }
+  // Not in the list this device has. The Sheet may know a newer one: ask once.
+  if (!_retried && !clPinsFromSheet){
+    document.getElementById('pin-error').textContent = 'Checking…';
+    clFetchCrewPins(() => checkPin(true));
+    return;
+  }
+  fail('Incorrect PIN');
+}
+function signIn(role, name){
+  clRole = role; clName = name;
+  lsSet('mmt_cuelist_ok', '1');
+  lsSet('mmt_cuelist_role', role);
+  lsSet('mmt_cuelist_name', name);
+  unlock();
 }
 function unlock(){
   document.getElementById('pin-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  clApplyRole();
   start();
+  if (clIsCrew()) clFetchCrewPerms();
+}
+// Who this device already is: a dashboard sign-in from the last 13 hours wins
+// (crew who opened the cue sheet from the dashboard shouldn't type their PIN
+// again), then this page's own sign-in. Before 10.21 only the TD PIN could get
+// in here, so an old sign-in with no role saved is the TD.
+function clResumeSignIn(){
+  try {
+    const last = parseInt(localStorage.getItem('mmt_unlock_time') || '0', 10);
+    const dRole = localStorage.getItem('mmt_user_role');
+    if (last && (Date.now() - last) < 13 * 60 * 60 * 1000 && (dRole === 'td' || dRole === 'crew')){
+      if (dRole === 'crew' && !clCrewPerms.cuesheet) return false;
+      clRole = dRole; clName = localStorage.getItem('mmt_user_name') || (dRole === 'td' ? 'TD' : '');
+      return true;
+    }
+  } catch(e){}
+  if (lsGet('mmt_cuelist_ok','') === '1'){
+    clRole = lsGet('mmt_cuelist_role','td') === 'crew' ? 'crew' : 'td';
+    clName = lsGet('mmt_cuelist_name', clRole === 'td' ? 'TD' : '');
+    if (clRole === 'crew' && !clCrewPerms.cuesheet){ clRole = ''; return false; }
+    return true;
+  }
+  return false;
 }
 
 // ── Boot ────────────────────────────────────────────────────────────────────
@@ -1276,6 +1382,7 @@ function prGuardCheck(){
 function prGuardRestore(){
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(prGuardKey()) || 'null'); } catch (e) {}
+  if (cueReadOnly()) { clViewOnlyToast(); return; }
   if (!saved || !_prLost.length || editSaving) return;
   const keys = _prLost.slice();
   const wasEditing = editMode;
@@ -2046,6 +2153,7 @@ function snapPresetCount(sn){
 // Put back Before House from a snapshot: each piece it has set goes back as it
 // was there; pieces it doesn't mention are left alone. Saved the careful way.
 function restoreSnapPresets(idx){
+  if (cueReadOnly()) { clViewOnlyToast(); return; }
   if (editSaving){ toast('Wait for the save to finish'); return; }
   const sn = getSnaps()[idx];
   const src = (sn && sn.data && sn.data.presets) || {};
@@ -2063,6 +2171,7 @@ function restoreSnapPresets(idx){
   toast('Putting back ' + keys.length + ' piece' + (keys.length === 1 ? '' : 's'));
 }
 function restoreSnap(idx, _try){
+  if (cueReadOnly()) { clViewOnlyToast(); return; }
   if (editMode){ toast('Finish editing first (tap Done)'); return; }
   const sn = getSnaps()[idx];
   if (!sn || !sn.data){ toast('That snapshot is missing'); return; }
@@ -3583,6 +3692,7 @@ function clearDraft(){ try { localStorage.removeItem(draftKey()); } catch(e) {} 
 function getDraft(){ try { return JSON.parse(lsGet(draftKey(), 'null')); } catch(e) { return null; } }
 
 function setEditMode(on){
+  if (on && cueReadOnly()) { clViewOnlyToast(); return; }
   if (on && !scriptId) { alert('Pick a script first.'); return; }
   if (!on) { closeMoveSheet(true); closePresetSheet(true); }
   editMode = !!on;
@@ -4755,8 +4865,8 @@ document.addEventListener('keydown', e => {
 });
 
 applyTheme(currentTheme(), false);
-if (lsGet('mmt_cuelist_ok','') === '1') unlock(); else updateDots();
+if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.20 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.21 v1</div>
 </body>
 </html>

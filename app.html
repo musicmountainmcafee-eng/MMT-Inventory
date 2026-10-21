@@ -6692,7 +6692,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.20 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.21 v1</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -6873,6 +6873,17 @@ function lock() {
   document.body.appendChild(s);
 })();
 function onCrewPins(data) {
+  // The Sheet answers { teamConfig: { crewNames, crewPins: { name: pin } } }
+  // (what Settings saves). Before 10.21 this only looked for data.members,
+  // which the Sheet never sends, so a device that hadn't saved Settings itself
+  // only knew the default PINs.
+  const tcPins = data && data.teamConfig && data.teamConfig.crewPins;
+  if (tcPins && typeof tcPins === 'object' && Object.keys(tcPins).length) {
+    crewPins = {};
+    Object.entries(tcPins).forEach(([name, pin]) => { if (/^\d{4}$/.test(String(pin))) crewPins[String(pin)] = name; });
+    try { localStorage.setItem('mmt_crew_pins', JSON.stringify(crewPins)); } catch(e) {}
+    return;
+  }
   if (data && data.members) {
     crewPins = {};
     data.members.forEach(m => {
