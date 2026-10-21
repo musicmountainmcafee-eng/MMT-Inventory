@@ -198,6 +198,15 @@
     color: var(--text-muted); font-size: 12px; font-weight: 500;
   }
   .top-btn:hover { background: var(--bg); }
+  .back-btn { font-weight: 600; color: var(--ink); }
+  .back-btn:disabled { opacity: .6; }
+  @media (max-width: 600px) {
+    .back-btn .back-label { display: none; }
+    .back-btn { font-size: 18px; line-height: 1; padding: 3px 11px 5px; }
+    /* ‹ and the show name get the first row; the buttons wrap below. */
+    .bar-title { flex: 1 1 calc(100% - 60px); }
+    .bar-title h1 { max-width: 70%; }
+  }
   .top-btn.primary { background: var(--purple); color: #fff; border-color: var(--purple); }
 
   .search-wrap { padding: 0 16px 10px; position: relative; }
@@ -665,6 +674,7 @@
 <div id="app">
   <header>
     <div class="bar">
+      <button class="top-btn back-btn" id="back-btn" onclick="goToDashboard()" title="Back to the dashboard" aria-label="Back to the dashboard">‹<span class="back-label"> Dashboard</span></button>
       <div class="bar-title">
         <h1 id="show-name">Loading…</h1>
         <div class="bar-sub">
@@ -3662,6 +3672,34 @@ let editedPresets  = {};       // key -> true
 // box by box into whatever the Sheet has, so nobody else's edit is lost.
 let lineBaseline   = {};       // cueId -> cue line when editing began
 let editedLines    = {};       // cueId -> true
+// ‹ Dashboard. Finishes any edit and its save first (the same as tapping Done),
+// then goes back. Opened from the dashboard in its own tab: close this tab and
+// bring that one forward, so the dashboard stays where it was. Otherwise (a
+// bookmark, the home-screen app): open the dashboard here.
+async function goToDashboard(){
+  const btn = document.getElementById('back-btn');
+  if (btn) btn.disabled = true;
+  try {
+    if (editMode) setEditMode(false);
+    const t0 = Date.now();
+    if (editSaving || clUnsaved()) toast('Saving before leaving…');
+    while ((editSaving || clUnsaved()) && Date.now() - t0 < 10000) await new Promise(r => setTimeout(r, 250));
+    if (editSaving || clUnsaved()){
+      saveDraft();
+      if (!confirm("Some changes haven't reached the Sheet yet. They're kept on this device and will save the next time the cue sheet opens here.\n\nGo to the dashboard anyway?")) return;
+    }
+  } finally { if (btn) btn.disabled = false; }
+  try {
+    const o = window.opener;
+    if (o && !o.closed && /\/app\.html$/.test(o.location.pathname)){
+      o.focus();
+      window.close();
+      setTimeout(() => { location.href = 'app.html'; }, 400);   // the browser wouldn't close it
+      return;
+    }
+  } catch (e) {}
+  location.href = 'app.html';
+}
 function clPending(){ return Object.keys(editedCues).length + Object.keys(editedPresets).length + Object.keys(editedLines).length; }
 let presetSheet    = null;     // { key } while the preset panel is open
 
@@ -4867,6 +4905,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.21 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.21 v2</div>
 </body>
 </html>
