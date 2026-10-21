@@ -1070,7 +1070,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev23';
+var VERSION='3.4-dev24';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2866,6 +2866,30 @@ function paintTechReport(r){
     box.appendChild(d);
   });
 }
+// The tech-day countdown fills its side of the screen, the same way the
+// running timer and the end card do, whatever shape the screen is. It's
+// measured as at least "00:00" with every digit as 0, so 10:00 -> 9:59
+// doesn't jump; it only gets smaller if the text really needs more room
+// (1:00:00, READY).
+var techFitKey='';
+function fitTech(){
+  var box=document.querySelector('.tfnow'),big=$('tfbig');
+  if(!box||$('techfull').hidden)return;
+  var t=big.textContent.replace(/[0-9]/g,'0');while(t.length<5)t='0'+t;
+  var k=t+'|'+$('tflabel').textContent.length+'|'+$('tfsub').textContent.length+'|'+innerWidth+'|'+innerHeight+'|'+(document.fonts?document.fonts.status:'');
+  if(k===techFitKey)return;techFitKey=k;
+  var real=big.textContent;
+  big.style.fontSize='100px';big.style.width='max-content';big.textContent=t;
+  var bw=big.scrollWidth||1,bh=big.offsetHeight||1;
+  big.textContent=real;big.style.width='';
+  var cs=getComputedStyle(big),gap=parseFloat(cs.marginTop)||0;
+  var sub=$('tfsub'),sg=parseFloat(getComputedStyle(sub).marginTop)||0;
+  var room=box.clientHeight-$('tflabel').offsetHeight-sub.offsetHeight-gap-sg;
+  var size=Math.min(box.clientWidth*0.98/bw*100,room*0.98/bh*100);
+  big.style.fontSize=Math.max(40,size)+'px';
+}
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){techFitKey='';fitTech()});
+window.addEventListener('resize',function(){techFitKey='';fitTech()});
 function paintTechDisplay(T,now,m,v){
   var full=document.body.classList.contains('full');
   document.body.classList.toggle('techfull',full);
@@ -2882,6 +2906,7 @@ function paintTechDisplay(T,now,m,v){
     $('tfrun').textContent=v.runTxt;$('tfrun').classList.toggle('over',v.bmin>1);
     $('tfstatus').textContent=v.bmin>1?'RUNNING '+v.bmin+' MIN BEHIND':'ON SCHEDULE';$('tfstatus').classList.toggle('behind',v.bmin>1);
     $('tfcall').hidden=!m;if(m)$('tfcall').textContent=m;
+    fitTech();
     return;
   }
   // corner layout (the ATEM key): name, item, clock, and what's next
