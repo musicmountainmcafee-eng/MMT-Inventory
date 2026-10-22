@@ -4367,12 +4367,14 @@ function renderAddSheet(){
     </div>
     ${isScn ? '' : `<label class="ms-f" style="margin-bottom:10px"><span>Cue line</span>
       <input id="as-cueLine" class="ms-in" value="${esc(a.cueLine)}" placeholder="Type the line it goes on" autocomplete="off" oninput="addField('cueLine', this.value)"></label>
-    <div class="ms-grid ms-g2">
-      <label class="ms-f"><span>${isShift ? 'What changes' : 'Action'}</span>
-        <input id="as-action" class="ms-in" value="${esc(a.action)}" placeholder="${isShift ? 'e.g. Into the kitchen' : 'e.g. Blackout'}" autocomplete="off" oninput="addField('action', this.value)"></label>
+    ${isShift ? `<label class="ms-f" style="margin-bottom:10px"><span>Notes</span>
+        <input id="as-notes" class="ms-in" value="${esc(a.notes)}" placeholder="Notes" autocomplete="off" oninput="addField('notes', this.value)"></label>`
+    : `<div class="ms-grid ms-g2">
+      <label class="ms-f"><span>Action</span>
+        <input id="as-action" class="ms-in" value="${esc(a.action)}" placeholder="e.g. Blackout" autocomplete="off" oninput="addField('action', this.value)"></label>
       <label class="ms-f"><span>Notes</span>
         <input id="as-notes" class="ms-in" value="${esc(a.notes)}" placeholder="Notes" autocomplete="off" oninput="addField('notes', this.value)"></label>
-    </div>`}
+    </div>`}`}
     <p class="as-note">It goes on the script as an <b>approximate</b> marker <span id="as-pg-note">(${addPageNote()})</span>. Drag it onto its line in the Scripts tab when you're there.${isShift ? ' Add its moves on the sheet after.' : ''}</p>
     <div class="ms-btns">
       <button class="ms-btn" onclick="closeAddSheet()">Cancel</button>
@@ -4402,7 +4404,7 @@ function addCueNow(){
   const id = Date.now().toString() + Math.random().toString(36).slice(2, 6);
   const cue = { id, type: a.type, number, action: String(a.action || '').trim(), cueLine: String(a.cueLine || '').trim(),
     notes: String(a.notes || '').trim(), description: String(a.notes || '').trim(), page, lineCrop: '' };
-  if (a.type === SHIFT_TYPE_ID) cue.moves = [];
+  if (a.type === SHIFT_TYPE_ID) { cue.moves = []; delete cue.action; }   // its moves say what changes
   ['action', 'cueLine', 'notes', 'description'].forEach(k => { if (!cue[k]) delete cue[k]; });
   const ls = labelSpot(number, rect, W);
   const ann = { type: 'cue', spot: /spot/i.test(t.name), rect, labelX: ls.labelX, labelY: ls.labelY, cueId: id,
@@ -5229,6 +5231,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.21 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.21 v2 dev</div>
 </body>
 </html>
