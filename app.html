@@ -6759,7 +6759,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v4</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -16458,6 +16458,17 @@ let setVocab = { people: [], pieces: [] };
 // new piece and it appears here on its own.
 let presets = {};
 
+// Photos on a Before House piece (from the cue sheet): [{ id, url, thumb, at, by }].
+function presetPhotos(e) {
+  return (e && Array.isArray(e.photos) ? e.photos : []).filter(p => p && p.id && p.url)
+    .map(p => ({ id: String(p.id), url: String(p.url), thumb: String(p.thumb || p.url), at: p.at || '', by: p.by || '' }));
+}
+// Merging a piece: photos go photo by photo, so two people adding at once both keep theirs.
+const PRESET_DEEP = {
+  photos: (b, m, t, w, c) => (m === undefined && t === undefined) ? undefined
+    : csMergeList(b || [], m || [], t || [], x => 'id:' + (x && x.id), (x, y, z, w2, c2) => csPick(x, y, z, w2, c2), w, c),
+};
+
 function normalizePresets(v) {
   const out = {};
   if (v && typeof v === 'object') {
@@ -16473,6 +16484,8 @@ function normalizePresets(v) {
         notes: String(e.notes || ''),
         hidden: !!e.hidden
       };
+      const ph = presetPhotos(e);
+      if (ph.length) out[k].photos = ph;
     });
   }
   return out;
@@ -20440,10 +20453,10 @@ function csMergeDoc(base, mine, theirs) {
         if (mm === undefined && tt === undefined) return;
         // A piece both sides started at once: measure from an empty entry, so a
         // blank box on one side doesn't wipe what the other filled in.
-        if (bb === undefined) { out[k] = mm === undefined ? csClone(tt) : tt === undefined ? csClone(mm) : csMergeObj(csBlankLike(mm, tt), mm, tt, w + '.' + k, c); return; }
+        if (bb === undefined) { out[k] = mm === undefined ? csClone(tt) : tt === undefined ? csClone(mm) : csMergeObj(csBlankLike(mm, tt), mm, tt, w + '.' + k, c, PRESET_DEEP); return; }
         if (mm === undefined) { if (!csEq(tt, bb)) out[k] = csClone(tt); return; }
         if (tt === undefined) { if (!csEq(mm, bb)) out[k] = csClone(mm); return; }
-        out[k] = csMergeObj(bb, mm, tt, w + '.' + k, c);
+        out[k] = csMergeObj(bb, mm, tt, w + '.' + k, c, PRESET_DEEP);
       });
       return out;
     },

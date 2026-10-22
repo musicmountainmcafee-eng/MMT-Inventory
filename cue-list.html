@@ -1393,6 +1393,17 @@ function renderCachedIfAny(){
   } catch(e){}
 }
 
+// Photos on a Before House piece (from the cue sheet): [{ id, url, thumb, at, by }].
+function presetPhotos(e) {
+  return (e && Array.isArray(e.photos) ? e.photos : []).filter(p => p && p.id && p.url)
+    .map(p => ({ id: String(p.id), url: String(p.url), thumb: String(p.thumb || p.url), at: p.at || '', by: p.by || '' }));
+}
+// Merging a piece: photos go photo by photo, so two people adding at once both keep theirs.
+const PRESET_DEEP = {
+  photos: (b, m, t, w, c) => (m === undefined && t === undefined) ? undefined
+    : csMergeList(b || [], m || [], t || [], x => 'id:' + (x && x.id), (x, y, z, w2, c2) => csPick(x, y, z, w2, c2), w, c),
+};
+
 function normalizePresets(v){
   const out = {};
   if (v && typeof v === 'object'){
@@ -1403,6 +1414,8 @@ function normalizePresets(v){
                  notes: String(e.notes || ''), hidden: !!e.hidden,
                  spikeIds: Array.isArray(e.spikeIds) ? e.spikeIds.map(String) : [],
                  spike: String(e.spike || '') };
+      const ph = presetPhotos(e);
+      if (ph.length) out[k].photos = ph;
     });
   }
   return out;
@@ -1449,7 +1462,7 @@ function allWho(){
 // that had a spike, location or note now completely blank, something else
 // cleared them (an old copy of the dashboard, say), so offer to put them back.
 const prGuardKey = () => 'mmt_cuelist_savedpresets_' + scriptId;
-const prHasData = e => !!(e && ((Array.isArray(e.spikeIds) && e.spikeIds.length) || e.spike || e.location || e.notes || e.hidden));
+const prHasData = e => !!(e && ((Array.isArray(e.spikeIds) && e.spikeIds.length) || e.spike || e.location || e.notes || e.hidden || (Array.isArray(e.photos) && e.photos.length)));
 function prGuardRemember(p){ try { localStorage.setItem(prGuardKey(), JSON.stringify(normalizePresets(p || {}))); } catch (e) {} }
 let _prLost = [];
 function prGuardCheck(){
@@ -4074,10 +4087,10 @@ function csMergeDoc(base, mine, theirs) {
         if (mm === undefined && tt === undefined) return;
         // A piece both sides started at once: measure from an empty entry, so a
         // blank box on one side doesn't wipe what the other filled in.
-        if (bb === undefined) { out[k] = mm === undefined ? csClone(tt) : tt === undefined ? csClone(mm) : csMergeObj(csBlankLike(mm, tt), mm, tt, w + '.' + k, c); return; }
+        if (bb === undefined) { out[k] = mm === undefined ? csClone(tt) : tt === undefined ? csClone(mm) : csMergeObj(csBlankLike(mm, tt), mm, tt, w + '.' + k, c, PRESET_DEEP); return; }
         if (mm === undefined) { if (!csEq(tt, bb)) out[k] = csClone(tt); return; }
         if (tt === undefined) { if (!csEq(mm, bb)) out[k] = csClone(mm); return; }
-        out[k] = csMergeObj(bb, mm, tt, w + '.' + k, c);
+        out[k] = csMergeObj(bb, mm, tt, w + '.' + k, c, PRESET_DEEP);
       });
       return out;
     },
@@ -4187,7 +4200,7 @@ function saveMoveEdits(forceRead){
       // Not there when editing began: measure from an empty entry, so blank
       // boxes here don't wipe what someone else filled in.
       const base = JSON.parse(presetBaseline[k] || 'null') || csBlankLike(oursP[k], theirs);
-      data.presets[k] = csMergeObj(base, oursP[k], theirs, 'presets.' + k, clashes);
+      data.presets[k] = csMergeObj(base, oursP[k], theirs, 'presets.' + k, clashes, PRESET_DEEP);
       pApplied.push(k);
     });
     const lApplied = [];
@@ -5656,6 +5669,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v4</div>
 </body>
 </html>
