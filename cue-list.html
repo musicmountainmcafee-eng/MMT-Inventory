@@ -1634,6 +1634,7 @@ function render(){
   stampUpdated();
   measureHeader();
   restoreScroll();
+  if (_holdAnchor) { const a = _holdAnchor; _holdAnchor = null; keepAnchor(a); }
 }
 
 // "Before house opens" — what's onstage or standing by when the doors open.
@@ -1680,6 +1681,7 @@ function renderPresetSheet(){
   document.getElementById('status-count').textContent =
     rows.length + ' piece' + (rows.length !== 1 ? 's' : '') + ' ·';
   stampUpdated(); measureHeader(); restoreScroll();
+  if (_holdAnchor) { const a = _holdAnchor; _holdAnchor = null; keepAnchor(a); }
 }
 
 // One Before House row. In Edit mode the row opens the preset panel.
@@ -3786,7 +3788,8 @@ function getDraft(){ try { return JSON.parse(lsGet(draftKey(), 'null')); } catch
 function setEditMode(on){
   if (on && cueReadOnly()) { clViewOnlyToast(); return; }
   if (on && !scriptId) { alert('Pick a script first.'); return; }
-  if (!on) { closeMoveSheet(true); closePresetSheet(true); }
+  const anc = _holdAnchor || sheetAnchor() || rowAnchor(firstVisibleRow());
+  if (!on) { closeMoveSheet(true); closePresetSheet(true); closeAddSheet(); }
   editMode = !!on;
   const btn = document.getElementById('edit-btn');
   if (btn){ btn.textContent = editMode ? 'Done' : 'Edit'; btn.classList.toggle('on', editMode); }
@@ -3807,10 +3810,14 @@ function setEditMode(on){
     cues.forEach(c => { if (c.type === SHIFT_TYPE_ID) lineBaseline[c.id] = (c.id in keepL && c.id in oldLB) ? oldLB[c.id] : String(c.cueLine || ''); });
     Object.keys(presets).forEach(k => { presetBaseline[k] = (k in keepP && oldPB[k]) ? oldPB[k] : JSON.stringify(presets[k]); });
     if (!pollTimer) schedulePoll();
+    _holdAnchor = anc;
     render();
   } else {
+    // The read layout straight away (a save in flight redraws it the same).
+    _holdAnchor = anc;
+    render();
     if (clPending()) saveMoveEdits();
-    else { schedulePoll(); render(); }
+    else schedulePoll();
   }
 }
 
@@ -4238,7 +4245,8 @@ let _clAutoT = null, _clWarned = {}, _clLastDoc = null;
 // the same lock as set change saves and adds them to whatever the Sheet holds
 // now, naming the version it was built on, so nobody's work is gone over.
 const APPROX_W = 170, APPROX_H = 30;      // the Scripts tab's tap-to-place box
-let addSheet = null;   // { after, page, pMin, pMax, type, number, cueLine, action, notes } while the form is open
+let addSheet = null;
+let _addAnchor = null;    // the row a new cue goes after, and where it sat   // { after, page, pMin, pMax, type, number, cueLine, action, notes } while the form is open
 function addsKey(){ return 'mmt_cuelist_adds_' + scriptId; }
 function getAdds(){ try { const a = JSON.parse(lsGet(addsKey(), '[]')); return Array.isArray(a) ? a : []; } catch(e){ return []; } }
 function setAdds(a){ if (a.length) lsSet(addsKey(), JSON.stringify(a)); else { try { localStorage.removeItem(addsKey()); } catch(e){} } }
@@ -4314,6 +4322,13 @@ function openAddCue(afterId){
   const lastType = lsGet('mmt_cuelist_addtype', '');
   const type = cueTypes.some(t => t.id === lastType) ? lastType
     : (prev && prev.type !== SCENE_TYPE_ID ? prev.type : (cueTypes[0] || {}).id);
+  {
+    const rows = afterId ? document.querySelectorAll('#sheet-body tr[data-cue]') : [];
+    // Its last real row (not the "+ Add move" line, which has no move of its own).
+    let el = null; rows.forEach(r => { if (r.getAttribute('data-cue') === String(afterId) && !r.classList.contains('pl-addrow')) el = r; });
+    _addAnchor = el ? rowAnchor(el) : null;
+    if (_addAnchor) _addAnchor.mv = el.getAttribute('data-mv') || '';
+  }
   addSheet = { after: afterId || '', page: pMin, pMin, pMax, type, number: suggestNumber(type, afterId), cueLine: '', action: '', notes: '', autoNum: true };
   renderAddSheet();
   document.getElementById('move-sheet').classList.add('open');
@@ -4322,11 +4337,13 @@ function openAddCue(afterId){
 }
 function closeAddSheet(){
   if (!addSheet) return;
+  _holdAnchor = _addAnchor; _addAnchor = null;
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   addSheet = null;
   document.getElementById('move-sheet').classList.remove('open');
   document.body.classList.remove('sheet-open');
   if (_clAdoptLater) clAdopt(_clAdoptLater);
+  else if (_holdAnchor) { const a = _holdAnchor; _holdAnchor = null; keepAnchor(a); }
 }
 function addField(f, v){
   if (!addSheet) return;
@@ -4648,6 +4665,7 @@ function presetQuick(key){
 function openPresetSheet(key, quick){
   if (!editMode) return;
   quick = quick || !!(presetSheet && presetSheet.quick);
+  noteSheetRow(findAnchorRow({ key }));
   presetSheet = { key, quick };
   render();
   renderPresetPanel();
@@ -4657,6 +4675,7 @@ function openPresetSheet(key, quick){
 }
 function closePresetSheet(silent){
   if (!presetSheet) return;
+  if (!silent) _holdAnchor = sheetAnchor();
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   const quick = presetSheet.quick;
   presetSheet = null;
@@ -4768,6 +4787,10 @@ function openMove(cueId, idx, added){
   // An empty set change shows a "Tap to add a move" row with nothing behind it.
   if (!c.moves.length){ c.moves.push({ id: 'mv' + Date.now() + Math.random().toString(36).slice(2, 6), piece:'', action:'', who:'', spike:'', notes:'' }); idx = 0; added = true; }
   if (idx >= c.moves.length) idx = c.moves.length - 1;
+  {
+    const mvId = c.moves[idx] && c.moves[idx].id;
+    noteSheetRow(findAnchorRow({ cue: id, mv: mvId || '' }));
+  }
   moveSheet = { cueId: id, idx, added: !!added };
   render();
   renderMoveSheet();
@@ -4778,6 +4801,7 @@ function openMove(cueId, idx, added){
 
 function closeMoveSheet(silent){
   if (!moveSheet) return;
+  if (!silent) _holdAnchor = sheetAnchor();
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   finalizeSheetMove();
   moveSheet = null;
@@ -4789,6 +4813,63 @@ function closeMoveSheet(silent){
 }
 
 // Scroll so the move being edited sits above the sheet, not behind it.
+// ── Keep your place ─────────────────────────────────────────────────────────
+// Opening a sheet scrolls the row up above it and pads the page; Edit and Done
+// swap the whole layout. Each of those used to leave you somewhere else.
+// Now: remember a row and where it sat on screen, and after the change put
+// that same row back at that same spot.
+let _sheetTop = null;     // screen position of the tapped row before a sheet opened
+let _holdAnchor = null;   // put this row back where it was after the next render
+function clHdr(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0; }
+function rowAnchor(el){
+  if (!el) return null;
+  return { cue: el.getAttribute('data-cue') || '', mv: el.getAttribute('data-mv') || '', key: el.getAttribute('data-key') || '', top: el.getBoundingClientRect().top };
+}
+// The row at the middle of what's on screen: where you're reading.
+function firstVisibleRow(){
+  const hdr = clHdr(), mid = (hdr + window.innerHeight) / 2;
+  const rows = document.querySelectorAll('#sheet-body tr[data-cue], #sheet-body tr[data-key], #preset-body tr[data-key]');
+  let last = null;
+  for (let i = 0; i < rows.length; i++) {
+    const b = rows[i].getBoundingClientRect();
+    if (!b.height || b.bottom <= hdr + 4) continue;
+    if (b.bottom >= mid) return rows[i];
+    last = rows[i];
+  }
+  return last;
+}
+function findAnchorRow(a){
+  if (!a) return null;
+  const rows = document.querySelectorAll('tr[data-cue], tr[data-key]');
+  let byCue = null;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (a.key) { if (r.getAttribute('data-key') === a.key) return r; continue; }
+    if (r.getAttribute('data-cue') !== a.cue) continue;
+    if (!a.mv || r.getAttribute('data-mv') === a.mv) return r;
+    if (!byCue) byCue = r;
+  }
+  return byCue;
+}
+function keepAnchor(a){
+  if (!a) return;
+  const put = () => { const el = findAnchorRow(a); if (el) { const d = el.getBoundingClientRect().top - a.top; if (Math.abs(d) > 1) window.scrollBy(0, d); } };
+  put(); requestAnimationFrame(put);
+  setTimeout(put, 350);   // a phone keyboard going away moves things once more
+}
+// The row being edited in the open sheet, placed where it was before the sheet opened.
+function sheetAnchor(){
+  if (!document.body.classList.contains('sheet-open')) return null;
+  const a = rowAnchor(document.querySelector('tr.mv-sel'));
+  if (a && _sheetTop != null) a.top = _sheetTop;
+  return a;
+}
+// Before a sheet opens over a row: note where that row sits.
+function noteSheetRow(el){
+  if (document.body.classList.contains('sheet-open')) return;   // stepping inside an open sheet keeps the first spot
+  _sheetTop = el ? el.getBoundingClientRect().top : null;
+}
+
 function keepRowVisible(){
   const row = document.querySelector('tr.mv-sel');
   const sheet = document.querySelector('#move-sheet .ms-panel');
@@ -5231,6 +5312,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.21 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.21 v5</div>
 </body>
 </html>
