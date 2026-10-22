@@ -678,6 +678,32 @@ body.display.techfull #techfull:not([hidden]){--u:min(1vw,1.778vh);display:flex;
 #tfstatus{font-size:calc(var(--u)*1.7);font-weight:600;letter-spacing:.08em;color:#7E8689;white-space:nowrap}
 #tfstatus.behind{color:#000;background:#FFB000;border-radius:6px;padding:4px 12px;font-weight:700}
 #tfcall{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#000;border:3px solid #fff;border-radius:14px;padding:calc(var(--u)*2) calc(var(--u)*4);font-size:calc(var(--u)*6);font-weight:700;letter-spacing:.12em;white-space:nowrap;animation:callpulse 1.6s ease-in-out infinite}
+/* Tech day in a wide, short window (the Wyse capture band under the stage
+   camera): the whole band is used. Countdown on the left at the band's full
+   height; Up Next, then the next full run and on-schedule line, on the right.
+   Sizes follow the band's height (vh), since the band is the window. */
+body.display.techfull.techband #techfull:not([hidden]){display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;column-gap:3vw;padding:3vh 2.2vw 3.5vh}
+body.techband .tftop{grid-column:1/-1;align-items:center}
+body.techband .tfid{gap:1.4vw}
+body.techband #tfshow{font-size:7vh}
+body.techband #tftag{font-size:5vh;padding:.3vh .8vw;border-width:2px}
+body.techband #tfclock{font-size:8.5vh}
+body.techband .tfmain{display:contents}
+body.techband .tfnow{grid-column:1;grid-row:2/4;margin-top:1.5vh}
+body.techband #tflabel{font-size:7.5vh}
+body.techband #tfbig{margin-top:.5vh}
+body.techband #tfsub{font-size:7vh;margin-top:.8vh}
+body.techband .tflistw{grid-column:2;grid-row:2;padding-left:2.4vw;margin-top:1.5vh;justify-content:center}
+body.techband .tfk{font-size:5vh;margin-bottom:.6vh}
+body.techband .tfr{grid-template-columns:9.5vw minmax(0,1fr) auto;gap:.8vw;padding:1.3vh 0}
+body.techband .tfr:nth-child(n+4){display:none}
+body.techband .tfr .t{font-size:7vh}
+body.techband .tfr .n,body.techband .tfr.dim2 .n{font-size:8vh}
+body.techband .tfr .m{font-size:5.5vh}
+body.techband .tffoot{grid-column:2;grid-row:3;border-top:2px solid #26282E;padding-top:1.6vh;margin-left:2.4vw;gap:1.2vw;min-width:0}
+body.techband #tfrun{font-size:6vh;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+body.techband #tfstatus{font-size:5.5vh}
+body.techband #tfcall{font-size:12vh;padding:2vh 3vw}
 #updban{background:#13201A;border:1px solid #2F5A3C;border-radius:6px;padding:10px 12px;margin:0 0 12px;display:flex;flex-direction:column;gap:8px}
 #updban .ut{display:flex;flex-direction:column;gap:2px;font-size:16px;color:#BFEBCB}
 #updban .ut b{font-size:18px;letter-spacing:.06em;text-transform:uppercase;color:#7EEDAA}
@@ -1072,7 +1098,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev27';
+var VERSION='3.4-dev28';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2397,7 +2423,7 @@ function tick(){
   if(S.tech)techAutoEnd(now0);
   if(techActive(now0)){paintTech(now0);return}
   if(document.body.classList.contains('techmode')){   // tech mode just ended: hand the screens back
-    document.body.classList.remove('techmode','techfull','eosfull');$('techfull').hidden=true;$('eosfull').hidden=true;
+    document.body.classList.remove('techmode','techfull','techband','eosfull');$('techfull').hidden=true;$('eosfull').hidden=true;
     if(!isDisplay){$('techcard').hidden=true;$('minus1').textContent='\u22121';$('plus1').textContent='+1'}
     sig='';identKey='';techSig='';
   }
@@ -2946,7 +2972,7 @@ function fitTech(){
   var box=document.querySelector('.tfnow'),big=$('tfbig');
   if(!box||$('techfull').hidden)return;
   var t=big.textContent.replace(/[0-9]/g,'0');while(t.length<5)t='0'+t;
-  var k=t+'|'+$('tflabel').textContent.length+'|'+$('tfsub').textContent.length+'|'+innerWidth+'|'+innerHeight+'|'+(document.fonts?document.fonts.status:'');
+  var k=t+'|'+$('tflabel').textContent.length+'|'+$('tfsub').textContent.length+'|'+$('tfrun').textContent+'|'+$('tfstatus').textContent+'|'+innerWidth+'|'+innerHeight+'|'+(document.fonts?document.fonts.status:'');
   if(k===techFitKey)return;techFitKey=k;
   var real=big.textContent;
   big.style.fontSize='100px';big.style.width='max-content';big.textContent=t;
@@ -2957,15 +2983,21 @@ function fitTech(){
   var room=box.clientHeight-$('tflabel').offsetHeight-sub.offsetHeight-gap-sg;
   var size=Math.min(box.clientWidth*0.98/bw*100,room*0.98/bh*100);
   big.style.fontSize=Math.max(40,size)+'px';
+  // in the band, the next-run line shrinks to fit beside the status instead of being cut off
+  var run=$('tfrun');run.style.fontSize='';
+  if(document.body.classList.contains('techband')&&run.scrollWidth>run.clientWidth+1){
+    var fs=parseFloat(getComputedStyle(run).fontSize);run.style.fontSize=Math.max(fs*0.6,fs*0.96*run.clientWidth/run.scrollWidth)+'px';
+  }
 }
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){techFitKey='';fitTech()});
-window.addEventListener('resize',function(){techFitKey='';fitTech()});
+window.addEventListener('resize',function(){if(document.body.classList.contains('techfull'))document.body.classList.toggle('techband',innerWidth/Math.max(1,innerHeight)>=2.2);techFitKey='';fitTech()});
 function paintTechDisplay(T,now,m,v){
   var full=document.body.classList.contains('full');
   // The day's last item is done: the full screen shows the same end card as a
   // show (message, big time of day, when it ended) until the SM ends the day.
   var fin=full&&T.idx!=null&&techComplete(T);
   document.body.classList.toggle('techfull',full&&!fin);
+  document.body.classList.toggle('techband',full&&!fin&&innerWidth/Math.max(1,innerHeight)>=2.2);
   $('techfull').hidden=!full||fin;
   document.body.classList.toggle('eosfull',fin);
   if(!fin)$('eosfull').hidden=true;
@@ -2990,8 +3022,9 @@ function paintTechDisplay(T,now,m,v){
     rows.forEach(function(r,k){h+='<div class="tfr'+(k>1?' dim'+(k-1):'')+'"><span class="t'+(r.late&&T.idx!=null?' late':'')+'">'+hm(r.at)+'</span><span class="n">'+esc(r.it.name)+'</span><span class="m">'+(r.late&&T.idx!=null&&k===0?'LATE':esc(lenTxt(r.it.min||0)))+'</span></div>'});
     if(!rows.length)h='<div class="tfr dim1"><span class="t"></span><span class="n">End of the schedule</span><span class="m"></span></div>';
     if($('tflist').innerHTML!==h)$('tflist').innerHTML=h;
-    $('tfrun').textContent=v.runTxt;$('tfrun').classList.toggle('over',v.bmin>1);
-    $('tfstatus').textContent=v.bmin>1?'RUNNING '+v.bmin+' MIN BEHIND':'ON SCHEDULE';$('tfstatus').classList.toggle('behind',v.bmin>1);
+    var bandOn=document.body.classList.contains('techband');   // the band has less room: shorter words
+    $('tfrun').textContent=bandOn?v.runTxt.replace(' \u00b7 SCHEDULED ',' \u00b7 ').replace(' \u00b7 ABOUT ',' \u00b7 ~'):v.runTxt;$('tfrun').classList.toggle('over',v.bmin>1);
+    $('tfstatus').textContent=v.bmin>1?(bandOn?'':'RUNNING ')+v.bmin+' MIN BEHIND':'ON SCHEDULE';$('tfstatus').classList.toggle('behind',v.bmin>1);
     $('tfcall').hidden=!m;if(m)$('tfcall').textContent=m;
     fitTech();
     return;
