@@ -6692,7 +6692,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.21 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.21 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -21620,16 +21620,32 @@ function loadScriptOnce(src, check, cacheRef) {
 }
 
 // pdf.js — reading and rendering script PDFs (Scripts tab only).
-const _pdfjsRef = { p: null };
-function loadPdfJS() {
+// Old browsers can't read pdf.js 3.x at all (the backstage iMac is stuck on
+// Firefox 78), so they get pdf.js 2.16's legacy build, which is made for older
+// browsers. Everyone else keeps 3.11. The test: private class fields (Firefox
+// 90, Safari 14.1, Chrome 74), which pdf.js 3.x is full of.
+const PDFJS_LEGACY = (function () { try { new Function('class A { #x = 1; m() { return this.#x; } }'); return false; } catch (e) { return true; } })();
+const PDFJS_BASES = PDFJS_LEGACY
+  ? ['https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/legacy/build/', 'https://unpkg.com/pdfjs-dist@2.16.105/legacy/build/']
+  : ['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/'];
+const _pdfjsRef = { p: null, base: '' };
+function loadPdfJS(_i) {
+  const i = _i || 0, base = PDFJS_BASES[i];
   return loadScriptOnce(
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+    base + 'pdf.min.js',
     () => (typeof pdfjsLib !== 'undefined' ? pdfjsLib : null),
     _pdfjsRef
   ).then(lib => {
     // Worker path used to be set at the top level; it belongs with the load.
-    try { lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch(e) {}
+    if (!_pdfjsRef.base) _pdfjsRef.base = base;
+    try { lib.GlobalWorkerOptions.workerSrc = _pdfjsRef.base + 'pdf.worker.min.js'; } catch(e) {}
     return lib;
+  }, err => {
+    // A failed load mustn't stick (a page that loads but won't run used to
+    // leave every later try failing until a reload). Try the next copy.
+    _pdfjsRef.p = null;
+    if (i + 1 < PDFJS_BASES.length) return loadPdfJS(i + 1);
+    throw err;
   });
 }
 
