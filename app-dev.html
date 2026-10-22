@@ -3298,15 +3298,6 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   /* Cue edit modal (full-screen overlay, dark) */
   .cue-edit-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 500; display: none; align-items: center; justify-content: center; }
   .cue-edit-overlay.open { display: flex; }
-  #imp-body { font-size: 14px; line-height: 1.45; display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
-  #imp-body .imp-pack { display: flex; flex-direction: column; gap: 2px; text-align: left; width: 100%; padding: 10px 12px; border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; background: #2a2a4a; color: #e4e4ec; font: inherit; cursor: pointer; }
-  #imp-body .imp-pack.on { border-color: var(--purple); box-shadow: inset 0 0 0 1px var(--purple); }
-  #imp-body .imp-pack b { font-size: 14px; }
-  #imp-body .imp-sub { font-size: 12px; color: #9494ae; }
-  #imp-body .imp-list { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
-  #imp-body .imp-warn { padding: 8px 10px; border-radius: 6px; background: rgba(230,126,34,0.16); color: #f0b27a; }
-  #imp-body .imp-ok { font-size: 12px; color: #9494ae; }
-  #imp-go:disabled { opacity: .45; cursor: default; }
   .cue-edit { background: #232340; color: #e4e4ec; border-radius: 10px; padding: 24px; width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto; }
   .cue-edit h3 { font-size:16px; margin-bottom: 14px; }
   .cue-edit label { display: block; font-size:12px; font-weight: 600; color: #5e5e78; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
@@ -4854,6 +4845,47 @@ table td { font-size: 14px !important; }
   #scripts-editor .se-back,
   #scripts-editor .se-mode-btn,
   .se-touch-only,
+  /* ── Cast & crew editor (shared: app.html and cue-list.html) ── */
+  .ppl-overlay { position: fixed; inset: 0; z-index: 1200; display: none; align-items: center; justify-content: center;
+    background: rgba(20,20,37,0.45); padding: 16px; box-sizing: border-box; }
+  .ppl-overlay.open { display: flex; }
+  .ppl-modal { background: var(--surface, #fff); color: var(--text, #222); border-radius: 16px; width: 100%; max-width: 760px;
+    max-height: calc(100vh - 32px); overflow-y: auto; padding: 18px 20px; box-sizing: border-box; box-shadow: 0 20px 60px rgba(0,0,0,0.3); font-size: 15px; }
+  .ppl-head { display: flex; align-items: baseline; gap: 10px; }
+  .ppl-head h3 { margin: 0; font-size: 19px; }
+  .ppl-show { color: var(--text-muted, #777); font-size: 14px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ppl-x { border: none; background: none; font-size: 26px; line-height: 1; color: var(--text-muted, #777); cursor: pointer; padding: 0 4px; }
+  .ppl-help { color: var(--text-muted, #777); font-size: 13px; margin: 8px 0 12px; line-height: 1.45; }
+  .ppl-cols { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; }
+  .ppl-col { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .ppl-col > span { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted, #777); }
+  .ppl-col textarea { font: inherit; font-size: 16px; min-height: 190px; resize: vertical; padding: 10px 12px; box-sizing: border-box; width: 100%;
+    border: 1px solid var(--border, #ddd); border-radius: 10px; background: var(--bg, #f7f7f7); color: var(--text, #222); line-height: 1.45; }
+  .ppl-col textarea:focus { outline: none; border-color: var(--purple, #534AB7); background: var(--surface, #fff); }
+  .ppl-swap { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0 6px; font-size: 13px; color: var(--text-muted, #777); }
+  .ppl-swap button { font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 14px; border: 1px solid var(--border, #ddd); background: var(--surface, #fff); color: var(--text, #222); cursor: pointer; }
+  .ppl-swap button.on { background: var(--purple, #534AB7); border-color: var(--purple, #534AB7); color: #fff; }
+  .ppl-preview { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 0; border-top: 1px solid var(--border, #ddd); margin-top: 6px; max-height: 190px; overflow-y: auto; }
+  .ppl-count { flex-basis: 100%; font-size: 12px; font-weight: 600; color: var(--text-muted, #777); }
+  .ppl-chip { display: inline-flex; align-items: baseline; gap: 5px; padding: 4px 10px; border-radius: 14px; font-size: 13px; font-weight: 600;
+    border: 1px solid var(--border, #ddd); background: var(--bg, #f7f7f7); }
+  .ppl-chip.crew { border-color: var(--purple, #534AB7); }
+  .ppl-chip small { font-weight: 400; color: var(--text-muted, #777); font-size: 11.5px; }
+  .ppl-btns { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  .ppl-status { flex: 1; font-size: 13px; color: #b02a20; }
+  .ppl-btn { font: inherit; font-size: 15px; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--border, #ddd);
+    background: var(--surface, #fff); color: var(--text, #222); cursor: pointer; }
+  .ppl-btn.primary { background: var(--purple, #534AB7); border-color: var(--purple, #534AB7); color: #fff; font-weight: 600; }
+  .ppl-btn:disabled { opacity: .6; }
+  @media (max-width: 600px) {
+    .ppl-overlay { align-items: flex-end; padding: 0; }
+    .ppl-modal { border-radius: 18px 18px 0 0; max-height: 92vh; }
+    .ppl-cols { grid-template-columns: 1fr; }
+    .ppl-col textarea { min-height: 130px; }
+  }
+
+  .hub-ppl-n { font-size: 15px; font-weight: 600; margin: 4px 0 2px; }
+  .hub-ppl-names { font-size: 13px; color: var(--text-muted); line-height: 1.45; margin-bottom: 8px; }
   #scripts-editor .place-banner { display: none; }
   /* Approximate cues (added from the cue sheet) */
   #scripts-editor .se-approx { border: 1px dashed #c2691c !important; color: #b5651d !important; font-weight: 600; white-space: nowrap; }
@@ -6406,7 +6438,6 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
         <button class="top-btn" onclick="exportAnnotatedPDF()">Export script PDF</button>
         <button class="top-btn" onclick="toggleCueTypesPanel()">Edit cue types</button>
         <button class="top-btn" onclick="openCueHistory()">History</button>
-        <button class="top-btn td-only" onclick="openCueImport()">Import set changes</button>
       </div>
       <button class="top-btn sv-more" onclick="toggleScriptTools(event)" aria-label="More">⋯</button>
     </div>
@@ -6519,14 +6550,6 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
       Prints at the top of the scene change plot.</p>
     <div id="preset-body"></div>
     <div class="cue-edit-btns"><button class="ce-btn" onclick="closePresets()">Done</button></div>
-  </div>
-</div>
-
-<div class="cue-edit-overlay" id="imp-overlay" onclick="if(event.target===this)closeCueImport()">
-  <div class="cue-edit" style="max-width:520px;">
-    <h3>Import set changes</h3>
-    <div id="imp-body"></div>
-    <div class="cue-edit-btns"><button class="top-btn" onclick="closeCueImport()">Cancel</button><button class="top-btn primary" id="imp-go" onclick="runCueImport()" disabled>Import</button></div>
   </div>
 </div>
 
@@ -6735,7 +6758,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.21 v4 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v1 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -11218,6 +11241,8 @@ function renderShowHub() {
 
         ${hubRebuildCard(sh)}
 
+        ${hubPeopleCard(ref.slug)}
+
         <div class="hub-card">
           <div class="hub-card-t">Script</div>
           <select class="hub-select" onchange="hubPickScript(this.value)">${scriptOpts}</select>
@@ -11249,6 +11274,217 @@ function renderShowHub() {
   `;
 
   hubFitSoon();
+}
+
+// ── CAST & CREW (shared: app.html and cue-list.html — keep in step) ─────────
+// One list of names per show, pasted in once and offered wherever someone fills
+// in Who. Kept in the Sheet's KVStore under people_<show slug> as
+// { cast: [{ name, role }], crew: [{ name, role }], updated, by }, so it reads
+// plainly there. Edited from the Show Hub (dashboard) or the cue sheet's
+// Settings; the same editor opens in both. Each page sets onPeopleChanged.
+const _people = {};          // slug -> { cast, crew, updated, by }
+const _peopleAsked = {};     // slug -> true once a load has been asked for
+let _pplEdit = null;         // { slug, show, swap } while the editor is open
+function peopleKey(slug) { return 'people_' + slug; }
+function peopleNorm(v) {
+  if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
+  v = (v && typeof v === 'object') ? v : {};
+  const clean = a => (Array.isArray(a) ? a : []).filter(p => p && p.name)
+    .map(p => ({ name: String(p.name).trim(), role: String(p.role || '').trim() })).filter(p => p.name);
+  return { cast: clean(v.cast), crew: clean(v.crew), updated: v.updated || '', by: v.by || '' };
+}
+function peopleGet(slug) {
+  if (!slug) return null;
+  if (_people[slug]) return _people[slug];
+  try { const v = JSON.parse(localStorage.getItem('mmt_people_' + slug) || 'null'); if (v) return (_people[slug] = peopleNorm(v)); } catch (e) {}
+  return null;
+}
+function peopleKeep(slug, v) {
+  if (v) { _people[slug] = v; try { localStorage.setItem('mmt_people_' + slug, JSON.stringify(v)); } catch (e) {} }
+  else { delete _people[slug]; try { localStorage.removeItem('mmt_people_' + slug); } catch (e) {} }
+}
+function peopleLoad(slug, cb) {
+  if (!slug) { if (cb) cb(null); return; }
+  _peopleAsked[slug] = true;
+  jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent(peopleKey(slug)) + '&_=' + Date.now(), d => {
+    if (d && d.success !== false) {
+      const v = d.value ? peopleNorm(d.value) : null;
+      peopleKeep(slug, v && (v.cast.length || v.crew.length) ? v : null);
+    }
+    if (cb) cb(peopleGet(slug));
+  }, () => { if (cb) cb(peopleGet(slug)); });
+}
+// Everyone, crew first (the people you assign most), then cast; each once.
+function peopleList(slug) {
+  const v = peopleGet(slug); if (!v) return [];
+  const seen = new Set(), out = [];
+  v.crew.map(p => ({ ...p, group: 'crew' })).concat(v.cast.map(p => ({ ...p, group: 'cast' }))).forEach(p => {
+    const k = p.name.toLowerCase(); if (seen.has(k)) return; seen.add(k); out.push(p);
+  });
+  return out;
+}
+
+// Pasted text -> [{ name, role }]. One person per line. Reads
+// "Role – Name", "Role: Name", "Role ..... Name", "Role<tab>Name" (a pasted
+// spreadsheet), "Name as Role" and "Name (Role)". Several names on one line
+// ("Tiny Tim – Sam / Alex", "Ensemble: Jo, Pat") are each kept, with the role.
+// A line that's only a heading ("Ensemble:") gives its role to the names under
+// it. `swap` is for lists written name first ("Sam – Tiny Tim").
+function peopleParse(text, swap) {
+  const out = [], byKey = {};
+  const tidy = s => String(s || '').replace(/[*†‡"“”]+/g, '').replace(/\s+/g, ' ').replace(/^[\s,.;:–—-]+|[\s,.;:–—-]+$/g, '').trim();
+  const add = (name, role) => {
+    name = tidy(name); role = tidy(role);
+    if (name.length < 2 || !/[A-Za-z]/.test(name)) return;
+    const k = name.toLowerCase();
+    if (byKey[k]) { if (role && !byKey[k].role.split(', ').includes(role)) byKey[k].role = byKey[k].role ? byKey[k].role + ', ' + role : role; return; }
+    byKey[k] = { name, role }; out.push(byKey[k]);
+  };
+  const HEAD = /^(the\s+)?(cast( list)?|crew( list)?|company|characters?|production (team|staff)|creative team|cast & crew|cast and crew)$/i;
+  let group = '';
+  String(text || '').split(/\r?\n/).forEach(raw => {
+    let line = String(raw).replace(/^\s*(?:[-*•·▪◦]|\d+[.)])\s+/, '').trim();
+    if (!line) { group = ''; return; }          // a blank line ends a heading's block
+    const h = line.match(/^([^:]{1,40}):\s*$/);
+    if (h) { group = HEAD.test(h[1].trim()) ? '' : h[1].trim(); return; }
+    if (HEAD.test(line)) { group = ''; return; }
+    let role = '', names = line, m;
+    if ((m = line.match(/^(.+?)\s+as\s+(.+)$/i))) { names = m[1]; role = m[2]; }
+    else if ((m = line.match(/^([^()]+?)\s*\(([^)]+)\)\s*$/))) { names = m[1]; role = m[2]; }
+    else if ((m = line.match(/^(.+?)(?:\t+|\s*\.{2,}\s*|\s+[–—-]+\s+|\s*:\s+|\s{3,})(.+)$/))) {
+      role = m[1]; names = m[2];
+      if (swap) { const t = role; role = names; names = t; }
+    }
+    if (!role) role = group;
+    names.split(/\s*(?:\/|&|;|,|\+|\band\b)\s*/i).forEach(n => add(n, role));
+  });
+  return out;
+}
+function peopleText(list) {
+  return (list || []).map(p => p.role ? p.role + ' – ' + p.name : p.name).join('\n');
+}
+
+function openPeople(slug, showName) {
+  if (!slug) { alert('Link this script to a show first (Show Hub › Script), so the list knows which show it belongs to.'); return; }
+  _pplEdit = { slug, show: showName || slug.replace(/-/g, ' '), swap: false };
+  let ov = document.getElementById('ppl-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'ppl-overlay';
+    ov.className = 'ppl-overlay';
+    ov.addEventListener('click', e => { if (e.target === ov) closePeople(); });
+    document.body.appendChild(ov);
+  }
+  const v = peopleGet(slug) || { cast: [], crew: [] };
+  ov.innerHTML = `<div class="ppl-modal" role="dialog" aria-label="Cast and crew">
+    <div class="ppl-head"><h3>Cast &amp; crew</h3><span class="ppl-show">${esc(_pplEdit.show)}</span>
+      <button class="ppl-x" onclick="closePeople()" aria-label="Close">×</button></div>
+    <p class="ppl-help">Paste from anywhere, one person per line. <b>Role – Name</b>, <b>Name as Role</b>, <b>Name (Role)</b> and two columns from a spreadsheet all work. Roles are optional.</p>
+    <div class="ppl-cols">
+      <label class="ppl-col"><span>Cast</span>
+        <textarea id="ppl-cast" spellcheck="false" placeholder="Ebenezer Scrooge – Pat Jones&#10;Bob Cratchit – Sam Lee&#10;Tiny Tim – Alex / Jo&#10;Ensemble: Ana, Ben, Cal" oninput="peoplePreview()">${esc(peopleText(v.cast))}</textarea></label>
+      <label class="ppl-col"><span>Crew</span>
+        <textarea id="ppl-crew" spellcheck="false" placeholder="ASM – Kyle&#10;Fly – Tristan&#10;Deck – Ally" oninput="peoplePreview()">${esc(peopleText(v.crew))}</textarea></label>
+    </div>
+    <div class="ppl-swap">Names are
+      <button type="button" id="ppl-sw-r" class="on" onclick="peopleSwap(false)">after the role</button>
+      <button type="button" id="ppl-sw-l" onclick="peopleSwap(true)">before the role</button>
+    </div>
+    <div class="ppl-preview" id="ppl-preview"></div>
+    <div class="ppl-btns"><span class="ppl-status" id="ppl-status"></span>
+      <button type="button" class="ppl-btn" onclick="closePeople()">Cancel</button>
+      <button type="button" class="ppl-btn primary" id="ppl-save" onclick="savePeople()">Save list</button></div>
+  </div>`;
+  ov.classList.add('open');
+  peoplePreview();
+  // A newer copy may be on the Sheet: fill it in if nothing's been typed yet.
+  peopleLoad(slug, fresh => {
+    if (!_pplEdit || _pplEdit.slug !== slug || !fresh) return;
+    const c = document.getElementById('ppl-cast'), w = document.getElementById('ppl-crew');
+    if (c && w && c.value === peopleText(v.cast) && w.value === peopleText(v.crew)) {
+      c.value = peopleText(fresh.cast); w.value = peopleText(fresh.crew); peoplePreview();
+    }
+  });
+}
+function closePeople() {
+  _pplEdit = null;
+  const ov = document.getElementById('ppl-overlay');
+  if (ov) ov.classList.remove('open');
+}
+function peopleSwap(on) {
+  if (!_pplEdit) return;
+  _pplEdit.swap = !!on;
+  document.getElementById('ppl-sw-r').classList.toggle('on', !on);
+  document.getElementById('ppl-sw-l').classList.toggle('on', !!on);
+  peoplePreview();
+}
+function peopleParsed() {
+  const sw = !!(_pplEdit && _pplEdit.swap);
+  return { cast: peopleParse((document.getElementById('ppl-cast') || {}).value, sw), crew: peopleParse((document.getElementById('ppl-crew') || {}).value, sw) };
+}
+function peoplePreview() {
+  const el = document.getElementById('ppl-preview'); if (!el) return;
+  const p = peopleParsed();
+  const chips = (list, cls) => list.map(x => `<span class="ppl-chip ${cls}">${esc(x.name)}${x.role ? `<small>${esc(x.role)}</small>` : ''}</span>`).join('');
+  el.innerHTML = (p.cast.length || p.crew.length)
+    ? `<div class="ppl-count">${p.cast.length} cast · ${p.crew.length} crew</div>${chips(p.crew, 'crew')}${chips(p.cast, 'cast')}`
+    : '<div class="ppl-count">Names you paste show up here, so you can check them before saving.</div>';
+}
+function savePeople() {
+  if (!_pplEdit) return;
+  const { slug } = _pplEdit;
+  const p = peopleParsed();
+  let by = '';
+  try { by = (typeof clName !== 'undefined' && clName) || (typeof userName !== 'undefined' && userName) || ''; } catch (e) {}
+  const value = { cast: p.cast, crew: p.crew, updated: new Date().toISOString(), by };
+  const st = document.getElementById('ppl-status'), btn = document.getElementById('ppl-save');
+  if (st) st.textContent = 'Saving…';
+  if (btn) btn.disabled = true;
+  fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveKV', key: peopleKey(slug), value }) })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+    .then(t => {
+      let d = null; try { d = JSON.parse(t); } catch (e) {}
+      if (d && d.success === false) throw new Error(d.error || 'Not saved');
+      peopleKeep(slug, (p.cast.length || p.crew.length) ? peopleNorm(value) : null);
+      closePeople();
+      try { toast('Cast & crew saved: ' + p.cast.length + ' cast, ' + p.crew.length + ' crew'); } catch (e) {}
+      if (typeof onPeopleChanged === 'function') onPeopleChanged(slug);
+    })
+    .catch(err => {
+      if (st) st.textContent = 'Not saved — ' + (err && err.message ? err.message : 'no signal') + '. Try again.';
+      if (btn) btn.disabled = false;
+    });
+}
+
+// This page's side: the Show Hub card, and names for the set change grid's Who.
+function hubPeopleInner(slug) {
+  const v = peopleGet(slug);
+  const n = v ? v.cast.length : 0, m = v ? v.crew.length : 0;
+  const names = v ? peopleList(slug).slice(0, 12).map(p => esc(p.name)).join(', ') : '';
+  return `<div class="hub-card-t">Cast &amp; crew</div>`
+    + (n || m
+      ? `<div class="hub-ppl-n">${n} cast · ${m} crew</div><div class="hub-ppl-names">${names}${n + m > 12 ? '…' : ''}</div>`
+      : `<div class="hub-hint" style="margin-bottom:8px">Paste the cast list once. Every name is then a tap away in Who on the cue sheet and the set change grid.</div>`)
+    + `<button class="hub-btn ${n || m ? '' : 'primary '}full" onclick="hubOpenPeople()">${n || m ? 'Edit list' : 'Add cast list'}</button>`;
+}
+function hubPeopleCard(slug) {
+  if (!_peopleAsked[slug]) setTimeout(() => peopleLoad(slug, () => onPeopleChanged(slug)), 0);
+  return `<div class="hub-card" id="hub-people" data-slug="${esc(slug)}">${hubPeopleInner(slug)}</div>`;
+}
+function hubOpenPeople() {
+  const sh = showBySlug(_hubSlug); if (!sh) return;
+  openPeople(showRef(sh).slug, String(sh.name).replace(/\s*\(\d{4}\)\s*$/, ''));
+}
+function onPeopleChanged(slug) {
+  const el = document.getElementById('hub-people');
+  if (el && el.getAttribute('data-slug') === slug) el.innerHTML = hubPeopleInner(slug);
+}
+// The open script's show, for Who suggestions.
+function scriptShowSlug() {
+  try {
+    const r = ssShowFor(showId, (document.getElementById('show-name') || {}).textContent || '');
+    return r && r.show ? ssSlug(r.show.name) : '';
+  } catch (e) { return ''; }
 }
 
 // ── SHOPPING LISTS ───────────────────────────────────────────────────────────
@@ -16315,13 +16551,20 @@ function vocabList(kind, skipMove) {
     });
   }));
   const seen = new Set();
-  return [...stored, ...used]
+  // The show's cast list comes first, in its own order (crew, then cast).
+  let listed = [];
+  if (kind === 'people') {
+    const slug = scriptShowSlug();
+    if (slug) { if (!_peopleAsked[slug]) peopleLoad(slug); listed = peopleList(slug).map(p => p.name); }
+  }
+  listed.forEach(v => seen.add(v.toLowerCase()));
+  return listed.concat([...stored, ...used]
     // A one-character entry is never a useful suggestion — it's a half-typed
     // value that got saved when focus left the cell. Dropping them here also
     // cleans up ones already sitting in the data, without hunting for the cell.
     .filter(v => v.trim().length > 1)
     .filter(v => { const k = v.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
-    .sort((a, b) => a.localeCompare(b));
+    .sort((a, b) => a.localeCompare(b)));
 }
 
 function vocabRemember(kind, raw) {
@@ -17610,9 +17853,8 @@ function updateApproxUI() {
   bar.hidden = !sel;
   if (sel) {
     const who = ((annotations[sel.page] || []).find(x => x && x.cueId === sel.id) || {}).approxBy;
-    const from = ((annotations[sel.page] || []).find(x => x && x.cueId === sel.id) || {}).approxFrom;
-    document.getElementById('approx-bar-txt').innerHTML = '<b>' + esc(sel.number || 'This cue') + '</b> ' + (from ? 'came from the ' + esc(from) : 'was added from the cue sheet'
-      + (who && who !== 'TD' ? ' by ' + esc(who) : '')) + ', so its spot is a guess. Drag the box onto its line, or tap It\u2019s right.';
+    document.getElementById('approx-bar-txt').innerHTML = '<b>' + esc(sel.number || 'This cue') + '</b> was added from the cue sheet'
+      + (who && who !== 'TD' ? ' by ' + esc(who) : '') + ', so its spot is a guess. Drag the box onto its line, or tap It\u2019s right.';
     const nx = document.getElementById('approx-next');
     if (nx) nx.hidden = list.length < 2;
   }
@@ -17627,7 +17869,7 @@ function nextApproxCue() {
 }
 function placeApprox(a, quiet) {
   if (!a || !a.approx) return;
-  delete a.approx; delete a.approxBy; delete a.approxAt; delete a.approxFrom;
+  delete a.approx; delete a.approxBy; delete a.approxAt;
   if (a.rect && typeof a.labelY === 'number') a.labelY = a.rect.y + a.rect.h;   // label level with its box again
   const c = cues.find(x => x.id === a.cueId);
   if (c && c.type !== SHIFT_TYPE_ID && !c.lineCrop && a.rect) {
@@ -18094,126 +18336,6 @@ function setCueLineInline(id, value) {
   const cell = document.querySelector('.cue-table tr[data-cue-id="' + CSS.escape(String(id)) + '"] .ct-line');
   if (cell) cell.textContent = v;
   saveShowData();
-}
-
-// ── IMPORT SET CHANGES ──────────────────────────────────────────────────────
-// Brings a prepared set of cues (set changes, their moves and scene markers,
-// with their boxes on the script) into the open script. Packs live in
-// imports/ next to this page and are listed in imports/index.json. A pack is
-// made for one script's page count; a script with a different page count is
-// refused so nothing lands on the wrong page. It only adds: whatever the script
-// already has stays, and imported set changes are numbered after it. It saves
-// the normal careful way, and Undo (or History) takes it back out.
-let _imp = { packs: null, pick: -1, pack: null, err: '' };
-function closeCueImport() { document.getElementById('imp-overlay').classList.remove('open'); }
-function openCueImport() {
-  if (!showId || !pdfDoc) { toast('Open a script first'); return; }
-  if (_cs.readOnly) { csShowElsewhere(); return; }
-  _imp = { packs: null, pick: -1, pack: null, err: '' };
-  document.getElementById('imp-overlay').classList.add('open');
-  impRender();
-  fetch('imports/index.json?_=' + Date.now(), { cache: 'no-store' })
-    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then(list => { _imp.packs = Array.isArray(list) ? list : []; if (_imp.packs.length === 1) impPick(0); else impRender(); })
-    .catch(() => { _imp.packs = []; _imp.err = 'Couldn\u2019t load the list of imports. Check the connection and try again.'; impRender(); });
-}
-function impPick(i) {
-  const p = _imp.packs && _imp.packs[i]; if (!p) return;
-  _imp.pick = i; _imp.pack = null; _imp.err = ''; impRender();
-  fetch(p.file + '?_=' + Date.now(), { cache: 'no-store' })
-    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then(pack => { if (_imp.pick === i) { _imp.pack = pack; impRender(); } })
-    .catch(() => { _imp.err = 'Couldn\u2019t load that import. Try again.'; impRender(); });
-}
-function impShiftNum(c) { const m = String((c && c.number) || '').match(/(\d+)\s*$/); return m ? parseInt(m[1], 10) : 0; }
-// What an import would do to the open script, without doing it.
-function impPlan(pack) {
-  const have = new Set(cues.map(c => String(c.id)));
-  const already = (pack.cues || []).some(c => have.has(String(c.id)));
-  const pagesOk = !pack.pages || pack.pages === totalPages;
-  const offset = cues.filter(c => c.type === SHIFT_TYPE_ID).reduce((n, c) => Math.max(n, impShiftNum(c)), 0);
-  const scenePages = new Set(cues.filter(c => c.type === SCENE_TYPE_ID).map(c => c.page));
-  const add = (pack.cues || []).filter(c => !(c.type === SCENE_TYPE_ID && scenePages.has(c.page)));
-  const shifts = add.filter(c => c.type === SHIFT_TYPE_ID);
-  const approx = Object.values(pack.annotations || {}).flat().filter(a => a && a.approx).length;
-  return { already, pagesOk, offset, add, shifts, scenes: add.length - shifts.length,
-    skippedScenes: (pack.cues || []).length - add.length,
-    moves: shifts.reduce((n, c) => n + ((c.moves || []).length), 0), approx,
-    existing: cues.filter(c => c.type === SHIFT_TYPE_ID).length };
-}
-function impRender() {
-  const body = document.getElementById('imp-body'), go = document.getElementById('imp-go');
-  go.disabled = true;
-  if (_imp.packs === null) { body.innerHTML = '<div class="imp-sub">Loading…</div>'; return; }
-  let h = '';
-  if (!_imp.packs.length && !_imp.err) h += '<div class="imp-sub">There\u2019s nothing to import yet.</div>';
-  _imp.packs.forEach((p, i) => {
-    h += '<button type="button" class="imp-pack' + (i === _imp.pick ? ' on' : '') + '" onclick="impPick(' + i + ')"><b>' + esc(p.name) + '</b>'
-      + '<span class="imp-sub">' + esc(p.shifts) + ' set changes \u00b7 ' + esc(p.moves) + ' moves \u00b7 made for ' + esc(p.forScript || 'any script') + '</span></button>';
-  });
-  if (_imp.err) h += '<div class="imp-warn">' + esc(_imp.err) + '</div>';
-  const pack = _imp.pack;
-  if (_imp.pick >= 0 && !pack && !_imp.err) h += '<div class="imp-sub">Loading…</div>';
-  if (pack) {
-    const P = impPlan(pack);
-    if (P.already) h += '<div class="imp-warn">This is already in this script. Importing again would double it, so it\u2019s turned off.</div>';
-    else if (!P.pagesOk) h += '<div class="imp-warn">This was made for a ' + esc(pack.pages) + '-page script, and this one has ' + esc(totalPages) + ' pages, so the cues would land on the wrong pages. Open ' + esc(pack.forScript || 'the right script') + ' and try again.</div>';
-    else {
-      const first = P.offset + 1, last = P.offset + P.shifts.length;
-      h += '<div>Adds to <b>' + esc(((document.getElementById('show-name') || {}).textContent || '').trim() || 'this script') + '</b>:</div><ul class="imp-list">'
-        + '<li><b>' + P.shifts.length + '</b> set changes (SHIFT ' + first + '\u2013' + last + ') with ' + P.moves + ' moves</li>'
-        + (P.scenes ? '<li><b>' + P.scenes + '</b> scene markers</li>' : '')
-        + (P.skippedScenes ? '<li>' + P.skippedScenes + ' scene marker' + (P.skippedScenes === 1 ? '' : 's') + ' left out (that page already has one)</li>' : '')
-        + '<li><b>' + P.approx + '</b> marked approx.: no cue line to pin them to, so they sit at the top of their page for you to drag into place</li></ul>'
-        + (P.existing ? '<div class="imp-sub">Your ' + P.existing + ' set change' + (P.existing === 1 ? '' : 's') + ' already here stay as they are; the imported ones number after them.</div>' : '')
-        + (pack.note ? '<div class="imp-sub">' + esc(pack.note) + '</div>' : '')
-        + '<div class="imp-ok">Undo right after, or History later, takes it back out.</div>';
-      go.disabled = false;
-    }
-  }
-  body.innerHTML = h;
-}
-function runCueImport() {
-  const pack = _imp.pack; if (!pack) return;
-  const P = impPlan(pack);
-  if (P.already || !P.pagesOk) { impRender(); return; }
-  const before = csClone(csMine());
-  saveCueSnapshot({ ...before, _rev: getCueSync().rev || 0 }, 'before import', true);
-  const colorOf = id => ((cueTypes.find(t => t.id === id) || {}).color);
-  const ids = new Set(P.add.map(c => String(c.id)));
-  const rename = {};
-  P.add.forEach(c0 => {
-    const c = csClone(c0);
-    if (c.type === SHIFT_TYPE_ID && P.offset) { const n = 'SHIFT ' + (impShiftNum(c) + P.offset); rename[c.number] = n; c.number = n; }
-    cues.push(c);
-  });
-  Object.keys(pack.annotations || {}).forEach(pg => {
-    (pack.annotations[pg] || []).forEach(a0 => {
-      if (!a0 || !ids.has(String(a0.cueId))) return;
-      const a = csClone(a0);
-      if (rename[a.label]) a.label = rename[a.label];
-      const c = cues.find(x => String(x.id) === String(a.cueId));
-      a.color = colorOf(c && c.type) || a.color;
-      if (a.approx) a.approxAt = new Date().toISOString();
-      (annotations[pg] = annotations[pg] || []).push(a);
-    });
-  });
-  const v = pack.setVocab || {};
-  ['people', 'pieces'].forEach(k => (v[k] || []).forEach(x => {
-    if (!Array.isArray(setVocab[k])) setVocab[k] = [];
-    if (!setVocab[k].some(y => y.toLowerCase() === String(x).toLowerCase())) setVocab[k].push(x);
-  }));
-  closeCueImport();
-  redrawAnnotations(); renderCueList();
-  try { updateApproxUI(); } catch (e) {}
-  saveShowData();
-  toastUndo('Imported ' + P.shifts.length + ' set changes', () => {
-    csApply(before);
-    renderCueList();
-    try { updateApproxUI(); } catch (e) {}
-    saveShowData();
-    toast('Import taken back out');
-  });
 }
 
 // ── PRESETS (before house opens) ─────────────────────────────────────────────
