@@ -480,6 +480,10 @@
     .ppl-col textarea { min-height: 130px; }
   }
 
+  #move-sheet .ms-moveto { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  #move-sheet .ms-moveto > span { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+  #move-sheet .ms-moveto .ms-btn { min-height: 42px; font-weight: 600; }
+  #move-sheet .ms-moveto-sel { flex: 1 1 150px; height: 42px; width: auto; min-width: 0; }
   /* Who: the show's cast and crew as pills, narrowed as you type */
   #move-sheet .who-pills { max-height: 176px; overflow-y: auto; align-content: flex-start; margin-bottom: 6px; }
   #move-sheet .who-h { flex-basis: 100%; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 2px 0 -2px; }
@@ -5189,6 +5193,47 @@ function sheetAddMove(cueId){
   openMove(c.id, c.moves.length - 1, true);
 }
 
+// Move this move to another set change (a couch in #6 that should be in #7).
+// It goes to the end of that change's moves and the sheet follows it there.
+// Both changes are marked edited, so the save takes it off one and onto the
+// other, move by move, without touching anyone else's edits to either.
+function shiftsInOrder(){ return cuesInScriptOrder().filter(c => c.type === SHIFT_TYPE_ID); }
+function shiftLabel(c){ return '#' + changeShortNum(shortNumber(c, typeOf(c.type).name)); }
+function sheetMoveTo(targetId){
+  const c = sheetCue();
+  if (!c || !c.moves || !targetId) return;
+  const t = cues.find(x => String(x.id) === String(targetId));
+  if (!t || t === c) return;
+  const m = c.moves[moveSheet.idx];
+  if (!m) return;
+  if (moveSheet.added && blankMove(m)) { toast('Fill in the move first'); return; }
+  c.moves.splice(moveSheet.idx, 1);
+  if (!m.id) m.id = 'mv' + Date.now() + Math.random().toString(36).slice(2, 6);
+  t.moves = Array.isArray(t.moves) ? t.moves : [];
+  // An empty change's placeholder row goes, so the move isn't second to a blank.
+  if (t.moves.length === 1 && blankMove(t.moves[0])) t.moves = [];
+  t.moves.push(m);
+  editedCues[c.id] = true; editedCues[t.id] = true;
+  saveDraft(); markDirty();
+  _sheetTop = null;   // it's somewhere else now: keep the sheet's row in view instead
+  moveSheet = { cueId: String(t.id), idx: t.moves.length - 1, added: false };
+  render(); renderMoveSheet();
+  requestAnimationFrame(keepRowVisible);
+  toast((m.piece || 'Move') + ' moved to ' + shiftLabel(t));
+}
+function moveToHTML(c){
+  const list = shiftsInOrder();
+  if (list.length < 2) return '';
+  const i = list.findIndex(x => String(x.id) === String(c.id));
+  const prev = i > 0 ? list[i - 1] : null, next = i >= 0 && i < list.length - 1 ? list[i + 1] : null;
+  const opts = list.filter(x => x !== c).map(x => `<option value="${esc(x.id)}">${esc(shiftLabel(x))}${x.cueLine ? ' · ' + esc(String(x.cueLine).slice(0, 40)) : ''} · pg. ${esc(x.page || '?')}</option>`).join('');
+  return `<div class="ms-moveto"><span>Move to</span>
+    ${prev ? `<button type="button" class="ms-btn" onclick="sheetMoveTo('${esc(prev.id)}')">‹ ${esc(shiftLabel(prev))}</button>` : ''}
+    ${next ? `<button type="button" class="ms-btn" onclick="sheetMoveTo('${esc(next.id)}')">${esc(shiftLabel(next))} ›</button>` : ''}
+    <select class="ms-in ms-moveto-sel" aria-label="Move to another change" onchange="sheetMoveTo(this.value)"><option value="">Other change…</option>${opts}</select>
+  </div>`;
+}
+
 function sheetDelete(){
   const c = sheetCue();
   if (!c || !c.moves) return;
@@ -5372,6 +5417,7 @@ function renderMoveSheet(){
     <div id="ms-spikes">${spkPickerHTML(scriptId, m.spikeIds, 'sheetSpike')}</div>
     <input id="ms-spike" class="ms-in" style="margin:8px 0 6px" value="${esc(m.spike || '')}" placeholder="Other spike, typed (optional)"
       autocomplete="off" oninput="sheetField('spike', this.value)">
+    ${moveToHTML(c)}
     <div class="ms-btns">
       <button class="ms-btn danger" onclick="sheetDelete()">Delete move</button>
       <button class="ms-btn dashed" onclick="sheetAddMove('${esc(c.id)}')">+ Another move</button>
@@ -5601,6 +5647,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v2 dev</div>
 </body>
 </html>
