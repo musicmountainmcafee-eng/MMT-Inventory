@@ -1072,7 +1072,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev25';
+var VERSION='3.4-dev26';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2396,7 +2396,7 @@ function tick(){
   var now0=NOW();
   if(techActive(now0)){paintTech(now0);return}
   if(document.body.classList.contains('techmode')){   // tech mode just ended: hand the screens back
-    document.body.classList.remove('techmode','techfull');$('techfull').hidden=true;
+    document.body.classList.remove('techmode','techfull','eosfull');$('techfull').hidden=true;$('eosfull').hidden=true;
     if(!isDisplay){$('techcard').hidden=true;$('minus1').textContent='\u22121';$('plus1').textContent='+1'}
     sig='';identKey='';techSig='';
   }
@@ -2932,8 +2932,25 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){tec
 window.addEventListener('resize',function(){techFitKey='';fitTech()});
 function paintTechDisplay(T,now,m,v){
   var full=document.body.classList.contains('full');
-  document.body.classList.toggle('techfull',full);
-  $('techfull').hidden=!full;
+  // The day's last item is done: the full screen shows the same end card as a
+  // show (message, big time of day, when it ended) until the SM ends the day.
+  var fin=full&&T.idx!=null&&techComplete(T);
+  document.body.classList.toggle('techfull',full&&!fin);
+  $('techfull').hidden=!full||fin;
+  document.body.classList.toggle('eosfull',fin);
+  if(!fin)$('eosfull').hidden=true;
+  if(fin){
+    var d=new Date(now),lg=T.log&&T.log.length?T.log[T.log.length-1].end:now;
+    $('eosfull').hidden=false;
+    $('eoshow').textContent=T.show;
+    $('eokind').textContent='TECH \u00b7 DAY '+(T.day||1);
+    $('eomsg').textContent='TECH DAY COMPLETE';
+    $('eoclock').innerHTML=(d.getHours()%12||12)+':'+pad(d.getMinutes())+'<span>'+(d.getHours()<12?'AM':'PM')+'</span>';
+    $('eoended').innerHTML='ENDED <b></b>';$('eoended').querySelector('b').textContent=clockOf(lg);
+    $('eocall').hidden=!m;if(m)$('eocall').textContent=m;
+    fitEOS();
+    return;
+  }
   if(full){
     $('tfshow').textContent=T.show;$('tftag').textContent='TECH · DAY '+(T.day||1);
     var d=new Date(now);$('tfclock').innerHTML=(d.getHours()%12||12)+':'+pad(d.getMinutes())+'<span>'+(d.getHours()<12?'AM':'PM')+'</span>';
