@@ -417,6 +417,30 @@
   .edit-state.saved  { color: #3b6d11; }
   .edit-state.error  { color: #b02a20; }
   #edit-btn.on { background: var(--purple); color: #fff; border-color: var(--purple); }
+  /* + Add cue between rows (Edit mode) */
+  tr.add-gap td { padding: 0 !important; border: none !important; background: transparent !important; height: 0; }
+  .add-gap-btn {
+    display: flex; align-items: center; justify-content: center; width: 100%; height: 22px; margin: 0; padding: 0;
+    border: none; background: none; cursor: pointer; position: relative; color: var(--purple); font: inherit;
+  }
+  .add-gap-btn::before { content: ''; position: absolute; left: 8px; right: 8px; top: 50%; border-top: 1px dashed var(--border); }
+  .add-gap-btn span {
+    position: relative; font-size: 11.5px; font-weight: 600; padding: 1px 10px; border-radius: 10px;
+    background: var(--surface); border: 1px dashed var(--purple); opacity: .55;
+  }
+  .add-gap-btn:hover span, .add-gap-btn:focus-visible span { opacity: 1; background: var(--purple-light); }
+  @media (pointer: coarse) { .add-gap-btn { height: 30px; } .add-gap-btn span { opacity: .8; font-size: 12.5px; padding: 3px 12px; } }
+  .approx-tag {
+    display: inline-block; margin-left: 5px; padding: 0 5px; border: 1px dashed currentColor; border-radius: 4px;
+    font-size: 10px; font-weight: 600; letter-spacing: .02em; color: #b5651d; vertical-align: middle; white-space: nowrap;
+  }
+  [data-theme="dark"] .approx-tag, [data-theme="red"] .approx-tag { color: #f0a35e; }
+  #move-sheet .as-types .ms-pill { display: inline-flex; align-items: center; gap: 7px; }
+  #move-sheet .as-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--tc); display: inline-block; }
+  #move-sheet .as-types .ms-pill.on .as-dot { box-shadow: 0 0 0 2px #fff; }
+  #move-sheet .as-note { font-size: 13px; color: var(--text-muted); margin: 4px 0 10px; line-height: 1.4; }
+  #dev-badge { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); z-index: 998; background: #e8590c; color: #fff;
+    font: 700 11px/1 system-ui, sans-serif; letter-spacing: .1em; padding: 4px 8px; border-radius: 4px; pointer-events: none; }
   /* Crew whose "Can change: Scripts" is off: look, don't touch. */
   body.cl-readonly #edit-btn, body.cl-readonly #pr-guard { display: none !important; }
   body.editing .cs-crop, body.editing .photo-chip { display: none; }
@@ -736,7 +760,7 @@
 </div>
 
 <!-- ── MOVE SHEET (edit mode) ───────────────────────────────────────────────── -->
-<div id="move-sheet" onclick="if(event.target===this){ closeMoveSheet(); closePresetSheet(); }">
+<div id="move-sheet" onclick="if(event.target===this){ closeMoveSheet(); closePresetSheet(); closeAddSheet(); }">
   <div class="ms-panel" role="dialog" aria-label="Edit move"><div class="ms-grip"></div><div id="ms-body"></div></div>
 </div>
 
@@ -1300,6 +1324,7 @@ function fetchCues(showLoading){
       lastOk = Date.now();
       if (!same) render();
       tickStatus();
+      if (getAdds().length) flushAdds();
     },
     () => setStatus(lastOk ? 'offline — last copy' : 'could not connect', lastOk ? 'stale' : 'dead')
   );
@@ -1422,6 +1447,9 @@ function applyPayload(data){
   lastSig = nextSig;
   cues = incoming;
   firstPaint = false;
+  // Cues added here that the Sheet doesn't have yet stay on screen. Copies, so
+  // the Sheet's copy (kept for the next save) isn't touched.
+  try { const q = getAdds(); if (q.length) { cues = cues.slice(); annotations = Object.assign({}, annotations); q.forEach(addLocal); } } catch(e) {}
 }
 
 function mergeCueTypes(saved){
@@ -1528,8 +1556,8 @@ function render(){
       <h2>${esc(ssTitle(scriptId, scriptName))} — Cue Sheet</h2>
       <div class="upd" id="upd">—</div>
     </div>`;
-  if (!cues.length){
-    el.innerHTML = title + '<div class="cs-empty"><b>No cues on this script yet.</b>Place cues in the Scripts tab and they appear here.</div>';
+  if (!cues.length && !(editMode && !cueReadOnly())){
+    el.innerHTML = title + '<div class="cs-empty"><b>No cues on this script yet.</b>Place cues in the Scripts tab, or tap Edit to add them here.</div>';
     measureHeader(); return;
   }
 
@@ -1544,7 +1572,7 @@ function render(){
   ordered.forEach(c => {
     if (isScene(c)){
       if (current.label || current.items.length) groups.push(current);
-      current = { label: String(c.number || 'Scene'), page: c.page, items: [] };
+      current = { label: String(c.number || 'Scene'), page: c.page, items: [], id: c.id };
     } else {
       current.items.push(c);
     }
@@ -1553,20 +1581,25 @@ function render(){
   if (groups.length && groups[0].label === null && groups[0].items.length) groups[0].label = 'Top of Show';
 
   let shown = 0, band = false, body = '', firstBand = true;
+  // Edit mode: "+ Add cue" between rows, after each scene bar, and at the top.
+  const canAdd = editMode && !cueReadOnly();
+  const addGap = after => canAdd ? `<tr class="add-gap"><td colspan="${NC}"><button type="button" class="add-gap-btn" onclick="event.stopPropagation(); openAddCue('${esc(after)}')"><span>+ Add cue</span></button></td></tr>` : '';
+  if (canAdd) body += addGap('');
   groups.forEach(g => {
     const visible = g.items.filter(matches);
     shown += visible.length;
-    if (!visible.length) return;
+    if (!visible.length && !(canAdd && g.id)) return;
     if (g.label){
       if (!firstBand && !plot) body += '<tr class="scene-gap"><td colspan="5"></td></tr>';
       body += `<tr class="scene"><td colspan="${NC}">${esc(g.label)}${
         g.page != null ? `<span class="scene-pg">pg. ${esc(g.page)}</span>` : ''}</td></tr>`;
+      if (g.id) body += addGap(g.id);
       band = false; firstBand = false;
     }
-    visible.forEach(c => { body += plot ? plRow(c, band, mode) : cueRow(c, band); band = !band; });
+    visible.forEach(c => { body += (plot ? plRow(c, band, mode) : cueRow(c, band)) + addGap(c.id); band = !band; });
   });
 
-  if (!shown){
+  if (!shown && !canAdd){
     const what = query ? 'Nothing matches that search.' : 'No ' + esc(typeOf(activeType).name) + ' cues.';
     const how  = query ? 'Try fewer words, or clear the type filter.' : 'Tap the type again for all cues.';
     el.innerHTML = title + `<div class="cs-empty"><b>${what}</b>${how}</div>`;
@@ -1988,7 +2021,8 @@ function plRow(c, band, mode){
   // keep their coloured chip and number so they can't be mistaken for one.
   // Set changes lead with their change number, called over headset; other cue
   // types keep their coloured chip and number so they can't be mistaken for one.
-  const chip = isShift ? `<span class="pl-num">#${esc(changeShortNum(shortNumber(c, t.name)))}</span>` : `<span class="pl-num"><span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>${esc(shortNumber(c, t.name))}</span>`;
+  const approx = isApprox(c) ? `<span class="approx-tag" title="Placed from the cue sheet. Drag its marker onto the line in the Scripts tab.">approx.</span>` : '';
+  const chip = (isShift ? `<span class="pl-num">#${esc(changeShortNum(shortNumber(c, t.name)))}</span>` : `<span class="pl-num"><span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>${esc(shortNumber(c, t.name))}</span>`) + approx;
   // Every move row repeats the change's number, cue line and page, so each
   // row reads on its own. A line photo shows on the first row only.
   const typedLine = c.cueLine ? `<span class="pl-linetxt">${esc(c.cueLine)}</span>` : '';
@@ -3707,15 +3741,19 @@ async function goToDashboard(){
   } finally { if (btn) btn.disabled = false; }
   try {
     const o = window.opener;
-    if (o && !o.closed && /\/app\.html$/.test(o.location.pathname)){
+    if (o && !o.closed && /\/app(-dev)?\.html$/.test(o.location.pathname)){
       o.focus();
       window.close();
-      setTimeout(() => { location.href = 'app.html'; }, 400);   // the browser wouldn't close it
+      setTimeout(() => { location.href = DASH_PAGE; }, 400);   // the browser wouldn't close it
       return;
     }
   } catch (e) {}
-  location.href = 'app.html';
+  location.href = DASH_PAGE;
 }
+// The dev cue sheet goes back to the dev dashboard.
+const IS_DEV_PAGE = /-dev\.html$/i.test(location.pathname);
+const DASH_PAGE = IS_DEV_PAGE ? 'app-dev.html' : 'app.html';
+if (IS_DEV_PAGE) { try { document.title = 'Cue Sheet DEV — MMT'; const b = document.createElement('div'); b.id = 'dev-badge'; b.textContent = 'DEV'; document.body.appendChild(b); } catch (e) {} }
 function clPending(){ return Object.keys(editedCues).length + Object.keys(editedPresets).length + Object.keys(editedLines).length; }
 let presetSheet    = null;     // { key } while the preset panel is open
 
@@ -4188,6 +4226,278 @@ function saveMoveEdits(forceRead){
 // Saves on its own a moment after you stop typing, no Done needed.
 let _clAutoT = null, _clWarned = {}, _clLastDoc = null;
 
+// ── ADD A CUE FROM THE CUE SHEET ────────────────────────────────────────────
+// Edit mode puts "+ Add cue" between rows. The new cue goes in that spot with
+// the page it falls on, and gets an approximate marker on the script, dashed
+// and labelled "approx.", placed between the cues before and after it there.
+// The Scripts tab draws it dashed until someone drags it onto its line (or
+// says it's right), which clears `approx`.
+//
+// New cues wait in a small queue on this device (mmt_cuelist_adds_<script>)
+// until the Sheet has them, so a dropped signal loses nothing. Saving takes
+// the same lock as set change saves and adds them to whatever the Sheet holds
+// now, naming the version it was built on, so nobody's work is gone over.
+const APPROX_W = 170, APPROX_H = 30;      // the Scripts tab's tap-to-place box
+let addSheet = null;   // { after, page, pMin, pMax, type, number, cueLine, action, notes } while the form is open
+function addsKey(){ return 'mmt_cuelist_adds_' + scriptId; }
+function getAdds(){ try { const a = JSON.parse(lsGet(addsKey(), '[]')); return Array.isArray(a) ? a : []; } catch(e){ return []; } }
+function setAdds(a){ if (a.length) lsSet(addsKey(), JSON.stringify(a)); else { try { localStorage.removeItem(addsKey()); } catch(e){} } }
+function annOf(c){ return (annotations[c.page] || []).find(x => x && x.type === 'cue' && x.cueId === c.id) || null; }
+function isApprox(c){ const a = annOf(c); return !!(a && a.approx); }
+
+// The page's width in the Scripts tab's canvas pixels (pages draw at 1.5x).
+// Every label sits 28px in from the right edge, so the cues already placed
+// tell us; a US letter page is 918 wide if there are none.
+function pageWidthGuess(){
+  const ctx = document.createElement('canvas').getContext('2d');
+  ctx.font = 'bold 14px "DM Sans", sans-serif';
+  let w = 0;
+  Object.keys(annotations || {}).forEach(p => (annotations[p] || []).forEach(a => {
+    if (a && a.type === 'cue' && typeof a.labelX === 'number') w = Math.max(w, a.labelX + ctx.measureText(a.label || '').width + 28);
+  }));
+  return w > 300 && w < 3000 ? Math.round(w) : 918;
+}
+function labelSpot(label, rect, W){
+  const ctx = document.createElement('canvas').getContext('2d');
+  ctx.font = 'bold 14px "DM Sans", sans-serif';
+  return { labelX: W - ctx.measureText(label || '').width - 28, labelY: rect.y + rect.h };
+}
+// Where on `page` a cue between `prev` and `next` (in script order) goes.
+function approxRect(page, prev, next){
+  const W = pageWidthGuess(), H = Math.round(W * 11 / 8.5);
+  const pa = prev && String(prev.page) === String(page) ? annOf(prev) : null;
+  const na = next && String(next.page) === String(page) ? annOf(next) : null;
+  const P = pa && pa.rect, N = na && na.rect;
+  let x = Math.round(W * 0.12), y;
+  if (P && N){
+    if (N.y - P.y > 12) { y = (P.y + N.y) / 2; x = P.x; }
+    else { y = P.y; x = (P.x + N.x) / 2; }                   // side by side on one line
+  } else if (P) { y = Math.min(P.y + P.h + 14, H - APPROX_H - 10); if (y <= P.y + 6) y = P.y + 7; x = P.x; }
+  else if (N)   { y = Math.max(N.y - APPROX_H - 14, 10); if (y >= N.y - 6) y = N.y - 7; x = N.x; }
+  else y = 60;                                                // nothing else on that page: the top
+  x = Math.max(0, Math.min(W - APPROX_W, x));
+  return { x: Math.round(x), y: Math.round(Math.max(0, y)), w: APPROX_W, h: APPROX_H };
+}
+
+// "LX 14" -> 14 (by the type's name), or NaN.
+function numOf(c){ const n = parseFloat(String(shortNumber(c, typeOf(c.type).name)).replace(/[^\d.]/g, '')); return isNaN(n) ? NaN : n; }
+// A number that fits between its neighbours of the same type: after LX 14 with
+// LX 15 next, LX 14.5; after LX 14 with LX 20 next, LX 15; first of its kind, 1.
+function suggestNumber(typeId, afterId){
+  const t = typeOf(typeId);
+  if (typeId === SCENE_TYPE_ID) return '';
+  const order = cuesInScriptOrder();
+  const at = afterId ? order.findIndex(c => String(c.id) === String(afterId)) : -1;
+  const same = (c) => c.type === typeId && !isNaN(numOf(c));
+  const before = order.slice(0, at + 1).filter(same), after = order.slice(at + 1).filter(same);
+  if (/spot/i.test(t.name)) {                         // spots take turns, 1 and 2
+    const last = before.length ? numOf(before[before.length - 1]) : 0;
+    return t.name + ' ' + (last === 1 ? 2 : 1);
+  }
+  const p = before.length ? numOf(before[before.length - 1]) : 0;
+  const n = after.length ? numOf(after[0]) : null;
+  let v;
+  if (n === null || Math.floor(p) + 1 < n) v = Math.floor(p) + 1;
+  else if (p + 0.5 < n) v = p + 0.5;
+  else v = Math.round(((p + n) / 2) * 100) / 100;
+  return t.name + ' ' + v;
+}
+
+function openAddCue(afterId){
+  if (cueReadOnly()) { clViewOnlyToast(); return; }
+  if (!scriptId) { alert('Pick a script first.'); return; }
+  const order = cuesInScriptOrder();
+  const at = afterId ? order.findIndex(c => String(c.id) === String(afterId)) : -1;
+  const prev = at >= 0 ? order[at] : null, next = order[at + 1] || null;
+  const pMin = prev ? (parseInt(prev.page, 10) || 1) : 1;
+  const pMax = next ? Math.max(pMin, parseInt(next.page, 10) || pMin) : pMin + 50;
+  const lastType = lsGet('mmt_cuelist_addtype', '');
+  const type = cueTypes.some(t => t.id === lastType) ? lastType
+    : (prev && prev.type !== SCENE_TYPE_ID ? prev.type : (cueTypes[0] || {}).id);
+  addSheet = { after: afterId || '', page: pMin, pMin, pMax, type, number: suggestNumber(type, afterId), cueLine: '', action: '', notes: '', autoNum: true };
+  renderAddSheet();
+  document.getElementById('move-sheet').classList.add('open');
+  document.body.classList.add('sheet-open');
+  setTimeout(() => { const el = document.getElementById('as-cueLine'); if (el && !matchMedia('(pointer: coarse)').matches) el.focus(); }, 60);
+}
+function closeAddSheet(){
+  if (!addSheet) return;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  addSheet = null;
+  document.getElementById('move-sheet').classList.remove('open');
+  document.body.classList.remove('sheet-open');
+  if (_clAdoptLater) clAdopt(_clAdoptLater);
+}
+function addField(f, v){
+  if (!addSheet) return;
+  addSheet[f] = v;
+  if (f === 'number') addSheet.autoNum = false;
+  if (f === 'page') { const pg = document.getElementById('as-pg-note'); if (pg) pg.textContent = addPageNote(); }
+}
+function addPickType(id){
+  if (!addSheet) return;
+  addSheet.type = id;
+  if (addSheet.autoNum) addSheet.number = suggestNumber(id, addSheet.after);
+  renderAddSheet();
+}
+function addPageNote(){
+  const a = addSheet; if (!a) return '';
+  return a.pMin === a.pMax ? 'between the cues around it' : 'pages ' + a.pMin + '–' + a.pMax + ' fit here';
+}
+function renderAddSheet(){
+  const a = addSheet; if (!a) return;
+  const t = typeOf(a.type);
+  const isScn = a.type === SCENE_TYPE_ID, isShift = a.type === SHIFT_TYPE_ID;
+  const order = cuesInScriptOrder();
+  const prev = a.after ? order.find(c => String(c.id) === String(a.after)) : null;
+  const where = prev ? 'after ' + (isScene(prev) ? esc(prev.number || 'scene') : esc(typeOf(prev.type).name) + ' ' + esc(shortNumber(prev, typeOf(prev.type).name)))
+    : 'at the top of the show';
+  const types = cueTypes.map(x => `<button type="button" class="ms-pill${x.id === a.type ? ' on' : ''}" style="--tc:${esc(x.color)}" onclick="addPickType('${esc(x.id)}')"><i class="as-dot"></i>${esc(x.name)}</button>`).join('');
+  document.getElementById('ms-body').innerHTML = `
+    <div class="ms-head">
+      <span class="ms-num">Add a cue</span>
+      <span class="ms-of">· ${where}</span>
+    </div>
+    <div class="ms-pills as-types">${types}</div>
+    <div class="ms-grid ms-g2">
+      <label class="ms-f"><span>${isScn ? 'Scene name' : 'Number'}</span>
+        <input id="as-number" class="ms-in strong" value="${esc(a.number)}" placeholder="${isScn ? 'e.g. Act 1 Scene 3' : esc(t.name) + ' 12'}" autocomplete="off" oninput="addField('number', this.value)"></label>
+      <label class="ms-f"><span>Page</span>
+        <input id="as-page" class="ms-in" type="number" inputmode="numeric" min="${a.pMin}" max="${a.pMax}" value="${esc(a.page)}" oninput="addField('page', this.value)"></label>
+    </div>
+    ${isScn ? '' : `<label class="ms-f" style="margin-bottom:10px"><span>Cue line</span>
+      <input id="as-cueLine" class="ms-in" value="${esc(a.cueLine)}" placeholder="Type the line it goes on" autocomplete="off" oninput="addField('cueLine', this.value)"></label>
+    ${isShift ? `<label class="ms-f" style="margin-bottom:10px"><span>Notes</span>
+        <input id="as-notes" class="ms-in" value="${esc(a.notes)}" placeholder="Notes" autocomplete="off" oninput="addField('notes', this.value)"></label>`
+    : `<div class="ms-grid ms-g2">
+      <label class="ms-f"><span>Action</span>
+        <input id="as-action" class="ms-in" value="${esc(a.action)}" placeholder="e.g. Blackout" autocomplete="off" oninput="addField('action', this.value)"></label>
+      <label class="ms-f"><span>Notes</span>
+        <input id="as-notes" class="ms-in" value="${esc(a.notes)}" placeholder="Notes" autocomplete="off" oninput="addField('notes', this.value)"></label>
+    </div>`}`}
+    <p class="as-note">It goes on the script as an <b>approximate</b> marker <span id="as-pg-note">(${addPageNote()})</span>. Drag it onto its line in the Scripts tab when you're there.${isShift ? ' Add its moves on the sheet after.' : ''}</p>
+    <div class="ms-btns">
+      <button class="ms-btn" onclick="closeAddSheet()">Cancel</button>
+      <span style="flex:1"></span>
+      <button class="ms-btn primary" onclick="addCueNow()">Add cue</button>
+    </div>`;
+}
+
+function addCueNow(){
+  const a = addSheet; if (!a) return;
+  const number = String(a.number || '').trim();
+  if (!number) { toast(a.type === SCENE_TYPE_ID ? 'Name the scene' : 'Give it a number'); return; }
+  const page = parseInt(a.page, 10);
+  if (!(page >= 1)) { toast('Page needs a number'); return; }
+  if (page < a.pMin || page > a.pMax) {
+    if (!confirm('Page ' + page + " isn't between the cues around this spot, so it will land somewhere else in the list. Add it anyway?")) return;
+  }
+  const t = typeOf(a.type);
+  const order = cuesInScriptOrder();
+  const at = a.after ? order.findIndex(c => String(c.id) === String(a.after)) : -1;
+  // Neighbours on the chosen page decide the marker's spot.
+  let prev = null, next = null;
+  if (page >= a.pMin && page <= a.pMax) { prev = at >= 0 ? order[at] : null; next = order[at + 1] || null; }
+  else { const onPg = order.filter(c => String(c.page) === String(page)); prev = onPg[onPg.length - 1] || null; }
+  const rect = approxRect(page, prev, next);
+  const W = pageWidthGuess();
+  const id = Date.now().toString() + Math.random().toString(36).slice(2, 6);
+  const cue = { id, type: a.type, number, action: String(a.action || '').trim(), cueLine: String(a.cueLine || '').trim(),
+    notes: String(a.notes || '').trim(), description: String(a.notes || '').trim(), page, lineCrop: '' };
+  if (a.type === SHIFT_TYPE_ID) { cue.moves = []; delete cue.action; }   // its moves say what changes
+  ['action', 'cueLine', 'notes', 'description'].forEach(k => { if (!cue[k]) delete cue[k]; });
+  const ls = labelSpot(number, rect, W);
+  const ann = { type: 'cue', spot: /spot/i.test(t.name), rect, labelX: ls.labelX, labelY: ls.labelY, cueId: id,
+    color: t.color, label: number, approx: true, approxBy: (clName || 'cue sheet'), approxAt: new Date().toISOString() };
+  lsSet('mmt_cuelist_addtype', a.type);
+  const q = getAdds(); q.push({ cue, ann, after: a.after }); setAdds(q);
+  addLocal({ cue, ann });
+  closeAddSheet();
+  render();
+  toast(number + ' added');
+  flushAdds();
+}
+// Put a queued cue into what's on screen (if it isn't there already).
+function addLocal(item){
+  const { cue, ann } = item;
+  if (!cues.some(c => String(c.id) === String(cue.id))) cues.push(JSON.parse(JSON.stringify(cue)));
+  const p = String(ann && cue.page);
+  if (ann){
+    const list = Array.isArray(annotations[p]) ? annotations[p] : [];
+    if (!list.some(x => x && x.cueId === cue.id)) annotations[p] = list.concat([JSON.parse(JSON.stringify(ann))]);
+  }
+}
+// Fold queued cues into a copy of the Sheet's data: after the cue they
+// followed when it's still there, else at the end (order on the sheet comes
+// from page and marker anyway).
+function foldAdds(doc, q){
+  const out = JSON.parse(JSON.stringify(doc || {}));
+  out.cues = Array.isArray(out.cues) ? out.cues : [];
+  out.annotations = (out.annotations && typeof out.annotations === 'object') ? out.annotations : {};
+  q.forEach(({ cue, ann, after }) => {
+    if (!out.cues.some(c => String(c.id) === String(cue.id))) {
+      const i = after ? out.cues.findIndex(c => String(c.id) === String(after)) : -1;
+      if (i >= 0) out.cues.splice(i + 1, 0, JSON.parse(JSON.stringify(cue))); else out.cues.push(JSON.parse(JSON.stringify(cue)));
+    }
+    if (ann) {
+      const p = String(cue.page);
+      out.annotations[p] = Array.isArray(out.annotations[p]) ? out.annotations[p] : [];
+      if (!out.annotations[p].some(x => x && x.cueId === cue.id)) out.annotations[p].push(JSON.parse(JSON.stringify(ann)));
+    }
+  });
+  return out;
+}
+let _addLoops = 0, _addRetryT = null, _addN = 0;
+function flushAdds(forceRead){
+  const q = getAdds();
+  if (!q.length || !scriptId) return;
+  if (editSaving) { clearTimeout(_addRetryT); _addRetryT = setTimeout(() => flushAdds(), 700); return; }
+  editSaving = true;
+  const el = document.getElementById('edit-state');
+  if (el){ el.className = 'edit-state saving'; el.textContent = 'Saving…'; }
+  const fail = (msg) => {
+    editSaving = false;
+    if (el){ el.className = 'edit-state error'; el.textContent = msg || 'New cue not saved yet — no signal. It\'s safe on this device; trying again.'; }
+    clearTimeout(_addRetryT); _addRetryT = setTimeout(() => flushAdds(true), Math.min(5000 * Math.pow(2, _addN++), 60000));
+  };
+  const go = (fresh, freshRev) => {
+    saveSnap(fresh, 'before adding a cue from the cue sheet');
+    const data = foldAdds(fresh, q);
+    data._rev = freshRev + 1;
+    data._savedAt = new Date().toISOString();
+    delete data._log;
+    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'saveCueData', scriptId, baseRev: freshRev, saveId: 'ca' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8), cueData: data })
+    }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); }).then(t => {
+      let res; try { res = JSON.parse(t); } catch (e) { res = { unknown: true }; }
+      if (res.conflict && res.cueData && _addLoops < 8) { _addLoops++; _clLastDoc = { doc: JSON.parse(JSON.stringify(res.cueData)), rev: res.rev }; return go(res.cueData, res.rev); }
+      editSaving = false;
+      if (res.conflict || res.unknown || res.busy) { if (++_addLoops > 8) { _addLoops = 0; return fail('Busy — retrying'); } return flushAdds(true); }
+      if (!res.success) return fail(res.reload ? 'Reload this page to save — the new cue is safe on this device' : 'New cue not saved — retrying. It\'s safe on this device');
+      _addLoops = 0; _addN = 0;
+      if (typeof res.rev === 'number') { data._rev = res.rev; _clSafe = true; }
+      // Only what went out leaves the queue; anything added meanwhile stays.
+      const sent = new Set(q.map(x => String(x.cue.id)));
+      setAdds(getAdds().filter(x => !sent.has(String(x.cue.id))));
+      if (el){ el.className = 'edit-state saved'; el.textContent = 'Saved'; setTimeout(() => { if (el.textContent === 'Saved') el.textContent = ''; }, 2500); }
+      loadedRev = data._rev;
+      saveSnap(data, 'saved from the cue sheet');
+      clAdopt(data);
+      if (getAdds().length) { flushAdds(); return; }
+      if (_saveAgain || clPending()) { saveMoveEdits(); return; }
+      if (!editMode) schedulePoll();
+    }).catch(() => fail());
+  };
+  if (!forceRead && _clSafe === true && _clLastDoc && typeof _clLastDoc.rev === 'number') { go(JSON.parse(JSON.stringify(_clLastDoc.doc)), _clLastDoc.rev); return; }
+  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), d => {
+    if (!d || !d.success || !d.cueData) return fail();
+    if (typeof d.safeSaves === 'boolean') _clSafe = d.safeSaves;
+    const r0 = typeof d.rev === 'number' ? d.rev : (d.cueData._rev || 0);
+    _clLastDoc = { doc: JSON.parse(JSON.stringify(d.cueData)), rev: r0 };
+    go(d.cueData, r0);
+  }, () => fail());
+}
+
 // ── WHO ELSE IS HERE (shared: app.html and cue-list.html — keep in step) ────
 // Each device says, with its "anything new?" check, which box it's in. The
 // Sheet's script keeps that for a few seconds (never in the Sheet) and hands
@@ -4303,8 +4613,8 @@ function prPaint(){
 (function(){ const f = window.render; if (typeof f === 'function') window.render = function(){ const r = f.apply(this, arguments); try { if (_prPeople.length) prPaint(); } catch(e){} return r; }; })();
 // Leaving with changes not saved yet: send them now (they're kept on this
 // device either way, and go next time if this doesn't make it).
-function clUnsaved(){ return clPending() > 0; }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && clUnsaved()) { saveDraft(); if (!editSaving) saveMoveEdits(); } });
+function clUnsaved(){ return clPending() > 0 || (scriptId && getAdds().length > 0); }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && clUnsaved()) { saveDraft(); if (!editSaving) { if (clPending()) saveMoveEdits(); else flushAdds(); } } });
 window.addEventListener('beforeunload', e => { if (clUnsaved()) { saveDraft(); e.preventDefault(); e.returnValue = ''; return ''; } });
 window.addEventListener('pagehide', () => { try { if (scriptId) fetch(SCRIPT_URL + '?action=getCueRev&scriptId=' + encodeURIComponent(scriptId) + '&me=' + encodeURIComponent(prDevId()) + '&bye=1', { mode: 'no-cors', keepalive: true }); } catch(e){} });
 function clAutoSave(){
@@ -4921,6 +5231,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.21 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.21 v4</div>
 </body>
 </html>
