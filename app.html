@@ -4837,14 +4837,6 @@ table td { font-size: 14px !important; }
   }
 
 
-  /* ══════════════════════════════════════════════════════════════════════════
-     SCRIPTS ON A TOUCHSCREEN (any width — see seUpdateLayout)
-     .compact  = touchscreen OR narrow window: one-row topbar, ⋯ menu, card rows
-     body.se-touch = touchscreen: Mark mode, no text selection, bottom sheets
-     ══════════════════════════════════════════════════════════════════════════ */
-  #scripts-editor .se-back,
-  #scripts-editor .se-mode-btn,
-  .se-touch-only,
   /* ── Cast & crew editor (shared: app.html and cue-list.html) ── */
   .ppl-overlay { position: fixed; inset: 0; z-index: 1200; display: none; align-items: center; justify-content: center;
     background: rgba(20,20,37,0.45); padding: 16px; box-sizing: border-box; }
@@ -4886,6 +4878,15 @@ table td { font-size: 14px !important; }
 
   .hub-ppl-n { font-size: 15px; font-weight: 600; margin: 4px 0 2px; }
   .hub-ppl-names { font-size: 13px; color: var(--text-muted); line-height: 1.45; margin-bottom: 8px; }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SCRIPTS ON A TOUCHSCREEN (any width — see seUpdateLayout)
+     .compact  = touchscreen OR narrow window: one-row topbar, ⋯ menu, card rows
+     body.se-touch = touchscreen: Mark mode, no text selection, bottom sheets
+     ══════════════════════════════════════════════════════════════════════════ */
+  #scripts-editor .se-back,
+  #scripts-editor .se-mode-btn,
+  .se-touch-only,
   #scripts-editor .place-banner { display: none; }
   /* Approximate cues (added from the cue sheet) */
   #scripts-editor .se-approx { border: 1px dashed #c2691c !important; color: #b5651d !important; font-weight: 600; white-space: nowrap; }
@@ -6758,7 +6759,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -17462,7 +17463,7 @@ drawCanvas.addEventListener('pointerup', e => {
         const last = spotCues.length ? parseInt((spotCues[spotCues.length-1].number || '').replace(/\D/g, '') || '0') : 0;
         num = type.name + ' ' + (last === 1 ? 2 : 1);
       } else {
-        num = type.name + ' ' + (nextCueNumber(typeId, type.name));
+        num = type.name + ' ' + (typeId === SHIFT_TYPE_ID ? insertCueNumber(typeId, currentPage, rect) : nextCueNumber(typeId, type.name));
       }
       // New cues start blank — details are filled in via the editor after placing.
       const action = '';
@@ -18208,6 +18209,30 @@ function editTypeColor(i) { editCueTypeModal(i); }
 // digits out of the number string ("LX 12" -> 12) so it survives manual
 // renumbering and deletions — unlike counting, which reuses retired numbers.
 // Decimal inserts (LX 12.5) round down, so a 12.5 won't block 13.
+// A set change placed between two others takes the one before it plus .5
+// (#6 and #7 -> #6.5; #6.5 taken -> #6.75). Placed after the last one, the
+// next whole number. Same rule as Add cue on the cue sheet.
+function insertCueNumber(typeId, page, rect) {
+  const numOf = c => { const m = String(c.number || '').match(/(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : NaN; };
+  const same = cuesInScriptOrder(cues.filter(c => c.type === typeId)).filter(c => !isNaN(numOf(c)));
+  const isBefore = c => {
+    if (c.page !== page) return c.page < page;
+    const p = cueRectPos(c);
+    if (!p) return true;
+    if (Math.abs(p.y - rect.y) > 6) return p.y < rect.y;
+    return p.x < rect.x;
+  };
+  const prevs = same.filter(isBefore), nexts = same.filter(c => !isBefore(c));
+  if (!nexts.length) return nextCueNumber(typeId);
+  const used = new Set(same.map(numOf));
+  const p = prevs.length ? numOf(prevs[prevs.length - 1]) : 0, n = numOf(nexts[0]);
+  const round = v => Math.round(v * 100) / 100;
+  let v = round(p + 0.5);
+  if (n > p && v >= n) v = round((p + n) / 2);
+  while (used.has(v)) v = round(v + (n > v ? (n - v) / 2 : 0.25));
+  return v;
+}
+
 function nextCueNumber(typeId, typeName) {
   const nums = cues
     .filter(c => c.type === typeId)

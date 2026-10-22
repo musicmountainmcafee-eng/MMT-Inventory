@@ -4596,10 +4596,17 @@ function suggestNumber(typeId, afterId){
   }
   const p = before.length ? numOf(before[before.length - 1]) : 0;
   const n = after.length ? numOf(after[0]) : null;
+  // Between two: the one before plus .5 (#6.5; #6.75 if that's taken). At the
+  // end: the next whole number. Same rule as placing one on the script.
+  const used = new Set(order.filter(same).map(numOf));
+  const round = x => Math.round(x * 100) / 100;
   let v;
-  if (n === null || Math.floor(p) + 1 < n) v = Math.floor(p) + 1;
-  else if (p + 0.5 < n) v = p + 0.5;
-  else v = Math.round(((p + n) / 2) * 100) / 100;
+  if (n === null) v = Math.floor(Math.max(p, ...[...used].filter(x => !isNaN(x)), 0)) + 1;
+  else {
+    v = round(p + 0.5);
+    if (n > p && v >= n) v = round((p + n) / 2);
+    while (used.has(v)) v = round(v + (n > v ? (n - v) / 2 : 0.25));
+  }
   return t.name + ' ' + v;
 }
 
@@ -5647,6 +5654,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v2</div>
 </body>
 </html>
