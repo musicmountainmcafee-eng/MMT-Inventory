@@ -1072,7 +1072,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev26';
+var VERSION='3.4-dev27';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2394,6 +2394,7 @@ function paintStage(f,now,clockMode,wingsOn,heldNow,ink,scene){
 var lastHS='';
 function tick(){
   var now0=NOW();
+  if(S.tech)techAutoEnd(now0);
   if(techActive(now0)){paintTech(now0);return}
   if(document.body.classList.contains('techmode')){   // tech mode just ended: hand the screens back
     document.body.classList.remove('techmode','techfull','eosfull');$('techfull').hidden=true;$('eosfull').hidden=true;
@@ -2593,7 +2594,36 @@ var TECHLOG_LS='mmt-timer-techlog-dev',TECHLOG_KV='timer_techlog_dev',TECHLOG=[]
 try{TECHLOG=JSON.parse(sget(TECHLOG_LS)||'[]');if(!Array.isArray(TECHLOG))TECHLOG=[]}catch(e){TECHLOG=[]}
 function techCalls(){return (cfg.techMessages&&cfg.techMessages.length)?cfg.techMessages:TECH_CALLS}
 function techRunLive(now){return !!(S.tech&&S.tech.inRun&&S.adhoc&&activePerf(now)===S.adhoc)}
-function techActive(now){return !!(S.tech&&!techRunLive(now)&&!(isDisplay&&S.tech.done))}
+function techActive(now){return !!(S.tech&&!techRunLive(now)&&!(isDisplay&&(S.tech.done||techStale(S.tech,now))))}
+// A tech day nobody ended doesn't stay on the screens. Once its last item is
+// done, the displays hold the finished card for as long as a show's end card
+// (5 min; the controller 20) and then go back to normal. A day left over from an
+// earlier date is over everywhere. The controller then ends it on its own and
+// saves the report to History, as if the SM had pressed End tech day.
+function techLastEnd(T){return T.log&&T.log.length?T.log[T.log.length-1].end:0}
+function techStale(T,now){
+  if(!T||T.done)return false;
+  if(T.date&&T.date!==ymd(new Date(now)))return 'old';
+  if(T.idx!=null&&techComplete(T)){var e=techLastEnd(T);if(e&&now-e>endHold()*6e4)return 'finished'}
+  return false;
+}
+var techAutoEndBusy=false;
+function techAutoEnd(now){
+  if(isDisplay||techAutoEndBusy)return;
+  var why=techStale(S.tech,now);if(!why)return;
+  techAutoEndBusy=true;
+  setTimeout(function(){
+    techAutoEndBusy=false;
+    var T=S.tech,w=techStale(T,nowMs());if(!w)return;
+    var end=techLastEnd(T)||T.started||nowMs();
+    var n=JSON.parse(JSON.stringify(T));
+    n.inRun=false;n.done=true;n.undo=null;n.report=techReport(n,end);
+    techSave(n.report);
+    var clear=T.inRun?{adhoc:null,key:null,idx:null,log:[]}:{};
+    if(w==='old')commit(Object.assign({tech:null},clear));   // yesterday's: saved, and out of the way
+    else techCommit(n,clear);                                // tonight's: the report stays up on the controller
+  },0);
+}
 function tid(){return 't'+Math.random().toString(36).slice(2,8)}
 function hm(ms){var d=new Date(ms);return (d.getHours()%12||12)+':'+pad(d.getMinutes())}
 function techAt(T,i){return T.items[i]?at(T.date,T.items[i].at):0}
