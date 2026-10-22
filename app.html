@@ -6759,7 +6759,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v3</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -17463,7 +17463,7 @@ drawCanvas.addEventListener('pointerup', e => {
         const last = spotCues.length ? parseInt((spotCues[spotCues.length-1].number || '').replace(/\D/g, '') || '0') : 0;
         num = type.name + ' ' + (last === 1 ? 2 : 1);
       } else {
-        num = type.name + ' ' + (typeId === SHIFT_TYPE_ID ? insertCueNumber(typeId, currentPage, rect) : nextCueNumber(typeId, type.name));
+        num = type.name + ' ' + insertCueNumber(typeId, currentPage, rect);
       }
       // New cues start blank — details are filled in via the editor after placing.
       const action = '';
@@ -18209,9 +18209,10 @@ function editTypeColor(i) { editCueTypeModal(i); }
 // digits out of the number string ("LX 12" -> 12) so it survives manual
 // renumbering and deletions — unlike counting, which reuses retired numbers.
 // Decimal inserts (LX 12.5) round down, so a 12.5 won't block 13.
-// A set change placed between two others takes the one before it plus .5
-// (#6 and #7 -> #6.5; #6.5 taken -> #6.75). Placed after the last one, the
-// next whole number. Same rule as Add cue on the cue sheet.
+// A cue placed between two of its type: the next whole number if one is free
+// between them (#6 and #8 -> #7), else the one before plus .5 (#6 and #7 ->
+// #6.5; then #6.75). After the last one, the next whole number. Same rule as
+// Add cue on the cue sheet.
 function insertCueNumber(typeId, page, rect) {
   const numOf = c => { const m = String(c.number || '').match(/(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : NaN; };
   const same = cuesInScriptOrder(cues.filter(c => c.type === typeId)).filter(c => !isNaN(numOf(c)));
@@ -18227,6 +18228,8 @@ function insertCueNumber(typeId, page, rect) {
   const used = new Set(same.map(numOf));
   const p = prevs.length ? numOf(prevs[prevs.length - 1]) : 0, n = numOf(nexts[0]);
   const round = v => Math.round(v * 100) / 100;
+  const whole = Math.floor(p) + 1;
+  if (whole < n && !used.has(whole)) return whole;
   let v = round(p + 0.5);
   if (n > p && v >= n) v = round((p + n) / 2);
   while (used.has(v)) v = round(v + (n > v ? (n - v) / 2 : 0.25));
