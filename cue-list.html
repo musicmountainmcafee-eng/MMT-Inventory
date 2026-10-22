@@ -441,6 +441,57 @@
   #move-sheet .as-note { font-size: 13px; color: var(--text-muted); margin: 4px 0 10px; line-height: 1.4; }
   #dev-badge { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); z-index: 998; background: #e8590c; color: #fff;
     font: 700 11px/1 system-ui, sans-serif; letter-spacing: .1em; padding: 4px 8px; border-radius: 4px; pointer-events: none; }
+  /* ── Cast & crew editor (shared: app.html and cue-list.html) ── */
+  .ppl-overlay { position: fixed; inset: 0; z-index: 1200; display: none; align-items: center; justify-content: center;
+    background: rgba(20,20,37,0.45); padding: 16px; box-sizing: border-box; }
+  .ppl-overlay.open { display: flex; }
+  .ppl-modal { background: var(--surface, #fff); color: var(--text, #222); border-radius: 16px; width: 100%; max-width: 760px;
+    max-height: calc(100vh - 32px); overflow-y: auto; padding: 18px 20px; box-sizing: border-box; box-shadow: 0 20px 60px rgba(0,0,0,0.3); font-size: 15px; }
+  .ppl-head { display: flex; align-items: baseline; gap: 10px; }
+  .ppl-head h3 { margin: 0; font-size: 19px; }
+  .ppl-show { color: var(--text-muted, #777); font-size: 14px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ppl-x { border: none; background: none; font-size: 26px; line-height: 1; color: var(--text-muted, #777); cursor: pointer; padding: 0 4px; }
+  .ppl-help { color: var(--text-muted, #777); font-size: 13px; margin: 8px 0 12px; line-height: 1.45; }
+  .ppl-cols { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; }
+  .ppl-col { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .ppl-col > span { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted, #777); }
+  .ppl-col textarea { font: inherit; font-size: 16px; min-height: 190px; resize: vertical; padding: 10px 12px; box-sizing: border-box; width: 100%;
+    border: 1px solid var(--border, #ddd); border-radius: 10px; background: var(--bg, #f7f7f7); color: var(--text, #222); line-height: 1.45; }
+  .ppl-col textarea:focus { outline: none; border-color: var(--purple, #534AB7); background: var(--surface, #fff); }
+  .ppl-swap { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0 6px; font-size: 13px; color: var(--text-muted, #777); }
+  .ppl-swap button { font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 14px; border: 1px solid var(--border, #ddd); background: var(--surface, #fff); color: var(--text, #222); cursor: pointer; }
+  .ppl-swap button.on { background: var(--purple, #534AB7); border-color: var(--purple, #534AB7); color: #fff; }
+  .ppl-preview { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 0; border-top: 1px solid var(--border, #ddd); margin-top: 6px; max-height: 190px; overflow-y: auto; }
+  .ppl-count { flex-basis: 100%; font-size: 12px; font-weight: 600; color: var(--text-muted, #777); }
+  .ppl-chip { display: inline-flex; align-items: baseline; gap: 5px; padding: 4px 10px; border-radius: 14px; font-size: 13px; font-weight: 600;
+    border: 1px solid var(--border, #ddd); background: var(--bg, #f7f7f7); }
+  .ppl-chip.crew { border-color: var(--purple, #534AB7); }
+  .ppl-chip small { font-weight: 400; color: var(--text-muted, #777); font-size: 11.5px; }
+  .ppl-btns { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  .ppl-status { flex: 1; font-size: 13px; color: #b02a20; }
+  .ppl-btn { font: inherit; font-size: 15px; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--border, #ddd);
+    background: var(--surface, #fff); color: var(--text, #222); cursor: pointer; }
+  .ppl-btn.primary { background: var(--purple, #534AB7); border-color: var(--purple, #534AB7); color: #fff; font-weight: 600; }
+  .ppl-btn:disabled { opacity: .6; }
+  @media (max-width: 600px) {
+    .ppl-overlay { align-items: flex-end; padding: 0; }
+    .ppl-modal { border-radius: 18px 18px 0 0; max-height: 92vh; }
+    .ppl-cols { grid-template-columns: 1fr; }
+    .ppl-col textarea { min-height: 130px; }
+  }
+
+  #move-sheet .ms-moveto { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  #move-sheet .ms-moveto > span { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+  #move-sheet .ms-moveto .ms-btn { min-height: 42px; font-weight: 600; }
+  #move-sheet .ms-moveto-sel { flex: 1 1 150px; height: 42px; width: auto; min-width: 0; }
+  /* Who: the show's cast and crew as pills, narrowed as you type */
+  #move-sheet .who-pills { max-height: 176px; overflow-y: auto; align-content: flex-start; margin-bottom: 6px; }
+  #move-sheet .who-h { flex-basis: 100%; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 2px 0 -2px; }
+  #move-sheet .who-h[hidden], #move-sheet .who-pill[hidden] { display: none; }
+  #move-sheet .who-pill small { font-weight: 400; font-size: 11.5px; margin-left: 6px; opacity: .7; }
+  #move-sheet .who-edit { font: inherit; font-size: 13px; font-weight: 600; color: var(--purple); background: none; border: none; padding: 2px 0 12px; cursor: pointer; }
+  #ppl-setting b { font-weight: 600; }
+  #ppl-setting button { margin-left: 8px; }
   /* Crew whose "Can change: Scripts" is off: look, don't touch. */
   body.cl-readonly #edit-btn, body.cl-readonly #pr-guard { display: none !important; }
   body.editing .cs-crop, body.editing .photo-chip { display: none; }
@@ -772,6 +823,9 @@
 
     <label>Script</label>
     <div id="script-list"><div class="note">Loading scripts…</div></div>
+
+    <label>Cast &amp; crew</label>
+    <div class="note" id="ppl-setting"></div>
 
     <label style="margin-top:18px;">Layout</label>
     <div class="size-row" id="layout-row">
@@ -1124,7 +1178,7 @@ function start(){
   loadScripts();
   if (scriptId) fetchCues(true);
   // Which show each script is for (Show Hub pins), for titles.
-  ssLoad(() => { if (scriptName) ssShowName(); if (cues.length || view === 'presets') render(); renderScriptList(); });
+  ssLoad(() => { if (scriptName) ssShowName(); if (cues.length || view === 'presets') render(); renderScriptList(); clPeopleLoad(); });
   // Spike colours for the chips and the picker; cached, so this is just a refresh.
   spkLoad(() => { if (cues.length) render(); if (moveSheet) renderMoveSheet(); });
 
@@ -1299,6 +1353,7 @@ function pickScript(id, name, silent){
   renderCachedIfAny();
   renderScriptList();
   fetchCues(true);
+  clPeopleLoad();
   if (!silent) closeSheet();
 }
 
@@ -4233,6 +4288,243 @@ function saveMoveEdits(forceRead){
 // Saves on its own a moment after you stop typing, no Done needed.
 let _clAutoT = null, _clWarned = {}, _clLastDoc = null;
 
+// ── CAST & CREW (shared: app.html and cue-list.html — keep in step) ─────────
+// One list of names per show, pasted in once and offered wherever someone fills
+// in Who. Kept in the Sheet's KVStore under people_<show slug> as
+// { cast: [{ name, role }], crew: [{ name, role }], updated, by }, so it reads
+// plainly there. Edited from the Show Hub (dashboard) or the cue sheet's
+// Settings; the same editor opens in both. Each page sets onPeopleChanged.
+const _people = {};          // slug -> { cast, crew, updated, by }
+const _peopleAsked = {};     // slug -> true once a load has been asked for
+let _pplEdit = null;         // { slug, show, swap } while the editor is open
+function peopleKey(slug) { return 'people_' + slug; }
+function peopleNorm(v) {
+  if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
+  v = (v && typeof v === 'object') ? v : {};
+  const clean = a => (Array.isArray(a) ? a : []).filter(p => p && p.name)
+    .map(p => ({ name: String(p.name).trim(), role: String(p.role || '').trim() })).filter(p => p.name);
+  return { cast: clean(v.cast), crew: clean(v.crew), updated: v.updated || '', by: v.by || '' };
+}
+function peopleGet(slug) {
+  if (!slug) return null;
+  if (_people[slug]) return _people[slug];
+  try { const v = JSON.parse(localStorage.getItem('mmt_people_' + slug) || 'null'); if (v) return (_people[slug] = peopleNorm(v)); } catch (e) {}
+  return null;
+}
+function peopleKeep(slug, v) {
+  if (v) { _people[slug] = v; try { localStorage.setItem('mmt_people_' + slug, JSON.stringify(v)); } catch (e) {} }
+  else { delete _people[slug]; try { localStorage.removeItem('mmt_people_' + slug); } catch (e) {} }
+}
+function peopleLoad(slug, cb) {
+  if (!slug) { if (cb) cb(null); return; }
+  _peopleAsked[slug] = true;
+  jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent(peopleKey(slug)) + '&_=' + Date.now(), d => {
+    if (d && d.success !== false) {
+      const v = d.value ? peopleNorm(d.value) : null;
+      peopleKeep(slug, v && (v.cast.length || v.crew.length) ? v : null);
+    }
+    if (cb) cb(peopleGet(slug));
+  }, () => { if (cb) cb(peopleGet(slug)); });
+}
+// Everyone, crew first (the people you assign most), then cast; each once.
+function peopleList(slug) {
+  const v = peopleGet(slug); if (!v) return [];
+  const seen = new Set(), out = [];
+  v.crew.map(p => ({ ...p, group: 'crew' })).concat(v.cast.map(p => ({ ...p, group: 'cast' }))).forEach(p => {
+    const k = p.name.toLowerCase(); if (seen.has(k)) return; seen.add(k); out.push(p);
+  });
+  return out;
+}
+
+// Pasted text -> [{ name, role }]. One person per line. Reads
+// "Role – Name", "Role: Name", "Role ..... Name", "Role<tab>Name" (a pasted
+// spreadsheet), "Name as Role" and "Name (Role)". Several names on one line
+// ("Tiny Tim – Sam / Alex", "Ensemble: Jo, Pat") are each kept, with the role.
+// A line that's only a heading ("Ensemble:") gives its role to the names under
+// it. `swap` is for lists written name first ("Sam – Tiny Tim").
+function peopleParse(text, swap) {
+  const out = [], byKey = {};
+  const tidy = s => String(s || '').replace(/[*†‡"“”]+/g, '').replace(/\s+/g, ' ').replace(/^[\s,.;:–—-]+|[\s,.;:–—-]+$/g, '').trim();
+  const add = (name, role) => {
+    name = tidy(name); role = tidy(role);
+    if (name.length < 2 || !/[A-Za-z]/.test(name)) return;
+    const k = name.toLowerCase();
+    if (byKey[k]) { if (role && !byKey[k].role.split(', ').includes(role)) byKey[k].role = byKey[k].role ? byKey[k].role + ', ' + role : role; return; }
+    byKey[k] = { name, role }; out.push(byKey[k]);
+  };
+  const HEAD = /^(the\s+)?(cast( list)?|crew( list)?|company|characters?|production (team|staff)|creative team|cast & crew|cast and crew)$/i;
+  let group = '';
+  String(text || '').split(/\r?\n/).forEach(raw => {
+    let line = String(raw).replace(/^\s*(?:[-*•·▪◦]|\d+[.)])\s+/, '').trim();
+    if (!line) { group = ''; return; }          // a blank line ends a heading's block
+    const h = line.match(/^([^:]{1,40}):\s*$/);
+    if (h) { group = HEAD.test(h[1].trim()) ? '' : h[1].trim(); return; }
+    if (HEAD.test(line)) { group = ''; return; }
+    let role = '', names = line, m;
+    if ((m = line.match(/^(.+?)\s+as\s+(.+)$/i))) { names = m[1]; role = m[2]; }
+    else if ((m = line.match(/^([^()]+?)\s*\(([^)]+)\)\s*$/))) { names = m[1]; role = m[2]; }
+    else if ((m = line.match(/^(.+?)(?:\t+|\s*\.{2,}\s*|\s+[–—-]+\s+|\s*:\s+|\s{3,})(.+)$/))) {
+      role = m[1]; names = m[2];
+      if (swap) { const t = role; role = names; names = t; }
+    }
+    if (!role) role = group;
+    names.split(/\s*(?:\/|&|;|,|\+|\band\b)\s*/i).forEach(n => add(n, role));
+  });
+  return out;
+}
+function peopleText(list) {
+  return (list || []).map(p => p.role ? p.role + ' – ' + p.name : p.name).join('\n');
+}
+
+function openPeople(slug, showName) {
+  if (!slug) { alert('Link this script to a show first (Show Hub › Script), so the list knows which show it belongs to.'); return; }
+  _pplEdit = { slug, show: showName || slug.replace(/-/g, ' '), swap: false };
+  let ov = document.getElementById('ppl-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'ppl-overlay';
+    ov.className = 'ppl-overlay';
+    ov.addEventListener('click', e => { if (e.target === ov) closePeople(); });
+    document.body.appendChild(ov);
+  }
+  const v = peopleGet(slug) || { cast: [], crew: [] };
+  ov.innerHTML = `<div class="ppl-modal" role="dialog" aria-label="Cast and crew">
+    <div class="ppl-head"><h3>Cast &amp; crew</h3><span class="ppl-show">${esc(_pplEdit.show)}</span>
+      <button class="ppl-x" onclick="closePeople()" aria-label="Close">×</button></div>
+    <p class="ppl-help">Paste from anywhere, one person per line. <b>Role – Name</b>, <b>Name as Role</b>, <b>Name (Role)</b> and two columns from a spreadsheet all work. Roles are optional.</p>
+    <div class="ppl-cols">
+      <label class="ppl-col"><span>Cast</span>
+        <textarea id="ppl-cast" spellcheck="false" placeholder="Ebenezer Scrooge – Pat Jones&#10;Bob Cratchit – Sam Lee&#10;Tiny Tim – Alex / Jo&#10;Ensemble: Ana, Ben, Cal" oninput="peoplePreview()">${esc(peopleText(v.cast))}</textarea></label>
+      <label class="ppl-col"><span>Crew</span>
+        <textarea id="ppl-crew" spellcheck="false" placeholder="ASM – Kyle&#10;Fly – Tristan&#10;Deck – Ally" oninput="peoplePreview()">${esc(peopleText(v.crew))}</textarea></label>
+    </div>
+    <div class="ppl-swap">Names are
+      <button type="button" id="ppl-sw-r" class="on" onclick="peopleSwap(false)">after the role</button>
+      <button type="button" id="ppl-sw-l" onclick="peopleSwap(true)">before the role</button>
+    </div>
+    <div class="ppl-preview" id="ppl-preview"></div>
+    <div class="ppl-btns"><span class="ppl-status" id="ppl-status"></span>
+      <button type="button" class="ppl-btn" onclick="closePeople()">Cancel</button>
+      <button type="button" class="ppl-btn primary" id="ppl-save" onclick="savePeople()">Save list</button></div>
+  </div>`;
+  ov.classList.add('open');
+  peoplePreview();
+  // A newer copy may be on the Sheet: fill it in if nothing's been typed yet.
+  peopleLoad(slug, fresh => {
+    if (!_pplEdit || _pplEdit.slug !== slug || !fresh) return;
+    const c = document.getElementById('ppl-cast'), w = document.getElementById('ppl-crew');
+    if (c && w && c.value === peopleText(v.cast) && w.value === peopleText(v.crew)) {
+      c.value = peopleText(fresh.cast); w.value = peopleText(fresh.crew); peoplePreview();
+    }
+  });
+}
+function closePeople() {
+  _pplEdit = null;
+  const ov = document.getElementById('ppl-overlay');
+  if (ov) ov.classList.remove('open');
+}
+function peopleSwap(on) {
+  if (!_pplEdit) return;
+  _pplEdit.swap = !!on;
+  document.getElementById('ppl-sw-r').classList.toggle('on', !on);
+  document.getElementById('ppl-sw-l').classList.toggle('on', !!on);
+  peoplePreview();
+}
+function peopleParsed() {
+  const sw = !!(_pplEdit && _pplEdit.swap);
+  return { cast: peopleParse((document.getElementById('ppl-cast') || {}).value, sw), crew: peopleParse((document.getElementById('ppl-crew') || {}).value, sw) };
+}
+function peoplePreview() {
+  const el = document.getElementById('ppl-preview'); if (!el) return;
+  const p = peopleParsed();
+  const chips = (list, cls) => list.map(x => `<span class="ppl-chip ${cls}">${esc(x.name)}${x.role ? `<small>${esc(x.role)}</small>` : ''}</span>`).join('');
+  el.innerHTML = (p.cast.length || p.crew.length)
+    ? `<div class="ppl-count">${p.cast.length} cast · ${p.crew.length} crew</div>${chips(p.crew, 'crew')}${chips(p.cast, 'cast')}`
+    : '<div class="ppl-count">Names you paste show up here, so you can check them before saving.</div>';
+}
+function savePeople() {
+  if (!_pplEdit) return;
+  const { slug } = _pplEdit;
+  const p = peopleParsed();
+  let by = '';
+  try { by = (typeof clName !== 'undefined' && clName) || (typeof userName !== 'undefined' && userName) || ''; } catch (e) {}
+  const value = { cast: p.cast, crew: p.crew, updated: new Date().toISOString(), by };
+  const st = document.getElementById('ppl-status'), btn = document.getElementById('ppl-save');
+  if (st) st.textContent = 'Saving…';
+  if (btn) btn.disabled = true;
+  fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveKV', key: peopleKey(slug), value }) })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+    .then(t => {
+      let d = null; try { d = JSON.parse(t); } catch (e) {}
+      if (d && d.success === false) throw new Error(d.error || 'Not saved');
+      peopleKeep(slug, (p.cast.length || p.crew.length) ? peopleNorm(value) : null);
+      closePeople();
+      try { toast('Cast & crew saved: ' + p.cast.length + ' cast, ' + p.crew.length + ' crew'); } catch (e) {}
+      if (typeof onPeopleChanged === 'function') onPeopleChanged(slug);
+    })
+    .catch(err => {
+      if (st) st.textContent = 'Not saved — ' + (err && err.message ? err.message : 'no signal') + '. Try again.';
+      if (btn) btn.disabled = false;
+    });
+}
+
+// This page's side: which show this script is, the Who pills, Settings.
+function clShowSlug(){ const r = scriptId ? ssShowFor(scriptId, scriptName) : null; return r && r.show ? ssSlug(r.show.name) : ''; }
+function clShowLabel(){ const r = scriptId ? ssShowFor(scriptId, scriptName) : null; return r && r.show ? String(r.show.name).replace(/\s*\(\d{4}\)\s*$/, '') : ''; }
+function clPeopleLoad(){ const slug = clShowSlug(); if (slug) peopleLoad(slug, () => onPeopleChanged(slug)); else renderPeopleSetting(); }
+function onPeopleChanged(){ if (moveSheet) { const y = (document.querySelector('#move-sheet .ms-panel') || {}).scrollTop; renderMoveSheet(); const p = document.querySelector('#move-sheet .ms-panel'); if (p && y) p.scrollTop = y; } renderPeopleSetting(); }
+// The show's crew, then its cast, then anyone else already named on this plot.
+function whoChoices(){
+  const list = peopleList(clShowSlug());
+  const seen = new Set(list.map(p => p.name.toLowerCase()));
+  return list.concat(allWho().filter(n => !seen.has(n.toLowerCase())).map(n => ({ name: n, role: '', group: 'used' })));
+}
+function whoPillsHTML(on){
+  const ch = whoChoices(), slug = clShowSlug();
+  const hasList = ch.some(p => p.group !== 'used');
+  const HEAD = { crew: 'Crew', cast: 'Cast', used: 'Also on this plot' };
+  let html = '', last = '';
+  ch.forEach(p => {
+    if (hasList && p.group !== last) { last = p.group; html += `<span class="who-h" data-g="${p.group}">${HEAD[p.group]}</span>`; }
+    html += `<button type="button" class="ms-pill who-pill${on.has(p.name.toLowerCase()) ? ' on' : ''}" data-v="${esc(p.name)}" data-g="${p.group}" data-r="${esc(p.role)}"
+      onclick="sheetPick('who', this.dataset.v)">${esc(p.name)}${p.role ? `<small>${esc(p.role)}</small>` : ''}</button>`;
+  });
+  const edit = slug && !cueReadOnly() ? `<button type="button" class="who-edit" onclick="openPeople('${esc(slug)}', clShowLabel())">${hasList ? 'Edit cast list ›' : "+ Add this show's cast list"}</button>` : '';
+  return (ch.length ? `<div class="ms-pills who-pills" id="ms-whos">${html}</div>` : '') + edit;
+}
+// Typing in Who narrows the pills to names (or roles) starting with what's typed.
+function whoFilter(v){
+  const pills = [...document.querySelectorAll('#ms-whos .who-pill')];
+  if (!pills.length) return;
+  const tok = (String(v || '').split(/,|\/|&|;|\+/).pop() || '').trim().toLowerCase();
+  const exact = tok && pills.some(b => b.dataset.v.toLowerCase() === tok);
+  pills.forEach(b => {
+    const n = b.dataset.v.toLowerCase(), r = (b.dataset.r || '').toLowerCase();
+    b.hidden = !(!tok || exact || b.classList.contains('on') || n.startsWith(tok) || n.split(/\s+/).some(w => w.startsWith(tok)) || r.split(/[\s,]+/).some(w => w.startsWith(tok)));
+  });
+  document.querySelectorAll('#ms-whos .who-h').forEach(h => { h.hidden = !pills.some(b => b.dataset.g === h.dataset.g && !b.hidden); });
+}
+// Enter in Who: finish the name being typed with the first match.
+function whoKey(e, input){
+  if (e.key !== 'Enter') return;
+  const tok = (String(input.value).split(/,|\/|&|;|\+/).pop() || '').trim();
+  const first = tok && [...document.querySelectorAll('#ms-whos .who-pill')].find(b => !b.hidden && !b.classList.contains('on'));
+  e.preventDefault();
+  if (!first) { input.blur(); return; }
+  const names = whoNames(input.value); names.pop(); names.push(first.dataset.v);
+  input.value = names.join(', ');
+  sheetField('who', input.value);
+}
+function renderPeopleSetting(){
+  const el = document.getElementById('ppl-setting'); if (!el) return;
+  const slug = clShowSlug();
+  if (!slug) { el.innerHTML = "This script isn't linked to a show yet. Link it in the dashboard's Show Hub, then its cast list can live here."; return; }
+  const v = peopleGet(slug);
+  const n = v ? v.cast.length : 0, m = v ? v.crew.length : 0;
+  el.innerHTML = `<b>${esc(clShowLabel())}</b>: ${n || m ? n + ' cast · ' + m + ' crew' : 'no list yet'}`
+    + (cueReadOnly() ? '' : `<button class="top-btn" onclick="closeSheet(); openPeople('${esc(slug)}', clShowLabel())">${n || m ? 'Edit' : 'Add cast list'}</button>`);
+}
+
 // ── ADD A CUE FROM THE CUE SHEET ────────────────────────────────────────────
 // Edit mode puts "+ Add cue" between rows. The new cue goes in that spot with
 // the page it falls on, and gets an approximate marker on the script, dashed
@@ -4901,6 +5193,47 @@ function sheetAddMove(cueId){
   openMove(c.id, c.moves.length - 1, true);
 }
 
+// Move this move to another set change (a couch in #6 that should be in #7).
+// It goes to the end of that change's moves and the sheet follows it there.
+// Both changes are marked edited, so the save takes it off one and onto the
+// other, move by move, without touching anyone else's edits to either.
+function shiftsInOrder(){ return cuesInScriptOrder().filter(c => c.type === SHIFT_TYPE_ID); }
+function shiftLabel(c){ return '#' + changeShortNum(shortNumber(c, typeOf(c.type).name)); }
+function sheetMoveTo(targetId){
+  const c = sheetCue();
+  if (!c || !c.moves || !targetId) return;
+  const t = cues.find(x => String(x.id) === String(targetId));
+  if (!t || t === c) return;
+  const m = c.moves[moveSheet.idx];
+  if (!m) return;
+  if (moveSheet.added && blankMove(m)) { toast('Fill in the move first'); return; }
+  c.moves.splice(moveSheet.idx, 1);
+  if (!m.id) m.id = 'mv' + Date.now() + Math.random().toString(36).slice(2, 6);
+  t.moves = Array.isArray(t.moves) ? t.moves : [];
+  // An empty change's placeholder row goes, so the move isn't second to a blank.
+  if (t.moves.length === 1 && blankMove(t.moves[0])) t.moves = [];
+  t.moves.push(m);
+  editedCues[c.id] = true; editedCues[t.id] = true;
+  saveDraft(); markDirty();
+  _sheetTop = null;   // it's somewhere else now: keep the sheet's row in view instead
+  moveSheet = { cueId: String(t.id), idx: t.moves.length - 1, added: false };
+  render(); renderMoveSheet();
+  requestAnimationFrame(keepRowVisible);
+  toast((m.piece || 'Move') + ' moved to ' + shiftLabel(t));
+}
+function moveToHTML(c){
+  const list = shiftsInOrder();
+  if (list.length < 2) return '';
+  const i = list.findIndex(x => String(x.id) === String(c.id));
+  const prev = i > 0 ? list[i - 1] : null, next = i >= 0 && i < list.length - 1 ? list[i + 1] : null;
+  const opts = list.filter(x => x !== c).map(x => `<option value="${esc(x.id)}">${esc(shiftLabel(x))}${x.cueLine ? ' · ' + esc(String(x.cueLine).slice(0, 40)) : ''} · pg. ${esc(x.page || '?')}</option>`).join('');
+  return `<div class="ms-moveto"><span>Move to</span>
+    ${prev ? `<button type="button" class="ms-btn" onclick="sheetMoveTo('${esc(prev.id)}')">‹ ${esc(shiftLabel(prev))}</button>` : ''}
+    ${next ? `<button type="button" class="ms-btn" onclick="sheetMoveTo('${esc(next.id)}')">${esc(shiftLabel(next))} ›</button>` : ''}
+    <select class="ms-in ms-moveto-sel" aria-label="Move to another change" onchange="sheetMoveTo(this.value)"><option value="">Other change…</option>${opts}</select>
+  </div>`;
+}
+
 function sheetDelete(){
   const c = sheetCue();
   if (!c || !c.moves) return;
@@ -5036,6 +5369,7 @@ function syncActionPills(v){
 function syncWhoPills(v){
   const on = new Set(whoNames(v).map(x => x.toLowerCase()));
   document.querySelectorAll('#ms-whos .ms-pill').forEach(b => b.classList.toggle('on', on.has(b.dataset.v.toLowerCase())));
+  whoFilter(v);
 }
 
 function renderMoveSheet(){
@@ -5048,7 +5382,7 @@ function renderMoveSheet(){
   const pieces = allPieces().map(p => `<option value="${esc(p.piece)}"></option>`).join('');
   const whos = allWho();
   const inp = (field, ph, extra) => `<input id="ms-${field}" class="ms-in${extra || ''}" value="${esc(m[field] || '')}"
-      placeholder="${esc(ph)}" autocomplete="off" oninput="sheetField('${field}', this.value)"${field === 'piece' ? ' list="ms-pieces"' : ''}>`;
+      placeholder="${esc(ph)}" autocomplete="off" oninput="sheetField('${field}', this.value)"${field === 'piece' ? ' list="ms-pieces"' : ''}${field === 'who' ? ' onkeydown="whoKey(event, this)" enterkeyhint="done"' : ''}>`;
   const pill = (field, v, on) => `<button type="button" class="ms-pill${on ? ' on' : ''}" data-v="${esc(v)}"
       onclick="sheetPick('${field}', this.dataset.v)">${esc(v)}</button>`;
   const actKey = String(m.action || '').trim().toLowerCase();
@@ -5078,11 +5412,12 @@ function renderMoveSheet(){
       <label class="ms-f"><span>Who</span>${inp('who', 'e.g. Kyle, Tristan, Ally', ' strong')}</label>
       <label class="ms-f"><span>Note</span>${inp('notes', 'Note')}</label>
     </div>
-    ${whos.length ? `<div class="ms-pills" id="ms-whos">${whos.map(v => pill('who', v, whoOn.has(v.toLowerCase()))).join('')}</div>` : ''}
+    ${whoPillsHTML(whoOn)}
     <div class="ms-spike-head"><span>Spike</span><a href="${spkMapURL(scriptId, scriptName)}" target="_blank" rel="noopener">Edit spike map ›</a></div>
     <div id="ms-spikes">${spkPickerHTML(scriptId, m.spikeIds, 'sheetSpike')}</div>
     <input id="ms-spike" class="ms-in" style="margin:8px 0 6px" value="${esc(m.spike || '')}" placeholder="Other spike, typed (optional)"
       autocomplete="off" oninput="sheetField('spike', this.value)">
+    ${moveToHTML(c)}
     <div class="ms-btns">
       <button class="ms-btn danger" onclick="sheetDelete()">Delete move</button>
       <button class="ms-btn dashed" onclick="sheetAddMove('${esc(c.id)}')">+ Another move</button>
@@ -5296,7 +5631,7 @@ function toggleDarkMode(){
   applyTheme(THEMES[(THEMES.indexOf(currentTheme()) + 1) % THEMES.length]);
 }
 
-function openSheet(){ document.getElementById('settings').classList.add('open'); }
+function openSheet(){ document.getElementById('settings').classList.add('open'); renderPeopleSetting(); }
 function closeSheet(){ document.getElementById('settings').classList.remove('open'); }
 function openSpikeMap(){
   const q = scriptId ? '?script=' + encodeURIComponent(scriptId) + (scriptName ? '&name=' + encodeURIComponent(scriptName) : '') : '';
@@ -5312,6 +5647,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.21 v5</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v1</div>
 </body>
 </html>
