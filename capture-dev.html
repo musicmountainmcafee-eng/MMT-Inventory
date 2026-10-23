@@ -52,6 +52,12 @@ body.editing #edit{display:block}
 #hint{position:fixed;left:16px;top:16px;z-index:8;padding:10px 14px;border-radius:10px;background:rgba(10,12,13,.92);
   border:1px solid #2E363B;font-size:14px;color:#E9ECED;pointer-events:none;transition:opacity .8s}
 #hint.gone{opacity:0}
+#gear{position:fixed;left:16px;top:16px;z-index:8;display:none;font:inherit;font-size:20px;font-weight:700;letter-spacing:.04em;
+  padding:16px 22px;border-radius:14px;border:1px solid #2E363B;background:rgba(16,19,21,.95);color:#E9ECED}
+body.tapped:not(.editing) #gear{display:block}
+body.tapped #hint{display:none}
+@media (pointer:coarse){#rz{width:56px;height:56px}#rz::after{right:10px;bottom:10px;width:18px;height:18px}}
+.preset{width:100%;min-height:48px;margin:2px 0 10px;font-size:15px}
 
 /* ---- settings panel ---- */
 #panel{position:fixed;top:12px;right:12px;z-index:9;width:310px;max-height:calc(100vh - 24px);overflow-y:auto;
@@ -89,6 +95,7 @@ button:active{transform:scale(.98)}
 
 <div id="edit"><div id="grab"></div><div id="rz"></div></div>
 <div id="hot" title=""></div>
+<button id="gear" type="button">⚙ Timer settings</button>
 <div id="hint" hidden>Settings: press C, or tap this corner</div>
 
 <div id="panel" hidden>
@@ -111,9 +118,18 @@ button:active{transform:scale(.98)}
   </label>
 
   <div class="sec">Timer</div>
+  <button id="third" class="preset" type="button">Fill the bottom third</button>
   <label>Size <output id="o-size"></output>
     <input type="range" id="size" min="10" max="100" step="1">
   </label>
+  <div class="two">
+    <label>Width <output id="o-w"></output>
+      <input type="range" id="wid" min="8" max="100" step="1">
+    </label>
+    <label>Height <output id="o-h"></output>
+      <input type="range" id="hgt" min="5" max="100" step="1">
+    </label>
+  </div>
   <label>Timer opacity <output id="o-op"></output>
     <input type="range" id="op" min="30" max="100" step="1">
   </label>
@@ -144,7 +160,7 @@ button:active{transform:scale(.98)}
 <script>
 (function(){
 'use strict';
-var CAPTURE_VERSION='1.0';
+var CAPTURE_VERSION='1.1-dev';
 var KEY='mmt-capture-cfg-v1-dev',LIVE_KEY='mmt-capture-cfg-v1';
 var DEF={cx:.815,cy:.85,w:.32,h:.24,op:1,dim:1,scrim:.5,fit:'contain',res:1080,cam:''};
 
@@ -198,6 +214,8 @@ function apply(){
 }
 function syncUI(){
   $('size').value=Math.round(S.w*100);$('o-size').textContent=Math.round(S.w*100)+'%';
+  $('wid').value=Math.round(S.w*100);$('o-w').textContent=Math.round(S.w*100)+'%';
+  $('hgt').value=Math.round(S.h*100);$('o-h').textContent=Math.round(S.h*100)+'%';
   $('op').value=Math.round(S.op*100);$('o-op').textContent=Math.round(S.op*100)+'%';
   $('scr').value=Math.round(S.scrim*100);$('o-scrim').textContent=Math.round(S.scrim*100)+'%';
   $('dim').value=Math.round(S.dim*100);$('o-dim').textContent=Math.round(S.dim*100)+'%';
@@ -255,6 +273,14 @@ function openPanel(on){
   if(on){syncUI();var h=$('hint');if(h)h.hidden=true}
 }
 $('hot').addEventListener('click',function(){openPanel(true)});
+// touch screens: any tap shows a Timer settings button for a few seconds
+var tapT=null;
+document.addEventListener('pointerdown',function(e){
+  if(!panel.hidden||(e.target&&e.target.id==='gear'))return;
+  document.body.classList.add('tapped');clearTimeout(tapT);
+  tapT=setTimeout(function(){document.body.classList.remove('tapped')},5000);
+});
+$('gear').addEventListener('click',function(){document.body.classList.remove('tapped');openPanel(true)});
 $('done').addEventListener('click',function(){openPanel(false)});
 $('snap').addEventListener('click',function(e){
   var b=e.target.closest?e.target.closest('button'):null;
@@ -264,6 +290,11 @@ $('size').addEventListener('input',function(){
   var w=clamp(num(this.value,32)/100,.08,1),r=w/S.w;
   S.h=clamp(S.h*r,.05,1);S.w=w;changed();
 });
+// width and height on their own, keeping the box's left/top edge where it is
+$('wid').addEventListener('input',function(){var l=S.cx-S.w/2;S.w=clamp(num(this.value,32)/100,.08,1);S.cx=clamp(l,0,1-S.w)+S.w/2;changed()});
+$('hgt').addEventListener('input',function(){var t=S.cy-S.h/2;S.h=clamp(num(this.value,24)/100,.05,1);S.cy=clamp(t,0,1-S.h)+S.h/2;changed()});
+// one tap: the full width of the screen, the bottom third
+$('third').addEventListener('click',function(){S.w=1;S.h=1/3;S.cx=.5;S.cy=1-1/6;changed()});
 $('op').addEventListener('input',function(){S.op=num(this.value,100)/100;changed()});
 $('scr').addEventListener('input',function(){S.scrim=num(this.value,50)/100;changed()});
 $('dim').addEventListener('input',function(){S.dim=num(this.value,100)/100;changed()});
