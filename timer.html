@@ -359,7 +359,7 @@ body.display.full #ident{letter-spacing:.08em;color:#A9ACBB}
    show the small time of day moves to the top left so the two don't meet. */
 body.display.full.widewin #stage{align-items:flex-end;text-align:right;padding-right:2.5vw;padding-left:2.5vw}
 body.display.full.widewin #ident{left:auto;right:2.5vw;justify-content:flex-end}
-body.display.full.widewin #wall{right:auto;left:2.5vw}
+body.display.full.widewin #wall{left:auto;margin:0}
 button,input,select,textarea{font-family:inherit}
 .bar{border-bottom:0;padding-bottom:4px;margin-bottom:8px;align-items:flex-start}
 .bar>div:first-child{min-width:0}
@@ -1152,7 +1152,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4.12';
+var VERSION='3.4.13';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2543,7 +2543,7 @@ function tick(){
   var clockMode=f.idle||f.preCall||f.ready;
   var colorKey=clockMode||f.done?'white':colorAt(f.L[f.pos],f);
   var wallText=clockOf(now);
-  $('wall').textContent=wallText;$('wall').hidden=clockMode;
+  $('wall').textContent=wallText;$('wall').hidden=clockMode;placeWall();
   if(!isDisplay)$('hclock').textContent=wallText;
   var wingsOn=false;
   var heldNow=!clockMode&&!f.done&&!!f.paused;
@@ -3609,9 +3609,9 @@ function fit(){
   if(!isDisplay||!document.body.classList.contains('full'))return;
   var big=$('big'),st=$('stage'),t=big.textContent;
   while(t.length<sizeLen)t='0'+t;                  // e.g. "9:59" measured as "09:59"
-  var k=t.replace(/[0-9]/g,'0')+'|'+$('sub').textContent.length+'|'+innerWidth+'|'+innerHeight;
+  var k=t.replace(/[0-9]/g,'0')+'|'+$('sub').textContent.length+'|'+innerWidth+'|'+innerHeight+'|'+(document.fonts?document.fonts.status:'');
   if(k===fitKey)return;fitKey=k;
-  var ms=$('measure');ms.textContent='0000000000';st.style.setProperty('--dgw',(ms.scrollWidth/10/100).toFixed(4)+'em');ms.textContent=t;
+  var ms=$('measure');ms.textContent='0000000000';st.style.setProperty('--dgw',(ms.scrollWidth/10/100).toFixed(4)+'em');ms.textContent=t.replace(/[0-9]/g,'0');   // every digit takes a 0's slot
   var w=ms.scrollWidth||1,h=ms.offsetHeight||1;
   var room=0.6;                                    // cue name and bottom line fit in the rest
   var size=Math.min(innerWidth*0.96/w*100,innerHeight*room/h*100);
@@ -3625,9 +3625,22 @@ function fit(){
   if(sw>room2)st.style.setProperty('--note',Math.max(12,size*0.1*room2/sw)+'px');
   ms.style.fontSize='';ms.style.fontWeight='';ms.style.letterSpacing='';
 }
+// In the capture band the time of day sits on the right, on the same line as
+// the show name and just to its left.
+function placeWall(){
+  var w=$('wall');
+  if(!document.body.classList.contains('widewin')||w.hidden){w.style.right='';w.style.top='';return}
+  var id=$('ident'),r=id.getBoundingClientRect();
+  if(id.hidden||!r.width){w.style.right='';w.style.top='';return}
+  var gap=Math.max(14,r.height*.9);
+  w.style.right=Math.round(innerWidth-r.left+gap)+'px';
+  w.style.top=Math.round(r.top+(r.height-w.offsetHeight)/2)+'px';
+}
 function wideWin(){document.body.classList.toggle('widewin',isDisplay&&document.body.classList.contains('full')&&innerWidth/Math.max(1,innerHeight)>=2.2)}
 wideWin();
-window.addEventListener('resize',function(){wideWin();fitKey='';fit()});
+window.addEventListener('resize',function(){wideWin();placeWall();fitKey='';fit()});
+// measure again once the timer's font has loaded (digit widths change with it)
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){fitKey='';fit();placeWall()});
 setInterval(function(){tick();fit()},250);
 
 // ---------- controls ----------
