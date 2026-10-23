@@ -484,6 +484,15 @@
   #move-sheet .ms-moveto > span { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
   #move-sheet .ms-moveto .ms-btn { min-height: 42px; font-weight: 600; }
   #move-sheet .ms-moveto-sel { flex: 1 1 150px; height: 42px; width: auto; min-width: 0; }
+  /* Wing: side, then number; optional To */
+  #move-sheet .ms-wing { margin: 2px 0 6px; }
+  #move-sheet .ms-wingpills { margin: 8px 0 12px; align-items: center; }
+  #move-sheet .ms-pillsep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 4px; }
+  #move-sheet .ms-pill.ms-num { min-width: 44px; padding: 0 10px; }
+  #move-sheet .ms-pill:disabled { opacity: .35; cursor: default; }
+  #move-sheet .ms-addto { min-height: 40px; font-size: 14px; margin: -4px 0 12px; }
+  #move-sheet .ms-wingx { font: inherit; font-size: 11px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--purple); background: none; border: none; padding: 0 0 0 6px; cursor: pointer; }
+  .pl-wing { color: var(--ink-2); }
   /* Who: the show's cast and crew as pills, narrowed as you type */
   #move-sheet .who-pills { max-height: 176px; overflow-y: auto; align-content: flex-start; margin-bottom: 6px; }
   #move-sheet .who-h { flex-basis: 100%; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 2px 0 -2px; }
@@ -1582,7 +1591,7 @@ function shortNumber(c, chipLabel){
 // ── Filtering ───────────────────────────────────────────────────────────────
 function haystack(c){
   const parts = [c.number, c.action, c.cueLine, c.notes || c.description, typeOf(c.type).name, 'p' + c.page, 'pg ' + c.page];
-  (c.moves || []).forEach(m => parts.push(m.piece, m.action, m.who, spkMoveText(m, scriptId), m.notes));
+  (c.moves || []).forEach(m => parts.push(m.piece, m.action, m.wing, m.wingTo, m.who, spkMoveText(m, scriptId), m.notes));
   return parts.filter(Boolean).join(' ').toLowerCase();
 }
 const onMove = (m, who) => whoNames(m.who).some(v => v.toLowerCase() === who);
@@ -1642,7 +1651,7 @@ function render(){
   const el = document.getElementById('sheet-body');
   const plot = plotOn();
   const mode = plot ? plMode() : 'full';
-  const NC = plot ? ({ full: 8, merged: 7, compact: 5 })[mode] : 5;
+  const NC = plot ? ({ full: 9, merged: 8, compact: 5 })[mode] : 5;
   const title = `<div class="sheet-title">
       <h2>${esc(ssTitle(scriptId, scriptName))} — Cue Sheet</h2>
       <div class="upd" id="upd">—</div>
@@ -1696,8 +1705,8 @@ function render(){
     el.innerHTML = title + `<div class="cs-empty"><b>${what}</b>${how}</div>`;
   } else if (plot){
     const cols = {
-      full:    [['#',5],['Cue',16],['PG',6],['Piece',17],['Action',10],['Who',12],['Spike',15],['Notes',19]],
-      merged:  [['#',6],['Cue / PG',18],['Piece',17],['Action',10],['Who',13],['Spike',16],['Notes',20]],
+      full:    [['#',5],['Cue',14],['PG',6],['Piece',15],['Action',9],['Wing',9],['Who',11],['Spike',14],['Notes',17]],
+      merged:  [['#',6],['Cue / PG',16],['Piece',15],['Action',9],['Wing',9],['Who',12],['Spike',14],['Notes',19]],
       compact: [['#',9],['Cue',25],['Piece',24],['Who',17],['Spike / Notes',25]]
     }[mode];
     el.innerHTML = title + `<table class="cs pl">
@@ -2137,15 +2146,15 @@ function plRow(c, band, mode){
     if (compact) return `
       <td class="pl-numc">${r.num || ''}</td>
       <td class="cs-line" data-f="cueLine">${r.cue}</td>
-      <td data-f="piece">${r.piece}${r.action ? `<span class="pl-actsub" data-f="action">${r.action}</span>` : ''}</td>
+      <td data-f="piece">${r.piece}${(r.action || r.wing) ? `<span class="pl-actsub" data-f="action">${[r.action, r.wing].filter(Boolean).join(' · ')}</span>` : ''}</td>
       <td class="pl-who" data-f="who">${r.who}</td>
       <td class="pl-notes" data-f="notes">${r.spike ? `<span data-f="spike">${r.spike}</span>` : ''}${r.notes}</td>`;
     return `
       <td class="pl-numc">${r.num || ''}</td>
       <td class="cs-line" data-f="cueLine">${r.cue}</td>
       ${merged ? '' : `<td class="pl-pg">${r.pg}</td>`}
-      ${r.span ? `<td class="pl-act" colspan="2" data-f="piece">${r.piece}</td>`
-               : `<td data-f="piece">${r.piece}</td><td class="pl-act" data-f="action">${r.action}</td>`}
+      ${r.span ? `<td class="pl-act" colspan="3" data-f="piece">${r.piece}</td>`
+               : `<td data-f="piece">${r.piece}</td><td class="pl-act" data-f="action">${r.action}</td><td class="pl-wing" data-f="wing">${r.wing || ''}</td>`}
       <td class="pl-who" data-f="who">${r.who}</td>
       <td data-f="spike">${r.spike}</td>
       <td class="pl-notes" data-f="notes">${r.notes}</td>`;
@@ -2166,7 +2175,7 @@ function plRow(c, band, mode){
   }
 
   if (editMode){
-    const cols = compact ? 5 : merged ? 7 : 8;
+    const cols = compact ? 5 : merged ? 8 : 9;
     return moves.map((m, i) => {
       const first = i === 0, last = i === moves.length - 1;
       const cls = [first ? 'pl-top' : '', 'pl-tap', 'mv-edit'];
@@ -2177,7 +2186,7 @@ function plRow(c, band, mode){
         num: chip, cue: first ? cueCell : cueRest, pg,
         piece: blank ? '<span class="mv-empty">Tap to add a move</span>'
           : `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
-        action: esc(m.action || ''), who: esc(m.who || ''), spike: plSpikeHTML(m),
+        action: esc(m.action || ''), wing: esc(wingText(m)), who: esc(m.who || ''), spike: plSpikeHTML(m),
         notes: (first && notes ? `<span class="pl-cuenote">${esc(notes)}</span>` : '') + esc(m.notes || '')
       }) + '</tr>' + (last
         ? tr('pl-addrow') + `<td colspan="${cols}"><button class="mv-plus" onclick="event.stopPropagation(); sheetAddMove('${esc(c.id)}')">+ Add move</button></td></tr>`
@@ -2192,7 +2201,7 @@ function plRow(c, band, mode){
     return tr(cls.filter(Boolean).join(' '), tap + ` data-mv="${esc(m.id || '')}"`) + cells({
       num: chip, cue: first ? cueCell : cueRest, pg,
       piece: `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
-      action: esc(m.action || ''), who: esc(m.who || ''), spike: plSpikeHTML(m),
+      action: esc(m.action || ''), wing: esc(wingText(m)), who: esc(m.who || ''), spike: plSpikeHTML(m),
       notes: (first && notes ? `<span class="pl-cuenote">${esc(notes)}</span>` : '') + esc(m.notes || '')
     }) + '</tr>';
   }).join('');
@@ -2473,6 +2482,14 @@ async function exportSpikeKey() {
   doc.save(showName.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') + '_Spike_Key.pdf');
 }
 
+// Where a piece goes on or off: m.wing ("SL 2", "Fly") and, for a piece that
+// travels across, m.wingTo ("SR 1"). One line: "SL 2 → SR 1". The PDF's font
+// has no arrow, so it passes ' to '.
+function wingText(m, arrow) {
+  const a = String((m && m.wing) || '').trim(), b = String((m && m.wingTo) || '').trim();
+  const sep = arrow || ' → ';
+  return a && b ? a + sep + b : a || (b ? sep.trim() + ' ' + b : '');
+}
 async function exportSetChangePlot() {
   const ordered = cuesInScriptOrder();
   const changes = ordered.filter(c => c.type === SHIFT_TYPE_ID);
@@ -2521,14 +2538,22 @@ async function exportSetChangePlot() {
   // over headset, and the trigger itself in the space that frees up.
   const COLS = [
     { key: 'num',    label: '#',         w: 34,  bold: true },
-    { key: 'cue',    label: 'CUE',       w: 114 },
+    { key: 'cue',    label: 'CUE',       w: 98  },
     { key: 'pg',     label: 'PG',        w: 42  },
-    { key: 'piece',  label: 'PIECE',     w: 130, bold: true },
+    { key: 'piece',  label: 'PIECE',     w: 116, bold: true },
     { key: 'action', label: 'ACTION',    w: 68  },
-    { key: 'who',    label: 'WHO',       w: 88  },
-    { key: 'spike',  label: 'SPIKE',     w: 112 },
-    { key: 'notes',  label: 'NOTES',     w: 116 },
+    { key: 'wing',   label: 'WING',      w: 62  },
+    { key: 'who',    label: 'WHO',       w: 80  },
+    { key: 'spike',  label: 'SPIKE',     w: 102 },
+    { key: 'notes',  label: 'NOTES',     w: 102 },
   ];
+  // Columns by name, so adding one doesn't shift the rest.
+  const ci = k => COLS.findIndex(c => c.key === k);
+  // Wing on its own line, then "to SR 1" on the next, so it never breaks mid-name.
+  const wingLines = (m, w) => {
+    const a = String((m && m.wing) || '').trim(), b = String((m && m.wingTo) || '').trim();
+    return [].concat(a ? doc.splitTextToSize(a, w) : [], b ? doc.splitTextToSize('to ' + b, w) : []);
+  };
   // "SCENE CHANGE 12" -> "12". Falls back to the whole label so a change named
   // something without digits still prints something.
   const shortNum = v => {
@@ -2726,14 +2751,14 @@ async function exportSetChangePlot() {
     spkOfMove(m, showId).forEach(e => {
       if (!e) return;
       doc.setFont('helvetica', 'bold'); doc.setFontSize(FS);
-      doc.splitTextToSize(spkLabel(e), COLS[6].w - PAD*2 - SPK_IND).forEach((t, i) => out.push({ t, ind: SPK_IND, bold: true, e: i === 0 ? e : null }));
+      doc.splitTextToSize(spkLabel(e), COLS[ci('spike')].w - PAD*2 - SPK_IND).forEach((t, i) => out.push({ t, ind: SPK_IND, bold: true, e: i === 0 ? e : null }));
       if (e.label) {
         doc.setFont('helvetica', 'normal'); doc.setFontSize(FS - 1.5);
-        doc.splitTextToSize(spkTapeName(e), COLS[6].w - PAD*2 - SPK_IND).forEach(t => out.push({ t, ind: SPK_IND, small: true }));
+        doc.splitTextToSize(spkTapeName(e), COLS[ci('spike')].w - PAD*2 - SPK_IND).forEach(t => out.push({ t, ind: SPK_IND, small: true }));
       }
     });
     doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
-    wrap(spkEff(m).spike, 6).forEach(t => out.push({ t, ind: 0 }));
+    wrap(spkEff(m).spike, ci('spike')).forEach(t => out.push({ t, ind: 0 }));
     return out;
   };
   const sections = [];
@@ -2756,13 +2781,14 @@ async function exportSetChangePlot() {
       const cells = {
         num:    ['#' + shortNum(c.number)],
         // m.trigger only survives on data a device hasn't migrated yet.
-        cue:    wrap(m.trigger || c.cueLine || '', 1),
+        cue:    wrap(m.trigger || c.cueLine || '', ci('cue')),
         pg:     [c.page ? 'pg. ' + c.page : ''],
-        piece:  wrap(m.piece,  3),
-        action: wrap(m.action, 4),
-        who:    wrap(m.who,    5),
+        piece:  wrap(m.piece,  ci('piece')),
+        action: wrap(m.action, ci('action')),
+        wing:   wingLines(m, COLS[ci('wing')].w - PAD*2),
+        who:    wrap(m.who,    ci('who')),
         spike:  spikeCell(m),
-        notes:  wrap(m.notes,  7),
+        notes:  wrap(m.notes,  ci('notes')),
       };
       const lines = Math.max(...COLS.map(col => cells[col.key].length), 1);
       return { cells, h: Math.max(MIN_ROW, lines * LEAD + PAD*2) };
@@ -2863,16 +2889,17 @@ async function exportSetChangePlot() {
   // a gap shows up instead of falling between everyone's lists.
   const CC = [
     { key: 'num',    label: '#',      w: 34,  bold: true },
-    { key: 'cue',    label: 'CUE',    w: 134 },
+    { key: 'cue',    label: 'CUE',    w: 116 },
     { key: 'pg',     label: 'PG',     w: 42  },
-    { key: 'piece',  label: 'PIECE',  w: 140, bold: true },
-    { key: 'action', label: 'ACTION', w: 70  },
-    { key: 'spike',  label: 'SPIKE',  w: 112 },
-    { key: 'notes',  label: 'NOTES',  w: 112 },
-    { key: 'with',   label: 'WITH',   w: 60  },
+    { key: 'piece',  label: 'PIECE',  w: 128, bold: true },
+    { key: 'action', label: 'ACTION', w: 66  },
+    { key: 'wing',   label: 'WING',   w: 58  },
+    { key: 'spike',  label: 'SPIKE',  w: 104 },
+    { key: 'notes',  label: 'NOTES',  w: 98  },
+    { key: 'with',   label: 'WITH',   w: 58  },
   ];
   const CX = []; { let x = M; for (const c of CC) { CX.push(x); x += c.w; } }
-  const cwrap = (txt, k) => doc.splitTextToSize(String(txt || ''), CC[k].w - PAD*2);
+  const cwrap = (txt, k) => doc.splitTextToSize(String(txt || ''), CC[CC.findIndex(c => c.key === k)].w - PAD*2);
 
   const NOBODY = '\u0000nobody';
   const crew = new Map();   // lower-case name -> { name, items: [{ scene, c, m }] }
@@ -2941,13 +2968,14 @@ async function exportSetChangePlot() {
       const firstOfChange = !last || last.c !== it.c;
       const cells = {
         num:    ['#' + shortNum(it.c.number)],
-        cue:    cwrap(it.m.trigger || it.c.cueLine || '', 1),
+        cue:    cwrap(it.m.trigger || it.c.cueLine || '', 'cue'),
         pg:     [it.c.page ? 'pg. ' + it.c.page : ''],
-        piece:  cwrap(it.m.piece, 3),
-        action: cwrap(it.m.action, 4),
+        piece:  cwrap(it.m.piece, 'piece'),
+        action: cwrap(it.m.action, 'action'),
+        wing:   wingLines(it.m, CC[CC.findIndex(c => c.key === 'wing')].w - PAD*2),
         spike:  spikeCell(it.m),
-        notes:  cwrap(it.m.notes, 6),
-        with:   cwrap(it.others.join(', '), 7),
+        notes:  cwrap(it.m.notes, 'notes'),
+        with:   cwrap(it.others.join(', '), 'with'),
       };
       const lines = Math.max(...CC.map(col => cells[col.key].length), 1);
       const row = { cells, h: Math.max(MIN_ROW, lines * LEAD + PAD*2) };
@@ -3082,6 +3110,7 @@ function setChangeSections() {
       pg:     c.page ? 'pg. ' + c.page : '',
       piece:  String(m.piece  || ''),
       action: String(m.action || ''),
+      wing:   wingText(m),
       who:    String(m.who    || ''),
       spike:  spkMoveText(m, showId),
       notes:  String(m.notes  || '')
@@ -3202,16 +3231,17 @@ function loadExcelJS() {
 //   pixels = round(w * 7) + 5 per column, at 96dpi.
 const XLSX_COLS = [
   { key: 'num',    label: '#',      width: 7,  wrap: false, bold: true  },
-  { key: 'cue',    label: 'CUE',    width: 25, wrap: true,  bold: false },
+  { key: 'cue',    label: 'CUE',    width: 22, wrap: true,  bold: false },
   { key: 'pg',     label: 'PG',     width: 8,  wrap: false, bold: false },
-  { key: 'piece',  label: 'PIECE',  width: 25, wrap: true,  bold: true  },
+  { key: 'piece',  label: 'PIECE',  width: 23, wrap: true,  bold: true  },
   { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
+  { key: 'wing',   label: 'WING',   width: 11, wrap: true,  bold: false },
   { key: 'who',    label: 'WHO',    width: 16, wrap: true,  bold: false },
   // Not 9: ExcelJS treats 9 as its default column width and drops the <col>
   // element entirely, so the column would silently fall back to whatever the
   // reading app defaults to instead of the width set here.
-  { key: 'spike',  label: 'SPIKE',  width: 24, wrap: true,  bold: false },
-  { key: 'notes',  label: 'NOTES',  width: 27, wrap: true,  bold: false },
+  { key: 'spike',  label: 'SPIKE',  width: 21, wrap: true,  bold: false },
+  { key: 'notes',  label: 'NOTES',  width: 24, wrap: true,  bold: false },
 ];
 
 // Body text. 9.5 came off the PDF, where it sits on a page held at reading
@@ -3406,12 +3436,13 @@ async function exportSetChangeXLSX() {
   // whoever else is on the move. Moves with nobody named get the last tab.
   const CREW_COLS = [
     { key: 'num',    label: '#',      width: 7,  wrap: false, bold: true  },
-    { key: 'cue',    label: 'CUE',    width: 28, wrap: true,  bold: false },
+    { key: 'cue',    label: 'CUE',    width: 25, wrap: true,  bold: false },
     { key: 'pg',     label: 'PG',     width: 8,  wrap: false, bold: false },
-    { key: 'piece',  label: 'PIECE',  width: 26, wrap: true,  bold: true  },
+    { key: 'piece',  label: 'PIECE',  width: 24, wrap: true,  bold: true  },
     { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
-    { key: 'spike',  label: 'SPIKE',  width: 24, wrap: true,  bold: false },
-    { key: 'notes',  label: 'NOTES',  width: 27, wrap: true,  bold: false },
+    { key: 'wing',   label: 'WING',   width: 11, wrap: true,  bold: false },
+    { key: 'spike',  label: 'SPIKE',  width: 21, wrap: true,  bold: false },
+    { key: 'notes',  label: 'NOTES',  width: 24, wrap: true,  bold: false },
     { key: 'with',   label: 'WITH',   width: 16, wrap: true,  bold: false },
   ];
   const NOBODY = '\u0000nobody';
@@ -3480,6 +3511,7 @@ async function exportSetChangeXLSX() {
         pg:     it.c.page ? 'pg. ' + it.c.page : '',
         piece:  String(it.m.piece  || ''),
         action: String(it.m.action || ''),
+        wing:   wingText(it.m),
         spike:  spkMoveText(it.m, showId),
         notes:  String(it.m.notes  || ''),
         with:   it.others.join(', ')
@@ -5423,6 +5455,7 @@ function sheetField(field, value){
   mvField(c.id, moveSheet.idx, field, value);
   if (field === 'action') syncActionPills(value);
   if (field === 'who') syncWhoPills(value);
+  if (field === 'wing' || field === 'wingTo') syncWingPills(field);
   // Keep the rows under the sheet in step without rebuilding the whole table.
   refreshSheetRows(c);
 }
@@ -5455,10 +5488,66 @@ function sheetField(field, value){
 // cursor at the end of what's there (nothing selected, so a stray key can't
 // wipe it). Called inside the tap, so phones raise the keyboard.
 const MS_BOX = { cueLine: 'ms-cueLine', piece: 'ms-piece', action: 'ms-action', who: 'ms-who', spike: 'ms-spike', notes: 'ms-notes' };
+
+// ── WING ────────────────────────────────────────────────────────────────────
+// Where a piece goes on or off: tap the side, then the wing number (SL 2), or
+// type anything else. "+ To another wing" adds where it ends up, for a piece
+// that travels across (SL 2 → SR 1). Kept on the move as wing / wingTo.
+const WING_SIDES = ['SL', 'SR', 'US', 'DS', 'Fly', 'Trap'];
+const WING_NUMS = ['1', '2', '3', '4'];
+function wingParts(v){
+  const t = String(v || '').trim();
+  const m = t.match(/^(SL|SR)\s*(\d+)$/i);
+  if (m) return { side: m[1].toUpperCase(), num: m[2] };
+  const side = WING_SIDES.find(x => x.toLowerCase() === t.toLowerCase());
+  return { side: side || '', num: '', other: side ? '' : t };
+}
+function wingPillsHTML(field, v){
+  const p = wingParts(v), numbered = p.side === 'SL' || p.side === 'SR';
+  return WING_SIDES.map(x => `<button type="button" class="ms-pill${p.side === x ? ' on' : ''}" onclick="wingPick('${field}', 'side', '${x}')">${x}</button>`).join('')
+    + `<span class="ms-pillsep"></span>`
+    + WING_NUMS.map(n => `<button type="button" class="ms-pill ms-num${p.num === n ? ' on' : ''}"${numbered ? '' : ' disabled'} onclick="wingPick('${field}', 'num', '${n}')">${n}</button>`).join('');
+}
+function wingSectionHTML(m){
+  const showTo = !!(m.wingTo || (moveSheet && moveSheet.showTo));
+  const box = (field, label, ph, extra) => `<label class="ms-f"><span>${label}${extra || ''}</span>
+      <input id="ms-${field}" class="ms-in" value="${esc(m[field] || '')}" placeholder="${ph}" autocomplete="off" oninput="sheetField('${field}', this.value)"></label>
+    <div class="ms-pills ms-wingpills" id="ms-${field}-pills">${wingPillsHTML(field, m[field])}</div>`;
+  return `<div class="ms-wing">${box('wing', 'Wing · on or off', 'e.g. SL 2')}
+    ${showTo ? box('wingTo', 'To · where it ends up', 'e.g. SR 1', ` <button type="button" class="ms-wingx" onclick="clearWingTo()">Remove</button>`)
+      : `<button type="button" class="ms-btn dashed ms-addto" onclick="showWingTo()">+ To another wing</button>`}</div>`;
+}
+function wingPick(field, part, val){
+  const input = document.getElementById('ms-' + field);
+  if (!input) return;
+  const p = wingParts(input.value);
+  let next;
+  if (part === 'side') {
+    if (p.side === val && !p.num) next = '';                       // tap again to clear
+    else next = (val === 'SL' || val === 'SR') && p.num ? val + ' ' + p.num : val;
+  } else {
+    if (p.side !== 'SL' && p.side !== 'SR') return;
+    next = p.num === val ? p.side : p.side + ' ' + val;
+  }
+  input.value = next;
+  sheetField(field, next);
+}
+function syncWingPills(field){
+  const box = document.getElementById('ms-' + field + '-pills'), input = document.getElementById('ms-' + field);
+  if (box && input) box.innerHTML = wingPillsHTML(field, input.value);
+}
+function showWingTo(){ if (!moveSheet) return; moveSheet.showTo = true; renderMoveSheet(); }
+function clearWingTo(){
+  if (!moveSheet) return;
+  moveSheet.showTo = false;
+  sheetField('wingTo', '');
+  renderMoveSheet();
+}
 function openMoveAt(e, cueId, idx){
   const cell = e && e.target && e.target.closest ? e.target.closest('[data-f]') : null;
   const f = cell ? cell.dataset.f : '';
   openMove(cueId, idx);
+  if (f === 'wing') { const w = document.querySelector('#move-sheet .ms-wing'); if (w && w.scrollIntoView) w.scrollIntoView({ block: 'nearest' }); return; }
   const box = MS_BOX[f] && document.getElementById(MS_BOX[f]);
   if (!box) return;
   box.focus();
@@ -5574,6 +5663,7 @@ function renderMoveSheet(){
     </div>
     <datalist id="ms-pieces">${pieces}</datalist>
     <div class="ms-pills" id="ms-actions">${MOVE_ACTIONS.map(v => pill('action', v, v.toLowerCase() === actKey)).join('')}</div>
+    ${wingSectionHTML(m)}
     <div class="ms-grid ms-g2 ms-even">
       <label class="ms-f"><span>Who</span>${inp('who', 'e.g. Kyle, Tristan, Ally', ' strong')}</label>
       <label class="ms-f"><span>Note</span>${inp('notes', 'Note')}</label>
@@ -5813,6 +5903,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v5 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.23 v1 dev</div>
 </body>
 </html>

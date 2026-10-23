@@ -4906,6 +4906,7 @@ table td { font-size: 14px !important; }
   #scripts-editor .approx-bar button:first-child { background: #c2691c; color: #fff; }
   #scripts-editor.running .approx-bar { display: none; }
   body.crew-scripts-ro #scripts-editor .approx-bar .ab-btns button:first-child { display: none; }
+  .ct-mv-wing { color: var(--text-muted); font-size: .92em; }
   .ct-approx { display: inline-block; margin-left: 4px; padding: 0 4px; border: 1px dashed currentColor; border-radius: 4px;
     font-size: 10px; font-weight: 600; color: #b5651d; vertical-align: middle; }
   #scripts-editor .sv-menu { display: contents; }
@@ -6759,7 +6760,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v5 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.23 v1 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -18299,7 +18300,8 @@ function ctMovesHTML(c) {
   return ms.map(m => {
     let tape = '';
     try { const e = spkOfMove(m, showId).filter(Boolean)[0]; if (e) tape = spkSVG(e, 22, 11); } catch (err) {}
-    return `<span class="ct-mv">${tape ? `<span class="ct-mv-tape">${tape}</span>` : ''}<b>${esc(m.piece || '')}</b>${m.action ? ' ' + esc(m.action) : ''}</span>`;
+    const wg = wingText(m);
+    return `<span class="ct-mv">${tape ? `<span class="ct-mv-tape">${tape}</span>` : ''}<b>${esc(m.piece || '')}</b>${m.action ? ' ' + esc(m.action) : ''}${wg ? ' <span class="ct-mv-wing">' + esc(wg) + '</span>' : ''}</span>`;
   }).join('');
 }
 function renderCueList() {
@@ -18584,12 +18586,17 @@ function spkDrawPDF(doc, e, x, y, w, h){
 }
 
 const MOVE_COLS = [
-  { key: 'piece',  label: 'Piece',  pct: '24%', src: 'pieces'  },
-  { key: 'action', label: 'Action', pct: '13%', src: 'actions' },
-  { key: 'who',    label: 'Who',    pct: '18%', src: 'people'  },
-  { key: 'spike',  label: 'Spike',  pct: '17%', src: null      },
-  { key: 'notes',  label: 'Notes',  pct: '28%', src: null      },
+  { key: 'piece',  label: 'Piece',  pct: '21%', src: 'pieces'  },
+  { key: 'action', label: 'Action', pct: '11%', src: 'actions' },
+  { key: 'wing',   label: 'Wing',   pct: '9%',  src: 'wings'   },
+  { key: 'wingTo', label: 'To',     pct: '8%',  src: 'wings'   },
+  { key: 'who',    label: 'Who',    pct: '16%', src: 'people'  },
+  { key: 'spike',  label: 'Spike',  pct: '14%', src: null      },
+  { key: 'notes',  label: 'Notes',  pct: '21%', src: null      },
 ];
+// Wings to suggest: each side's numbered wings, the rest of the stage, and
+// anything already typed on this plot.
+const COMMON_WINGS = ['SL 1', 'SL 2', 'SL 3', 'SL 4', 'SR 1', 'SR 2', 'SR 3', 'SR 4', 'US', 'DS', 'Fly', 'Trap'];
 
 // ── Keyboard autocomplete ────────────────────────────────────────────────────
 // Replaces <datalist>, which can't be driven from the keyboard at all.
@@ -18614,6 +18621,12 @@ let _acInput = null, _acItems = [], _acIdx = -1;
 
 function acSource(kind, skipMove) {
   if (kind === 'pieces' || kind === 'people') return vocabList(kind, skipMove);
+  if (kind === 'wings') {
+    const used = [];
+    cues.forEach(c => (c.moves || []).forEach(m => { [m.wing, m.wingTo].forEach(v => { if (v) used.push(String(v).trim()); }); }));
+    const seen = new Set();
+    return [...COMMON_WINGS, ...used].filter(v => v && !seen.has(v.toLowerCase()) && seen.add(v.toLowerCase()));
+  }
   if (kind === 'actions') {
     const used = [];
     cues.forEach(c => (c.moves || []).forEach(m => { if (m.action) used.push(String(m.action).trim()); }));
@@ -18896,7 +18909,7 @@ function renderMoveDrawer(focusFirst) {
              onclick="spkOpenPicker(this)" title="Pick spike colors" aria-label="Pick spike colors">${spkBtnHTML(m)}</button>` : ''}<input type="text"
         value="${escA(m[col.key])}" autocomplete="off"
         data-cue="${c.id}" data-move="${m.id}" data-key="${col.key}"
-        data-src="${col.src || ''}" data-vocab="${col.src === 'actions' ? '' : (col.src || '')}"
+        data-src="${col.src || ''}" data-vocab="${col.src === 'actions' || col.src === 'wings' ? '' : (col.src || '')}"
         data-last="${ci === MOVE_COLS.length - 1 ? '1' : '0'}"
         oninput="moveEdit(this.dataset.cue,this.dataset.move,this.dataset.key,this.value);acOpen(this)"
         onblur="moveCommit(this.dataset.vocab,this.value);setTimeout(acClose,120)"
@@ -19535,7 +19548,7 @@ function runMovesHTML(c) {
   const ms = (c.moves || []).filter(m => m && (m.piece || m.action || m.who));
   if (!ms.length) return '<div class="run-sub">No moves yet</div>';
   return `<div class="run-moves">${ms.map(m =>
-    `<b>${esc(m.piece || '')}</b><span>${esc(m.action || '')}</span><span class="run-who">${esc(m.who || '')}</span>`).join('')}</div>`;
+    `<b>${esc(m.piece || '')}</b><span>${esc([m.action, wingText(m)].filter(Boolean).join(' · '))}</span><span class="run-who">${esc(m.who || '')}</span>`).join('')}</div>`;
 }
 function runSceneHTML(c) {
   const label = [c.number, c.action].map(v => String(v || '').trim()).filter(Boolean).join(' · ') || 'Scene';
@@ -19796,7 +19809,7 @@ function fcSearch(q) {
     const t = cueTypes.find(x => x.id === c.type);
     const tn = t ? t.name : '';
     const num = fcNorm(c.number), short = fcNorm(seShortNum(c.number, tn));
-    const moves = (c.moves || []).filter(Boolean).map(m => [m.piece, m.action, m.who, m.notes].filter(Boolean).join(' ')).join(' · ');
+    const moves = (c.moves || []).filter(Boolean).map(m => [m.piece, m.action, wingText(m), m.who, m.notes].filter(Boolean).join(' ')).join(' · ');
     const fields = [['', num + ' ' + fcNorm(tn)], ['', fcNorm(c.action)], ['Line: ', fcNorm(c.cueLine)], ['Notes: ', fcNorm(c.notes || c.description)], ['Moves: ', fcNorm(moves)]];
     const hay = fields.map(f => f[1]).join(' | ');
     if (!words.every(w => hay.includes(w))) return;
@@ -21237,6 +21250,14 @@ function goHome() {
 // change. Scenes get a solid bar. Deliberately its own document rather than a
 // section of the cue sheet — this is what goes on the deck, and nobody running
 // a change wants to page past LX cues to find it.
+// Where a piece goes on or off: m.wing ("SL 2", "Fly") and, for a piece that
+// travels across, m.wingTo ("SR 1"). One line: "SL 2 → SR 1". The PDF's font
+// has no arrow, so it passes ' to '.
+function wingText(m, arrow) {
+  const a = String((m && m.wing) || '').trim(), b = String((m && m.wingTo) || '').trim();
+  const sep = arrow || ' → ';
+  return a && b ? a + sep + b : a || (b ? sep.trim() + ' ' + b : '');
+}
 async function exportSetChangePlot() {
   const ordered = cuesInScriptOrder();
   const changes = ordered.filter(c => c.type === SHIFT_TYPE_ID);
@@ -21285,14 +21306,22 @@ async function exportSetChangePlot() {
   // over headset, and the trigger itself in the space that frees up.
   const COLS = [
     { key: 'num',    label: '#',         w: 34,  bold: true },
-    { key: 'cue',    label: 'CUE',       w: 114 },
+    { key: 'cue',    label: 'CUE',       w: 98  },
     { key: 'pg',     label: 'PG',        w: 42  },
-    { key: 'piece',  label: 'PIECE',     w: 130, bold: true },
+    { key: 'piece',  label: 'PIECE',     w: 116, bold: true },
     { key: 'action', label: 'ACTION',    w: 68  },
-    { key: 'who',    label: 'WHO',       w: 88  },
-    { key: 'spike',  label: 'SPIKE',     w: 112 },
-    { key: 'notes',  label: 'NOTES',     w: 116 },
+    { key: 'wing',   label: 'WING',      w: 62  },
+    { key: 'who',    label: 'WHO',       w: 80  },
+    { key: 'spike',  label: 'SPIKE',     w: 102 },
+    { key: 'notes',  label: 'NOTES',     w: 102 },
   ];
+  // Columns by name, so adding one doesn't shift the rest.
+  const ci = k => COLS.findIndex(c => c.key === k);
+  // Wing on its own line, then "to SR 1" on the next, so it never breaks mid-name.
+  const wingLines = (m, w) => {
+    const a = String((m && m.wing) || '').trim(), b = String((m && m.wingTo) || '').trim();
+    return [].concat(a ? doc.splitTextToSize(a, w) : [], b ? doc.splitTextToSize('to ' + b, w) : []);
+  };
   // "SCENE CHANGE 12" -> "12". Falls back to the whole label so a change named
   // something without digits still prints something.
   const shortNum = v => {
@@ -21490,14 +21519,14 @@ async function exportSetChangePlot() {
     spkOfMove(m, showId).forEach(e => {
       if (!e) return;
       doc.setFont('helvetica', 'bold'); doc.setFontSize(FS);
-      doc.splitTextToSize(spkLabel(e), COLS[6].w - PAD*2 - SPK_IND).forEach((t, i) => out.push({ t, ind: SPK_IND, bold: true, e: i === 0 ? e : null }));
+      doc.splitTextToSize(spkLabel(e), COLS[ci('spike')].w - PAD*2 - SPK_IND).forEach((t, i) => out.push({ t, ind: SPK_IND, bold: true, e: i === 0 ? e : null }));
       if (e.label) {
         doc.setFont('helvetica', 'normal'); doc.setFontSize(FS - 1.5);
-        doc.splitTextToSize(spkTapeName(e), COLS[6].w - PAD*2 - SPK_IND).forEach(t => out.push({ t, ind: SPK_IND, small: true }));
+        doc.splitTextToSize(spkTapeName(e), COLS[ci('spike')].w - PAD*2 - SPK_IND).forEach(t => out.push({ t, ind: SPK_IND, small: true }));
       }
     });
     doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
-    wrap(spkEff(m).spike, 6).forEach(t => out.push({ t, ind: 0 }));
+    wrap(spkEff(m).spike, ci('spike')).forEach(t => out.push({ t, ind: 0 }));
     return out;
   };
   const sections = [];
@@ -21520,13 +21549,14 @@ async function exportSetChangePlot() {
       const cells = {
         num:    ['#' + shortNum(c.number)],
         // m.trigger only survives on data a device hasn't migrated yet.
-        cue:    wrap(m.trigger || c.cueLine || '', 1),
+        cue:    wrap(m.trigger || c.cueLine || '', ci('cue')),
         pg:     [c.page ? 'pg. ' + c.page : ''],
-        piece:  wrap(m.piece,  3),
-        action: wrap(m.action, 4),
-        who:    wrap(m.who,    5),
+        piece:  wrap(m.piece,  ci('piece')),
+        action: wrap(m.action, ci('action')),
+        wing:   wingLines(m, COLS[ci('wing')].w - PAD*2),
+        who:    wrap(m.who,    ci('who')),
         spike:  spikeCell(m),
-        notes:  wrap(m.notes,  7),
+        notes:  wrap(m.notes,  ci('notes')),
       };
       const lines = Math.max(...COLS.map(col => cells[col.key].length), 1);
       return { cells, h: Math.max(MIN_ROW, lines * LEAD + PAD*2) };
@@ -21627,16 +21657,17 @@ async function exportSetChangePlot() {
   // a gap shows up instead of falling between everyone's lists.
   const CC = [
     { key: 'num',    label: '#',      w: 34,  bold: true },
-    { key: 'cue',    label: 'CUE',    w: 134 },
+    { key: 'cue',    label: 'CUE',    w: 116 },
     { key: 'pg',     label: 'PG',     w: 42  },
-    { key: 'piece',  label: 'PIECE',  w: 140, bold: true },
-    { key: 'action', label: 'ACTION', w: 70  },
-    { key: 'spike',  label: 'SPIKE',  w: 112 },
-    { key: 'notes',  label: 'NOTES',  w: 112 },
-    { key: 'with',   label: 'WITH',   w: 60  },
+    { key: 'piece',  label: 'PIECE',  w: 128, bold: true },
+    { key: 'action', label: 'ACTION', w: 66  },
+    { key: 'wing',   label: 'WING',   w: 58  },
+    { key: 'spike',  label: 'SPIKE',  w: 104 },
+    { key: 'notes',  label: 'NOTES',  w: 98  },
+    { key: 'with',   label: 'WITH',   w: 58  },
   ];
   const CX = []; { let x = M; for (const c of CC) { CX.push(x); x += c.w; } }
-  const cwrap = (txt, k) => doc.splitTextToSize(String(txt || ''), CC[k].w - PAD*2);
+  const cwrap = (txt, k) => doc.splitTextToSize(String(txt || ''), CC[CC.findIndex(c => c.key === k)].w - PAD*2);
 
   const NOBODY = '\u0000nobody';
   const crew = new Map();   // lower-case name -> { name, items: [{ scene, c, m }] }
@@ -21705,13 +21736,14 @@ async function exportSetChangePlot() {
       const firstOfChange = !last || last.c !== it.c;
       const cells = {
         num:    ['#' + shortNum(it.c.number)],
-        cue:    cwrap(it.m.trigger || it.c.cueLine || '', 1),
+        cue:    cwrap(it.m.trigger || it.c.cueLine || '', 'cue'),
         pg:     [it.c.page ? 'pg. ' + it.c.page : ''],
-        piece:  cwrap(it.m.piece, 3),
-        action: cwrap(it.m.action, 4),
+        piece:  cwrap(it.m.piece, 'piece'),
+        action: cwrap(it.m.action, 'action'),
+        wing:   wingLines(it.m, CC[CC.findIndex(c => c.key === 'wing')].w - PAD*2),
         spike:  spikeCell(it.m),
-        notes:  cwrap(it.m.notes, 6),
-        with:   cwrap(it.others.join(', '), 7),
+        notes:  cwrap(it.m.notes, 'notes'),
+        with:   cwrap(it.others.join(', '), 'with'),
       };
       const lines = Math.max(...CC.map(col => cells[col.key].length), 1);
       const row = { cells, h: Math.max(MIN_ROW, lines * LEAD + PAD*2) };
@@ -21986,6 +22018,7 @@ function setChangeSections() {
       pg:     c.page ? 'pg. ' + c.page : '',
       piece:  String(m.piece  || ''),
       action: String(m.action || ''),
+      wing:   wingText(m),
       who:    String(m.who    || ''),
       spike:  spkMoveText(m, showId),
       notes:  String(m.notes  || '')
@@ -22106,16 +22139,17 @@ function loadExcelJS() {
 //   pixels = round(w * 7) + 5 per column, at 96dpi.
 const XLSX_COLS = [
   { key: 'num',    label: '#',      width: 7,  wrap: false, bold: true  },
-  { key: 'cue',    label: 'CUE',    width: 25, wrap: true,  bold: false },
+  { key: 'cue',    label: 'CUE',    width: 22, wrap: true,  bold: false },
   { key: 'pg',     label: 'PG',     width: 8,  wrap: false, bold: false },
-  { key: 'piece',  label: 'PIECE',  width: 25, wrap: true,  bold: true  },
+  { key: 'piece',  label: 'PIECE',  width: 23, wrap: true,  bold: true  },
   { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
+  { key: 'wing',   label: 'WING',   width: 11, wrap: true,  bold: false },
   { key: 'who',    label: 'WHO',    width: 16, wrap: true,  bold: false },
   // Not 9: ExcelJS treats 9 as its default column width and drops the <col>
   // element entirely, so the column would silently fall back to whatever the
   // reading app defaults to instead of the width set here.
-  { key: 'spike',  label: 'SPIKE',  width: 24, wrap: true,  bold: false },
-  { key: 'notes',  label: 'NOTES',  width: 27, wrap: true,  bold: false },
+  { key: 'spike',  label: 'SPIKE',  width: 21, wrap: true,  bold: false },
+  { key: 'notes',  label: 'NOTES',  width: 24, wrap: true,  bold: false },
 ];
 
 // Body text. 9.5 came off the PDF, where it sits on a page held at reading
@@ -22310,12 +22344,13 @@ async function exportSetChangeXLSX() {
   // whoever else is on the move. Moves with nobody named get the last tab.
   const CREW_COLS = [
     { key: 'num',    label: '#',      width: 7,  wrap: false, bold: true  },
-    { key: 'cue',    label: 'CUE',    width: 28, wrap: true,  bold: false },
+    { key: 'cue',    label: 'CUE',    width: 25, wrap: true,  bold: false },
     { key: 'pg',     label: 'PG',     width: 8,  wrap: false, bold: false },
-    { key: 'piece',  label: 'PIECE',  width: 26, wrap: true,  bold: true  },
+    { key: 'piece',  label: 'PIECE',  width: 24, wrap: true,  bold: true  },
     { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
-    { key: 'spike',  label: 'SPIKE',  width: 24, wrap: true,  bold: false },
-    { key: 'notes',  label: 'NOTES',  width: 27, wrap: true,  bold: false },
+    { key: 'wing',   label: 'WING',   width: 11, wrap: true,  bold: false },
+    { key: 'spike',  label: 'SPIKE',  width: 21, wrap: true,  bold: false },
+    { key: 'notes',  label: 'NOTES',  width: 24, wrap: true,  bold: false },
     { key: 'with',   label: 'WITH',   width: 16, wrap: true,  bold: false },
   ];
   const NOBODY = '\u0000nobody';
@@ -22384,6 +22419,7 @@ async function exportSetChangeXLSX() {
         pg:     it.c.page ? 'pg. ' + it.c.page : '',
         piece:  String(it.m.piece  || ''),
         action: String(it.m.action || ''),
+        wing:   wingText(it.m),
         spike:  spkMoveText(it.m, showId),
         notes:  String(it.m.notes  || ''),
         with:   it.others.join(', ')
