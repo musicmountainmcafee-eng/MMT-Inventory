@@ -33,6 +33,7 @@ body.mv,body.editing{cursor:auto}
 #v{position:fixed;left:0;top:0;width:100vw;height:100vh;object-fit:contain;background:#000;z-index:0}
 #scrim{position:fixed;z-index:1;pointer-events:none;
   background:radial-gradient(closest-side,rgba(0,0,0,.92) 0%,rgba(0,0,0,.8) 50%,rgba(0,0,0,0) 100%)}
+.tback{position:fixed;z-index:1;pointer-events:none;display:none;border-radius:12px;background:rgba(0,0,0,.75);box-shadow:0 0 22px 12px rgba(0,0,0,.75)}
 #tf{position:fixed;z-index:2;pointer-events:none;mix-blend-mode:screen;background:#000;overflow:hidden}
 #tf iframe{display:block;width:100%;height:100%;border:0;background:#000}
 #nosig{position:fixed;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;pointer-events:none;
@@ -90,6 +91,7 @@ button:active{transform:scale(.98)}
 
 <video id="v" autoplay muted playsinline></video>
 <div id="scrim"></div>
+<div class="tback" id="tb-ident"></div><div class="tback" id="tb-wall"></div>
 <div id="tf"><iframe id="fr" scrolling="no" allow="autoplay" tabindex="-1" title="Show timer"></iframe></div>
 <div id="nosig" hidden>Waiting for capture device…</div>
 
@@ -160,7 +162,7 @@ button:active{transform:scale(.98)}
 <script>
 (function(){
 'use strict';
-var CAPTURE_VERSION='1.1-dev';
+var CAPTURE_VERSION='1.2-dev';
 var KEY='mmt-capture-cfg-v1-dev',LIVE_KEY='mmt-capture-cfg-v1';
 var DEF={cx:.815,cy:.85,w:.32,h:.24,op:1,dim:1,scrim:.5,fit:'contain',res:1080,cam:''};
 
@@ -417,6 +419,23 @@ if(navigator.mediaDevices&&navigator.mediaDevices.addEventListener){
 }
 
 /* ---------- go ---------- */
+// A soft dark panel behind the timer's small lines (next show, time of day), so
+// they read over a bright picture. The timer's own black is keyed out, so the
+// panel is drawn here, under the timer, where those lines actually are. Its
+// strength follows the Dark backing slider.
+function placeBacks(){
+  var d=null;try{d=fr.contentDocument}catch(e){}
+  var tr=tf.getBoundingClientRect();
+  [['ident','tb-ident'],['wall','tb-wall']].forEach(function(x){
+    var b=$(x[1]),e=d&&d.getElementById(x[0]),r=null;
+    if(e&&!e.hidden&&(e.textContent||'').trim()){var cs=d.defaultView.getComputedStyle(e);if(cs.display!=='none'&&cs.visibility!=='hidden'&&+cs.opacity>0.05){r=e.getBoundingClientRect();if(!r.width||!r.height)r=null}}
+    if(!r||S.scrim<=0){b.style.display='none';return}
+    var px=Math.max(8,r.height*.35),py=Math.max(4,r.height*.2);
+    b.style.display='block';b.style.left=(tr.left+r.left-px)+'px';b.style.top=(tr.top+r.top-py)+'px';
+    b.style.width=(r.width+px*2)+'px';b.style.height=(r.height+py*2)+'px';b.style.opacity=Math.min(1,S.scrim*1.6);
+  });
+}
+setInterval(placeBacks,500);
 apply();syncUI();loadTimer();startCam();
 if(fresh){
   var h=$('hint');h.hidden=false;
