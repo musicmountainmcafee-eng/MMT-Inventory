@@ -351,6 +351,12 @@ body.display.full #big,body.display.full #measure{font-weight:700}
 body.display.full #slug{font-weight:700;letter-spacing:.14em}
 body.display.full #sub{font-weight:600;letter-spacing:.07em}
 body.display.full #ident{letter-spacing:.08em;color:#A9ACBB}
+/* Wide, short full-screen window (the capture band): the clock and countdown sit
+   on the right, with the next-show line above them on the right too. During a
+   show the small time of day moves to the top left so the two don't meet. */
+body.display.full.widewin #stage{align-items:flex-end;text-align:right;padding-right:2.5vw;padding-left:2.5vw}
+body.display.full.widewin #ident{left:auto;right:2.5vw;justify-content:flex-end}
+body.display.full.widewin #wall{right:auto;left:2.5vw}
 button,input,select,textarea{font-family:inherit}
 .bar{border-bottom:0;padding-bottom:4px;margin-bottom:8px;align-items:flex-start}
 .bar>div:first-child{min-width:0}
@@ -1147,7 +1153,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev31';
+var VERSION='3.4-dev32';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -3585,7 +3591,9 @@ function fit(){
   if(sw>room2)st.style.setProperty('--note',Math.max(12,size*0.1*room2/sw)+'px');
   ms.style.fontSize='';ms.style.fontWeight='';ms.style.letterSpacing='';
 }
-window.addEventListener('resize',function(){fitKey='';fit()});
+function wideWin(){document.body.classList.toggle('widewin',isDisplay&&document.body.classList.contains('full')&&innerWidth/Math.max(1,innerHeight)>=2.2)}
+wideWin();
+window.addEventListener('resize',function(){wideWin();fitKey='';fit()});
 setInterval(function(){tick();fit()},250);
 
 // ---------- controls ----------
@@ -3854,7 +3862,7 @@ document.addEventListener('keydown',function(e){
   var tag=(e.target.tagName||'').toLowerCase();
   if(tag==='input'||tag==='textarea'||tag==='select')return;
   if(isDisplay){
-    if(e.key==='f'){document.body.classList.toggle('full');nameTab();$('stage').removeAttribute('style');fitKey='';fit()}
+    if(e.key==='f'){document.body.classList.toggle('full');wideWin();nameTab();$('stage').removeAttribute('style');fitKey='';fit()}
     return;
   }
   if(!$('settings').hidden)return;
