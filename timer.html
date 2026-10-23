@@ -1152,7 +1152,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4.11';
+var VERSION='3.4.12';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1334,9 +1334,37 @@ function cueList(stage){
 // keeps the full list so its place in the show isn't lost.)
 function rtSkip(name){return /^CURTAIN SPEECH\b/i.test(name||'')}
 function isRunThrough(p){return !!(p&&p.adhoc&&p.rt&&(p.kind||'rehearsal')==='rehearsal')}
+// Opening night of a Mainstage run: call is at 6:00 PM, whatever the show time
+// (as long as 6:00 is before the show and before the next pre-show cue).
+var OPENING_CALL='18:00';
+function isOpening(p){
+  if(!p||p.adhoc||stageOf(p)!=='main'||!p.date)return false;
+  var runs=(cfg.runs||[]).filter(function(r){return r.start&&r.end&&p.date>=r.start&&p.date<=r.end&&(r.show||'Performance')===p.show});
+  for(var k=0;k<runs.length;k++){
+    var r=runs[k],d=new Date(at(r.start,'12:00'));
+    for(var i=0;i<400;i++){
+      var ds=ymd(d);if(ds>r.end)break;
+      var ts=(r.pattern||{})[dow(ds)]||[];
+      if(ts.length&&(r.exceptions||[]).indexOf(ds)<0){if(ds===p.date&&ts.slice().sort()[0]===p.time)return true;break}
+      d.setDate(d.getDate()+1);
+    }
+  }
+  return false;
+}
+function openingCall(p,C){
+  if(!isOpening(p))return C;
+  var ci=-1;for(var i=0;i<C.nA;i++)if(/^CALL\b/i.test(C.list[i].name||'')){ci=i;break}
+  if(ci<0)return C;
+  var off=Math.round((at(p.date,OPENING_CALL)-p.curtain)/6e4);
+  var nx=C.list[ci+1]&&ci+1<C.nA?(C.list[ci+1].offset||0):0;
+  if(off>=0||off>=nx)return C;
+  var L=C.list.slice();L[ci]=Object.assign({},L[ci],{offset:off});
+  return Object.assign({},C,{list:L});
+}
+function leadFor(p){var C=cuesFor(p),m=0;for(var i=0;i<C.nA;i++)m=Math.min(m,C.list[i].offset||0);return m}
 function cuesFor(p){
   var C=cueList(stageOf(p));
-  if(!isRunThrough(p))return kidsOneAct(p,C);
+  if(!isRunThrough(p))return openingCall(p,kidsOneAct(p,C));
   var st=C.list.slice(0,C.nA).filter(function(c){return (c.offset||0)===0})[0];
   var d=C.list.slice(C.nA).filter(function(c){return !rtSkip(c.name)});
   var acts=d.filter(isUp);
@@ -1431,7 +1459,7 @@ function activePerf(now){
     var len=cuesFor(a).list.length;
     var running=S.key===a.key&&S.idx!=null&&S.idx<len;
     if(!sched||sched.key===a.key)return a;   // tonight's show started early from the picker stays itself
-    var call=sched.curtain+leadMin(stageOf(sched))*6e4;
+    var call=sched.curtain+leadFor(sched)*6e4;
     var made=a.made||parseInt(String(a.key).replace('adhoc-',''),10)||0;
     // Started from the picker after the scheduled show's call: the SM chose it
     // over that show on purpose, so it keeps the screens until it's ended.
@@ -1455,7 +1483,7 @@ function scheduledPerf(now){
   for(var i=ps.length-1;i>=0;i--){
     var p=ps[i],prev=ps[i-1];
     var len=prev?cueList(stageOf(prev)).list.length:0;
-    var opens=p.curtain+leadMin(stageOf(p))*6e4-90*6e4;
+    var opens=p.curtain+leadFor(p)*6e4-90*6e4;
     if(prev)opens=Math.max(opens,prev.curtain+30*6e4);
     if(now<opens)continue;
     // ...but a forgotten final GO can't hold it forever: the earlier show lets go
@@ -1465,7 +1493,7 @@ function scheduledPerf(now){
     // Just after an earlier show's final GO its show-down screen and report stay
     // up for 20 min (as they do after the last show of the day), but the next
     // show's call always wins, so a four-show Saturday never misses a call.
-    if(prev&&isDone(prev)&&now-S.target<endHold()*6e4&&now<p.curtain+leadMin(stageOf(p))*6e4)continue;
+    if(prev&&isDone(prev)&&now-S.target<endHold()*6e4&&now<p.curtain+leadFor(p)*6e4)continue;
     if(isDone(p))return now-S.target<endHold()*6e4?p:null;
     var running=S.key===p.key&&S.idx!=null&&now-p.curtain<8*36e5;
     if(running)return p;
@@ -2608,9 +2636,9 @@ function tick(){
     if(f.next){
       var a=document.createElement('div');a.style.cssText='font-weight:600;margin-bottom:4px';a.textContent='Next: '+f.next.show;
       var b=document.createElement('div');b.className='muted';
-      b.textContent=dayLabel(f.next.date,true)+', show '+pretty(f.next.time)+', call '+clockOf(f.next.curtain+leadMin(stageOf(f.next))*6e4);
+      b.textContent=dayLabel(f.next.date,true)+', show '+pretty(f.next.time)+', call '+clockOf(f.next.curtain+leadFor(f.next)*6e4);
       $('idletext').appendChild(a);$('idletext').appendChild(b);
-      var C=cueList(stageOf(f.next)),ul=document.createElement('ul');ul.className='cues';ul.style.marginTop='10px';
+      var C=cuesFor(f.next),ul=document.createElement('ul');ul.className='cues';ul.style.marginTop='10px';
       for(var i=0;i<C.nA;i++){
         var li=document.createElement('li');li.innerHTML='<span class="dot"></span><span class="nm"></span><span class="wh"></span>';
         li.querySelector('.nm').textContent=C.list[i].name;
@@ -3766,7 +3794,7 @@ function rtPreview(){
   if(rtWhen==='at'&&!later)t='That time has passed, so it starts now. '+t;
   if(!run){
     var sl=rtSlot(rtName(),rtStageFor());
-    if(sl)t='Today\u2019s '+pretty(sl.time)+' show. The pre-show runs at its usual times (call at '+clockOf(sl.curtain+leadMin(stageOf(sl))*6e4)+'), and GO starts it whenever you\u2019re ready.';
+    if(sl)t='Today\u2019s '+pretty(sl.time)+' show. The pre-show runs at its usual times (call at '+clockOf(sl.curtain+leadFor(sl)*6e4)+'), and GO starts it whenever you\u2019re ready.';
   }
   if(rtKind==='tech'){$('rtpreview').textContent='Next you build today\u2019s tech schedule. GO steps through it, and a Full run hands off to the show timer.';return}
   $('rtpreview').textContent=t+(run?' No curtain speech: '+acts+'.':'');
@@ -4408,7 +4436,7 @@ function drawPreview(){
       var row=document.createElement('div');
       row.style.cssText='padding:7px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px';
       var l=document.createElement('span');l.textContent=dayLabel(p.date)+', '+pretty(p.time)+'  '+p.show+(stageOf(p)==='kids'?" (Children's)":'');
-      var r=document.createElement('span');r.className='muted';r.textContent='call '+clockOf(p.curtain+leadMin(stageOf(p))*6e4);
+      var r=document.createElement('span');r.className='muted';r.textContent='call '+clockOf(p.curtain+leadFor(p)*6e4);
       row.appendChild(l);row.appendChild(r);box.appendChild(row);found++;
     });
   }
