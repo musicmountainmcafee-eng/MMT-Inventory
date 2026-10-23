@@ -719,7 +719,7 @@ body.display.techfull #techfull:not([hidden]){--u:min(1vw,1.778vh);display:flex;
    camera): the whole band is used. Countdown on the left at the band's full
    height; Up Next, then the next full run and on-schedule line, on the right.
    Sizes follow the band's height (vh), since the band is the window. */
-body.display.techfull.techband #techfull:not([hidden]){display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;column-gap:3vw;padding:3vh 2.2vw 3.5vh}
+body.display.techfull.techband #techfull:not([hidden]){display:grid;grid-template-columns:var(--tfl,auto) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;column-gap:3vw;padding:3vh 2.2vw 3.5vh}
 body.techband .tftop{grid-column:1/-1;align-items:center}
 body.techband .tfid{gap:1.4vw}
 body.techband #tfshow{font-size:8vh}
@@ -735,7 +735,7 @@ body.techband .tfk{font-size:5.5vh;margin-bottom:.4vh}
 body.techband .tfr{grid-template-columns:auto minmax(0,1fr) auto;gap:1.6vw;padding:1.2vh 0}
 body.techband .tfr:nth-child(n+4){display:none}
 body.techband .tfr .t{font-size:10vh;min-width:4.6ch}
-body.techband .tfr .n,body.techband .tfr.dim2 .n{font-size:11.5vh}
+body.techband .tfr .n,body.techband .tfr.dim2 .n{font-size:calc(11.5vh*var(--lf,1))}
 body.techband .tfr .m{font-size:7vh}
 body.techband .tffoot{grid-column:2;grid-row:3;border-top:2px solid #26282E;padding-top:1.6vh;margin-left:2.4vw;gap:1.2vw;min-width:0}
 body.techband #tfrun{font-size:7vh;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -1147,7 +1147,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev30';
+var VERSION='3.4-dev31';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -3158,7 +3158,7 @@ function fitTech(){
   var box=document.querySelector('.tfnow'),big=$('tfbig');
   if(!box||$('techfull').hidden)return;
   var t=big.textContent.replace(/[0-9]/g,'0');while(t.length<5)t='0'+t;
-  var k=t+'|'+$('tflabel').textContent.length+'|'+$('tfsub').textContent.length+'|'+$('tfrun').textContent+'|'+$('tfstatus').textContent+'|'+innerWidth+'|'+innerHeight+'|'+(document.fonts?document.fonts.status:'');
+  var k=t+'|'+$('tflabel').textContent.length+'|'+$('tfsub').textContent.length+'|'+$('tflist').textContent+'|'+$('tfrun').textContent+'|'+$('tfstatus').textContent+'|'+innerWidth+'|'+innerHeight+'|'+(document.fonts?document.fonts.status:'');
   if(k===techFitKey)return;techFitKey=k;
   var real=big.textContent;
   big.style.fontSize='100px';big.style.width='max-content';big.textContent=t;
@@ -3170,6 +3170,19 @@ function fitTech(){
   var band=document.body.classList.contains('techband');
   var size=Math.min((band?innerWidth*0.5:box.clientWidth*0.98)/bw*100,room*0.98/bh*100);
   big.style.fontSize=Math.max(40,size)+'px';
+  // In the band the countdown's column is fixed at the width the widest time
+  // ("00:00" at this size) or the lines above and below it need, so the list
+  // beside it doesn't shift as the digits change.
+  var tf=$('techfull');
+  if(band){
+    var fsz=Math.max(40,size);big.style.width='max-content';big.textContent=t;var dw=big.scrollWidth;big.textContent=real;big.style.width='';
+    var lw=0;[$('tflabel'),$('tfsub')].forEach(function(e){e.style.width='max-content';lw=Math.max(lw,e.scrollWidth);e.style.width=''});
+    tf.style.setProperty('--tfl',Math.ceil(Math.min(innerWidth*0.55,Math.max(dw,lw))+2)+'px');
+    // item names shrink together (to 75% at most) rather than being cut off
+    var lw2=$('tflist');lw2.style.setProperty('--lf','1');var worst=1;
+    lw2.querySelectorAll('.tfr .n').forEach(function(n){if(n.offsetParent&&n.clientWidth)worst=Math.max(worst,n.scrollWidth/n.clientWidth)});
+    if(worst>1.01)lw2.style.setProperty('--lf',String(Math.max(.75,1/worst*0.98)));
+  }else{tf.style.removeProperty('--tfl');$('tflist').style.removeProperty('--lf')}
   // in the band, the next-run line shrinks to fit beside the status instead of being cut off
   var run=$('tfrun');run.style.fontSize='';
   if(document.body.classList.contains('techband')&&run.scrollWidth>run.clientWidth+1){
