@@ -162,7 +162,7 @@ button:active{transform:scale(.98)}
 <script>
 (function(){
 'use strict';
-var CAPTURE_VERSION='1.2-dev';
+var CAPTURE_VERSION='1.3-dev';
 var KEY='mmt-capture-cfg-v1-dev',LIVE_KEY='mmt-capture-cfg-v1';
 var DEF={cx:.815,cy:.85,w:.32,h:.24,op:1,dim:1,scrim:.5,fit:'contain',res:1080,cam:''};
 
@@ -436,6 +436,9 @@ function placeBacks(){
   });
 }
 setInterval(placeBacks,500);
+// Refresh displays on the controller (and the timer's own updates) reload this
+// whole page through here, not just the timer inside it, past any cache.
+window.mmtCaptureReload=function(){location.replace(location.pathname+'?u='+Date.now()+location.hash)};
 apply();syncUI();loadTimer();startCam();
 if(fresh){
   var h=$('hint');h.hidden=false;

@@ -1156,7 +1156,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev33';
+var VERSION='3.4-dev34';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2265,6 +2265,8 @@ function ctUpdate(){
   // apps to fetch the file again. The test runs once more after the reload.
   try{sessionStorage.setItem('mmt-ct-after','1')}catch(e){}
   if(typeof caches!=='undefined'&&caches.keys)caches.keys().then(function(k){k.forEach(function(n){caches.delete(n)})}).catch(function(){});
+  // inside the capture page: reload the whole capture page, so its own updates come in too
+  try{if(window.parent!==window&&typeof window.parent.mmtCaptureReload==='function'){window.parent.mmtCaptureReload();return}}catch(e){}
   location.replace(location.pathname+'?u='+Date.now()+location.hash);
 }
 // ---------- updates ----------
