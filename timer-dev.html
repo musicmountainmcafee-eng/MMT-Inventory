@@ -348,6 +348,9 @@ body.display #netban{right:auto;left:1.2vw;top:1.2vw;padding:.5vw 1.2vw;font-siz
 body.display:not(.full){font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif}   /* the capture layout keeps its original look */
 body.display.full{--quiet:#C6C8D6}
 body.display.full #big,body.display.full #measure{font-weight:700}
+/* every digit in its own fixed-width slot, so the clock and countdowns hold
+   still as they tick (the font's 1 is narrower than its 0) */
+body.display.full #big .dg{display:inline-block;width:var(--dgw,.6em);text-align:center}
 body.display.full #slug{font-weight:700;letter-spacing:.14em}
 body.display.full #sub{font-weight:600;letter-spacing:.07em}
 body.display.full #ident{letter-spacing:.08em;color:#A9ACBB}
@@ -1153,7 +1156,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev32';
+var VERSION='3.4-dev33';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2493,6 +2496,16 @@ function paintStage(f,now,clockMode,wingsOn,heldNow,ink,scene){
   // within a cue, so 10:00 -> 9:59 doesn't jump. Size changes glide.
   var want=Math.max(5,$('big').textContent.length);
   if(scene===sizeScene)sizeLen=Math.max(sizeLen,want);else{sizeScene=scene;sizeLen=want}
+  cellDigits($('big'));
+}
+function cellDigits(el){
+  if(!document.body.classList.contains('full'))return;
+  [].slice.call(el.childNodes).forEach(function(n){
+    if(n.nodeType!==3||!/\d/.test(n.nodeValue))return;
+    var f=document.createDocumentFragment();
+    n.nodeValue.split(/(\d)/).forEach(function(p){if(!p)return;if(/^\d$/.test(p)){var sp=document.createElement('span');sp.className='dg';sp.textContent=p;f.appendChild(sp)}else f.appendChild(document.createTextNode(p))});
+    el.replaceChild(f,n);
+  });
 }
 var lastHS='';
 function tick(){
@@ -3577,7 +3590,7 @@ function fit(){
   while(t.length<sizeLen)t='0'+t;                  // e.g. "9:59" measured as "09:59"
   var k=t.replace(/[0-9]/g,'0')+'|'+$('sub').textContent.length+'|'+innerWidth+'|'+innerHeight;
   if(k===fitKey)return;fitKey=k;
-  var ms=$('measure');ms.textContent=t;
+  var ms=$('measure');ms.textContent='0000000000';st.style.setProperty('--dgw',(ms.scrollWidth/10/100).toFixed(4)+'em');ms.textContent=t;
   var w=ms.scrollWidth||1,h=ms.offsetHeight||1;
   var room=0.6;                                    // cue name and bottom line fit in the rest
   var size=Math.min(innerWidth*0.96/w*100,innerHeight*room/h*100);
