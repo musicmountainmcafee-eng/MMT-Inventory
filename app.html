@@ -6759,7 +6759,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.24 v1</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -6858,13 +6858,22 @@ function unlockApp(role, name) {
 }
 
 // Auto-unlock if PIN was entered within the last 13 hours on this device
+// Runs while the page is still loading, before the rest of this script has
+// been read: starting the app here left everything declared further down
+// unreachable, and some start-up steps failed silently (the Show Hub never
+// loaded, so shows never remembered their scripts). Show the app now, start it
+// once the page has finished loading, the same as a PIN typed in.
 (function checkAutoUnlock() {
   try {
     const last = parseInt(localStorage.getItem('mmt_unlock_time') || '0', 10);
     if (last && (Date.now() - last) < UNLOCK_DURATION_MS) {
       const savedRole = localStorage.getItem('mmt_user_role') || 'td';
       const savedName = localStorage.getItem('mmt_user_name') || 'TD';
-      unlockApp(savedRole, savedName);
+      document.getElementById('pin-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      const go = () => unlockApp(savedRole, savedName);
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go, { once: true });
+      else setTimeout(go, 0);
     }
   } catch(e) {}
 })();
