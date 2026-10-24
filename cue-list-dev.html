@@ -1127,6 +1127,15 @@ function clResumeSignIn(){
   return false;
 }
 
+// The show running now (or in tech), else the next one, that has a linked script.
+function clCurrentShowScript(){
+  const today = new Date().toISOString().slice(0, 10);
+  const shows = ssShows().filter(s => s && s.start && s.end && s.end >= today).sort((a, b) => String(a.start).localeCompare(String(b.start)));
+  const hub = ssHub().shows || {};
+  for (const sh of shows) { const r = hub[ssSlug(sh.name)]; if (r && r.scriptId) return { id: r.scriptId, name: r.scriptName || sh.name }; }
+  return null;
+}
+
 // ── Boot ────────────────────────────────────────────────────────────────────
 function start(){
   setSize(parseInt(lsGet('mmt_cuelist_size','13'),10) || 13);
@@ -1161,12 +1170,24 @@ function start(){
     try {
       lsSet('mmt_cuelist_script', scriptId);
       if (linkName) lsSet('mmt_cuelist_scriptname', linkName);
+      lsSet('mmt_cuelist_script_at', String(Date.now()));
     } catch(e) {}
     pendingScroll = 0;
   } else {
-    pendingScroll = parseInt(lsGet(scrollKey(), '0'), 10) || 0;
-    scriptId   = lsGet('mmt_cuelist_script', null);
-    scriptName = lsGet('mmt_cuelist_scriptname', '');
+    // Follow the dashboard: a script opened there since this page last picked
+    // one is the one to show.
+    let dash = null;
+    try { dash = JSON.parse(localStorage.getItem('mmt_cur_script') || 'null'); } catch (e) {}
+    const ownAt = parseInt(lsGet('mmt_cuelist_script_at', '0'), 10) || 0;
+    if (dash && dash.id && dash.at > ownAt && dash.id !== lsGet('mmt_cuelist_script', '')) {
+      scriptId = dash.id; scriptName = dash.name || '';
+      lsSet('mmt_cuelist_script', scriptId); lsSet('mmt_cuelist_scriptname', scriptName); lsSet('mmt_cuelist_script_at', String(Date.now()));
+      pendingScroll = 0;
+    } else {
+      pendingScroll = parseInt(lsGet(scrollKey(), '0'), 10) || 0;
+      scriptId   = lsGet('mmt_cuelist_script', null);
+      scriptName = lsGet('mmt_cuelist_scriptname', '');
+    }
   }
 
   // Filter straight to set changes when asked. Checked against the real type
@@ -1261,7 +1282,7 @@ function schedulePoll(){
 // spike-map.html — keep them in step.
 let _ssHub = null, _ssShows = null;
 function ssSlug(name) { return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
-function ssNorm(s) { return String(s || '').toLowerCase().replace(/\s*\(\d{4}\)\s*$/, '').replace(/[^a-z0-9]/g, ''); }
+function ssNorm(s) { return String(s || '').toLowerCase().replace(/\s*\(\d{4}\)\s*$/, '').replace(/\s*&\s*/g, ' and ').replace(/[^a-z0-9]/g, ''); }
 function ssShows() {
   if (typeof MAINSTAGE !== 'undefined' && typeof CHILDRENS !== 'undefined')
     return [...MAINSTAGE.map(s => ({ ...s, type: 'Mainstage' })), ...CHILDRENS.map(s => ({ ...s, type: "Children's" }))];
@@ -1364,6 +1385,8 @@ function loadScripts(){
     if (!d || !d.success || !d.scripts){ renderScriptList('Could not load the script list.'); return; }
     scripts = d.scripts;
     if (!scriptId && scripts.length){
+      const cur = clCurrentShowScript();
+      if (cur && scripts.some(x => String(x.id) === String(cur.id))) { pickScript(cur.id, cur.name, true); renderScriptList(); return; }
       const newest = scripts.slice().sort((a,b) => new Date(b.date||0) - new Date(a.date||0))[0];
       pickScript(newest.id, newest.name, true);
     } else if (scriptId && !scriptName){
@@ -1379,6 +1402,7 @@ function pickScript(id, name, silent){
   scriptId = id; scriptName = name;
   lsSet('mmt_cuelist_script', id);
   lsSet('mmt_cuelist_scriptname', name);
+  if (!silent) lsSet('mmt_cuelist_script_at', String(Date.now()));
   ssShowName();
   cues = []; annotations = {}; presets = {}; lastSig = {}; expanded = {};
   revealed = {}; activeWho = null; lastHash = ''; firstPaint = true;
@@ -5903,6 +5927,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.23 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.24 v1 dev</div>
 </body>
 </html>
