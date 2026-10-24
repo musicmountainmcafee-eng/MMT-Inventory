@@ -6759,7 +6759,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.24 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.24 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -10476,7 +10476,8 @@ function renderHomeShowCards() {
     const key = showNotesKey(show.name, false);
     const url = showNotes[key];
     const btnLabel  = url ? 'Open notes →' : 'Create notes →';
-    const btnAction = `handleNotes('${key}', '${show.name.replace(/'/g, "\'")}')`;
+    // JSON + HTML escaping: "It's a Wonderful Life" used to break the button.
+    const btnAction = `handleNotes('${key}', ${esc(JSON.stringify(show.name))}, this)`;
 
     let countdown;
     if (state === 'current') {
@@ -13291,10 +13292,10 @@ function renderShows() {
         <span class="show-badge-now">Now Playing</span>
         <div class="show-actions">
           <button class="show-page-btn" onclick="openShowHub('${showSlug(currentMain.name)}')">Show page →</button>
-          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentMain.name}')" id="btn-${key}">
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', ${esc(JSON.stringify(currentMain.name))}, this)" id="btn-${key}">
             ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
           </button>
-          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentMain.name}')" title="Edit notes link" aria-label="Edit notes link">Edit</button>` : ''}
+          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink(\'${key}\', ${esc(JSON.stringify(currentMain.name))})" title="Edit notes link" aria-label="Edit notes link">Edit</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -13317,10 +13318,10 @@ function renderShows() {
         </div>
         <div class="show-actions">
           <button class="show-page-btn" onclick="openShowHub('${showSlug(nextMain.name)}')">Show page →</button>
-          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextMain.name}')" id="btn-${key}">
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', ${esc(JSON.stringify(nextMain.name))}, this)" id="btn-${key}">
             ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
           </button>
-          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextMain.name}')" title="Edit notes link" aria-label="Edit notes link">Edit</button>` : ''}
+          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink(\'${key}\', ${esc(JSON.stringify(nextMain.name))})" title="Edit notes link" aria-label="Edit notes link">Edit</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -13348,10 +13349,10 @@ function renderShows() {
               <div class="show-dates">${formatDates(show.start, show.end)}</div>
             </div>
             <div class="show-actions">
-              <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${show.name}')" id="btn-${key}" style="padding:6px 10px;font-size:12px;">
+              <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', ${esc(JSON.stringify(show.name))}, this)" id="btn-${key}" style="padding:6px 10px;font-size:12px;">
                 ${docUrl ? '📄 Notes' : '+ Notes'}
               </button>
-              ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${show.name}')" title="Edit notes link" aria-label="Edit notes link">Edit</button>` : ''}
+              ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink(\'${key}\', ${esc(JSON.stringify(show.name))})" title="Edit notes link" aria-label="Edit notes link">Edit</button>` : ''}
             </div>
           </div>`;
         }).join('')}
@@ -13377,10 +13378,10 @@ function renderShows() {
         <span class="show-badge-now" style="background:var(--accent2);">Now Playing</span>
         <div class="show-actions">
           <button class="show-page-btn" onclick="openShowHub('${showSlug(currentKids.name)}')">Show page →</button>
-          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${currentKids.name}')" id="btn-${key}">
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', ${esc(JSON.stringify(currentKids.name))}, this)" id="btn-${key}">
             ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
           </button>
-          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${currentKids.name}')" title="Edit notes link" aria-label="Edit notes link">Edit</button>` : ''}
+          ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink(\'${key}\', ${esc(JSON.stringify(currentKids.name))})" title="Edit notes link" aria-label="Edit notes link">Edit</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -13402,10 +13403,10 @@ function renderShows() {
           </div>
           <div class="show-actions">
             <button class="show-page-btn" onclick="openShowHub('${showSlug(nextKids.name)}')">Show page →</button>
-          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', '${nextKids.name}')" id="btn-${key}">
+          <button class="notes-btn ${docUrl ? 'open' : 'create'}" onclick="handleNotes('${key}', ${esc(JSON.stringify(nextKids.name))}, this)" id="btn-${key}">
               ${docUrl ? '📄 Open Notes' : '+ Create Notes'}
             </button>
-            ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink('${key}', '${nextKids.name}')" title="Edit notes link" aria-label="Edit notes link">Edit</button>` : ''}
+            ${docUrl ? `<button class="notes-relink-btn" onclick="changeShowNotesLink(\'${key}\', ${esc(JSON.stringify(nextKids.name))})" title="Edit notes link" aria-label="Edit notes link">Edit</button>` : ''}
           </div>
         </div>
       </div>`;
@@ -13477,15 +13478,19 @@ async function createFreshNotesDoc() {
   );
 }
 
-async function handleNotes(key, showName) {
+async function handleNotes(key, showName, el) {
   const docUrl = showNotes[key];
   if (docUrl) {
     window.open(docUrl, '_blank');
     return;
   }
-  const btn = document.getElementById('btn-' + key);
+  // The button tapped (Home's show cards have no id); the Notes tab's by id.
+  const btn = el || document.getElementById('btn-' + key);
+  if (!btn) { toast('Could not find that button. Try from the Notes tab.'); return; }
+  const onHome = btn.classList.contains('home-show-btn');
+  const homeCls = btn.className;
   btn.innerHTML = '<span class="spinner"></span>Creating...';
-  btn.className = 'notes-btn loading';
+  if (!onHome) btn.className = 'notes-btn loading';
   btn.disabled = true;
 
   // Use JSONP to bypass CORS (Apps Script supports callback param)
@@ -13494,22 +13499,22 @@ async function handleNotes(key, showName) {
     function(data) {
       if (data && data.url) {
         showNotes[key] = data.url;
-        btn.innerHTML = '📄 Open Notes';
-        btn.className = 'notes-btn open';
+        btn.innerHTML = onHome ? 'Open notes →' : '📄 Open Notes';
+        btn.className = onHome ? homeCls : 'notes-btn open';
         btn.disabled = false;
         btn.onclick = () => window.open(data.url, '_blank');
         toast('Notes doc created for ' + showName);
         sheetWrite('showNotes', key, data.url);
       } else {
-        btn.innerHTML = '+ Create Notes';
-        btn.className = 'notes-btn create';
+        btn.innerHTML = onHome ? 'Create notes →' : '+ Create Notes';
+        btn.className = onHome ? homeCls : 'notes-btn create';
         btn.disabled = false;
         toast('Error: ' + (data && data.error ? data.error : 'Unknown error'));
       }
     },
     function(err) {
-      btn.innerHTML = '+ Create Notes';
-      btn.className = 'notes-btn create';
+      btn.innerHTML = onHome ? 'Create notes →' : '+ Create Notes';
+      btn.className = onHome ? homeCls : 'notes-btn create';
       btn.disabled = false;
       toast('Error creating doc — check Apps Script');
       console.error(err);
@@ -13606,7 +13611,7 @@ function renderListCard(list, li) {
         <input class="task-input" type="text" placeholder="Add a task..." id="input-${list.name.replace(/\s/g,'_')}"
           onkeydown="if(event.key==='Enter') addTask('${list.name}')" />
         <input class="task-date-input" type="date" id="date-${list.name.replace(/\s/g,'_')}" />
-        <button class="add-task-btn" onclick="addTask('${list.name}')">Add</button>
+        <button class="add-task-btn" onclick="addTask(${esc(JSON.stringify(list.name))})">Add</button>
       </div>
     </div>`;
 }
