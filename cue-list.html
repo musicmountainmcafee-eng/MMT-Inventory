@@ -484,6 +484,15 @@
   #move-sheet .ms-moveto > span { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
   #move-sheet .ms-moveto .ms-btn { min-height: 42px; font-weight: 600; }
   #move-sheet .ms-moveto-sel { flex: 1 1 150px; height: 42px; width: auto; min-width: 0; }
+  /* Wing: side, then number; optional To */
+  #move-sheet .ms-wing { margin: 2px 0 6px; }
+  #move-sheet .ms-wingpills { margin: 8px 0 12px; align-items: center; }
+  #move-sheet .ms-pillsep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 4px; }
+  #move-sheet .ms-pill.ms-num { min-width: 44px; padding: 0 10px; }
+  #move-sheet .ms-pill:disabled { opacity: .35; cursor: default; }
+  #move-sheet .ms-addto { min-height: 40px; font-size: 14px; margin: -4px 0 12px; }
+  #move-sheet .ms-wingx { font: inherit; font-size: 11px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--purple); background: none; border: none; padding: 0 0 0 6px; cursor: pointer; }
+  .pl-wing { color: var(--ink-2); }
   /* Who: the show's cast and crew as pills, narrowed as you type */
   #move-sheet .who-pills { max-height: 176px; overflow-y: auto; align-content: flex-start; margin-bottom: 6px; }
   #move-sheet .who-h { flex-basis: 100%; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 2px 0 -2px; }
@@ -492,6 +501,29 @@
   #move-sheet .who-edit { font: inherit; font-size: 13px; font-weight: 600; color: var(--purple); background: none; border: none; padding: 2px 0 12px; cursor: pointer; }
   #ppl-setting b { font-weight: 600; }
   #ppl-setting button { margin-left: 8px; }
+  /* ── Before House photos ── */
+  .pr-photos { display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle; }
+  .pr-photos button { padding: 0; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; width: 34px; height: 34px; background: var(--bg); cursor: zoom-in; }
+  .pr-photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pr-photos .pr-more { width: auto; padding: 0 6px; font-size: 11px; font-weight: 700; color: var(--text-muted); }
+  #move-sheet .ps-photos-head { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 12px 0 6px; }
+  #move-sheet .ps-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  #move-sheet .ph-tile { position: relative; width: 84px; height: 84px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); background: var(--bg); padding: 0; cursor: zoom-in; }
+  #move-sheet .ph-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #move-sheet .ph-del { position: absolute; top: 3px; right: 3px; width: 26px; height: 26px; border-radius: 50%; border: none; background: rgba(0,0,0,.6); color: #fff; font-size: 16px; line-height: 26px; cursor: pointer; padding: 0; }
+  #move-sheet .ph-add { width: 84px; height: 84px; border-radius: 10px; border: 1.5px dashed var(--purple); color: var(--purple); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; font-weight: 600; cursor: pointer; text-align: center; }
+  #move-sheet .ph-add b { font-size: 24px; line-height: 1; }
+  #move-sheet .ph-wait { width: 84px; height: 84px; border-radius: 10px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--text-muted); background: var(--bg); }
+  #ph-viewer { position: fixed; inset: 0; z-index: 1300; background: rgba(10,10,16,.94); display: none; flex-direction: column; align-items: center; justify-content: center; }
+  #ph-viewer.open { display: flex; }
+  #ph-viewer img { max-width: 96vw; max-height: calc(100vh - 110px); object-fit: contain; border-radius: 6px; }
+  #ph-viewer .phv-cap { color: #fff; font: 600 15px/1.3 system-ui, sans-serif; margin-top: 12px; text-align: center; padding: 0 60px; }
+  #ph-viewer .phv-cap small { display: block; font-weight: 400; opacity: .7; font-size: 12.5px; margin-top: 2px; }
+  #ph-viewer button { position: absolute; border: none; background: rgba(255,255,255,.14); color: #fff; width: 48px; height: 48px; border-radius: 50%; font-size: 26px; cursor: pointer; }
+  #ph-viewer .phv-x { top: calc(12px + var(--safe-t, 0px)); right: 12px; }
+  #ph-viewer .phv-prev { left: 10px; top: 50%; transform: translateY(-50%); }
+  #ph-viewer .phv-next { right: 10px; top: 50%; transform: translateY(-50%); }
+  #ph-viewer button[hidden] { display: none; }
   /* Crew whose "Can change: Scripts" is off: look, don't touch. */
   body.cl-readonly #edit-btn, body.cl-readonly #pr-guard { display: none !important; }
   body.editing .cs-crop, body.editing .photo-chip { display: none; }
@@ -1095,6 +1127,15 @@ function clResumeSignIn(){
   return false;
 }
 
+// The show running now (or in tech), else the next one, that has a linked script.
+function clCurrentShowScript(){
+  const today = new Date().toISOString().slice(0, 10);
+  const shows = ssShows().filter(s => s && s.start && s.end && s.end >= today).sort((a, b) => String(a.start).localeCompare(String(b.start)));
+  const hub = ssHub().shows || {};
+  for (const sh of shows) { const r = hub[ssSlug(sh.name)]; if (r && r.scriptId) return { id: r.scriptId, name: r.scriptName || sh.name }; }
+  return null;
+}
+
 // ── Boot ────────────────────────────────────────────────────────────────────
 function start(){
   setSize(parseInt(lsGet('mmt_cuelist_size','13'),10) || 13);
@@ -1129,12 +1170,24 @@ function start(){
     try {
       lsSet('mmt_cuelist_script', scriptId);
       if (linkName) lsSet('mmt_cuelist_scriptname', linkName);
+      lsSet('mmt_cuelist_script_at', String(Date.now()));
     } catch(e) {}
     pendingScroll = 0;
   } else {
-    pendingScroll = parseInt(lsGet(scrollKey(), '0'), 10) || 0;
-    scriptId   = lsGet('mmt_cuelist_script', null);
-    scriptName = lsGet('mmt_cuelist_scriptname', '');
+    // Follow the dashboard: a script opened there since this page last picked
+    // one is the one to show.
+    let dash = null;
+    try { dash = JSON.parse(localStorage.getItem('mmt_cur_script') || 'null'); } catch (e) {}
+    const ownAt = parseInt(lsGet('mmt_cuelist_script_at', '0'), 10) || 0;
+    if (dash && dash.id && dash.at > ownAt && dash.id !== lsGet('mmt_cuelist_script', '')) {
+      scriptId = dash.id; scriptName = dash.name || '';
+      lsSet('mmt_cuelist_script', scriptId); lsSet('mmt_cuelist_scriptname', scriptName); lsSet('mmt_cuelist_script_at', String(Date.now()));
+      pendingScroll = 0;
+    } else {
+      pendingScroll = parseInt(lsGet(scrollKey(), '0'), 10) || 0;
+      scriptId   = lsGet('mmt_cuelist_script', null);
+      scriptName = lsGet('mmt_cuelist_scriptname', '');
+    }
   }
 
   // Filter straight to set changes when asked. Checked against the real type
@@ -1229,7 +1282,7 @@ function schedulePoll(){
 // spike-map.html — keep them in step.
 let _ssHub = null, _ssShows = null;
 function ssSlug(name) { return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
-function ssNorm(s) { return String(s || '').toLowerCase().replace(/\s*\(\d{4}\)\s*$/, '').replace(/[^a-z0-9]/g, ''); }
+function ssNorm(s) { return String(s || '').toLowerCase().replace(/\s*\(\d{4}\)\s*$/, '').replace(/\s*&\s*/g, ' and ').replace(/[^a-z0-9]/g, ''); }
 function ssShows() {
   if (typeof MAINSTAGE !== 'undefined' && typeof CHILDRENS !== 'undefined')
     return [...MAINSTAGE.map(s => ({ ...s, type: 'Mainstage' })), ...CHILDRENS.map(s => ({ ...s, type: "Children's" }))];
@@ -1332,6 +1385,8 @@ function loadScripts(){
     if (!d || !d.success || !d.scripts){ renderScriptList('Could not load the script list.'); return; }
     scripts = d.scripts;
     if (!scriptId && scripts.length){
+      const cur = clCurrentShowScript();
+      if (cur && scripts.some(x => String(x.id) === String(cur.id))) { pickScript(cur.id, cur.name, true); renderScriptList(); return; }
       const newest = scripts.slice().sort((a,b) => new Date(b.date||0) - new Date(a.date||0))[0];
       pickScript(newest.id, newest.name, true);
     } else if (scriptId && !scriptName){
@@ -1347,6 +1402,7 @@ function pickScript(id, name, silent){
   scriptId = id; scriptName = name;
   lsSet('mmt_cuelist_script', id);
   lsSet('mmt_cuelist_scriptname', name);
+  if (!silent) lsSet('mmt_cuelist_script_at', String(Date.now()));
   ssShowName();
   cues = []; annotations = {}; presets = {}; lastSig = {}; expanded = {};
   revealed = {}; activeWho = null; lastHash = ''; firstPaint = true;
@@ -1559,7 +1615,7 @@ function shortNumber(c, chipLabel){
 // ── Filtering ───────────────────────────────────────────────────────────────
 function haystack(c){
   const parts = [c.number, c.action, c.cueLine, c.notes || c.description, typeOf(c.type).name, 'p' + c.page, 'pg ' + c.page];
-  (c.moves || []).forEach(m => parts.push(m.piece, m.action, m.who, spkMoveText(m, scriptId), m.notes));
+  (c.moves || []).forEach(m => parts.push(m.piece, m.action, m.wing, m.wingTo, m.who, spkMoveText(m, scriptId), m.notes));
   return parts.filter(Boolean).join(' ').toLowerCase();
 }
 const onMove = (m, who) => whoNames(m.who).some(v => v.toLowerCase() === who);
@@ -1619,7 +1675,7 @@ function render(){
   const el = document.getElementById('sheet-body');
   const plot = plotOn();
   const mode = plot ? plMode() : 'full';
-  const NC = plot ? ({ full: 8, merged: 7, compact: 5 })[mode] : 5;
+  const NC = plot ? ({ full: 9, merged: 8, compact: 5 })[mode] : 5;
   const title = `<div class="sheet-title">
       <h2>${esc(ssTitle(scriptId, scriptName))} — Cue Sheet</h2>
       <div class="upd" id="upd">—</div>
@@ -1673,8 +1729,8 @@ function render(){
     el.innerHTML = title + `<div class="cs-empty"><b>${what}</b>${how}</div>`;
   } else if (plot){
     const cols = {
-      full:    [['#',5],['Cue',16],['PG',6],['Piece',17],['Action',10],['Who',12],['Spike',15],['Notes',19]],
-      merged:  [['#',6],['Cue / PG',18],['Piece',17],['Action',10],['Who',13],['Spike',16],['Notes',20]],
+      full:    [['#',5],['Cue',14],['PG',6],['Piece',15],['Action',9],['Wing',9],['Who',11],['Spike',14],['Notes',17]],
+      merged:  [['#',6],['Cue / PG',16],['Piece',15],['Action',9],['Wing',9],['Who',12],['Spike',14],['Notes',19]],
       compact: [['#',9],['Cue',25],['Piece',24],['Who',17],['Spike / Notes',25]]
     }[mode];
     el.innerHTML = title + `<table class="cs pl">
@@ -1762,7 +1818,7 @@ function presetRowHTML(r, band){
   const loc = String(r.location || '').trim();
   const hasSpike = (r.spikeIds || []).length || r.spike;
   return `<tr class="${cls.join(' ')} pr-tap" data-key="${esc(r.key)}" onclick="presetQuick('${esc(r.key)}')">
-    <td><span class="mv-piece">${esc(r.piece)}</span>${r.hidden ? '<span class="pr-offtag">not on plot</span>' : ''}</td>
+    <td><span class="mv-piece">${esc(r.piece)}</span>${r.hidden ? '<span class="pr-offtag">not on plot</span>' : ''}${prPhotosHTML(r.key, r.photos)}</td>
     <td class="cs-action">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
     <td class="cs-line">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : '<span class="pr-addspike">+ Spike</span>'}</td>
     <td class="cs-notes">${esc(r.notes || '')}</td>
@@ -2114,15 +2170,15 @@ function plRow(c, band, mode){
     if (compact) return `
       <td class="pl-numc">${r.num || ''}</td>
       <td class="cs-line" data-f="cueLine">${r.cue}</td>
-      <td data-f="piece">${r.piece}${r.action ? `<span class="pl-actsub" data-f="action">${r.action}</span>` : ''}</td>
+      <td data-f="piece">${r.piece}${(r.action || r.wing) ? `<span class="pl-actsub" data-f="action">${[r.action, r.wing].filter(Boolean).join(' · ')}</span>` : ''}</td>
       <td class="pl-who" data-f="who">${r.who}</td>
       <td class="pl-notes" data-f="notes">${r.spike ? `<span data-f="spike">${r.spike}</span>` : ''}${r.notes}</td>`;
     return `
       <td class="pl-numc">${r.num || ''}</td>
       <td class="cs-line" data-f="cueLine">${r.cue}</td>
       ${merged ? '' : `<td class="pl-pg">${r.pg}</td>`}
-      ${r.span ? `<td class="pl-act" colspan="2" data-f="piece">${r.piece}</td>`
-               : `<td data-f="piece">${r.piece}</td><td class="pl-act" data-f="action">${r.action}</td>`}
+      ${r.span ? `<td class="pl-act" colspan="3" data-f="piece">${r.piece}</td>`
+               : `<td data-f="piece">${r.piece}</td><td class="pl-act" data-f="action">${r.action}</td><td class="pl-wing" data-f="wing">${r.wing || ''}</td>`}
       <td class="pl-who" data-f="who">${r.who}</td>
       <td data-f="spike">${r.spike}</td>
       <td class="pl-notes" data-f="notes">${r.notes}</td>`;
@@ -2143,7 +2199,7 @@ function plRow(c, band, mode){
   }
 
   if (editMode){
-    const cols = compact ? 5 : merged ? 7 : 8;
+    const cols = compact ? 5 : merged ? 8 : 9;
     return moves.map((m, i) => {
       const first = i === 0, last = i === moves.length - 1;
       const cls = [first ? 'pl-top' : '', 'pl-tap', 'mv-edit'];
@@ -2154,7 +2210,7 @@ function plRow(c, band, mode){
         num: chip, cue: first ? cueCell : cueRest, pg,
         piece: blank ? '<span class="mv-empty">Tap to add a move</span>'
           : `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
-        action: esc(m.action || ''), who: esc(m.who || ''), spike: plSpikeHTML(m),
+        action: esc(m.action || ''), wing: esc(wingText(m)), who: esc(m.who || ''), spike: plSpikeHTML(m),
         notes: (first && notes ? `<span class="pl-cuenote">${esc(notes)}</span>` : '') + esc(m.notes || '')
       }) + '</tr>' + (last
         ? tr('pl-addrow') + `<td colspan="${cols}"><button class="mv-plus" onclick="event.stopPropagation(); sheetAddMove('${esc(c.id)}')">+ Add move</button></td></tr>`
@@ -2169,7 +2225,7 @@ function plRow(c, band, mode){
     return tr(cls.filter(Boolean).join(' '), tap + ` data-mv="${esc(m.id || '')}"`) + cells({
       num: chip, cue: first ? cueCell : cueRest, pg,
       piece: `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
-      action: esc(m.action || ''), who: esc(m.who || ''), spike: plSpikeHTML(m),
+      action: esc(m.action || ''), wing: esc(wingText(m)), who: esc(m.who || ''), spike: plSpikeHTML(m),
       notes: (first && notes ? `<span class="pl-cuenote">${esc(notes)}</span>` : '') + esc(m.notes || '')
     }) + '</tr>';
   }).join('');
@@ -2450,6 +2506,14 @@ async function exportSpikeKey() {
   doc.save(showName.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') + '_Spike_Key.pdf');
 }
 
+// Where a piece goes on or off: m.wing ("SL 2", "Fly") and, for a piece that
+// travels across, m.wingTo ("SR 1"). One line: "SL 2 → SR 1". The PDF's font
+// has no arrow, so it passes ' to '.
+function wingText(m, arrow) {
+  const a = String((m && m.wing) || '').trim(), b = String((m && m.wingTo) || '').trim();
+  const sep = arrow || ' → ';
+  return a && b ? a + sep + b : a || (b ? sep.trim() + ' ' + b : '');
+}
 async function exportSetChangePlot() {
   const ordered = cuesInScriptOrder();
   const changes = ordered.filter(c => c.type === SHIFT_TYPE_ID);
@@ -2498,14 +2562,22 @@ async function exportSetChangePlot() {
   // over headset, and the trigger itself in the space that frees up.
   const COLS = [
     { key: 'num',    label: '#',         w: 34,  bold: true },
-    { key: 'cue',    label: 'CUE',       w: 114 },
+    { key: 'cue',    label: 'CUE',       w: 98  },
     { key: 'pg',     label: 'PG',        w: 42  },
-    { key: 'piece',  label: 'PIECE',     w: 130, bold: true },
+    { key: 'piece',  label: 'PIECE',     w: 116, bold: true },
     { key: 'action', label: 'ACTION',    w: 68  },
-    { key: 'who',    label: 'WHO',       w: 88  },
-    { key: 'spike',  label: 'SPIKE',     w: 112 },
-    { key: 'notes',  label: 'NOTES',     w: 116 },
+    { key: 'wing',   label: 'WING',      w: 62  },
+    { key: 'who',    label: 'WHO',       w: 80  },
+    { key: 'spike',  label: 'SPIKE',     w: 102 },
+    { key: 'notes',  label: 'NOTES',     w: 102 },
   ];
+  // Columns by name, so adding one doesn't shift the rest.
+  const ci = k => COLS.findIndex(c => c.key === k);
+  // Wing on its own line, then "to SR 1" on the next, so it never breaks mid-name.
+  const wingLines = (m, w) => {
+    const a = String((m && m.wing) || '').trim(), b = String((m && m.wingTo) || '').trim();
+    return [].concat(a ? doc.splitTextToSize(a, w) : [], b ? doc.splitTextToSize('to ' + b, w) : []);
+  };
   // "SCENE CHANGE 12" -> "12". Falls back to the whole label so a change named
   // something without digits still prints something.
   const shortNum = v => {
@@ -2703,14 +2775,14 @@ async function exportSetChangePlot() {
     spkOfMove(m, showId).forEach(e => {
       if (!e) return;
       doc.setFont('helvetica', 'bold'); doc.setFontSize(FS);
-      doc.splitTextToSize(spkLabel(e), COLS[6].w - PAD*2 - SPK_IND).forEach((t, i) => out.push({ t, ind: SPK_IND, bold: true, e: i === 0 ? e : null }));
+      doc.splitTextToSize(spkLabel(e), COLS[ci('spike')].w - PAD*2 - SPK_IND).forEach((t, i) => out.push({ t, ind: SPK_IND, bold: true, e: i === 0 ? e : null }));
       if (e.label) {
         doc.setFont('helvetica', 'normal'); doc.setFontSize(FS - 1.5);
-        doc.splitTextToSize(spkTapeName(e), COLS[6].w - PAD*2 - SPK_IND).forEach(t => out.push({ t, ind: SPK_IND, small: true }));
+        doc.splitTextToSize(spkTapeName(e), COLS[ci('spike')].w - PAD*2 - SPK_IND).forEach(t => out.push({ t, ind: SPK_IND, small: true }));
       }
     });
     doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
-    wrap(spkEff(m).spike, 6).forEach(t => out.push({ t, ind: 0 }));
+    wrap(spkEff(m).spike, ci('spike')).forEach(t => out.push({ t, ind: 0 }));
     return out;
   };
   const sections = [];
@@ -2733,13 +2805,14 @@ async function exportSetChangePlot() {
       const cells = {
         num:    ['#' + shortNum(c.number)],
         // m.trigger only survives on data a device hasn't migrated yet.
-        cue:    wrap(m.trigger || c.cueLine || '', 1),
+        cue:    wrap(m.trigger || c.cueLine || '', ci('cue')),
         pg:     [c.page ? 'pg. ' + c.page : ''],
-        piece:  wrap(m.piece,  3),
-        action: wrap(m.action, 4),
-        who:    wrap(m.who,    5),
+        piece:  wrap(m.piece,  ci('piece')),
+        action: wrap(m.action, ci('action')),
+        wing:   wingLines(m, COLS[ci('wing')].w - PAD*2),
+        who:    wrap(m.who,    ci('who')),
         spike:  spikeCell(m),
-        notes:  wrap(m.notes,  7),
+        notes:  wrap(m.notes,  ci('notes')),
       };
       const lines = Math.max(...COLS.map(col => cells[col.key].length), 1);
       return { cells, h: Math.max(MIN_ROW, lines * LEAD + PAD*2) };
@@ -2840,16 +2913,17 @@ async function exportSetChangePlot() {
   // a gap shows up instead of falling between everyone's lists.
   const CC = [
     { key: 'num',    label: '#',      w: 34,  bold: true },
-    { key: 'cue',    label: 'CUE',    w: 134 },
+    { key: 'cue',    label: 'CUE',    w: 116 },
     { key: 'pg',     label: 'PG',     w: 42  },
-    { key: 'piece',  label: 'PIECE',  w: 140, bold: true },
-    { key: 'action', label: 'ACTION', w: 70  },
-    { key: 'spike',  label: 'SPIKE',  w: 112 },
-    { key: 'notes',  label: 'NOTES',  w: 112 },
-    { key: 'with',   label: 'WITH',   w: 60  },
+    { key: 'piece',  label: 'PIECE',  w: 128, bold: true },
+    { key: 'action', label: 'ACTION', w: 66  },
+    { key: 'wing',   label: 'WING',   w: 58  },
+    { key: 'spike',  label: 'SPIKE',  w: 104 },
+    { key: 'notes',  label: 'NOTES',  w: 98  },
+    { key: 'with',   label: 'WITH',   w: 58  },
   ];
   const CX = []; { let x = M; for (const c of CC) { CX.push(x); x += c.w; } }
-  const cwrap = (txt, k) => doc.splitTextToSize(String(txt || ''), CC[k].w - PAD*2);
+  const cwrap = (txt, k) => doc.splitTextToSize(String(txt || ''), CC[CC.findIndex(c => c.key === k)].w - PAD*2);
 
   const NOBODY = '\u0000nobody';
   const crew = new Map();   // lower-case name -> { name, items: [{ scene, c, m }] }
@@ -2918,13 +2992,14 @@ async function exportSetChangePlot() {
       const firstOfChange = !last || last.c !== it.c;
       const cells = {
         num:    ['#' + shortNum(it.c.number)],
-        cue:    cwrap(it.m.trigger || it.c.cueLine || '', 1),
+        cue:    cwrap(it.m.trigger || it.c.cueLine || '', 'cue'),
         pg:     [it.c.page ? 'pg. ' + it.c.page : ''],
-        piece:  cwrap(it.m.piece, 3),
-        action: cwrap(it.m.action, 4),
+        piece:  cwrap(it.m.piece, 'piece'),
+        action: cwrap(it.m.action, 'action'),
+        wing:   wingLines(it.m, CC[CC.findIndex(c => c.key === 'wing')].w - PAD*2),
         spike:  spikeCell(it.m),
-        notes:  cwrap(it.m.notes, 6),
-        with:   cwrap(it.others.join(', '), 7),
+        notes:  cwrap(it.m.notes, 'notes'),
+        with:   cwrap(it.others.join(', '), 'with'),
       };
       const lines = Math.max(...CC.map(col => cells[col.key].length), 1);
       const row = { cells, h: Math.max(MIN_ROW, lines * LEAD + PAD*2) };
@@ -3059,6 +3134,7 @@ function setChangeSections() {
       pg:     c.page ? 'pg. ' + c.page : '',
       piece:  String(m.piece  || ''),
       action: String(m.action || ''),
+      wing:   wingText(m),
       who:    String(m.who    || ''),
       spike:  spkMoveText(m, showId),
       notes:  String(m.notes  || '')
@@ -3179,16 +3255,17 @@ function loadExcelJS() {
 //   pixels = round(w * 7) + 5 per column, at 96dpi.
 const XLSX_COLS = [
   { key: 'num',    label: '#',      width: 7,  wrap: false, bold: true  },
-  { key: 'cue',    label: 'CUE',    width: 25, wrap: true,  bold: false },
+  { key: 'cue',    label: 'CUE',    width: 22, wrap: true,  bold: false },
   { key: 'pg',     label: 'PG',     width: 8,  wrap: false, bold: false },
-  { key: 'piece',  label: 'PIECE',  width: 25, wrap: true,  bold: true  },
+  { key: 'piece',  label: 'PIECE',  width: 23, wrap: true,  bold: true  },
   { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
+  { key: 'wing',   label: 'WING',   width: 11, wrap: true,  bold: false },
   { key: 'who',    label: 'WHO',    width: 16, wrap: true,  bold: false },
   // Not 9: ExcelJS treats 9 as its default column width and drops the <col>
   // element entirely, so the column would silently fall back to whatever the
   // reading app defaults to instead of the width set here.
-  { key: 'spike',  label: 'SPIKE',  width: 24, wrap: true,  bold: false },
-  { key: 'notes',  label: 'NOTES',  width: 27, wrap: true,  bold: false },
+  { key: 'spike',  label: 'SPIKE',  width: 21, wrap: true,  bold: false },
+  { key: 'notes',  label: 'NOTES',  width: 24, wrap: true,  bold: false },
 ];
 
 // Body text. 9.5 came off the PDF, where it sits on a page held at reading
@@ -3383,12 +3460,13 @@ async function exportSetChangeXLSX() {
   // whoever else is on the move. Moves with nobody named get the last tab.
   const CREW_COLS = [
     { key: 'num',    label: '#',      width: 7,  wrap: false, bold: true  },
-    { key: 'cue',    label: 'CUE',    width: 28, wrap: true,  bold: false },
+    { key: 'cue',    label: 'CUE',    width: 25, wrap: true,  bold: false },
     { key: 'pg',     label: 'PG',     width: 8,  wrap: false, bold: false },
-    { key: 'piece',  label: 'PIECE',  width: 26, wrap: true,  bold: true  },
+    { key: 'piece',  label: 'PIECE',  width: 24, wrap: true,  bold: true  },
     { key: 'action', label: 'ACTION', width: 13, wrap: true,  bold: false },
-    { key: 'spike',  label: 'SPIKE',  width: 24, wrap: true,  bold: false },
-    { key: 'notes',  label: 'NOTES',  width: 27, wrap: true,  bold: false },
+    { key: 'wing',   label: 'WING',   width: 11, wrap: true,  bold: false },
+    { key: 'spike',  label: 'SPIKE',  width: 21, wrap: true,  bold: false },
+    { key: 'notes',  label: 'NOTES',  width: 24, wrap: true,  bold: false },
     { key: 'with',   label: 'WITH',   width: 16, wrap: true,  bold: false },
   ];
   const NOBODY = '\u0000nobody';
@@ -3457,6 +3535,7 @@ async function exportSetChangeXLSX() {
         pg:     it.c.page ? 'pg. ' + it.c.page : '',
         piece:  String(it.m.piece  || ''),
         action: String(it.m.action || ''),
+        wing:   wingText(it.m),
         spike:  spkMoveText(it.m, showId),
         notes:  String(it.m.notes  || ''),
         with:   it.others.join(', ')
@@ -4954,6 +5033,125 @@ function clAutoSave(){
 }
 
 
+// ── BEFORE HOUSE PHOTOS ─────────────────────────────────────────────────────
+// How a piece should look when it's preset (the pizza on its plate). Taken or
+// picked on a phone in the piece's edit panel, shrunk on the device, sent to
+// the Drive photo folder through the Sheet script's uploadRefPhoto, and kept on
+// the piece as photos: [{ id, url, thumb, at, by }]. They save like any other
+// Before House edit (photo by photo, so two people adding at once both keep
+// theirs). The rows show small thumbnails; tap one to see it big.
+const _phUploading = {};   // key -> photos still uploading
+function prPhotosHTML(key, photos){
+  const ph = presetPhotos({ photos });
+  if (!ph.length) return '';
+  const shown = ph.slice(0, 3);
+  return `<span class="pr-photos">${shown.map((p, i) => `<button type="button" aria-label="Photo ${i + 1}" onclick="event.stopPropagation(); openPhotoViewer('${esc(key)}', ${i})"><img src="${esc(p.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer"></button>`).join('')}${ph.length > 3 ? `<button type="button" class="pr-more" onclick="event.stopPropagation(); openPhotoViewer('${esc(key)}', 3)">+${ph.length - 3}</button>` : ''}</span>`;
+}
+function phTilesHTML(key){
+  const ph = presetPhotos(presets[key]);
+  const tiles = ph.map((p, i) => `<div class="ph-tile" role="button" tabindex="0" onclick="openPhotoViewer('${esc(key)}', ${i})"><img src="${esc(p.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer">
+      <button type="button" class="ph-del" aria-label="Remove photo" onclick="event.stopPropagation(); removePresetPhoto('${esc(key)}', '${esc(p.id)}')">×</button></div>`).join('');
+  const waiting = Array.from({ length: _phUploading[key] || 0 }, () => '<div class="ph-wait">Uploading…</div>').join('');
+  const add = `<label class="ph-add"><b>+</b>Add photo<input type="file" accept="image/*" multiple hidden onchange="addPresetPhotos('${esc(key)}', this.files); this.value=''"></label>`;
+  return tiles + waiting + add;
+}
+function refreshPhotoBits(key){
+  const box = document.getElementById('ps-photos');
+  if (box && presetSheet && presetSheet.key === key) box.innerHTML = phTilesHTML(key);
+  const row = document.querySelector('tr.pr-row[data-key="' + CSS.escape(key) + '"]');
+  if (row && presets[key]) {
+    const tmp = document.createElement('tbody');
+    tmp.innerHTML = presetRowHTML({ ...presets[key], key }, !row.classList.contains('band'));
+    row.replaceWith(tmp.firstElementChild);
+  }
+}
+// Phone photos are big; 1600px on the long side is plenty to see a prop.
+function shrinkPhoto(file){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.85).split(',')[1]);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('not an image')); };
+    img.src = url;
+  });
+}
+function addPresetPhotos(key, files){
+  if (cueReadOnly()) { clViewOnlyToast(); return; }
+  const list = Array.from(files || []).filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|heic|webp)$/i.test(f.name));
+  if (!list.length) return;
+  const piece = (allPieces().find(x => x.key === key) || {}).piece || key;
+  list.forEach((file, n) => {
+    _phUploading[key] = (_phUploading[key] || 0) + 1;
+    refreshPhotoBits(key);
+    const done = () => { _phUploading[key] = Math.max(0, (_phUploading[key] || 1) - 1); refreshPhotoBits(key); };
+    shrinkPhoto(file).then(b64 => fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'uploadRefPhoto', base64: b64, mimeType: 'image/jpeg',
+        fileName: 'preset ' + (ssTitle(scriptId, scriptName) || 'show') + ' - ' + piece + ' - ' + new Date().toISOString().slice(0, 10) + '-' + (n + 1) + '.jpg' }) }))
+      .then(r => r.json())
+      .then(res => {
+        if (!res || !res.success || !res.fileId) throw new Error((res && res.error) || 'upload failed');
+        const e = presetEntry(key);
+        e.photos = presetPhotos(e).concat([{ id: String(res.fileId), url: res.url, thumb: res.thumb || res.url, at: new Date().toISOString(), by: clName || '' }]);
+        editedPresets[key] = true;
+        saveDraft(); markDirty();
+        done();
+      })
+      .catch(() => { done(); toast("A photo didn't upload. Check the signal and try again."); });
+  });
+}
+function removePresetPhoto(key, id){
+  if (cueReadOnly()) { clViewOnlyToast(); return; }
+  if (!confirm('Remove this photo from ' + ((allPieces().find(x => x.key === key) || {}).piece || 'this piece') + '?')) return;
+  const e = presetEntry(key);
+  e.photos = presetPhotos(e).filter(p => p.id !== id);
+  editedPresets[key] = true;
+  saveDraft(); markDirty();
+  refreshPhotoBits(key);
+}
+let _phv = null;   // { key, i }
+function openPhotoViewer(key, i){
+  const ph = presetPhotos(presets[key]); if (!ph.length) return;
+  let v = document.getElementById('ph-viewer');
+  if (!v) {
+    v = document.createElement('div'); v.id = 'ph-viewer';
+    v.innerHTML = '<img alt=""><div class="phv-cap"></div><button class="phv-prev" aria-label="Previous photo" onclick="event.stopPropagation(); stepPhotoViewer(-1)">‹</button><button class="phv-next" aria-label="Next photo" onclick="event.stopPropagation(); stepPhotoViewer(1)">›</button><button class="phv-x" aria-label="Close" onclick="closePhotoViewer()">×</button>';
+    v.addEventListener('click', e => { if (e.target === v) closePhotoViewer(); });
+    document.body.appendChild(v);
+  }
+  _phv = { key, i: Math.max(0, Math.min(i, ph.length - 1)) };
+  v.classList.add('open'); paintPhotoViewer();
+}
+function paintPhotoViewer(){
+  const v = document.getElementById('ph-viewer'); if (!v || !_phv) return;
+  const ph = presetPhotos(presets[_phv.key]);
+  if (!ph.length) return closePhotoViewer();
+  _phv.i = Math.max(0, Math.min(_phv.i, ph.length - 1));
+  const p = ph[_phv.i];
+  v.querySelector('img').src = p.url;
+  v.querySelector('img').setAttribute('referrerpolicy', 'no-referrer');
+  const e = presets[_phv.key] || {};
+  const name = (allPieces().find(x => x.key === _phv.key) || {}).piece || e.piece || _phv.key;
+  v.querySelector('.phv-cap').innerHTML = esc(name) + (ph.length > 1 ? ' · ' + (_phv.i + 1) + ' of ' + ph.length : '')
+    + (e.location ? '<small>' + esc(e.location) + '</small>' : '');
+  v.querySelector('.phv-prev').hidden = _phv.i <= 0;
+  v.querySelector('.phv-next').hidden = _phv.i >= ph.length - 1;
+}
+function stepPhotoViewer(d){ if (_phv) { _phv.i += d; paintPhotoViewer(); } }
+function closePhotoViewer(){ _phv = null; const v = document.getElementById('ph-viewer'); if (v) v.classList.remove('open'); }
+document.addEventListener('keydown', e => {
+  if (!_phv) return;
+  if (e.key === 'Escape') closePhotoViewer();
+  else if (e.key === 'ArrowLeft') stepPhotoViewer(-1);
+  else if (e.key === 'ArrowRight') stepPhotoViewer(1);
+});
+
 // ── PRESET PANEL (Before House, edit mode) ──────────────────────────────────
 // Same bottom panel as a move: where the piece starts, its spike, notes, and
 // whether it prints on the plot. Edits go through presetField, so drafts, the
@@ -5050,6 +5248,8 @@ function renderPresetPanel(){
     <div id="ps-spikes">${spkPickerHTML(scriptId, e.spikeIds, 'presetSpike')}</div>
     <input id="ps-spike" class="ms-in" style="margin:8px 0 6px" value="${esc(e.spike || '')}" placeholder="Other spike, typed (optional)"
       autocomplete="off" oninput="presetField('spike', this.value)">
+    <div class="ps-photos-head">Photos</div>
+    <div class="ps-photos" id="ps-photos">${phTilesHTML(key)}</div>
     <div class="ms-btns">
       <button class="ms-btn${e.hidden ? '' : ' dashed'}" onclick="presetField('hidden', ${!e.hidden}); renderPresetPanel();">${e.hidden ? 'Put back on the plot' : 'Leave off the plot'}</button>
       <span style="flex:1"></span>
@@ -5279,6 +5479,7 @@ function sheetField(field, value){
   mvField(c.id, moveSheet.idx, field, value);
   if (field === 'action') syncActionPills(value);
   if (field === 'who') syncWhoPills(value);
+  if (field === 'wing' || field === 'wingTo') syncWingPills(field);
   // Keep the rows under the sheet in step without rebuilding the whole table.
   refreshSheetRows(c);
 }
@@ -5311,10 +5512,66 @@ function sheetField(field, value){
 // cursor at the end of what's there (nothing selected, so a stray key can't
 // wipe it). Called inside the tap, so phones raise the keyboard.
 const MS_BOX = { cueLine: 'ms-cueLine', piece: 'ms-piece', action: 'ms-action', who: 'ms-who', spike: 'ms-spike', notes: 'ms-notes' };
+
+// ── WING ────────────────────────────────────────────────────────────────────
+// Where a piece goes on or off: tap the side, then the wing number (SL 2), or
+// type anything else. "+ To another wing" adds where it ends up, for a piece
+// that travels across (SL 2 → SR 1). Kept on the move as wing / wingTo.
+const WING_SIDES = ['SL', 'SR', 'US', 'DS', 'Fly', 'Trap'];
+const WING_NUMS = ['1', '2', '3', '4'];
+function wingParts(v){
+  const t = String(v || '').trim();
+  const m = t.match(/^(SL|SR)\s*(\d+)$/i);
+  if (m) return { side: m[1].toUpperCase(), num: m[2] };
+  const side = WING_SIDES.find(x => x.toLowerCase() === t.toLowerCase());
+  return { side: side || '', num: '', other: side ? '' : t };
+}
+function wingPillsHTML(field, v){
+  const p = wingParts(v), numbered = p.side === 'SL' || p.side === 'SR';
+  return WING_SIDES.map(x => `<button type="button" class="ms-pill${p.side === x ? ' on' : ''}" onclick="wingPick('${field}', 'side', '${x}')">${x}</button>`).join('')
+    + `<span class="ms-pillsep"></span>`
+    + WING_NUMS.map(n => `<button type="button" class="ms-pill ms-num${p.num === n ? ' on' : ''}"${numbered ? '' : ' disabled'} onclick="wingPick('${field}', 'num', '${n}')">${n}</button>`).join('');
+}
+function wingSectionHTML(m){
+  const showTo = !!(m.wingTo || (moveSheet && moveSheet.showTo));
+  const box = (field, label, ph, extra) => `<label class="ms-f"><span>${label}${extra || ''}</span>
+      <input id="ms-${field}" class="ms-in" value="${esc(m[field] || '')}" placeholder="${ph}" autocomplete="off" oninput="sheetField('${field}', this.value)"></label>
+    <div class="ms-pills ms-wingpills" id="ms-${field}-pills">${wingPillsHTML(field, m[field])}</div>`;
+  return `<div class="ms-wing">${box('wing', 'Wing · on or off', 'e.g. SL 2')}
+    ${showTo ? box('wingTo', 'To · where it ends up', 'e.g. SR 1', ` <button type="button" class="ms-wingx" onclick="clearWingTo()">Remove</button>`)
+      : `<button type="button" class="ms-btn dashed ms-addto" onclick="showWingTo()">+ To another wing</button>`}</div>`;
+}
+function wingPick(field, part, val){
+  const input = document.getElementById('ms-' + field);
+  if (!input) return;
+  const p = wingParts(input.value);
+  let next;
+  if (part === 'side') {
+    if (p.side === val && !p.num) next = '';                       // tap again to clear
+    else next = (val === 'SL' || val === 'SR') && p.num ? val + ' ' + p.num : val;
+  } else {
+    if (p.side !== 'SL' && p.side !== 'SR') return;
+    next = p.num === val ? p.side : p.side + ' ' + val;
+  }
+  input.value = next;
+  sheetField(field, next);
+}
+function syncWingPills(field){
+  const box = document.getElementById('ms-' + field + '-pills'), input = document.getElementById('ms-' + field);
+  if (box && input) box.innerHTML = wingPillsHTML(field, input.value);
+}
+function showWingTo(){ if (!moveSheet) return; moveSheet.showTo = true; renderMoveSheet(); }
+function clearWingTo(){
+  if (!moveSheet) return;
+  moveSheet.showTo = false;
+  sheetField('wingTo', '');
+  renderMoveSheet();
+}
 function openMoveAt(e, cueId, idx){
   const cell = e && e.target && e.target.closest ? e.target.closest('[data-f]') : null;
   const f = cell ? cell.dataset.f : '';
   openMove(cueId, idx);
+  if (f === 'wing') { const w = document.querySelector('#move-sheet .ms-wing'); if (w && w.scrollIntoView) w.scrollIntoView({ block: 'nearest' }); return; }
   const box = MS_BOX[f] && document.getElementById(MS_BOX[f]);
   if (!box) return;
   box.focus();
@@ -5430,6 +5687,7 @@ function renderMoveSheet(){
     </div>
     <datalist id="ms-pieces">${pieces}</datalist>
     <div class="ms-pills" id="ms-actions">${MOVE_ACTIONS.map(v => pill('action', v, v.toLowerCase() === actKey)).join('')}</div>
+    ${wingSectionHTML(m)}
     <div class="ms-grid ms-g2 ms-even">
       <label class="ms-f"><span>Who</span>${inp('who', 'e.g. Kyle, Tristan, Ally', ' strong')}</label>
       <label class="ms-f"><span>Note</span>${inp('notes', 'Note')}</label>
@@ -5669,6 +5927,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.22 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.24 v1</div>
 </body>
 </html>
