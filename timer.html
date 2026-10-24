@@ -685,6 +685,10 @@ body.techmode #cuecard,body.techmode #rtother,body.techmode #reset{display:none!
 body.display.techfull #stage{display:none!important}
 /* end of show on the full-screen display: message, a big time of day, the end time */
 #eosfull{display:none}
+#eoleft{display:none}
+body.display.full.eosband #eoleft{display:block;position:fixed;left:2.5vw;top:50%;transform:translateY(-50%);font-family:"DM Sans",system-ui,sans-serif;font-weight:700;letter-spacing:.06em;line-height:1.05;color:#fff;white-space:normal;overflow:hidden}
+body.display.full.eosband #sub b{color:#fff;font-weight:700}
+body.display.full.eosband #wall{display:none}
 body.display.eosfull #stage{display:none!important}
 body.display.eosfull #eosfull:not([hidden]){--u:min(1vw,1.778vh);display:flex;flex-direction:column;position:fixed;inset:0;padding:calc(var(--u)*2.7) calc(var(--u)*3.75) calc(var(--u)*2.8);font-family:"DM Sans",system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#fff;background:#000}
 .eotop{display:flex;justify-content:space-between;align-items:baseline;gap:20px;text-transform:uppercase}
@@ -820,6 +824,7 @@ body:not(.display) #toast{font-family:'Barlow Condensed',sans-serif;font-size:17
   <div id="sub"></div>
 </div>
 <div id="measure" aria-hidden="true"></div>
+<div id="eoleft" aria-hidden="true"></div>
 <div id="eosfull" hidden>
   <div class="eotop"><span id="eoshow"></span><span id="eokind"></span></div>
   <div class="eomain"><div id="eomsg"></div><div id="eoclock"></div></div>
@@ -1152,7 +1157,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4.13';
+var VERSION='3.4.14';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -2491,9 +2496,14 @@ function paintEOS(f,now){
   $('sub').textContent='ENDED '+clockOf(f.when);$('sub').style.color='';
 }
 function paintStage(f,now,clockMode,wingsOn,heldNow,ink,scene){
-  var eos=isDisplay&&!!f.done&&!clockMode;
-  document.body.classList.toggle('eosfull',eos&&document.body.classList.contains('full'));
-  if(!eos)$('eosfull').hidden=true;
+  var eos=isDisplay&&!!f.done&&!clockMode,full=document.body.classList.contains('full');
+  // In the capture band the end card keeps the clock where it always is (right)
+  // and puts the message big on the left; elsewhere it's the centered card.
+  var band=eos&&full&&document.body.classList.contains('widewin');
+  document.body.classList.toggle('eosfull',eos&&full&&!band);
+  document.body.classList.toggle('eosband',band);
+  if(!eos||band)$('eosfull').hidden=true;
+  if(band){paintIdent(f,now,false);$('wall').hidden=true;paintEOSBand(f,now);return}
   if(eos){paintIdent(f,now,clockMode);$('wall').hidden=true;paintEOS(f,now);return}
   paintIdent(f,now,clockMode);
   if(clockMode){
@@ -2518,6 +2528,27 @@ function paintStage(f,now,clockMode,wingsOn,heldNow,ink,scene){
   var want=Math.max(5,$('big').textContent.length);
   if(scene===sizeScene)sizeLen=Math.max(sizeLen,want);else{sizeScene=scene;sizeLen=want}
   cellDigits($('big'));
+}
+function paintEOSBand(f,now){
+  var d=new Date(now);
+  $('slug').textContent='';$('slug').className='k-clock';
+  $('big').className='clocked';$('big').style.color='';
+  $('big').innerHTML=(d.getHours()%12||12)+':'+pad(d.getMinutes())+'<span class="ampm">'+(d.getHours()<12?'AM':'PM')+'</span>';
+  cellDigits($('big'));
+  $('sub').innerHTML='ENDED <b></b>';$('sub').querySelector('b').textContent=clockOf(f.when);$('sub').style.color='';$('sub').style.fontWeight='';
+  if($('eoleft').textContent!==endLabel())$('eoleft').textContent=endLabel();
+  fitEoLeft();
+}
+// The end message fills the left side of the band: as big as it can be (two
+// lines if that's bigger) without reaching the clock.
+var eoLeftKey='';
+function fitEoLeft(){
+  var el=$('eoleft'),br=$('big').getBoundingClientRect();
+  var avail=br.left-innerWidth*0.065;if(avail<innerWidth*0.2)avail=innerWidth*0.2;
+  var k=el.textContent+'|'+Math.round(avail)+'|'+innerHeight+'|'+(document.fonts?document.fonts.status:'');
+  if(k===eoLeftKey)return;eoLeftKey=k;
+  el.style.width=avail+'px';var fs=innerHeight*0.22;
+  for(var i=0;i<50;i++){el.style.fontSize=fs+'px';if(el.scrollWidth<=el.clientWidth+1&&el.scrollHeight<=innerHeight*0.74)break;fs*=0.95}
 }
 function cellDigits(el){
   if(!document.body.classList.contains('full'))return;
