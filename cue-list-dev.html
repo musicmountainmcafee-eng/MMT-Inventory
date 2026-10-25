@@ -598,6 +598,12 @@
   .mv-plus:hover { border-style: solid; color: var(--text); }
   /* ── Export / history / toast ── */
   .overlay.open { display: flex; }
+  /* Script | Cue sheet: flips to the script in this tab, at the same cue. */
+  .vw-switch { display: inline-flex; flex: none; background: rgba(127,127,140,.16); border-radius: 10px; padding: 3px; gap: 3px; margin: 0 6px; }
+  .vw-switch button { border: none; background: transparent; color: var(--text-muted); font: 600 14px 'DM Sans', system-ui, sans-serif; padding: 6px 16px; min-height: 34px; border-radius: 8px; cursor: pointer; }
+  .vw-switch button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(20,20,40,.16); cursor: default; }
+  body.cl-noscripts .vw-switch { display: none; }
+  @media (max-width: 600px) { .vw-switch { flex: 1 1 100%; margin: 2px 0 0; } .vw-switch button { flex: 1; min-height: 40px; font-size: 15px; } }
   .export-opts { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 14px; }
   .export-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 56px; padding: 10px 14px;
     border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); text-align: left; font: inherit; }
@@ -888,6 +894,7 @@
           <span id="status-count"></span><span id="status">connecting</span>
         </div>
       </div>
+      <div class="vw-switch" id="vw-switch" role="group" aria-label="View"><button type="button" onclick="flipToScript()" aria-pressed="false">Script</button><button type="button" class="on" aria-pressed="true">Cue sheet</button></div>
       <button class="top-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Dark mode">🌙</button>
       <button class="top-btn" id="layout-btn" onclick="cycleLayout()" title="Switch layout: Sheet or Wings">Layout: Sheet</button>
       <button class="top-btn" id="photo-btn" onclick="setPhotos(!showPhotos)" title="Show or hide all line photos">Photos</button>
@@ -1074,6 +1081,7 @@ let clCrewPerms = { cuesheet: true, editScripts: true }; // app.html CREW_PERMS_
 function clApplyPermsValue(v){
   if (!v || typeof v !== 'object') return;
   if (v.tabs && 'cuesheet' in v.tabs) clCrewPerms.cuesheet = !!v.tabs.cuesheet;
+  if (v.tabs && 'scripts' in v.tabs) clCrewPerms.scripts = !!v.tabs.scripts;
   if (v.edit && 'scripts' in v.edit) clCrewPerms.editScripts = !!v.edit.scripts;
 }
 function clIsCrew(){ return clRole === 'crew'; }
@@ -1081,6 +1089,7 @@ function cueReadOnly(){ return clIsCrew() && !clCrewPerms.editScripts; }
 function clViewOnlyToast(){ toast('The cue sheet is view only for crew. Ask Mac to change it.'); }
 function clApplyRole(){
   document.body.classList.toggle('cl-readonly', cueReadOnly());
+  document.body.classList.toggle('cl-noscripts', clIsCrew() && clCrewPerms.scripts === false);
   if (cueReadOnly() && typeof editMode !== 'undefined' && editMode) setEditMode(false);
 }
 function clFetchCrewPins(done){
@@ -5342,23 +5351,27 @@ function rowMenuDo(what, arg){
 // cue. With none open, it opens one. The dashboard's "Cue sheet ›" lands here
 // through mmtJump, or ?cue= in the address.
 const DASH_WIN = /-dev\.html$/i.test(location.pathname) ? 'mmt-dashboard-dev' : 'mmt-dashboard';
-function jumpToScript(cueId){
-  if (!scriptId) return;
-  const msg = { type: 'script', scriptId, cueId: String(cueId), name: scriptName || '' };
-  const url = DASH_PAGE + '?script=' + encodeURIComponent(scriptId) + '&cue=' + encodeURIComponent(cueId) + '&name=' + encodeURIComponent(scriptName || '') + '#scripts';
+function jumpToScript(cueId){ flipToScript(cueId); }
+// Script | Cue sheet: go to the script in this same tab, at this cue (else the
+// row at the top of the screen). Anything not yet saved is sent first; if it
+// can't be, stay here rather than leave it behind.
+let _flipping = false;
+async function flipToScript(cueId){
+  if (_flipping || !scriptId) return;
+  if (clIsCrew() && clCrewPerms.scripts === false) { toast('Scripts are turned off for crew. Ask Mac.'); return; }
+  if (!cueId) { try { const r = firstVisibleRow(); cueId = (r && r.getAttribute('data-cue')) || ''; } catch (e) {} }
+  _flipping = true;
   try {
-    const o = window.opener;
-    if (o && !o.closed && /\/app(-dev)?\.html$/.test(o.location.pathname) && typeof o.mmtJump === 'function') { o.mmtJump(msg); o.focus(); return; }
-  } catch (e) {}
-  try {
-    const w = window.open('', DASH_WIN);
-    if (w) {
-      let blank = false; try { blank = !w.location.href || w.location.href === 'about:blank'; } catch (e) {}
-      if (!blank && typeof w.mmtJump === 'function') { w.mmtJump(msg); w.focus(); return; }
-      w.location.href = url; return;
+    try { closeBox(); closeRowMenu(); } catch (e) {}
+    if (clUnsaved() || editSaving) {
+      toast('Saving…');
+      if (!editSaving) { if (clPending()) saveMoveEdits(); else flushAdds(); }
+      const t0 = Date.now();
+      while ((clUnsaved() || editSaving) && Date.now() - t0 < 12000) await new Promise(r => setTimeout(r, 250));
+      if (clUnsaved()) { toast('Not saved yet. Your changes are safe here; try again in a moment.'); return; }
     }
-  } catch (e) {}
-  location.href = url;
+    location.href = DASH_PAGE + '?script=' + encodeURIComponent(scriptId) + (cueId ? '&cue=' + encodeURIComponent(cueId) : '') + '&name=' + encodeURIComponent(scriptName || '') + '#scripts';
+  } finally { setTimeout(() => { _flipping = false; }, 1500); }
 }
 let _jumpCue = '';
 window.mmtJump = function (m){
@@ -6873,6 +6886,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v3 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v4 dev</div>
 </body>
 </html>

@@ -4793,6 +4793,18 @@ table td { font-size: 14px !important; }
      and the export buttons fold behind a ⋯ menu.
      ══════════════════════════════════════════════════════════════════════════ */
   .sv-switch { display: none; }
+  @media (min-width: 769px) {
+    #scripts-editor #sv-switch { display: inline-flex; flex: none; background: var(--cue-border, rgba(0,0,0,.08)); border-radius: 10px; padding: 3px; gap: 3px; margin: 0 10px; }
+    #scripts-editor #sv-switch .sv-btn { border: none; background: transparent; color: var(--cue-text-muted); font: 600 14px 'DM Sans', system-ui, sans-serif; padding: 6px 16px; border-radius: 8px; cursor: pointer; min-height: 34px; }
+    #scripts-editor #sv-switch .sv-btn.on { background: var(--cue-surface, #fff); color: var(--cue-text, #1a1a1a); box-shadow: 0 1px 3px rgba(20,20,40,.16); }
+    #scripts-editor.running #sv-switch { display: none; }
+  }
+  /* Phone: the same grey Script | Cue sheet switch as the cue sheet's. */
+  @media (max-width: 768px) {
+    #scripts-editor #sv-switch { background: rgba(127,127,140,.16); border: none; border-radius: 10px; padding: 3px; gap: 3px; }
+    #scripts-editor #sv-switch .sv-btn { border-radius: 8px !important; font-weight: 600; min-height: 40px !important; }
+    #scripts-editor #sv-switch .sv-btn.on { background: var(--cue-surface, #fff); color: var(--cue-text, #1a1a1a); box-shadow: 0 1px 3px rgba(20,20,40,.16); }
+  }
   .cue-topbar-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 
   @media (max-width: 768px) {
@@ -6477,10 +6489,10 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
       <!-- Raw script filename; exports read it. The tidy name shows in se-name. -->
       <span class="show-name" id="show-name" hidden></span>
     </div>
-    <!-- Phone only: one pane at a time instead of three fighting for 390px. -->
-    <div class="sv-switch" id="sv-switch" role="tablist" aria-label="Scripts view">
-      <button class="sv-btn on" data-sv="script" onclick="setScriptsView('script')">Script</button>
-      <button class="sv-btn"    data-sv="cues"   onclick="setScriptsView('cues')">Cues</button>
+    <!-- Script | Cue sheet: flips to the cue sheet in this tab, at the same cue. -->
+    <div class="sv-switch" id="sv-switch" role="group" aria-label="View">
+      <button class="sv-btn on" data-sv="script" onclick="setScriptsView('script')" aria-pressed="true">Script</button>
+      <button class="sv-btn"    data-sv="sheet"  onclick="flipToCueSheet()" aria-pressed="false">Cue sheet</button>
     </div>
     <div class="run-switch" id="run-switch" role="group" aria-label="View">
       <button type="button" data-rv="normal" class="on" aria-pressed="true" onclick="setRunView('normal')" title="Edit the script">Normal</button>
@@ -6491,13 +6503,12 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
       <button type="button" class="top-btn se-dark" id="se-dark-btn" onclick="runToggleDark()" title="Dark look" aria-label="Switch to the dark look"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button>
       <button type="button" class="top-btn se-find" onclick="openFindCue()" title="Find a cue (/)" aria-label="Find a cue"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a7 7 0 1014 0a7 7 0 10-14 0M20.5 20.5l-4.5-4.5"/></svg><span>Find</span></button>
       <button type="button" class="top-btn se-approx" id="se-approx" hidden onclick="nextApproxCue()" title="Cues added from the cue sheet, still on approximate spots. Tap to go to the next one."></button>
-      <button class="top-btn se-link" onclick="openCueSheetPage()">Cue sheet</button>
       <button class="top-btn se-link" onclick="openSpikeMap()">Spike map</button>
       <!-- Pages that have their own home open there; this menu keeps what
            belongs to the script itself. -->
       <div class="sv-menu" id="sv-menu" onclick="closeScriptTools()">
         <div class="mi-head">Open</div>
-        <button class="top-btn" onclick="openCueSheetPage()">Cue sheet<svg class="mi-ext" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg></button>
+        <button class="top-btn" onclick="flipToCueSheet()">Cue sheet<svg class="mi-ext" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg></button>
         <button class="top-btn" onclick="openCueSheetPage('shift')">Set change plot<svg class="mi-ext" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg></button>
         <button class="top-btn" onclick="openCueSheetPage('presets')">Before House presets<svg class="mi-ext" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg></button>
         <button class="top-btn" onclick="openSpikeMap()">Spike map<svg class="mi-ext" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg></button>
@@ -6828,7 +6839,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v2 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v3 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7375,20 +7386,30 @@ window.addEventListener('load', function guardInventoryForCrew() {
 const DASH_WIN = /-dev\.html$/i.test(location.pathname) ? 'mmt-dashboard-dev' : 'mmt-dashboard';
 const CUE_WIN = /-dev\.html$/i.test(location.pathname) ? 'mmt-cuesheet-dev' : 'mmt-cuesheet';
 try { if (!window.name || /^mmt-/.test(window.name)) window.name = DASH_WIN; } catch (e) {}
-function openCueSheetAt(cueId) {
-  if (!showId || !cueId) return;
-  const name = (document.getElementById('show-name') || {}).textContent || '';
-  const msg = { type: 'cue', scriptId: showId, cueId: String(cueId), name };
-  const url = CUE_PAGE + '?script=' + encodeURIComponent(showId) + '&cue=' + encodeURIComponent(cueId) + (name ? '&name=' + encodeURIComponent(name) : '');
+function openCueSheetAt(cueId) { flipToCueSheet(cueId); }
+// Script | Cue sheet: go to the cue sheet in this same tab, at this cue (the
+// selected one, else the first on the page showing). Anything not yet saved is
+// sent first; if it can't be, stay here rather than leave it behind.
+let _flipping = false;
+async function flipToCueSheet(cueId) {
+  if (_flipping || typeof showId === 'undefined' || !showId) return;
+  if (typeof crewCanSee === 'function' && !crewCanSee('cuesheet')) { toast('The cue sheet is turned off for crew. Ask Mac.'); return; }
   try {
-    const w = window.open('', CUE_WIN);
-    if (w) {
-      let blank = false; try { blank = !w.location.href || w.location.href === 'about:blank'; } catch (e) {}
-      if (!blank && typeof w.mmtJump === 'function') { w.mmtJump(msg); w.focus(); return; }
-      w.location.href = url; return;
-    }
+    if (!cueId) cueId = (typeof selectedCueId !== 'undefined' && selectedCueId) || '';
+    if (!cueId) { const pg = cuesInScriptOrder().filter(c => c.page === currentPage); if (pg.length) cueId = pg[0].id; }
   } catch (e) {}
-  window.open(url, '_blank');
+  _flipping = true;
+  try {
+    if (cueHasUnsaved() && !_cs.readOnly) {
+      toast('Saving…');
+      clearTimeout(_cs.timer); try { csPush(); } catch (e) {}
+      const t0 = Date.now();
+      while (cueHasUnsaved() && Date.now() - t0 < 12000) await new Promise(r => setTimeout(r, 250));
+      if (cueHasUnsaved()) { toast('Not saved yet. Your changes are safe here; try again in a moment.'); return; }
+    }
+    const name = (document.getElementById('show-name') || {}).textContent || '';
+    location.href = CUE_PAGE + '?script=' + encodeURIComponent(showId) + (cueId ? '&cue=' + encodeURIComponent(cueId) : '') + (name ? '&name=' + encodeURIComponent(name) : '');
+  } finally { setTimeout(() => { _flipping = false; }, 1500); }
 }
 let _jumpWait = null;
 window.mmtJump = function (m) {
@@ -7411,8 +7432,14 @@ function jumpFromAddress() {
   try {
     const q = new URLSearchParams(location.search);
     const sid = q.get('script'), cid = q.get('cue');
-    if (!sid || !cid) return;
+    if (!sid) return;
     history.replaceState(null, '', location.pathname + '#scripts');
+    if (!cid) {
+      if (typeof crewCanSee === 'function' && !crewCanSee('scripts')) return;
+      switchTab('scripts');
+      if (!(typeof showId !== 'undefined' && showId === sid && typeof pdfDoc !== 'undefined' && pdfDoc)) loadFromDrive(sid, q.get('name') || 'Script');
+      return;
+    }
     window.mmtJump({ type: 'script', scriptId: sid, cueId: cid, name: q.get('name') || '' });
   } catch (e) {}
 }
