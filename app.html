@@ -6559,6 +6559,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
         <div class="mvd-head">
           <div class="mvd-title" id="mvd-title">Set Change</div>
           <span class="mvd-acts">
+            <button type="button" class="mvd-act" onclick="openCueSheetAt(mvDrawerCueId)" title="Show this set change on the cue sheet">Cue sheet ›</button>
             <button type="button" class="mvd-act" onclick="openMoveCue(mvDrawerCueId)" title="Move this set change to another page">Move to page</button>
             <button type="button" class="mvd-act mvd-act-del" onclick="deleteCue(mvDrawerCueId)" title="Delete this set change and its moves">Delete</button>
             <button class="mvd-close" onclick="closeMoveDrawer()" title="Close (Esc)" aria-label="Close (Esc)">✕</button>
@@ -6589,6 +6590,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
         <input type="text" id="cue-line" placeholder="Cue line (trigger text)" oninput="onCueFormInput()" disabled />
         <input type="text" id="cue-desc" placeholder="Notes (optional)" oninput="onCueFormInput()" disabled />
         <div id="cue-form-acts">
+          <button type="button" class="top-btn" onclick="openCueSheetAt(selectedCueId)">Cue sheet ›</button>
           <button type="button" class="top-btn" onclick="openMoveCue(selectedCueId)">Move to page</button>
           <button type="button" class="top-btn cfa-del" onclick="deleteCue(selectedCueId)">Delete cue</button>
         </div>
@@ -6826,7 +6828,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.24 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v1</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7235,6 +7237,7 @@ function initApp() {
   // including after a power cut, without anyone driving the menu.
   try { if (location.hash === '#tv') setTimeout(openTvMode, 400); } catch(e) {}
   try { loadHub(() => { if (_hubSlug) renderShowHub(); }); } catch(e) { console.warn('hub init:', e); }
+  setTimeout(() => { try { jumpFromAddress(); } catch (e) {} }, 400);
   // Once Home has settled, quietly load every other tab so switching is instant.
   try { setTimeout(warmTabsInOrder, 600); } catch(e) {}
 }
@@ -7365,6 +7368,55 @@ window.addEventListener('load', function guardInventoryForCrew() {
 
 // Sidebar › Cue Sheet: the cue sheet page, on the script open in the editor
 // (or the one this device used last; the page has its own picker too).
+// ── Jumping between the script and the cue sheet ─────────────────────────────
+// "Cue sheet ›" goes to the cue sheet tab you already have (or opens one) and
+// shows this cue there; the cue sheet's "Script ›" lands here through
+// mmtJump, or ?script=…&cue=… in the address. Tabs find each other by name.
+const DASH_WIN = /-dev\.html$/i.test(location.pathname) ? 'mmt-dashboard-dev' : 'mmt-dashboard';
+const CUE_WIN = /-dev\.html$/i.test(location.pathname) ? 'mmt-cuesheet-dev' : 'mmt-cuesheet';
+try { if (!window.name || /^mmt-/.test(window.name)) window.name = DASH_WIN; } catch (e) {}
+function openCueSheetAt(cueId) {
+  if (!showId || !cueId) return;
+  const name = (document.getElementById('show-name') || {}).textContent || '';
+  const msg = { type: 'cue', scriptId: showId, cueId: String(cueId), name };
+  const url = CUE_PAGE + '?script=' + encodeURIComponent(showId) + '&cue=' + encodeURIComponent(cueId) + (name ? '&name=' + encodeURIComponent(name) : '');
+  try {
+    const w = window.open('', CUE_WIN);
+    if (w) {
+      let blank = false; try { blank = !w.location.href || w.location.href === 'about:blank'; } catch (e) {}
+      if (!blank && typeof w.mmtJump === 'function') { w.mmtJump(msg); w.focus(); return; }
+      w.location.href = url; return;
+    }
+  } catch (e) {}
+  window.open(url, '_blank');
+}
+let _jumpWait = null;
+window.mmtJump = function (m) {
+  if (!m || m.type !== 'script' || !m.scriptId) return;
+  if (typeof crewCanSee === 'function' && !crewCanSee('scripts')) { toast('Scripts are turned off for crew'); return; }
+  switchTab('scripts');
+  const ready = () => typeof showId !== 'undefined' && showId === m.scriptId && typeof pdfDoc !== 'undefined' && pdfDoc && cues.some(c => String(c.id) === String(m.cueId));
+  const go = () => { try { const ed = document.getElementById('scripts-editor'); if (ed && !ed.classList.contains('open')) openScriptsEditor(); } catch (e) {} jumpToCue(m.cueId); };
+  if (ready()) { go(); return; }
+  loadFromDrive(m.scriptId, m.name || 'Script');
+  clearInterval(_jumpWait);
+  const t0 = Date.now();
+  _jumpWait = setInterval(() => {
+    if (ready()) { clearInterval(_jumpWait); setTimeout(go, 250); }
+    else if (Date.now() - t0 > 25000) clearInterval(_jumpWait);
+  }, 300);
+};
+// Arriving from a link: ?script=…&cue=…
+function jumpFromAddress() {
+  try {
+    const q = new URLSearchParams(location.search);
+    const sid = q.get('script'), cid = q.get('cue');
+    if (!sid || !cid) return;
+    history.replaceState(null, '', location.pathname + '#scripts');
+    window.mmtJump({ type: 'script', scriptId: sid, cueId: cid, name: q.get('name') || '' });
+  } catch (e) {}
+}
+
 function openCueSheetFromMenu() {
   try { if (typeof showId !== 'undefined' && showId) { openCueSheetPage(); return; } } catch (e) {}
   // Nothing open here: the show in tech or running now, else the next one, with a script.
@@ -21438,7 +21490,7 @@ async function exportSetChangePlot() {
   // "SCENE CHANGE 12" -> "12". Falls back to the whole label so a change named
   // something without digits still prints something.
   const shortNum = v => {
-    const m = String(v || '').match(/(\d+[A-Za-z.]*)\s*$/);
+    const m = String(v || '').match(/(\d+(?:\.\d+)?[A-Za-z]*)\s*$/);
     return m ? m[1] : String(v || '').trim();
   };
   const X = []; { let x = M; for (const c of COLS) { X.push(x); x += c.w; } }
@@ -22334,7 +22386,7 @@ function cleanShowName(raw) {
 // "SCENE CHANGE 12" -> "12". Falls back to the whole label so a change named
 // something without digits still exports something.
 function changeShortNum(v) {
-  const m = String(v || '').match(/(\d+[A-Za-z.]*)\s*$/);
+  const m = String(v || '').match(/(\d+(?:\.\d+)?[A-Za-z]*)\s*$/);
   return m ? m[1] : String(v || '').trim();
 }
 

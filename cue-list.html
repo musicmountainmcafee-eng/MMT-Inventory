@@ -524,6 +524,56 @@
   #ph-viewer .phv-prev { left: 10px; top: 50%; transform: translateY(-50%); }
   #ph-viewer .phv-next { right: 10px; top: 50%; transform: translateY(-50%); }
   #ph-viewer button[hidden] { display: none; }
+  /* View only / Editing switch */
+  #edit-btn.lock-tg { padding: 0; display: inline-flex; overflow: hidden; background: var(--surface); color: var(--text-muted); border-color: var(--border); }
+  #edit-btn.lock-tg span { padding: 5px 9px; white-space: nowrap; }
+  #edit-btn.lock-tg:not(.on) .lk-v, #edit-btn.lock-tg.on .lk-e { background: var(--purple); color: #fff; }
+  @media (max-width: 600px) { #edit-btn.lock-tg span { padding: 5px 7px; } }
+  /* Box editor */
+  #box-ed { position: fixed; z-index: 460; display: none; background: var(--surface); color: var(--text); border: 1px solid var(--border);
+    border-radius: 14px; box-shadow: 0 14px 40px rgba(0,0,0,.25); padding: 12px 14px; box-sizing: border-box; font-size: 15px; max-height: 70vh; overflow-y: auto; }
+  #box-ed.open { display: block; }
+  #box-ed.sheet { left: 0; right: 0; top: auto; bottom: var(--kb, 0px); width: auto; border-radius: 16px 16px 0 0; max-height: min(58vh, calc(var(--vvh, 100vh) - 120px)); padding-bottom: calc(14px + var(--safe-b, 0px)); }
+  #box-ed .box-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+  #box-ed .box-head > div { flex: 1; min-width: 0; }
+  #box-ed .box-t { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+  #box-ed .box-s { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #box-ed .box-x { border: none; background: none; font-size: 24px; line-height: 1; color: var(--text-muted); cursor: pointer; padding: 0 2px; }
+  #box-ed .box-in { font: inherit; font-size: 16px; width: 100%; height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); }
+  #box-ed .box-in:focus { outline: none; border-color: var(--purple); background: var(--surface); }
+  #box-ed .box-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+  #box-ed .box-scroll { max-height: 200px; overflow-y: auto; }
+  #box-ed .box-pill { font: inherit; font-size: 14px; font-weight: 600; min-height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: 20px; background: var(--surface); color: var(--text); cursor: pointer; }
+  #box-ed .box-pill.on { background: var(--purple); border-color: var(--purple); color: #fff; }
+  #box-ed .box-pill[hidden] { display: none; }
+  #box-ed .box-pill small { font-weight: 400; font-size: 11.5px; margin-left: 5px; opacity: .7; }
+  #box-ed .box-pill.box-num { min-width: 42px; padding: 0 8px; }
+  #box-ed .box-pill:disabled { opacity: .35; cursor: default; }
+  #box-ed .box-sep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 2px; }
+  #box-ed .box-spikes { margin-bottom: 8px; }
+  #box-ed .spk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+  #box-ed .spk-opt { display: flex; align-items: center; gap: 8px; text-align: left; font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); cursor: pointer; }
+  #box-ed .spk-opt b { display: block; font-size: 13.5px; font-weight: 600; }
+  #box-ed .spk-opt small { display: block; font-size: 11.5px; color: var(--text-muted); }
+  #box-ed .spk-opt.on { border: 2px solid var(--purple); background: var(--purple-light); }
+  #box-ed .spk-empty { font-size: 13px; color: var(--text-muted); }
+  #box-ed .box-foot { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  #box-ed .box-link { font: inherit; font-size: 13px; font-weight: 600; color: var(--purple); background: none; border: none; padding: 4px 0; cursor: pointer; }
+  #box-ed .box-hint { font-size: 12px; color: var(--text-faint); margin-left: auto; text-align: right; }
+  td.box-cell { box-shadow: inset 0 0 0 2px var(--purple) !important; background: var(--purple-light) !important; }
+  /* ⋯ on a move, and its menu */
+  .row-more { display: block; margin-top: 4px; font: inherit; font-size: 15px; line-height: 1; min-width: 32px; min-height: 28px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text-muted); cursor: pointer; }
+  #row-menu { position: fixed; z-index: 470; display: none; width: 210px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 14px 40px rgba(0,0,0,.25); padding: 4px; }
+  #row-menu.open { display: block; }
+  #row-menu button { display: block; width: 100%; text-align: left; font: inherit; font-size: 14px; padding: 10px 12px; border: none; background: none; color: var(--text); border-radius: 8px; cursor: pointer; }
+  #row-menu button:hover { background: var(--purple-light); }
+  #row-menu button.danger { color: #b02a20; }
+  /* Script › on each change */
+  .jump-btn { display: inline-block; margin-top: 4px; font: inherit; font-size: 11px; font-weight: 600; padding: 2px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--purple); cursor: pointer; white-space: nowrap; }
+  @media print { .jump-btn, .row-more { display: none !important; } }
+  @media (max-width: 600px) { .jump-btn .jb-l { display: none; } .jump-btn { font-size: 14px; padding: 0 8px; min-height: 26px; } }
+  tr.jump-flash td { animation: jumpflash 2.4s ease-out; }
+  @keyframes jumpflash { 0%, 35% { background: #ffe9a8; } 100% { background: inherit; } }
   /* Crew whose "Can change: Scripts" is off: look, don't touch. */
   body.cl-readonly #edit-btn, body.cl-readonly #pr-guard { display: none !important; }
   body.editing .cs-crop, body.editing .photo-chip { display: none; }
@@ -563,6 +613,55 @@
   .hist-when { font-weight: 600; font-size: 14px; }
   .hist-what { font-size: 13px; color: var(--text-muted); }
   #history-body { max-height: 55vh; overflow-y: auto; margin-bottom: 10px; }
+  /* ── Crew plot view (?plot=) ── */
+  body.plotview #app, body.plotview #pin-screen { display: none !important; }
+  #pv[hidden] { display: none; }
+  body.plotview #build-tag { bottom: calc(66px + var(--safe-b, 0px)) !important; }
+  #pv { max-width: 1200px; margin: 0 auto; padding: 0 16px calc(84px + var(--safe-b, 0px)); }
+  .pv-head { display: flex; align-items: center; gap: 12px; padding: 16px 0 10px; border-bottom: 2px solid var(--text); margin-bottom: 12px; position: sticky; top: 0; background: var(--bg); z-index: 5; }
+  .pv-ttl { flex: 1; min-width: 0; }
+  .pv-head h1 { font-size: 22px; margin: 0; line-height: 1.2; }
+  .pv-sub { font-size: 12.5px; color: var(--text-muted); }
+  .pv-tabs { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px calc(10px + var(--safe-b, 0px)); background: var(--surface); border-top: 1px solid var(--border); z-index: 20; scrollbar-width: none; }
+  .pv-tabs::-webkit-scrollbar { display: none; }
+  .pv-tab { flex: none; font: inherit; font-size: 14px; padding: 9px 14px; min-height: 40px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; white-space: nowrap; }
+  .pv-tab.on { background: var(--purple); border-color: var(--purple); color: #fff; font-weight: 700; }
+  .pv-empty { color: var(--text-muted); padding: 30px 4px; font-size: 15px; }
+  .pv-count { color: var(--text-muted); margin: 0 0 10px; font-size: 14px; }
+  .pv-sec { margin-bottom: 18px; }
+  .pv-scene { background: #26262d; color: #fff; font-weight: 700; font-size: 12.5px; letter-spacing: .05em; text-transform: uppercase; padding: 6px 10px; border-radius: 6px 6px 0 0; }
+  .pv-none { color: var(--text-muted); font-size: 13px; padding: 8px 10px; margin: 0; border: 1px solid var(--border); border-top: none; }
+  .pv-table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--surface); }
+  .pv-table th { text-align: left; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .pv-table td { padding: 7px 8px; border-top: 1px solid var(--border); vertical-align: top; }
+  .pv-table tr.pv-first td { border-top: 2px solid var(--text-muted); }
+  .pv-table td.pv-n { font-weight: 700; white-space: nowrap; }
+  .pv-spk .spk-chip { margin: 0 4px 2px 0; }
+  .pv-cards { display: none; }
+  .pv-since { background: var(--purple-light); border-left: 4px solid var(--purple); padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; }
+  .pv-grp h4 { margin: 0 0 4px; font-size: 15px; }
+  .pv-grp ul, .pv-yours ul { margin: 0 0 14px; padding-left: 20px; }
+  .pv-grp li, .pv-yours li { margin: 3px 0; }
+  .pv-grp li.k-n b, .pv-grp li.k-n::marker, .pv-yours li.k-n::marker { color: #1d7a3a; }
+  .pv-grp li.k-c b, .pv-grp li.k-c::marker, .pv-yours li.k-c::marker { color: #b5651d; }
+  .pv-grp li.k-g b, .pv-grp li.k-g::marker, .pv-yours li.k-g::marker { color: #b02a20; }
+  .pv-tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; color: #fff; border-radius: 3px; padding: 1px 5px; vertical-align: 2px; }
+  .pv-tag.n { background: #1d7a3a; } .pv-tag.g { background: #b02a20; }
+  .pv-yours { background: #fff4e6; color: #3a2a10; border: 1px solid #f0c48f; border-radius: 10px; padding: 10px 14px 0; margin-bottom: 14px; }
+  .cl-link-in { width: 100%; font: inherit; font-size: 13px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
+  @media (max-width: 760px) {
+    .pv-table { display: none; }
+    .pv-cards { display: block; }
+    .pv-card { border: 1px solid var(--border); border-top: none; background: var(--surface); }
+    .pv-card + .pv-card { border-top: 2px solid var(--text-muted); }
+    .pv-ch { padding: 8px 10px 4px; font-size: 14px; }
+    .pv-ch span { float: right; color: var(--text-muted); font-size: 12.5px; }
+    .pv-mv { display: grid; grid-template-columns: 52px 1fr; gap: 3px 8px; padding: 6px 10px 9px; font-size: 14px; }
+    .pv-mv + .pv-mv { border-top: 1px dashed var(--border); }
+    .pv-mv .pv-piece { grid-column: 1 / -1; font-size: 15px; }
+    .pv-mv i { font-style: normal; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; padding-top: 2px; }
+    .pv-head h1 { font-size: 20px; }
+  }
   #toast { position: fixed; left: 50%; bottom: calc(24px + var(--safe-b)); transform: translateX(-50%) translateY(20px); opacity: 0;
     background: #1e1e32; color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 14px; z-index: 9000; pointer-events: none;
     transition: opacity .2s, transform .2s; }
@@ -795,7 +894,7 @@
       <button class="top-btn" id="awake-btn" onclick="toggleAwake()" title="Keep the screen on">Awake</button>
       <button class="top-btn" id="export-btn" onclick="openExport()" title="Download the cue sheet or set change plot">Export</button>
       <span class="edit-state" id="edit-state"></span>
-      <button class="top-btn" id="edit-btn" onclick="setEditMode(!editMode)" title="Edit set changes">Edit</button>
+      <button class="top-btn lock-tg" id="edit-btn" onclick="setEditMode(!editMode)" title="Switch between View only and Editing" aria-label="View only or editing"><span class="lk-v">🔒 View only</span><span class="lk-e">✎ Editing</span></button>
       <button class="top-btn" onclick="openSheet()">Settings</button>
     </div>
     <div class="pr-bar" id="pr-bar" style="padding:2px 12px 6px"></div>
@@ -824,11 +923,37 @@
     <h3>Export</h3>
     <div class="export-opts">
       <button class="export-opt" onclick="runExport('cues')"><b>Cue sheet</b><span>PDF of every cue, with line photos</span></button>
-      <button class="export-opt" onclick="runExport('plot')"><b>Set change plot</b><span>PDF for the deck: Before House, every change, then a page for each person</span></button>
+      <button class="export-opt" onclick="runExport('plot')"><b>Set change plot</b><span>PDF for the deck: what’s changed since the last one sent, Before House, every change, then a page for each person</span></button>
       <button class="export-opt" onclick="runExport('xlsx')"><b>Set change plot (Excel)</b><span>The same plot as a spreadsheet, with a tab for each person</span></button>
       <button class="export-opt" onclick="runExport('spikes')"><b>Spike key</b><span>PDF to post backstage: each piece, its tape and spike notes</span></button>
     </div>
     <div class="modal-btns"><button class="top-btn" onclick="closeExport()">Cancel</button></div>
+  </div>
+</div>
+
+<!-- ── CREW PLOT VIEW (?plot=) ─────────────────────────────────────────────── -->
+<div id="pv" hidden>
+  <header class="pv-head"><div class="pv-ttl"><h1 id="pv-who">Set change plot</h1><div id="pv-sub" class="pv-sub">Set changes</div></div>
+    <button class="top-btn" id="pv-pdf" onclick="pvPDF()">Download PDF</button></header>
+  <main id="pv-body"></main>
+  <nav id="pv-tabs" class="pv-tabs"></nav>
+</div>
+<!-- ── CREW LINK ──────────────────────────────────────────────────────────── -->
+<div class="overlay" id="crew-link" onclick="if(event.target===this) closeCrewLink()">
+  <div class="modal">
+    <h3>Crew link</h3>
+    <p class="note">Anyone with this link can view the set change plot, with a tab for each person. It shows edits as they're saved, and its Changes tab lists everything since the version you last marked as sent. Send it once; it stays the same for this script.</p>
+    <input id="crew-link-url" class="cl-link-in" readonly onclick="this.select()">
+    <div class="modal-btns" style="gap:8px;margin-top:12px"><button class="top-btn" onclick="closeCrewLink()">Close</button><button class="top-btn" onclick="window.open(document.getElementById('crew-link-url').value,'_blank')">Open</button><button class="top-btn primary" onclick="copyCrewLink()">Copy link</button></div>
+  </div>
+</div>
+
+<!-- ── MARK AS SENT ───────────────────────────────────────────────────────── -->
+<div class="overlay" id="sent-ask" onclick="if(event.target===this) sentAskClose()">
+  <div class="modal">
+    <h3>Mark this as sent?</h3>
+    <p class="note" id="sent-ask-note"></p>
+    <div class="modal-btns" style="gap:8px"><button class="top-btn" onclick="sentAskClose()">Not yet</button><button class="top-btn primary" id="sent-ask-yes" onclick="sentAskYes()">Yes, mark as sent</button></div>
   </div>
 </div>
 
@@ -1160,6 +1285,7 @@ function start(){
   const savedView = linkView || lsGet('mmt_cuelist_view','cues');
   let linkEdit = false;
   try { linkEdit = new URLSearchParams(location.search).get('edit') === '1'; } catch(e) {}
+  try { const jc = new URLSearchParams(location.search).get('cue'); if (jc) _jumpCue = jc; } catch(e) {}
   if (linkEdit) setTimeout(() => { if (!editMode && scriptId) setEditMode(true); }, 1500);
   if (savedView === 'presets') setView('presets');
 
@@ -1414,7 +1540,7 @@ function pickScript(id, name, silent){
 }
 
 function fetchCues(showLoading){
-  if (!scriptId) return;
+  if (!scriptId || PLOT_ID) return;
   // A refresh landing mid-edit would wipe what's being typed.
   if (editMode || editSaving) return;
   if (showLoading) setStatus('loading…', 'stale');
@@ -1435,6 +1561,7 @@ function fetchCues(showLoading){
       lastOk = Date.now();
       if (!same) render();
       tickStatus();
+      if (_jumpCue) setTimeout(() => clRevealCue(_jumpCue), 120);
       if (getAdds().length) flushAdds();
     },
     () => setStatus(lastOk ? 'offline — last copy' : 'could not connect', lastOk ? 'stale' : 'dead')
@@ -1759,6 +1886,7 @@ function render(){
   measureHeader();
   restoreScroll();
   if (_holdAnchor) { const a = _holdAnchor; _holdAnchor = null; keepAnchor(a); }
+  if (typeof clFlashRows === 'function') clFlashRows();
 }
 
 // "Before house opens" — what's onstage or standing by when the doors open.
@@ -1817,11 +1945,11 @@ function presetRowHTML(r, band){
   if (presetSheet && presetSheet.key === r.key) cls.push('mv-sel');
   const loc = String(r.location || '').trim();
   const hasSpike = (r.spikeIds || []).length || r.spike;
-  return `<tr class="${cls.join(' ')} pr-tap" data-key="${esc(r.key)}" onclick="presetQuick('${esc(r.key)}')">
+  return `<tr class="${cls.join(' ')} pr-tap" data-key="${esc(r.key)}" onclick="presetTap(event, '${esc(r.key)}')">
     <td><span class="mv-piece">${esc(r.piece)}</span>${r.hidden ? '<span class="pr-offtag">not on plot</span>' : ''}${prPhotosHTML(r.key, r.photos)}</td>
-    <td class="cs-action">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
-    <td class="cs-line">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : '<span class="pr-addspike">+ Spike</span>'}</td>
-    <td class="cs-notes">${esc(r.notes || '')}</td>
+    <td class="cs-action" data-pf="location">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
+    <td class="cs-line" data-pf="spike">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : '<span class="pr-addspike">+ Spike</span>'}</td>
+    <td class="cs-notes" data-pf="notes">${esc(r.notes || '')}</td>
   </tr>`;
 }
 
@@ -2148,6 +2276,7 @@ function plRow(c, band, mode){
   // Set changes lead with their change number, called over headset; other cue
   // types keep their coloured chip and number so they can't be mistaken for one.
   const approx = isApprox(c) ? `<span class="approx-tag" title="Placed from the cue sheet. Drag its marker onto the line in the Scripts tab.">approx.</span>` : '';
+  const jumpBtn = `<button type="button" class="jump-btn" aria-label="Show in script" title="Show in script" onclick="event.stopPropagation(); jumpToScript('${esc(c.id)}')"><span class="jb-l">Script </span>›</button>`;
   const chip = (isShift ? `<span class="pl-num">#${esc(changeShortNum(shortNumber(c, t.name)))}</span>` : `<span class="pl-num"><span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>${esc(shortNumber(c, t.name))}</span>`) + approx;
   // Every move row repeats the change's number, cue line and page, so each
   // row reads on its own. A line photo shows on the first row only.
@@ -2187,13 +2316,13 @@ function plRow(c, band, mode){
 
   // Not a set change, or one with nothing entered yet: a single row.
   if (!moves.length){
-    return tr('pl-top') + cells({ num: chip, cue: cueCell, pg, span: true,
+    return tr('pl-top') + cells({ num: chip + jumpBtn, cue: cueCell, pg, span: true,
       piece: esc(c.action || ''), action: '', who: '', spike: '', notes: esc(notes) }) + '</tr>';
   }
 
   const tap = ` onclick="toggle('${esc(c.id)}')"`;
   if (!open){
-    return tr('pl-top pl-tap', tap) + cells({ num: chip, cue: cueCell, pg, span: true,
+    return tr('pl-top pl-tap', tap) + cells({ num: chip + jumpBtn, cue: cueCell, pg, span: true,
       piece: `<span class="pl-piece">${esc(c.action || 'Set change')}</span><br><span class="pl-moves">${moves.length} move${moves.length !== 1 ? 's' : ''} ▾</span>`,
       action: '', who: '', spike: '', notes: esc(notes) }) + '</tr>';
   }
@@ -2207,7 +2336,7 @@ function plRow(c, band, mode){
       if (moveSheet && moveSheet.cueId === String(c.id) && moveSheet.idx === i) cls.push('mv-sel');
       const blank = !m.piece && !m.action && !m.who && !m.spike && !(m.spikeIds || []).length && !m.notes;
       return tr(cls.filter(Boolean).join(' '), ` data-mv="${esc(m.id || '')}" onclick="openMoveAt(event, '${esc(c.id)}', ${i})"`) + cells({
-        num: chip, cue: first ? cueCell : cueRest, pg,
+        num: (first ? chip + jumpBtn : chip) + `<button type="button" class="row-more" aria-label="More for this move" onclick="openRowMenu(event, '${esc(c.id)}', ${i})">⋯</button>`, cue: first ? cueCell : cueRest, pg,
         piece: blank ? '<span class="mv-empty">Tap to add a move</span>'
           : `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
         action: esc(m.action || ''), wing: esc(wingText(m)), who: esc(m.who || ''), spike: plSpikeHTML(m),
@@ -2223,7 +2352,7 @@ function plRow(c, band, mode){
     const cls = [first ? 'pl-top' : '', 'pl-tap'];
     if (activeWho && !onMove(m, activeWho)) cls.push('pl-dim');
     return tr(cls.filter(Boolean).join(' '), tap + ` data-mv="${esc(m.id || '')}"`) + cells({
-      num: chip, cue: first ? cueCell : cueRest, pg,
+      num: first ? chip + jumpBtn : chip, cue: first ? cueCell : cueRest, pg,
       piece: `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
       action: esc(m.action || ''), wing: esc(wingText(m)), who: esc(m.who || ''), spike: plSpikeHTML(m),
       notes: (first && notes ? `<span class="pl-cuenote">${esc(notes)}</span>` : '') + esc(m.notes || '')
@@ -2259,7 +2388,7 @@ async function runExport(kind){
   closeExport();
   try {
     if (kind === 'cues') await exportCueSheet();
-    else if (kind === 'plot') await exportSetChangePlot();
+    else if (kind === 'plot') await exportPlotWithLog();
     else if (kind === 'xlsx') await exportSetChangeXLSX();
     else if (kind === 'spikes') await exportSpikeKey();
   } catch(e) { console.error(e); toast('Export failed — try again'); }
@@ -2514,14 +2643,223 @@ function wingText(m, arrow) {
   const sep = arrow || ' → ';
   return a && b ? a + sep + b : a || (b ? sep.trim() + ' ' + b : '');
 }
-async function exportSetChangePlot() {
+// ══ CHANGELOG ════════════════════════════════════════════════════════════════
+// Every plot export compares against the last version marked as sent (KV
+// 'plotsent_<script>', shared across devices): a "What's changed" page up
+// front, and a "Changes for you" box on each person's page. Only a version
+// someone says was sent becomes the new starting point, so test exports
+// don't reset it. The snapshot keeps only what prints, as plain text.
+const PLOG_KEY = () => 'plotsent_' + scriptId;
+const plT = v => String(v == null ? '' : v).trim();
+function plRawSpike(m){
+  const parts = (Array.isArray(m && m.spikeIds) ? m.spikeIds : []).map(id => spkFind(scriptId, id)).filter(Boolean)
+    .map(e => e.label ? `${e.label} (${spkTapeName(e)})` : spkTapeName(e));
+  if (m && m.spike) parts.push(String(m.spike).trim());
+  return parts.join('; ');
+}
+function plotSnap(){
+  const SL = sceneLabels(); let scene = '';
+  const changes = [];
+  cuesInScriptOrder().forEach(c => {
+    if (isSceneCue(c)) { scene = SL[c.id] || ''; return; }
+    if (c.type !== SHIFT_TYPE_ID) return;
+    const seen = {};
+    changes.push({
+      id: String(c.id), num: changeShortNum(c.number), cue: plT(c.cueLine), pg: plT(c.page), scene,
+      moves: (c.moves || []).map(m => {
+        let id = m.id ? String(m.id) : 'p:' + plT(m.piece).toLowerCase();
+        if (seen[id]) id += '#' + (++seen[id]); else seen[id] = 1;
+        return { id, piece: plT(m.piece), action: plT(m.action), wing: wingText(m, ' to '), who: plT(m.who), spike: plRawSpike(m), notes: plT(m.notes) };
+      })
+    });
+  });
+  const pre = allPieces().map(({ key, piece }) => {
+    const p = presets[key] || {};
+    return { key, piece, location: plT(p.location), spike: plRawSpike(p), notes: plT(p.notes), hidden: !!p.hidden };
+  });
+  return { v: 1, changes, presets: pre };
+}
+function plotSentGet(){
+  return new Promise(res => {
+    if (!scriptId) return res(null);
+    jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent(PLOG_KEY()) + '&_=' + Date.now(), d => {
+      let v = d && (d.value !== undefined ? d.value : d.data);
+      if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
+      res(v && v.snap ? v : null);
+    }, () => res(undefined), 12000);
+  });
+}
+function plotSentSave(rec){
+  return fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'saveKV', key: PLOG_KEY(), value: rec }) })
+    .then(r => r.json()).then(d => { if (d && d.error) throw new Error(d.error); return true; });
+}
+function plWhen(iso){
+  const d = new Date(iso); if (isNaN(d)) return '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+const PL_FIELDS = [['piece','piece'],['action','action'],['wing','wing'],['spike','spike'],['notes','notes']];
+const plQ = v => v ? v : 'blank';
+function plMoveSummary(m){
+  return [m.action, m.wing, m.who].filter(Boolean).join(', ');
+}
+// Who: "Theresa added (now Kyle, Theresa)", "Ally replaced Amy", "Amy taken off".
+function plWhoDiff(a, b){
+  const A = whoNames(a), B = whoNames(b);
+  const lo = s => s.toLowerCase();
+  const add = B.filter(n => !A.some(x => lo(x) === lo(n))), rem = A.filter(n => !B.some(x => lo(x) === lo(n)));
+  if (!add.length && !rem.length) return '';
+  if (add.length === 1 && rem.length === 1) return add[0] + ' replaced ' + rem[0];
+  const bits = [];
+  if (add.length) bits.push(add.join(', ') + ' added');
+  if (rem.length) bits.push(rem.join(', ') + ' taken off');
+  return bits.join('; ') + (B.length ? ' (now ' + B.join(', ') + ')' : ' (no one now)');
+}
+// Compares two snapshots. Returns groups for the front page (show order, then
+// anything removed) and, per person (lower-case name), the lines for them.
+function plotDiff(oldS, newS){
+  const groups = [], mine = new Map();
+  const toMe = (name, line) => { const k = name.toLowerCase(); if (!mine.has(k)) mine.set(k, []); mine.get(k).push(line); };
+  const oldById = new Map((oldS.changes || []).map(c => [c.id, c]));
+  const newById = new Map(newS.changes.map(c => [c.id, c]));
+  const where = (S) => { const w = new Map(); (S.changes || []).forEach(c => c.moves.forEach(m => { if (!/^p:/.test(m.id)) w.set(m.id, c); })); return w; };
+  const oldWhere = where(oldS), newWhere = where(newS);
+  const head = c => '#' + c.num + (c.cue ? ' · “' + c.cue + '”' : '') + (c.pg ? ' · pg. ' + c.pg : '');
+
+  // Before house first, the way the plot reads.
+  const preItems = [];
+  const oldPre = new Map((oldS.presets || []).map(p => [p.key, p]));
+  newS.presets.forEach(p => {
+    const o = oldPre.get(p.key);
+    if (!o) { if (!p.hidden && (p.location || p.spike || p.notes)) preItems.push({ k: 'n', lead: p.piece + ':', text: 'now preset ' + [p.location, p.spike].filter(Boolean).join(', ') }); return; }
+    const bits = [];
+    if (o.hidden !== p.hidden) bits.push(p.hidden ? 'no longer printed in Before House' : 'now printed in Before House');
+    [['location','location'],['spike','spike'],['notes','notes']].forEach(([f, lbl]) => {
+      if (o[f] !== p[f]) bits.push(p[f] ? lbl + ' now ' + p[f] + ' (was ' + plQ(o[f]) + ')' : lbl + ' cleared (was ' + o[f] + ')');
+    });
+    if (bits.length) preItems.push({ k: 'c', lead: p.piece + ':', text: bits.join('; ') });
+  });
+  if (preItems.length) groups.push({ title: 'Before house opens', items: preItems });
+
+  newS.changes.forEach(c => {
+    const o = oldById.get(c.id);
+    const items = [];
+    if (!o) {
+      items.push({ k: 'n', lead: 'New set change', text: c.moves.length ? '' : '(nothing entered yet)' });
+      c.moves.forEach(m => {
+        items.push({ k: 'n', lead: (m.piece || 'Move') + ':', text: plMoveSummary(m) });
+        whoNames(m.who).forEach(n => toMe(n, { k: 'n', text: '#' + c.num + ' · ' + (m.piece || 'Move') + ': new set change for you' + plWith(m.who, n) }));
+      });
+      groups.push({ title: head(c), tag: 'NEW', items });
+      return;
+    }
+    if (o.num !== c.num) items.push({ k: 'c', lead: 'Renumbered', text: 'was #' + o.num });
+    if (o.cue !== c.cue) items.push({ k: 'c', lead: 'Cue line', text: c.cue ? 'now “' + c.cue + '” (was ' + (o.cue ? '“' + o.cue + '”' : 'blank') + ')' : 'cleared (was “' + o.cue + '”)' });
+    if (o.pg !== c.pg) items.push({ k: 'c', lead: 'Page', text: 'now ' + plQ(c.pg) + ' (was ' + plQ(o.pg) + ')' });
+    const everyone = (o.num !== c.num || o.cue !== c.cue || o.pg !== c.pg)
+      ? items.map(i => i.lead + ' ' + i.text).join('; ') : '';
+    const oldMoves = new Map(o.moves.map(m => [m.id, m]));
+    const newIds = new Set(c.moves.map(m => m.id));
+    c.moves.forEach(m => {
+      const om = oldMoves.get(m.id);
+      const pc = m.piece || 'Move';
+      if (!om) {
+        const from = oldWhere.get(m.id);
+        const txt = from && from.id !== c.id ? 'moved here from #' + from.num : 'added' + (plMoveSummary(m) ? ' (' + plMoveSummary(m) + ')' : '');
+        items.push({ k: 'n', lead: pc + ':', text: txt });
+        whoNames(m.who).forEach(n => toMe(n, { k: 'n', text: '#' + c.num + ' · ' + pc + ': ' + (from && from.id !== c.id ? 'moved here from #' + from.num : 'new for you') + plWith(m.who, n) }));
+        return;
+      }
+      const bits = [];
+      PL_FIELDS.forEach(([f, lbl]) => {
+        if (om[f] === m[f]) return;
+        if (f === 'piece') bits.push('was ' + plQ(om.piece));
+        else bits.push(m[f] ? lbl + ' now ' + m[f] + ' (was ' + plQ(om[f]) + ')' : lbl + ' cleared (was ' + om[f] + ')');
+      });
+      const wd = plWhoDiff(om.who, m.who);
+      if (bits.length || wd) items.push({ k: 'c', lead: pc + ':', text: bits.concat(wd ? [wd] : []).join('; ') });
+      // For each person: being added or taken off, or any change to a move they're on.
+      const A = whoNames(om.who).map(s => s.toLowerCase()), B = whoNames(m.who);
+      B.forEach(n => {
+        if (!A.includes(n.toLowerCase())) toMe(n, { k: 'n', text: '#' + c.num + ' · ' + pc + ': you’ve been added' + plWith(m.who, n) });
+        else if (bits.length || everyone) toMe(n, { k: 'c', text: '#' + c.num + ' · ' + pc + ': ' + bits.concat(everyone ? [everyone] : []).join('; ') });
+      });
+      whoNames(om.who).forEach(n => { if (!B.some(x => x.toLowerCase() === n.toLowerCase())) toMe(n, { k: 'g', text: '#' + c.num + ' · ' + pc + ': you’re no longer on this' }); });
+    });
+    o.moves.forEach(om => {
+      if (newIds.has(om.id)) return;
+      const to = newWhere.get(om.id);
+      const pc = om.piece || 'Move';
+      if (to && to.id !== c.id) {
+        items.push({ k: 'g', lead: pc + ':', text: 'moved to #' + to.num });
+        whoNames(om.who).forEach(n => toMe(n, { k: 'c', text: '#' + o.num + ' · ' + pc + ': moved to #' + to.num }));
+      } else {
+        items.push({ k: 'g', lead: 'Removed:', text: pc + (plMoveSummary(om) ? ' (' + plMoveSummary(om) + ')' : '') });
+        whoNames(om.who).forEach(n => toMe(n, { k: 'g', text: '#' + c.num + ' · ' + pc + ': removed' }));
+      }
+    });
+    if (items.length) groups.push({ title: head(c), items });
+  });
+
+  (oldS.changes || []).forEach(o => {
+    if (newById.has(o.id)) return;
+    groups.push({ title: head(o), tag: 'REMOVED', items: [{ k: 'g', lead: 'Set change removed', text: o.moves.length ? '(had ' + o.moves.map(m => m.piece || 'a move').join(', ') + ')' : '' }] });
+    o.moves.forEach(om => { if (!newWhere.has(om.id)) whoNames(om.who).forEach(n => toMe(n, { k: 'g', text: '#' + o.num + ' · ' + (om.piece || 'Move') + ': set change removed' })); });
+  });
+  return { groups, mine };
+}
+function plWith(who, me){
+  const others = whoNames(who).filter(n => n.toLowerCase() !== me.toLowerCase());
+  return others.length ? ' (with ' + others.join(', ') + ')' : '';
+}
+
+// Export, then ask whether this is the version that went out.
+let _plotPending = null;
+async function exportPlotWithLog(){
+  toast('Checking what changed…');
+  const last = await plotSentGet();
+  const snap = plotSnap();
+  let log = null;
+  if (last && last.snap) {
+    const d = plotDiff(last.snap, snap);
+    log = { since: last.at, by: last.by || '', groups: d.groups, mine: d.mine };
+  }
+  const ok = await exportSetChangePlot(log, last === undefined);
+  if (ok === false || cueReadOnly()) return;
+  _plotPending = { snap, n: log ? log.groups.length : -1 };
+  const ask = document.getElementById('sent-ask');
+  document.getElementById('sent-ask-note').textContent = log
+    ? (log.groups.length ? 'This plot lists ' + log.groups.length + ' change' + (log.groups.length === 1 ? '' : 's') + ' since ' + plWhen(log.since) + '. ' : 'Nothing changed since ' + plWhen(log.since) + '. ')
+      + 'If you mark it as sent, the next export lists changes since now.'
+    : (last === undefined ? 'Couldn’t reach the Sheet to check the last sent version. ' : '')
+      + 'If you mark it as sent, the next export lists everything that changed since now.';
+  ask.classList.add('open');
+}
+function sentAskClose(){ document.getElementById('sent-ask').classList.remove('open'); _plotPending = null; }
+async function sentAskYes(){
+  const p = _plotPending; if (!p) return sentAskClose();
+  const btn = document.getElementById('sent-ask-yes');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  let by = '';
+  try { by = clName || (clRole === 'td' ? 'Mac' : ''); } catch (e) {}
+  try {
+    await plotSentSave({ at: new Date().toISOString(), by, snap: p.snap });
+    toast('Marked as sent');
+    sentAskClose();
+  } catch (e) {
+    toast('Couldn’t save — try again');
+  }
+  btn.disabled = false; btn.textContent = 'Yes, mark as sent';
+}
+
+async function exportSetChangePlot(log, offline) {
   const ordered = cuesInScriptOrder();
   const changes = ordered.filter(c => c.type === SHIFT_TYPE_ID);
-  if (!changes.length) { toast('No set changes to export'); return; }
+  if (!changes.length) { toast('No set changes to export'); return false; }
 
   let jsPDFCtor = null;
   try { jsPDFCtor = await loadJsPDF(); } catch (err) {}
-  if (!jsPDFCtor) { toast('Could not load PDF library'); return; }
+  if (!jsPDFCtor) { toast('Could not load PDF library'); return false; }
 
   toast('Building set change plot…');
 
@@ -2581,7 +2919,7 @@ async function exportSetChangePlot() {
   // "SCENE CHANGE 12" -> "12". Falls back to the whole label so a change named
   // something without digits still prints something.
   const shortNum = v => {
-    const m = String(v || '').match(/(\d+[A-Za-z.]*)\s*$/);
+    const m = String(v || '').match(/(\d+(?:\.\d+)?[A-Za-z]*)\s*$/);
     return m ? m[1] : String(v || '').trim();
   };
   const X = []; { let x = M; for (const c of COLS) { X.push(x); x += c.w; } }
@@ -2660,6 +2998,61 @@ async function exportSetChangePlot() {
 
   drawTitle();
   tagPage('PLOT');
+
+  // ── What's changed ─────────────────────────────────────────────────────────
+  // Plain sentences since the last version marked as sent, in show order,
+  // on their own page(s) ahead of the plot.
+  const LOG_RGB = { n: [29,122,58], c: [181,101,29], g: [176,42,32] };
+  if (log) {
+    tagPage('Changes');
+    const band = (txt) => {
+      doc.setFillColor(243,241,251); doc.rect(M, y, TABLE_W, 24, 'F');
+      doc.setFillColor(83,74,183); doc.rect(M, y, 4, 24, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(22,22,28);
+      doc.text(txt, M + 14, y + 16);
+      y += 34;
+    };
+    const n = log.groups.length;
+    band('What’s changed since the version sent ' + plWhen(log.since) + (log.by ? ' by ' + log.by : '')
+      + '  ·  ' + (n ? n + ' item' + (n === 1 ? '' : 's') : 'no changes'));
+    const room = h => { if (y + h > pageH - MARGIN_BOTTOM) { doc.addPage(); tagPage('Changes'); drawTitle(); band('What’s changed (cont.)'); } };
+    const IND = 14, TW = TABLE_W - IND;
+    log.groups.forEach(g => {
+      // Measure the group so a heading doesn't strand at the foot of a page.
+      doc.setFontSize(10);
+      const lines = g.items.map(it => {
+        doc.setFont('helvetica','bold'); const lw = it.lead ? doc.getTextWidth(it.lead + ' ') : 0;
+        doc.setFont('helvetica','normal');
+        const first = doc.splitTextToSize(it.text || '', Math.max(60, TW - 10 - lw));
+        const rest = first.length > 1 ? doc.splitTextToSize(first.slice(1).join(' '), TW - 10) : [];
+        return { it, lw, first: first[0] || '', rest };
+      });
+      const gh = 18 + lines.reduce((t, l) => t + 13 * (1 + l.rest.length), 0) + 8;
+      room(Math.min(gh, 18 + 13 * 3));
+      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(22,22,28);
+      doc.text(g.title, M, y + 11);
+      if (g.tag) {
+        const tw = doc.getTextWidth(g.title) + 8;
+        doc.setFontSize(7.5); const w2 = doc.getTextWidth(g.tag) + 8;
+        doc.setFillColor(...(g.tag === 'NEW' ? LOG_RGB.n : LOG_RGB.g)); doc.roundedRect(M + tw, y + 2, w2, 11, 2, 2, 'F');
+        doc.setTextColor(255,255,255); doc.text(g.tag, M + tw + 4, y + 10);
+      }
+      y += 18;
+      lines.forEach(l => {
+        room(13 * (1 + l.rest.length));
+        doc.setFontSize(10);
+        doc.setFillColor(...LOG_RGB[l.it.k]); doc.circle(M + IND - 6, y + 6.5, 1.8, 'F');
+        let x = M + IND + 2;
+        if (l.it.lead) { doc.setFont('helvetica','bold'); doc.setTextColor(...LOG_RGB[l.it.k]); doc.text(l.it.lead, x, y + 10); x += l.lw; }
+        doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+        doc.text(l.first, x, y + 10); y += 13;
+        l.rest.forEach(r => { doc.text(r, M + IND + 2, y + 10); y += 13; });
+      });
+      y += 8;
+    });
+    if (!n) { doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(90,90,105); doc.text('Nothing in the plot has changed.', M, y + 10); }
+    doc.addPage(); drawTitle(); tagPage('PLOT');
+  }
 
   // ── Before house opens ─────────────────────────────────────────────────────
   // Its own short table ahead of the plot proper: what's onstage or standing by
@@ -3007,7 +3400,34 @@ async function exportSetChangePlot() {
       else { last.rows.push(row); last.h += row.h; }
     });
 
-    crewPage(false);
+    // "Changes for you": a box above the first page's table, ahead of the
+    // column header, when this person has anything new since the last send.
+    pageFn = null;
+    doc.addPage(); tagPage(person.name); crewTitle();
+    pageFn = crewPage;
+    const myLog = log && person.name !== 'No one assigned' ? (log.mine.get(person.name.toLowerCase()) || []) : [];
+    if (myLog.length) {
+      doc.setFontSize(10); doc.setFont('helvetica','normal');
+      const MAXL = 12;
+      const rows = [];
+      myLog.forEach(it => doc.splitTextToSize(it.text, TABLE_W - 34).forEach((t, i) => rows.push({ t, k: it.k, first: i === 0 })));
+      const shown = rows.slice(0, MAXL), more = rows.length > MAXL;
+      const bh = 26 + shown.length * 13 + (more ? 13 : 0) + 6;
+      doc.setFillColor(255,244,230); doc.setDrawColor(240,196,143); doc.setLineWidth(0.8);
+      doc.roundedRect(M, y, TABLE_W, bh, 5, 5, 'FD');
+      doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(22,22,28);
+      doc.text('Changes for you since ' + plWhen(log.since), M + 12, y + 17);
+      let yy = y + 32;
+      doc.setFontSize(10);
+      shown.forEach(r => {
+        if (r.first) { doc.setFillColor(...LOG_RGB[r.k]); doc.circle(M + 16, yy - 3.5, 1.8, 'F'); }
+        doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+        doc.text(r.t, M + 24, yy); yy += 13;
+      });
+      if (more) { doc.setTextColor(120,120,132); doc.text('More on the What’s changed page at the front.', M + 24, yy); }
+      y += bh + 12;
+    }
+    crewHead();
     let shade = false, firstInScene = true;
     blocks.forEach(b => {
       if (b.scene !== pScene) {
@@ -3078,7 +3498,8 @@ async function exportSetChangePlot() {
 
   const safe = showName.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
   doc.save(safe + '_Set_Changes.pdf');
-  toast('Set change plot exported');
+  toast(offline ? 'Plot exported (couldn’t check what changed)' : 'Set change plot exported');
+  return true;
 }
 
 // ── SHARED EXPORT HELPERS ────────────────────────────────────────────────────
@@ -3092,7 +3513,7 @@ async function exportSetChangePlot() {
 // "SCENE CHANGE 12" -> "12". Falls back to the whole label so a change named
 // something without digits still exports something.
 function changeShortNum(v) {
-  const m = String(v || '').match(/(\d+[A-Za-z.]*)\s*$/);
+  const m = String(v || '').match(/(\d+(?:\.\d+)?[A-Za-z]*)\s*$/);
   return m ? m[1] : String(v || '').trim();
 }
 
@@ -3939,7 +4360,8 @@ function setEditMode(on){
   if (!on) { closeMoveSheet(true); closePresetSheet(true); closeAddSheet(); }
   editMode = !!on;
   const btn = document.getElementById('edit-btn');
-  if (btn){ btn.textContent = editMode ? 'Done' : 'Edit'; btn.classList.toggle('on', editMode); }
+  if (btn){ btn.classList.toggle('on', editMode); btn.setAttribute('aria-pressed', editMode ? 'true' : 'false'); }
+  if (!editMode) { closeBox(); closeRowMenu(); }
   document.body.classList.toggle('editing', editMode);
 
   if (editMode){
@@ -4353,7 +4775,7 @@ function saveMoveEdits(forceRead){
         else {
           clearDraft();
           const btn = document.getElementById('edit-btn');
-          if (btn){ btn.textContent = 'Edit'; btn.classList.remove('on'); }
+          if (btn){ btn.classList.remove('on'); }
           document.body.classList.remove('editing');
         }
       }
@@ -4616,6 +5038,356 @@ function renderPeopleSetting(){
   el.innerHTML = `<b>${esc(clShowLabel())}</b>: ${n || m ? n + ' cast · ' + m + ' crew' : 'no list yet'}`
     + (cueReadOnly() ? '' : `<button class="top-btn" onclick="closeSheet(); openPeople('${esc(slug)}', clShowLabel())">${n || m ? 'Edit' : 'Add cast list'}</button>`);
 }
+
+// ── BOX EDITOR ──────────────────────────────────────────────────────────────
+// Editing: tapping a box opens a small editor for just that box, beside it
+// (on a phone, a short panel at the bottom). Picks save and close by
+// themselves (an action, a wing, a spike colour); Who stays open for more
+// names; typed boxes save as you type and close on Enter or a tap elsewhere.
+// The # (or "Full edit ›") opens the whole move as before. Every change goes
+// through the same paths as the full panel (mvField, editedLines,
+// editedPresets), so drafts, autosave and the careful merge all cover it.
+let boxEd = null;   // { kind: 'move' | 'preset', cueId, idx, key, field, mvId }
+const BOX_FIELDS = ['cueLine', 'piece', 'action', 'wing', 'who', 'spike', 'notes'];
+const BOX_PRESET_FIELDS = ['location', 'spike', 'notes'];
+const BOX_LABEL = { cueLine: 'Cue line · whole change', piece: 'Piece', action: 'Action', wing: 'Wing · on or off', who: 'Who', spike: 'Spike', notes: 'Note', location: 'Preset location' };
+const BOX_TYPED = { cueLine: 1, piece: 1, notes: 1, location: 1 };
+function boxNarrow(){ return window.innerWidth <= 600; }
+function boxCue(){ return boxEd && boxEd.kind === 'move' ? cues.find(x => String(x.id) === String(boxEd.cueId)) : null; }
+function boxMv(){ const c = boxCue(); return c && c.moves ? c.moves[boxEd.idx] : null; }
+function boxVal(f){
+  if (!boxEd) return '';
+  if (boxEd.kind === 'preset') { const e = presetEntry(boxEd.key); return String(e[f] || ''); }
+  const c = boxCue(), m = boxMv();
+  if (f === 'cueLine') return String((c && c.cueLine) || '');
+  return String((m && m[f]) || '');
+}
+// Editing: a box opens its own editor; the #, or an empty change, the whole move.
+function openMoveAt(e, cueId, idx){
+  const cell = e && e.target && e.target.closest ? e.target.closest('[data-f]') : null;
+  const f = cell ? cell.dataset.f : '';
+  const c = cues.find(x => String(x.id) === String(cueId));
+  if (!f || !c || !(c.moves || []).length || !BOX_FIELDS.includes(f)) { closeBox(); openMove(cueId, idx); return; }
+  openBox({ kind: 'move', cueId: String(cueId), idx, field: f, mvId: (c.moves[idx] || {}).id || '' }, cell);
+}
+function presetTap(e, key){
+  if (!editMode) return;                     // View only: nothing to change
+  const cell = e && e.target && e.target.closest ? e.target.closest('[data-pf]') : null;
+  if (cell && BOX_PRESET_FIELDS.includes(cell.dataset.pf)) { openBox({ kind: 'preset', key, field: cell.dataset.pf }, cell); return; }
+  closeBox(); openPresetSheet(key);
+}
+function openBox(st, cell){
+  closeRowMenu();
+  if (boxEd) closeBox();
+  boxEd = st;
+  let el = document.getElementById('box-ed');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'box-ed'; el.setAttribute('role', 'dialog');
+    document.body.appendChild(el);
+  }
+  renderBox();
+  el.classList.add('open');
+  boxMark(cell);
+  placeBox(cell);
+  const inp = el.querySelector('input.box-in');
+  if (inp && BOX_TYPED[st.field]) { inp.focus(); try { const n = inp.value.length; inp.setSelectionRange(n, n); } catch (err) {} }
+}
+function boxMark(cell){
+  document.querySelectorAll('.box-cell').forEach(x => x.classList.remove('box-cell'));
+  if (cell) cell.classList.add('box-cell');
+}
+// The box's cell again, after its row was redrawn.
+function boxCellNow(){
+  if (!boxEd) return null;
+  if (boxEd.kind === 'preset') return document.querySelector('tr.pr-row[data-key="' + CSS.escape(boxEd.key) + '"] [data-pf="' + boxEd.field + '"]');
+  const sel = 'tr[data-cue="' + CSS.escape(boxEd.cueId) + '"]' + (boxEd.mvId ? '[data-mv="' + CSS.escape(boxEd.mvId) + '"]' : '');
+  const row = document.querySelector(sel);
+  return row ? row.querySelector('[data-f="' + boxEd.field + '"]') : null;
+}
+function placeBox(cell){
+  const el = document.getElementById('box-ed'); if (!el || !boxEd) return;
+  if (boxNarrow()) {
+    el.classList.add('sheet'); el.style.left = el.style.top = el.style.width = '';
+    // Keep the box being edited in view above the panel.
+    requestAnimationFrame(() => {
+      const c = cell || boxCellNow(); if (!c) return;
+      const r = c.getBoundingClientRect(), limit = window.innerHeight - el.offsetHeight - 10;
+      const top = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0;
+      if (r.bottom > limit) window.scrollBy(0, r.bottom - limit);
+      else if (r.top < top + 6) window.scrollBy(0, r.top - top - 6);
+    });
+    return;
+  }
+  el.classList.remove('sheet');
+  const c = cell || boxCellNow();
+  const wide = boxEd.field === 'spike' || boxEd.field === 'who';
+  const w = Math.min(wide ? 470 : 360, window.innerWidth - 16);
+  el.style.width = w + 'px';
+  const r = c ? c.getBoundingClientRect() : { left: 20, right: 20, top: 120, bottom: 120 };
+  const hdr = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0;
+  const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+  const h = el.offsetHeight;
+  let top = r.bottom + 6;
+  if (top + h > window.innerHeight - 8) top = (r.top - h - 6 > hdr + 4) ? r.top - h - 6 : Math.max(hdr + 4, window.innerHeight - h - 8);
+  el.style.left = left + 'px'; el.style.top = top + 'px';
+}
+function closeBox(){
+  if (!boxEd) return;
+  boxEd = null;
+  const el = document.getElementById('box-ed'); if (el) el.classList.remove('open');
+  boxMark(null);
+  if (document.activeElement && document.activeElement.closest && document.activeElement.closest('#box-ed')) document.activeElement.blur();
+}
+function boxFull(showTo){
+  if (!boxEd) return;
+  const st = boxEd; closeBox();
+  if (st.kind === 'preset') { openPresetSheet(st.key); return; }
+  const c = cues.find(x => String(x.id) === String(st.cueId)); if (!c) return;
+  openMove(st.cueId, st.idx);
+  if (showTo && moveSheet) { moveSheet.showTo = true; renderMoveSheet(); }
+}
+function renderBox(){
+  const el = document.getElementById('box-ed'); if (!el || !boxEd) return;
+  const f = boxEd.field;
+  let sub;
+  if (boxEd.kind === 'preset') sub = ((allPieces().find(x => x.key === boxEd.key) || {}).piece || boxEd.key) + ' · before house';
+  else {
+    const c = boxCue(), m = boxMv(); if (!c) { closeBox(); return; }
+    sub = shiftLabel(c) + (m && m.piece && f !== 'piece' && f !== 'cueLine' ? ' · ' + m.piece : '') + (c.page ? ' · pg. ' + c.page : '');
+  }
+  const v = boxVal(f);
+  const inp = (ph, extra) => `<input class="box-in" value="${esc(v)}" placeholder="${esc(ph)}" autocomplete="off" enterkeyhint="done"
+      oninput="boxType(this.value)" onkeydown="boxKey(event, this)"${extra || ''}>`;
+  let body = '';
+  if (f === 'action') {
+    body = inp('e.g. Set') + `<div class="box-pills">${MOVE_ACTIONS.map(a => `<button type="button" class="box-pill${v.toLowerCase() === a.toLowerCase() ? ' on' : ''}" data-v="${esc(a)}" onclick="boxPick(this.dataset.v)">${esc(a)}</button>`).join('')}</div>`;
+  } else if (f === 'wing') {
+    const p = wingParts(v), numbered = p.side === 'SL' || p.side === 'SR';
+    body = inp('e.g. SL 2') + `<div class="box-pills">${WING_SIDES.map(x => `<button type="button" class="box-pill${p.side === x ? ' on' : ''}" onclick="boxWing('side', '${x}')">${x}</button>`).join('')}
+      <span class="box-sep"></span>${WING_NUMS.map(n => `<button type="button" class="box-pill box-num${p.num === n ? ' on' : ''}"${numbered ? '' : ' disabled'} onclick="boxWing('num', '${n}')">${n}</button>`).join('')}</div>
+      ${boxEd.kind === 'move' ? `<button type="button" class="box-link" onclick="boxFull(true)">${(boxMv() || {}).wingTo ? 'To: ' + esc(boxMv().wingTo) + ' · change ›' : '+ To another wing ›'}</button>` : ''}`;
+  } else if (f === 'who') {
+    const on = new Set(whoNames(v).map(x => x.toLowerCase()));
+    body = inp('Type or tap names') + `<div class="box-pills box-scroll" id="box-whos">${whoChoices().map(p => `<button type="button" class="box-pill${on.has(p.name.toLowerCase()) ? ' on' : ''}" data-v="${esc(p.name)}" data-r="${esc(p.role || '')}" onclick="boxWho(this.dataset.v)">${esc(p.name)}${p.role ? `<small>${esc(p.role)}</small>` : ''}</button>`).join('')}</div>`;
+  } else if (f === 'spike') {
+    const ids = boxEd.kind === 'preset' ? (presetEntry(boxEd.key).spikeIds || []) : ((boxMv() || {}).spikeIds || []);
+    body = `<div class="box-spikes">${spkPickerHTML(scriptId, ids, 'boxSpike')}</div>` + inp('Other spike, typed (optional)');
+  } else {
+    body = inp(f === 'cueLine' ? 'Type the line this change goes on' : f === 'piece' ? 'e.g. Main Curtain' : f === 'location' ? 'e.g. SL wing, upstage' : 'Note', f === 'piece' ? ' list="box-pieces"' : '')
+      + (f === 'piece' ? `<datalist id="box-pieces">${allPieces().map(x => `<option value="${esc(x.piece)}"></option>`).join('')}</datalist>` : '');
+  }
+  el.innerHTML = `<div class="box-head"><div><div class="box-t">${BOX_LABEL[f] || f}</div><div class="box-s">${esc(sub)}</div></div>
+      <button type="button" class="box-x" aria-label="Close" onclick="closeBox()">×</button></div>
+    ${body}
+    <div class="box-foot"><button type="button" class="box-link" onclick="boxFull()">Full edit ›</button>
+      <span class="box-hint">${BOX_TYPED[f] ? 'Enter or tap another box to finish' : f === 'who' ? 'Tap names to add or remove' : 'Saves as you pick'}</span></div>`;
+  if (f === 'who') whoFilterBox(v);
+}
+function boxSet(field, value){
+  if (!boxEd) return;
+  if (boxEd.kind === 'preset') {
+    const e = presetEntry(boxEd.key);
+    e[field] = value;
+    editedPresets[boxEd.key] = true;
+    saveDraft(); markDirty();
+    const row = document.querySelector('tr.pr-row[data-key="' + CSS.escape(boxEd.key) + '"]');
+    if (row) { const tmp = document.createElement('tbody'); tmp.innerHTML = presetRowHTML({ ...e, key: boxEd.key }, !row.classList.contains('band')); row.replaceWith(tmp.firstElementChild); }
+  } else {
+    const c = boxCue(); if (!c) return;
+    if (field === 'cueLine') { c.cueLine = value; editedLines[c.id] = true; saveDraft(); markDirty(); }
+    else mvField(c.id, boxEd.idx, field, value);
+    refreshSheetRows(c);
+  }
+  boxMark(boxCellNow());
+}
+function boxType(v){
+  if (!boxEd) return;
+  boxSet(boxEd.field, v);
+  if (boxEd.field === 'who') { syncBoxWho(v); whoFilterBox(v); }
+  if (boxEd.field === 'wing') { const el = document.getElementById('box-ed'); const keep = el.querySelector('input.box-in'); const pos = keep ? keep.selectionStart : null;
+    renderBox(); const i = el.querySelector('input.box-in'); if (i) { i.focus(); try { i.setSelectionRange(pos, pos); } catch (e) {} } }
+  if (boxEd.field === 'action') document.querySelectorAll('#box-ed .box-pill').forEach(b => b.classList.toggle('on', b.dataset.v.toLowerCase() === String(v).toLowerCase()));
+}
+function boxKey(e, input){
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (boxEd && boxEd.field === 'who') {   // finish the name being typed with the first match
+      const first = [...document.querySelectorAll('#box-whos .box-pill')].find(b => !b.hidden && !b.classList.contains('on'));
+      const tok = (String(input.value).split(/,|\/|&|;|\+/).pop() || '').trim();
+      if (tok && first) { const names = whoNames(input.value); names.pop(); names.push(first.dataset.v); input.value = names.join(', '); boxType(input.value); return; }
+    }
+    closeBox();
+  } else if (e.key === 'Escape') { e.preventDefault(); closeBox(); }
+}
+function boxPick(v){ boxSet(boxEd.field, v); closeBox(); }
+function boxWing(part, val){
+  const p = wingParts(boxVal('wing'));
+  let next, done = false;
+  if (part === 'side') {
+    if (p.side === val && !p.num) { next = ''; }
+    else if (val === 'SL' || val === 'SR') next = p.num ? val + ' ' + p.num : val;
+    else { next = val; done = true; }
+  } else {
+    if (p.side !== 'SL' && p.side !== 'SR') return;
+    next = p.side + ' ' + val; done = true;
+  }
+  boxSet('wing', next);
+  if (done) closeBox(); else renderBox();
+}
+function boxSpike(id){
+  const cur = (boxEd.kind === 'preset' ? (presetEntry(boxEd.key).spikeIds || []) : ((boxMv() || {}).spikeIds || [])).slice();
+  const i = cur.indexOf(id);
+  if (i >= 0) { cur.splice(i, 1); boxSet('spikeIds', cur); renderBox(); return; }
+  cur.push(id);
+  boxSet('spikeIds', cur);
+  closeBox();
+}
+function boxWho(name){
+  const input = document.querySelector('#box-ed input.box-in'); if (!input) return;
+  const names = whoNames(input.value), k = String(name).toLowerCase();
+  const i = names.findIndex(x => x.toLowerCase() === k);
+  if (i >= 0) names.splice(i, 1);
+  else {
+    // A half-typed name at the end is replaced by the pick.
+    const tok = (String(input.value).split(/,|\/|&|;|\+/).pop() || '').trim().toLowerCase();
+    if (tok && !names.some(x => x.toLowerCase() === tok && whoChoices().some(p => p.name.toLowerCase() === tok))) names.pop();
+    names.push(name);
+  }
+  input.value = names.join(', ');
+  boxSet('who', input.value);
+  syncBoxWho(input.value); whoFilterBox('');
+}
+function syncBoxWho(v){
+  const on = new Set(whoNames(v).map(x => x.toLowerCase()));
+  document.querySelectorAll('#box-whos .box-pill').forEach(b => b.classList.toggle('on', on.has(b.dataset.v.toLowerCase())));
+}
+function whoFilterBox(v){
+  const pills = [...document.querySelectorAll('#box-whos .box-pill')];
+  const tok = (String(v || '').split(/,|\/|&|;|\+/).pop() || '').trim().toLowerCase();
+  const exact = tok && pills.some(b => b.dataset.v.toLowerCase() === tok);
+  pills.forEach(b => {
+    const n = b.dataset.v.toLowerCase(), r = (b.dataset.r || '').toLowerCase();
+    b.hidden = !(!tok || exact || b.classList.contains('on') || n.split(/\s+/).some(w => w.startsWith(tok)) || r.split(/[\s,]+/).some(w => w.startsWith(tok)));
+  });
+}
+// A tap anywhere outside the box finishes it (and still does what it was for,
+// so tapping the next box opens that one).
+document.addEventListener('pointerdown', e => {
+  const el = document.getElementById('box-ed');
+  if (boxEd && el && !el.contains(e.target)) closeBox();
+  const mn = document.getElementById('row-menu');
+  if (mn && mn.classList.contains('open') && !mn.contains(e.target) && !(e.target.closest && e.target.closest('.row-more'))) closeRowMenu();
+}, true);
+window.addEventListener('scroll', () => { if (boxEd && !boxNarrow()) placeBox(boxCellNow()); }, { passive: true });
+window.addEventListener('resize', () => { if (boxEd) placeBox(boxCellNow()); });
+
+// ── ⋯ on a move ─────────────────────────────────────────────────────────────
+let rowMenu = null;   // { cueId, idx }
+function openRowMenu(e, cueId, idx){
+  e.stopPropagation();
+  closeBox();
+  const c = cues.find(x => String(x.id) === String(cueId)); if (!c) return;
+  rowMenu = { cueId: String(cueId), idx };
+  let el = document.getElementById('row-menu');
+  if (!el) { el = document.createElement('div'); el.id = 'row-menu'; el.setAttribute('role', 'menu'); document.body.appendChild(el); }
+  const list = shiftsInOrder(), i = list.findIndex(x => String(x.id) === String(c.id));
+  const prev = i > 0 ? list[i - 1] : null, next = i >= 0 && i < list.length - 1 ? list[i + 1] : null;
+  const real = (c.moves || [])[idx] && !blankMove(c.moves[idx]);
+  el.innerHTML = `<button type="button" onclick="rowMenuDo('edit')">Edit whole move</button>
+    ${real ? `<button type="button" onclick="rowMenuDo('dup')">Duplicate move</button>` : ''}
+    ${real && prev ? `<button type="button" onclick="rowMenuDo('to', '${esc(prev.id)}')">Move to ‹ ${esc(shiftLabel(prev))}</button>` : ''}
+    ${real && next ? `<button type="button" onclick="rowMenuDo('to', '${esc(next.id)}')">Move to ${esc(shiftLabel(next))} ›</button>` : ''}
+    <button type="button" onclick="rowMenuDo('script')">Show in script ›</button>
+    ${real ? `<button type="button" class="danger" onclick="rowMenuDo('del')">Delete move</button>` : ''}`;
+  el.classList.add('open');
+  const r = e.currentTarget.getBoundingClientRect(), w = 210;
+  el.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+  const h = el.offsetHeight;
+  el.style.top = (r.bottom + 4 + h > window.innerHeight - 8 ? Math.max(8, r.top - h - 4) : r.bottom + 4) + 'px';
+}
+function closeRowMenu(){ rowMenu = null; const el = document.getElementById('row-menu'); if (el) el.classList.remove('open'); }
+function rowMenuDo(what, arg){
+  if (!rowMenu) return;
+  const { cueId, idx } = rowMenu; closeRowMenu();
+  const c = cues.find(x => String(x.id) === String(cueId)); if (!c) return;
+  const m = (c.moves || [])[idx];
+  if (what === 'edit') { openMove(cueId, idx); return; }
+  if (what === 'script') { jumpToScript(cueId); return; }
+  if (!m) return;
+  if (what === 'dup') {
+    const copy = JSON.parse(JSON.stringify(m)); copy.id = 'mv' + Date.now() + Math.random().toString(36).slice(2, 6);
+    c.moves.splice(idx + 1, 0, copy);
+    editedCues[c.id] = true; saveDraft(); markDirty(); render();
+    toast((m.piece || 'Move') + ' duplicated');
+  } else if (what === 'to') {
+    const t = cues.find(x => String(x.id) === String(arg)); if (!t) return;
+    c.moves.splice(idx, 1);
+    if (!m.id) m.id = 'mv' + Date.now() + Math.random().toString(36).slice(2, 6);
+    t.moves = Array.isArray(t.moves) ? t.moves : [];
+    if (t.moves.length === 1 && blankMove(t.moves[0])) t.moves = [];
+    t.moves.push(m);
+    editedCues[c.id] = true; editedCues[t.id] = true; saveDraft(); markDirty(); render();
+    toast((m.piece || 'Move') + ' moved to ' + shiftLabel(t));
+  } else if (what === 'del') {
+    if (!confirm('Delete ' + ((m.piece || m.action) || 'this move') + '?')) return;
+    c.moves.splice(idx, 1);
+    editedCues[c.id] = true; saveDraft(); markDirty(); render();
+  }
+}
+
+// ── Jumping between the cue sheet and the script ────────────────────────────
+// "Script ›" goes to the dashboard you already have open (the one that opened
+// this tab, or any tab named for it), opens this script there and goes to the
+// cue. With none open, it opens one. The dashboard's "Cue sheet ›" lands here
+// through mmtJump, or ?cue= in the address.
+const DASH_WIN = /-dev\.html$/i.test(location.pathname) ? 'mmt-dashboard-dev' : 'mmt-dashboard';
+function jumpToScript(cueId){
+  if (!scriptId) return;
+  const msg = { type: 'script', scriptId, cueId: String(cueId), name: scriptName || '' };
+  const url = DASH_PAGE + '?script=' + encodeURIComponent(scriptId) + '&cue=' + encodeURIComponent(cueId) + '&name=' + encodeURIComponent(scriptName || '') + '#scripts';
+  try {
+    const o = window.opener;
+    if (o && !o.closed && /\/app(-dev)?\.html$/.test(o.location.pathname) && typeof o.mmtJump === 'function') { o.mmtJump(msg); o.focus(); return; }
+  } catch (e) {}
+  try {
+    const w = window.open('', DASH_WIN);
+    if (w) {
+      let blank = false; try { blank = !w.location.href || w.location.href === 'about:blank'; } catch (e) {}
+      if (!blank && typeof w.mmtJump === 'function') { w.mmtJump(msg); w.focus(); return; }
+      w.location.href = url; return;
+    }
+  } catch (e) {}
+  location.href = url;
+}
+let _jumpCue = '';
+window.mmtJump = function (m){
+  if (!m || m.type !== 'cue' || !m.cueId) return;
+  if (m.scriptId && String(m.scriptId) !== String(scriptId)) { _jumpCue = String(m.cueId); pickScript(m.scriptId, m.name || '', true); return; }
+  clRevealCue(m.cueId);
+};
+// Bring a cue's row into view and light it up.
+function clRevealCue(cueId){
+  _jumpCue = '';
+  closeBox(); closeRowMenu();
+  if (view !== 'cues') setView('cues');
+  let row = document.querySelector('#sheet-body tr[data-cue="' + CSS.escape(String(cueId)) + '"]');
+  if (!row && (activeType || query || activeWho)) { activeType = null; activeWho = null; query = ''; const s = document.getElementById('search'); if (s) s.value = ''; render(); row = document.querySelector('#sheet-body tr[data-cue="' + CSS.escape(String(cueId)) + '"]'); }
+  if (!row) { toast("That cue isn't on this cue sheet"); return; }
+  const hdr = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0;
+  window.scrollTo({ top: Math.max(0, row.getBoundingClientRect().top + window.scrollY - hdr - 40), behavior: 'smooth' });
+  _flash = { id: String(cueId), until: Date.now() + 2600 };
+  document.querySelectorAll('.jump-flash').forEach(r => r.classList.remove('jump-flash'));
+  clFlashRows();
+  clearTimeout(_flashT);   // a newer jump's highlight mustn't be cut short by an older one's timer
+  _flashT = setTimeout(() => { _flash = null; document.querySelectorAll('.jump-flash').forEach(r => r.classList.remove('jump-flash')); }, 2600);
+}
+let _flashT = null, _flash = null;
+// Coming to this tab refreshes it; the highlight is put back on the new rows.
+function clFlashRows(){
+  if (!_flash || Date.now() > _flash.until) return;
+  document.querySelectorAll('#sheet-body tr[data-cue="' + CSS.escape(_flash.id) + '"]').forEach(r => r.classList.add('jump-flash'));
+}
+try { if (!window.name || /^mmt-/.test(window.name)) window.name = (/-dev\.html$/i.test(location.pathname) ? 'mmt-cuesheet-dev' : 'mmt-cuesheet'); } catch (e) {}
 
 // ── ADD A CUE FROM THE CUE SHEET ────────────────────────────────────────────
 // Edit mode puts "+ Add cue" between rows. The new cue goes in that spot with
@@ -5567,18 +6339,6 @@ function clearWingTo(){
   sheetField('wingTo', '');
   renderMoveSheet();
 }
-function openMoveAt(e, cueId, idx){
-  const cell = e && e.target && e.target.closest ? e.target.closest('[data-f]') : null;
-  const f = cell ? cell.dataset.f : '';
-  openMove(cueId, idx);
-  if (f === 'wing') { const w = document.querySelector('#move-sheet .ms-wing'); if (w && w.scrollIntoView) w.scrollIntoView({ block: 'nearest' }); return; }
-  const box = MS_BOX[f] && document.getElementById(MS_BOX[f]);
-  if (!box) return;
-  box.focus();
-  try { const n = box.value.length; box.setSelectionRange(n, n); } catch (err) {}
-  if (box.scrollIntoView) box.scrollIntoView({ block: 'nearest' });
-}
-
 function openCueLine(cueId){
   openMove(cueId, 0);
   const i = document.getElementById('ms-cueLine');
@@ -5924,9 +6684,195 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'Backspace') pinPress('back');
 });
 
+// ══ CREW PLOT LINK ═══════════════════════════════════════════════════════════
+// cue-list.html?plot=<script>: the set change plot as a read-only page with
+// tabs along the bottom (Changes · Full plot · Before House · each person).
+// No PIN — it's view only, like a Drive "anyone with the link" share. Live:
+// it re-reads the Sheet every minute and when the tab comes back into view.
+// Changes compare against the last version marked as sent.
+// Back burner (see BACKLOG.md): off on the live page until it's finished.
+const PLOT_ID = '';
+let pvTab = '', pvLog = null, pvBase = undefined, pvAt = 0, pvBusy = false;
+function plotLinkFor(id){
+  const nm = id ? '' : ssTitle(scriptId, scriptName);
+  return location.origin + location.pathname + '?plot=' + encodeURIComponent(id || scriptId) + (nm && nm !== 'Untitled' ? '&name=' + encodeURIComponent(nm) : '');
+}
+function plotViewBoot(){
+  document.body.classList.add('plotview');
+  document.getElementById('pin-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('pv').hidden = false;
+  scriptId = PLOT_ID;
+  try { scriptName = new URLSearchParams(location.search).get('name') || ''; } catch (e) { scriptName = ''; }
+  clRole = ''; clName = '';
+  try { pvTab = new URLSearchParams(location.search).get('tab') || localStorage.getItem('mmt_pv_tab_' + PLOT_ID) || ''; } catch (e) {}
+  document.getElementById('pv-body').innerHTML = '<p class="pv-empty">Loading the plot…</p>';
+  let left = 2; const go = () => { if (--left === 0) pvFetch(true); };
+  ssLoad(go); spkLoad(go);
+  setInterval(() => { if (!document.hidden) pvFetch(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - pvAt > 15000) pvFetch(); });
+}
+function pvFetch(first){
+  if (pvBusy) return; pvBusy = true;
+  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), d => {
+    if (!d || !d.success || !d.cueData) { pvBusy = false; if (first) document.getElementById('pv-body').innerHTML = '<p class="pv-empty">This plot couldn’t be found. Ask for a new link.</p>'; return; }
+    const hash = JSON.stringify([d.cueData.cues, d.cueData.presets, d.cueData.annotations]);
+    applyPayload(d.cueData);
+    plotSentGet().then(last => {
+      pvBusy = false; pvAt = Date.now();
+      if (last !== undefined) pvBase = last;
+      const changed = first || hash !== pvFetch._h || JSON.stringify(pvBase || null) !== pvFetch._b;
+      pvFetch._h = hash; pvFetch._b = JSON.stringify(pvBase || null);
+      if (scriptName === '' && d.name) scriptName = d.name;
+      pvLog = null;
+      if (pvBase && pvBase.snap) { const df = plotDiff(pvBase.snap, plotSnap()); pvLog = { since: pvBase.at, by: pvBase.by || '', groups: df.groups, mine: df.mine }; }
+      pvStamp();
+      if (changed) pvRender(first);
+    });
+  }, () => { pvBusy = false; pvStamp(true); }, 20000);
+}
+function pvStamp(off){
+  const el = document.getElementById('pv-sub'); if (!el) return;
+  const t = pvAt ? new Date(pvAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+  el.textContent = 'Set changes' + (t ? ' · up to date as of ' + t : '') + (off ? ' · offline, showing last copy' : '');
+}
+function pvTitle(){
+  let name = '';
+  try { name = ssTitle(scriptId, scriptName); } catch (e) {}
+  if (!name || name === 'Untitled') name = 'Set change plot';
+  document.title = name + ' · Set changes';
+  document.getElementById('show-name').textContent = name;
+  return name;
+}
+// Everything the tabs need, read from the same cues the PDF prints.
+function pvModel(){
+  const SL = sceneLabels(); let scene = '';
+  const sections = []; let cur = null;
+  const crew = new Map(); const NOBODY = '\u0000';
+  cuesInScriptOrder().forEach(c => {
+    if (isSceneCue(c)) { scene = SL[c.id] || c.number || ''; cur = { label: scene, changes: [] }; sections.push(cur); return; }
+    if (c.type !== SHIFT_TYPE_ID) return;
+    if (!cur) { cur = { label: '', changes: [] }; sections.push(cur); }
+    cur.changes.push(c);
+    (c.moves || []).forEach(m => {
+      const names = whoNames(m.who); const keys = names.length ? names : [NOBODY];
+      keys.forEach(n => {
+        const k = n === NOBODY ? NOBODY : n.toLowerCase();
+        if (!crew.has(k)) crew.set(k, { key: k, name: n === NOBODY ? 'No one assigned' : n, items: [] });
+        crew.get(k).items.push({ scene, c, m, others: names.filter(o => o.toLowerCase() !== k) });
+      });
+    });
+  });
+  const people = [...crew.values()].filter(p => p.key !== NOBODY).sort((a, b) => a.name.localeCompare(b.name));
+  if (crew.has(NOBODY)) people.push(crew.get(NOBODY));
+  const pre = allPieces().map(({ key, piece }) => ({ ...(presets[key] || {}), piece })).filter(r => !r.hidden);
+  return { sections, people, pre };
+}
+function pvSetTab(t){
+  pvTab = t;
+  try { localStorage.setItem('mmt_pv_tab_' + PLOT_ID, t); } catch (e) {}
+  pvRender(true);
+}
+function pvRender(toTop){
+  const name = pvTitle();
+  const M = pvModel();
+  const n = pvLog ? pvLog.groups.length : 0;
+  const tabs = [{ id: 'changes', label: 'Changes' + (n ? ' (' + n + ')' : '') }, { id: 'plot', label: 'Full plot' }];
+  if (M.pre.length) tabs.push({ id: 'preset', label: 'Before House' });
+  M.people.forEach(p => tabs.push({ id: 'p:' + p.key, label: p.name, person: p }));
+  if (!tabs.some(t => t.id === pvTab)) pvTab = pvLog && n ? 'changes' : 'plot';
+  const t = tabs.find(x => x.id === pvTab);
+  let html = '';
+  if (pvTab === 'changes') html = pvChangesHTML();
+  else if (pvTab === 'plot') html = M.sections.map(s => pvSectionHTML(s.label, s.changes.map(c => ({ c, moves: c.moves && c.moves.length ? c.moves.map(m => ({ m })) : [{ m: {} }] })), false)).join('') || '<p class="pv-empty">No set changes yet.</p>';
+  else if (pvTab === 'preset') html = pvPresetHTML(M.pre);
+  else html = pvPersonHTML(t.person);
+  const body = document.getElementById('pv-body');
+  const keep = toTop ? 0 : window.scrollY;
+  body.innerHTML = html;
+  document.getElementById('pv-tabs').innerHTML = tabs.map(x => `<button class="pv-tab${x.id === pvTab ? ' on' : ''}" onclick='pvSetTab(${esc(JSON.stringify(x.id))})'>${esc(x.label)}</button>`).join('');
+  const on = document.querySelector('#pv-tabs .pv-tab.on'); if (on && toTop) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+  document.getElementById('pv-who').textContent = t.person ? t.person.name : name;
+  window.scrollTo(0, keep);
+}
+const pvNum = c => '#' + changeShortNum(c.number);
+// One scene: a table on wide screens, cards on phones (both built, CSS picks).
+function pvSectionHTML(label, blocks, withCol){
+  if (!blocks.length && !label) return '';
+  const rows = blocks.map(b => b.moves.map((x, i) => {
+    const m = x.m, c = b.c;
+    return `<tr class="${i === 0 ? 'pv-first' : ''}"><td class="pv-n">${i === 0 ? esc(pvNum(c)) : ''}</td><td>${i === 0 ? esc(m.trigger || c.cueLine || '') : ''}</td><td class="pv-pg">${i === 0 && c.page ? esc(c.page) : ''}</td>`
+      + `<td><b>${esc(m.piece || '')}</b></td><td>${esc(m.action || '')}</td><td>${esc(wingText(m))}</td><td>${esc(withCol ? x.others.join(', ') : (m.who || ''))}</td>`
+      + `<td class="pv-spk">${m.piece || m.spike || m.spikeIds ? spkChipsHTML(m, scriptId) : ''}</td><td>${esc(m.notes || '')}</td></tr>`;
+  }).join('')).join('');
+  const cards = blocks.map(b => {
+    const c = b.c;
+    return `<div class="pv-card"><div class="pv-ch"><b>${esc(pvNum(c))}</b>${c.cueLine ? ' · ' + esc(c.cueLine) : ''}${c.page ? '<span>pg. ' + esc(c.page) + '</span>' : ''}</div>`
+      + b.moves.map(x => {
+        const m = x.m, w = withCol ? x.others.join(', ') : m.who;
+        const kv = (k, v) => v ? `<i>${k}</i><span>${v}</span>` : '';
+        const spk = m.piece || m.spike || m.spikeIds ? spkChipsHTML(m, scriptId) : '';
+        return `<div class="pv-mv"><b class="pv-piece">${esc(m.piece || '—')}</b>${kv('Do', esc([m.action, wingText(m)].filter(Boolean).join(' · ')))}${kv(withCol ? 'With' : 'Who', esc(w || ''))}${kv('Spike', spk)}${kv('Notes', esc(m.notes || ''))}</div>`;
+      }).join('') + '</div>';
+  }).join('');
+  return `<section class="pv-sec">${label ? `<div class="pv-scene">${esc(label)}</div>` : ''}`
+    + (blocks.length ? `<table class="pv-table"><thead><tr><th>#</th><th>Cue</th><th>Pg</th><th>Piece</th><th>Action</th><th>Wing</th><th>${withCol ? 'With' : 'Who'}</th><th>Spike</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table><div class="pv-cards">${cards}</div>` : '<p class="pv-none">No set changes in this scene.</p>')
+    + '</section>';
+}
+function pvChangesHTML(){
+  if (!pvBase) return '<p class="pv-empty">Nothing has been marked as sent yet, so there’s nothing to compare against. The Full plot tab has everything.</p>';
+  const head = `<div class="pv-since">What’s changed since the version sent <b>${esc(plWhen(pvLog.since))}</b>${pvLog.by ? ' by ' + esc(pvLog.by) : ''}</div>`;
+  if (!pvLog.groups.length) return head + '<p class="pv-empty">Nothing has changed since then.</p>';
+  return head + pvLog.groups.map(g => `<div class="pv-grp"><h4>${esc(g.title)}${g.tag ? ` <span class="pv-tag ${g.tag === 'NEW' ? 'n' : 'g'}">${g.tag}</span>` : ''}</h4><ul>`
+    + g.items.map(it => `<li class="k-${it.k}">${it.lead ? `<b>${esc(it.lead)}</b> ` : ''}${esc(it.text || '')}</li>`).join('') + '</ul></div>').join('');
+}
+function pvPersonHTML(p){
+  const mine = pvLog && p.name !== 'No one assigned' ? (pvLog.mine.get(p.key) || []) : [];
+  const changes = new Set(p.items.map(it => it.c.id)).size;
+  let html = `<p class="pv-count">${p.items.length} move${p.items.length === 1 ? '' : 's'} in ${changes} change${changes === 1 ? '' : 's'}</p>`;
+  if (mine.length) html += `<div class="pv-yours"><b>Changes for you since ${esc(plWhen(pvLog.since))}</b><ul>${mine.map(it => `<li class="k-${it.k}">${esc(it.text)}</li>`).join('')}</ul></div>`;
+  const secs = [];
+  p.items.forEach(it => {
+    let s = secs[secs.length - 1];
+    if (!s || s.label !== it.scene) { s = { label: it.scene, blocks: [] }; secs.push(s); }
+    let b = s.blocks[s.blocks.length - 1];
+    if (!b || b.c !== it.c) { b = { c: it.c, moves: [] }; s.blocks.push(b); }
+    b.moves.push({ m: it.m, others: it.others });
+  });
+  return html + secs.map(s => pvSectionHTML(s.label, s.blocks, p.name !== 'No one assigned')).join('');
+}
+function pvPresetHTML(rows){
+  return `<section class="pv-sec"><div class="pv-scene">Before house opens</div><table class="pv-table pv-pre"><thead><tr><th>Piece</th><th>Preset location</th><th>Spike</th><th>Notes</th></tr></thead><tbody>`
+    + rows.map(r => `<tr class="pv-first"><td><b>${esc(r.piece)}</b></td><td>${esc(r.location || '')}</td><td class="pv-spk">${spkChipsHTML(r, scriptId)}</td><td>${esc(r.notes || '')}</td></tr>`).join('')
+    + '</tbody></table><div class="pv-cards">'
+    + rows.map(r => `<div class="pv-card"><div class="pv-mv"><b class="pv-piece">${esc(r.piece)}</b>${r.location ? `<i>Preset</i><span>${esc(r.location)}</span>` : ''}${spkChipsHTML(r, scriptId) ? `<i>Spike</i><span>${spkChipsHTML(r, scriptId)}</span>` : ''}${r.notes ? `<i>Notes</i><span>${esc(r.notes)}</span>` : ''}</div></div>`).join('')
+    + '</div></section>';
+}
+async function pvPDF(){
+  const btn = document.getElementById('pv-pdf'); btn.disabled = true;
+  try { pvTitle(); await exportSetChangePlot(pvLog, false); } catch (e) { console.error(e); toast('Couldn’t make the PDF — try again'); }
+  btn.disabled = false;
+}
+
+// The TD's side: the link to hand out.
+function openCrewLink(){
+  closeExport();
+  if (!scriptId) { toast('Pick a script first'); return; }
+  document.getElementById('crew-link-url').value = plotLinkFor();
+  document.getElementById('crew-link').classList.add('open');
+}
+function closeCrewLink(){ document.getElementById('crew-link').classList.remove('open'); }
+function copyCrewLink(){
+  const v = document.getElementById('crew-link-url').value;
+  const ok = () => toast('Link copied');
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(ok, () => { document.getElementById('crew-link-url').select(); document.execCommand('copy'); ok(); });
+  else { document.getElementById('crew-link-url').select(); document.execCommand('copy'); ok(); }
+}
+
 applyTheme(currentTheme(), false);
-if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
+if (PLOT_ID) plotViewBoot();
+else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.24 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v1</div>
 </body>
 </html>
