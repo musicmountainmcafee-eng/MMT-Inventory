@@ -3,6 +3,12 @@
 ## Live as of Oct 25 (Dashboard 10.25 v1, Cue Sheet 10.25 v1)
 - Box editing + jump links; changelog export ("Mark this as sent?", What's changed page, Changes for you); #6.5 plot numbering fix.
 
+## Bugs
+- **Cue sheet "Script ›" does nothing on phone/iPad** (live 10.25 v1). iOS won't bring the dashboard tab forward. Fixed for good by the combined Script | Cue sheet page; otherwise fall back to opening the dashboard in the same tab on phones.
+
+## Next up
+- **Streamlined Script + Cue sheet page with a Script | Cue sheet switch at the top** (mockups A and B sent Oct 25).
+
 ## Back burner
 - **Crew link for the set change plot** (built on dev 10.25 v3: `cue-list-dev.html?plot=<script>`; Export > Crew link).
   Read-only plot with tabs along the bottom (Changes, Full plot, Before House, each person), no PIN, live.
