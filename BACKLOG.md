@@ -6,10 +6,13 @@
 ## Bugs
 - **Cue sheet "Script ›" does nothing on phone/iPad** (live 10.25 v1). iOS won't bring the dashboard tab forward. Fixed for good by the combined Script | Cue sheet page; otherwise fall back to opening the dashboard in the same tab on phones.
 
-## Next up
-- **Streamlined Script + Cue sheet page with a Script | Cue sheet switch at the top** (mockups A and B sent Oct 25).
-
 ## Back burner
+- **Streamlined Script + Cue sheet page with a Script | Cue sheet switch at the top.**
+  Mockups: "Script + Cue Sheet Redesign" design canvas (Oct 25): phone Script / Marking / Cue sheet / Editing one box;
+  computer Script / Cue sheet / Both. Mac liked some of it but worries features get lost in the swap.
+  When we come back: FIRST list every button, setting and feature on today's Script page (app.html) and Cue Sheet
+  (cue-list.html), mark where each one lands in the new design (on screen, in the menu, or dropped), and get Mac's
+  OK on that list before building anything on dev.
 - **Crew link for the set change plot** (built on dev 10.25 v3: `cue-list-dev.html?plot=<script>`; Export > Crew link).
   Read-only plot with tabs along the bottom (Changes, Full plot, Before House, each person), no PIN, live.
   Turned off on the live page (no Export button; `?plot=` does nothing there). Still works on cue-list-dev.html.
