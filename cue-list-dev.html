@@ -874,11 +874,20 @@
     <h3>Export</h3>
     <div class="export-opts">
       <button class="export-opt" onclick="runExport('cues')"><b>Cue sheet</b><span>PDF of every cue, with line photos</span></button>
-      <button class="export-opt" onclick="runExport('plot')"><b>Set change plot</b><span>PDF for the deck: Before House, every change, then a page for each person</span></button>
+      <button class="export-opt" onclick="runExport('plot')"><b>Set change plot</b><span>PDF for the deck: what’s changed since the last one sent, Before House, every change, then a page for each person</span></button>
       <button class="export-opt" onclick="runExport('xlsx')"><b>Set change plot (Excel)</b><span>The same plot as a spreadsheet, with a tab for each person</span></button>
       <button class="export-opt" onclick="runExport('spikes')"><b>Spike key</b><span>PDF to post backstage: each piece, its tape and spike notes</span></button>
     </div>
     <div class="modal-btns"><button class="top-btn" onclick="closeExport()">Cancel</button></div>
+  </div>
+</div>
+
+<!-- ── MARK AS SENT ───────────────────────────────────────────────────────── -->
+<div class="overlay" id="sent-ask" onclick="if(event.target===this) sentAskClose()">
+  <div class="modal">
+    <h3>Mark this as sent?</h3>
+    <p class="note" id="sent-ask-note"></p>
+    <div class="modal-btns" style="gap:8px"><button class="top-btn" onclick="sentAskClose()">Not yet</button><button class="top-btn primary" id="sent-ask-yes" onclick="sentAskYes()">Yes, mark as sent</button></div>
   </div>
 </div>
 
@@ -2313,7 +2322,7 @@ async function runExport(kind){
   closeExport();
   try {
     if (kind === 'cues') await exportCueSheet();
-    else if (kind === 'plot') await exportSetChangePlot();
+    else if (kind === 'plot') await exportPlotWithLog();
     else if (kind === 'xlsx') await exportSetChangeXLSX();
     else if (kind === 'spikes') await exportSpikeKey();
   } catch(e) { console.error(e); toast('Export failed — try again'); }
@@ -2568,14 +2577,223 @@ function wingText(m, arrow) {
   const sep = arrow || ' → ';
   return a && b ? a + sep + b : a || (b ? sep.trim() + ' ' + b : '');
 }
-async function exportSetChangePlot() {
+// ══ CHANGELOG ════════════════════════════════════════════════════════════════
+// Every plot export compares against the last version marked as sent (KV
+// 'plotsent_<script>', shared across devices): a "What's changed" page up
+// front, and a "Changes for you" box on each person's page. Only a version
+// someone says was sent becomes the new starting point, so test exports
+// don't reset it. The snapshot keeps only what prints, as plain text.
+const PLOG_KEY = () => 'plotsent_' + scriptId;
+const plT = v => String(v == null ? '' : v).trim();
+function plRawSpike(m){
+  const parts = (Array.isArray(m && m.spikeIds) ? m.spikeIds : []).map(id => spkFind(scriptId, id)).filter(Boolean)
+    .map(e => e.label ? `${e.label} (${spkTapeName(e)})` : spkTapeName(e));
+  if (m && m.spike) parts.push(String(m.spike).trim());
+  return parts.join('; ');
+}
+function plotSnap(){
+  const SL = sceneLabels(); let scene = '';
+  const changes = [];
+  cuesInScriptOrder().forEach(c => {
+    if (isSceneCue(c)) { scene = SL[c.id] || ''; return; }
+    if (c.type !== SHIFT_TYPE_ID) return;
+    const seen = {};
+    changes.push({
+      id: String(c.id), num: changeShortNum(c.number), cue: plT(c.cueLine), pg: plT(c.page), scene,
+      moves: (c.moves || []).map(m => {
+        let id = m.id ? String(m.id) : 'p:' + plT(m.piece).toLowerCase();
+        if (seen[id]) id += '#' + (++seen[id]); else seen[id] = 1;
+        return { id, piece: plT(m.piece), action: plT(m.action), wing: wingText(m, ' to '), who: plT(m.who), spike: plRawSpike(m), notes: plT(m.notes) };
+      })
+    });
+  });
+  const pre = allPieces().map(({ key, piece }) => {
+    const p = presets[key] || {};
+    return { key, piece, location: plT(p.location), spike: plRawSpike(p), notes: plT(p.notes), hidden: !!p.hidden };
+  });
+  return { v: 1, changes, presets: pre };
+}
+function plotSentGet(){
+  return new Promise(res => {
+    if (!scriptId) return res(null);
+    jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent(PLOG_KEY()) + '&_=' + Date.now(), d => {
+      let v = d && (d.value !== undefined ? d.value : d.data);
+      if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
+      res(v && v.snap ? v : null);
+    }, () => res(undefined), 12000);
+  });
+}
+function plotSentSave(rec){
+  return fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'saveKV', key: PLOG_KEY(), value: rec }) })
+    .then(r => r.json()).then(d => { if (d && d.error) throw new Error(d.error); return true; });
+}
+function plWhen(iso){
+  const d = new Date(iso); if (isNaN(d)) return '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+const PL_FIELDS = [['piece','piece'],['action','action'],['wing','wing'],['spike','spike'],['notes','notes']];
+const plQ = v => v ? v : 'blank';
+function plMoveSummary(m){
+  return [m.action, m.wing, m.who].filter(Boolean).join(', ');
+}
+// Who: "Theresa added (now Kyle, Theresa)", "Ally replaced Amy", "Amy taken off".
+function plWhoDiff(a, b){
+  const A = whoNames(a), B = whoNames(b);
+  const lo = s => s.toLowerCase();
+  const add = B.filter(n => !A.some(x => lo(x) === lo(n))), rem = A.filter(n => !B.some(x => lo(x) === lo(n)));
+  if (!add.length && !rem.length) return '';
+  if (add.length === 1 && rem.length === 1) return add[0] + ' replaced ' + rem[0];
+  const bits = [];
+  if (add.length) bits.push(add.join(', ') + ' added');
+  if (rem.length) bits.push(rem.join(', ') + ' taken off');
+  return bits.join('; ') + (B.length ? ' (now ' + B.join(', ') + ')' : ' (no one now)');
+}
+// Compares two snapshots. Returns groups for the front page (show order, then
+// anything removed) and, per person (lower-case name), the lines for them.
+function plotDiff(oldS, newS){
+  const groups = [], mine = new Map();
+  const toMe = (name, line) => { const k = name.toLowerCase(); if (!mine.has(k)) mine.set(k, []); mine.get(k).push(line); };
+  const oldById = new Map((oldS.changes || []).map(c => [c.id, c]));
+  const newById = new Map(newS.changes.map(c => [c.id, c]));
+  const where = (S) => { const w = new Map(); (S.changes || []).forEach(c => c.moves.forEach(m => { if (!/^p:/.test(m.id)) w.set(m.id, c); })); return w; };
+  const oldWhere = where(oldS), newWhere = where(newS);
+  const head = c => '#' + c.num + (c.cue ? ' · “' + c.cue + '”' : '') + (c.pg ? ' · pg. ' + c.pg : '');
+
+  // Before house first, the way the plot reads.
+  const preItems = [];
+  const oldPre = new Map((oldS.presets || []).map(p => [p.key, p]));
+  newS.presets.forEach(p => {
+    const o = oldPre.get(p.key);
+    if (!o) { if (!p.hidden && (p.location || p.spike || p.notes)) preItems.push({ k: 'n', lead: p.piece + ':', text: 'now preset ' + [p.location, p.spike].filter(Boolean).join(', ') }); return; }
+    const bits = [];
+    if (o.hidden !== p.hidden) bits.push(p.hidden ? 'no longer printed in Before House' : 'now printed in Before House');
+    [['location','location'],['spike','spike'],['notes','notes']].forEach(([f, lbl]) => {
+      if (o[f] !== p[f]) bits.push(p[f] ? lbl + ' now ' + p[f] + ' (was ' + plQ(o[f]) + ')' : lbl + ' cleared (was ' + o[f] + ')');
+    });
+    if (bits.length) preItems.push({ k: 'c', lead: p.piece + ':', text: bits.join('; ') });
+  });
+  if (preItems.length) groups.push({ title: 'Before house opens', items: preItems });
+
+  newS.changes.forEach(c => {
+    const o = oldById.get(c.id);
+    const items = [];
+    if (!o) {
+      items.push({ k: 'n', lead: 'New set change', text: c.moves.length ? '' : '(nothing entered yet)' });
+      c.moves.forEach(m => {
+        items.push({ k: 'n', lead: (m.piece || 'Move') + ':', text: plMoveSummary(m) });
+        whoNames(m.who).forEach(n => toMe(n, { k: 'n', text: '#' + c.num + ' · ' + (m.piece || 'Move') + ': new set change for you' + plWith(m.who, n) }));
+      });
+      groups.push({ title: head(c), tag: 'NEW', items });
+      return;
+    }
+    if (o.num !== c.num) items.push({ k: 'c', lead: 'Renumbered', text: 'was #' + o.num });
+    if (o.cue !== c.cue) items.push({ k: 'c', lead: 'Cue line', text: c.cue ? 'now “' + c.cue + '” (was ' + (o.cue ? '“' + o.cue + '”' : 'blank') + ')' : 'cleared (was “' + o.cue + '”)' });
+    if (o.pg !== c.pg) items.push({ k: 'c', lead: 'Page', text: 'now ' + plQ(c.pg) + ' (was ' + plQ(o.pg) + ')' });
+    const everyone = (o.num !== c.num || o.cue !== c.cue || o.pg !== c.pg)
+      ? items.map(i => i.lead + ' ' + i.text).join('; ') : '';
+    const oldMoves = new Map(o.moves.map(m => [m.id, m]));
+    const newIds = new Set(c.moves.map(m => m.id));
+    c.moves.forEach(m => {
+      const om = oldMoves.get(m.id);
+      const pc = m.piece || 'Move';
+      if (!om) {
+        const from = oldWhere.get(m.id);
+        const txt = from && from.id !== c.id ? 'moved here from #' + from.num : 'added' + (plMoveSummary(m) ? ' (' + plMoveSummary(m) + ')' : '');
+        items.push({ k: 'n', lead: pc + ':', text: txt });
+        whoNames(m.who).forEach(n => toMe(n, { k: 'n', text: '#' + c.num + ' · ' + pc + ': ' + (from && from.id !== c.id ? 'moved here from #' + from.num : 'new for you') + plWith(m.who, n) }));
+        return;
+      }
+      const bits = [];
+      PL_FIELDS.forEach(([f, lbl]) => {
+        if (om[f] === m[f]) return;
+        if (f === 'piece') bits.push('was ' + plQ(om.piece));
+        else bits.push(m[f] ? lbl + ' now ' + m[f] + ' (was ' + plQ(om[f]) + ')' : lbl + ' cleared (was ' + om[f] + ')');
+      });
+      const wd = plWhoDiff(om.who, m.who);
+      if (bits.length || wd) items.push({ k: 'c', lead: pc + ':', text: bits.concat(wd ? [wd] : []).join('; ') });
+      // For each person: being added or taken off, or any change to a move they're on.
+      const A = whoNames(om.who).map(s => s.toLowerCase()), B = whoNames(m.who);
+      B.forEach(n => {
+        if (!A.includes(n.toLowerCase())) toMe(n, { k: 'n', text: '#' + c.num + ' · ' + pc + ': you’ve been added' + plWith(m.who, n) });
+        else if (bits.length || everyone) toMe(n, { k: 'c', text: '#' + c.num + ' · ' + pc + ': ' + bits.concat(everyone ? [everyone] : []).join('; ') });
+      });
+      whoNames(om.who).forEach(n => { if (!B.some(x => x.toLowerCase() === n.toLowerCase())) toMe(n, { k: 'g', text: '#' + c.num + ' · ' + pc + ': you’re no longer on this' }); });
+    });
+    o.moves.forEach(om => {
+      if (newIds.has(om.id)) return;
+      const to = newWhere.get(om.id);
+      const pc = om.piece || 'Move';
+      if (to && to.id !== c.id) {
+        items.push({ k: 'g', lead: pc + ':', text: 'moved to #' + to.num });
+        whoNames(om.who).forEach(n => toMe(n, { k: 'c', text: '#' + o.num + ' · ' + pc + ': moved to #' + to.num }));
+      } else {
+        items.push({ k: 'g', lead: 'Removed:', text: pc + (plMoveSummary(om) ? ' (' + plMoveSummary(om) + ')' : '') });
+        whoNames(om.who).forEach(n => toMe(n, { k: 'g', text: '#' + c.num + ' · ' + pc + ': removed' }));
+      }
+    });
+    if (items.length) groups.push({ title: head(c), items });
+  });
+
+  (oldS.changes || []).forEach(o => {
+    if (newById.has(o.id)) return;
+    groups.push({ title: head(o), tag: 'REMOVED', items: [{ k: 'g', lead: 'Set change removed', text: o.moves.length ? '(had ' + o.moves.map(m => m.piece || 'a move').join(', ') + ')' : '' }] });
+    o.moves.forEach(om => { if (!newWhere.has(om.id)) whoNames(om.who).forEach(n => toMe(n, { k: 'g', text: '#' + o.num + ' · ' + (om.piece || 'Move') + ': set change removed' })); });
+  });
+  return { groups, mine };
+}
+function plWith(who, me){
+  const others = whoNames(who).filter(n => n.toLowerCase() !== me.toLowerCase());
+  return others.length ? ' (with ' + others.join(', ') + ')' : '';
+}
+
+// Export, then ask whether this is the version that went out.
+let _plotPending = null;
+async function exportPlotWithLog(){
+  toast('Checking what changed…');
+  const last = await plotSentGet();
+  const snap = plotSnap();
+  let log = null;
+  if (last && last.snap) {
+    const d = plotDiff(last.snap, snap);
+    log = { since: last.at, by: last.by || '', groups: d.groups, mine: d.mine };
+  }
+  const ok = await exportSetChangePlot(log, last === undefined);
+  if (ok === false || cueReadOnly()) return;
+  _plotPending = { snap, n: log ? log.groups.length : -1 };
+  const ask = document.getElementById('sent-ask');
+  document.getElementById('sent-ask-note').textContent = log
+    ? (log.groups.length ? 'This plot lists ' + log.groups.length + ' change' + (log.groups.length === 1 ? '' : 's') + ' since ' + plWhen(log.since) + '. ' : 'Nothing changed since ' + plWhen(log.since) + '. ')
+      + 'If you mark it as sent, the next export lists changes since now.'
+    : (last === undefined ? 'Couldn’t reach the Sheet to check the last sent version. ' : '')
+      + 'If you mark it as sent, the next export lists everything that changed since now.';
+  ask.classList.add('open');
+}
+function sentAskClose(){ document.getElementById('sent-ask').classList.remove('open'); _plotPending = null; }
+async function sentAskYes(){
+  const p = _plotPending; if (!p) return sentAskClose();
+  const btn = document.getElementById('sent-ask-yes');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  let by = '';
+  try { by = clName || (clRole === 'td' ? 'Mac' : ''); } catch (e) {}
+  try {
+    await plotSentSave({ at: new Date().toISOString(), by, snap: p.snap });
+    toast('Marked as sent');
+    sentAskClose();
+  } catch (e) {
+    toast('Couldn’t save — try again');
+  }
+  btn.disabled = false; btn.textContent = 'Yes, mark as sent';
+}
+
+async function exportSetChangePlot(log, offline) {
   const ordered = cuesInScriptOrder();
   const changes = ordered.filter(c => c.type === SHIFT_TYPE_ID);
-  if (!changes.length) { toast('No set changes to export'); return; }
+  if (!changes.length) { toast('No set changes to export'); return false; }
 
   let jsPDFCtor = null;
   try { jsPDFCtor = await loadJsPDF(); } catch (err) {}
-  if (!jsPDFCtor) { toast('Could not load PDF library'); return; }
+  if (!jsPDFCtor) { toast('Could not load PDF library'); return false; }
 
   toast('Building set change plot…');
 
@@ -2635,7 +2853,7 @@ async function exportSetChangePlot() {
   // "SCENE CHANGE 12" -> "12". Falls back to the whole label so a change named
   // something without digits still prints something.
   const shortNum = v => {
-    const m = String(v || '').match(/(\d+[A-Za-z.]*)\s*$/);
+    const m = String(v || '').match(/(\d+(?:\.\d+)?[A-Za-z]*)\s*$/);
     return m ? m[1] : String(v || '').trim();
   };
   const X = []; { let x = M; for (const c of COLS) { X.push(x); x += c.w; } }
@@ -2714,6 +2932,61 @@ async function exportSetChangePlot() {
 
   drawTitle();
   tagPage('PLOT');
+
+  // ── What's changed ─────────────────────────────────────────────────────────
+  // Plain sentences since the last version marked as sent, in show order,
+  // on their own page(s) ahead of the plot.
+  const LOG_RGB = { n: [29,122,58], c: [181,101,29], g: [176,42,32] };
+  if (log) {
+    tagPage('Changes');
+    const band = (txt) => {
+      doc.setFillColor(243,241,251); doc.rect(M, y, TABLE_W, 24, 'F');
+      doc.setFillColor(83,74,183); doc.rect(M, y, 4, 24, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(22,22,28);
+      doc.text(txt, M + 14, y + 16);
+      y += 34;
+    };
+    const n = log.groups.length;
+    band('What’s changed since the version sent ' + plWhen(log.since) + (log.by ? ' by ' + log.by : '')
+      + '  ·  ' + (n ? n + ' item' + (n === 1 ? '' : 's') : 'no changes'));
+    const room = h => { if (y + h > pageH - MARGIN_BOTTOM) { doc.addPage(); tagPage('Changes'); drawTitle(); band('What’s changed (cont.)'); } };
+    const IND = 14, TW = TABLE_W - IND;
+    log.groups.forEach(g => {
+      // Measure the group so a heading doesn't strand at the foot of a page.
+      doc.setFontSize(10);
+      const lines = g.items.map(it => {
+        doc.setFont('helvetica','bold'); const lw = it.lead ? doc.getTextWidth(it.lead + ' ') : 0;
+        doc.setFont('helvetica','normal');
+        const first = doc.splitTextToSize(it.text || '', Math.max(60, TW - 10 - lw));
+        const rest = first.length > 1 ? doc.splitTextToSize(first.slice(1).join(' '), TW - 10) : [];
+        return { it, lw, first: first[0] || '', rest };
+      });
+      const gh = 18 + lines.reduce((t, l) => t + 13 * (1 + l.rest.length), 0) + 8;
+      room(Math.min(gh, 18 + 13 * 3));
+      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(22,22,28);
+      doc.text(g.title, M, y + 11);
+      if (g.tag) {
+        const tw = doc.getTextWidth(g.title) + 8;
+        doc.setFontSize(7.5); const w2 = doc.getTextWidth(g.tag) + 8;
+        doc.setFillColor(...(g.tag === 'NEW' ? LOG_RGB.n : LOG_RGB.g)); doc.roundedRect(M + tw, y + 2, w2, 11, 2, 2, 'F');
+        doc.setTextColor(255,255,255); doc.text(g.tag, M + tw + 4, y + 10);
+      }
+      y += 18;
+      lines.forEach(l => {
+        room(13 * (1 + l.rest.length));
+        doc.setFontSize(10);
+        doc.setFillColor(...LOG_RGB[l.it.k]); doc.circle(M + IND - 6, y + 6.5, 1.8, 'F');
+        let x = M + IND + 2;
+        if (l.it.lead) { doc.setFont('helvetica','bold'); doc.setTextColor(...LOG_RGB[l.it.k]); doc.text(l.it.lead, x, y + 10); x += l.lw; }
+        doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+        doc.text(l.first, x, y + 10); y += 13;
+        l.rest.forEach(r => { doc.text(r, M + IND + 2, y + 10); y += 13; });
+      });
+      y += 8;
+    });
+    if (!n) { doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(90,90,105); doc.text('Nothing in the plot has changed.', M, y + 10); }
+    doc.addPage(); drawTitle(); tagPage('PLOT');
+  }
 
   // ── Before house opens ─────────────────────────────────────────────────────
   // Its own short table ahead of the plot proper: what's onstage or standing by
@@ -3061,7 +3334,34 @@ async function exportSetChangePlot() {
       else { last.rows.push(row); last.h += row.h; }
     });
 
-    crewPage(false);
+    // "Changes for you": a box above the first page's table, ahead of the
+    // column header, when this person has anything new since the last send.
+    pageFn = null;
+    doc.addPage(); tagPage(person.name); crewTitle();
+    pageFn = crewPage;
+    const myLog = log && person.name !== 'No one assigned' ? (log.mine.get(person.name.toLowerCase()) || []) : [];
+    if (myLog.length) {
+      doc.setFontSize(10); doc.setFont('helvetica','normal');
+      const MAXL = 12;
+      const rows = [];
+      myLog.forEach(it => doc.splitTextToSize(it.text, TABLE_W - 34).forEach((t, i) => rows.push({ t, k: it.k, first: i === 0 })));
+      const shown = rows.slice(0, MAXL), more = rows.length > MAXL;
+      const bh = 26 + shown.length * 13 + (more ? 13 : 0) + 6;
+      doc.setFillColor(255,244,230); doc.setDrawColor(240,196,143); doc.setLineWidth(0.8);
+      doc.roundedRect(M, y, TABLE_W, bh, 5, 5, 'FD');
+      doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(22,22,28);
+      doc.text('Changes for you since ' + plWhen(log.since), M + 12, y + 17);
+      let yy = y + 32;
+      doc.setFontSize(10);
+      shown.forEach(r => {
+        if (r.first) { doc.setFillColor(...LOG_RGB[r.k]); doc.circle(M + 16, yy - 3.5, 1.8, 'F'); }
+        doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+        doc.text(r.t, M + 24, yy); yy += 13;
+      });
+      if (more) { doc.setTextColor(120,120,132); doc.text('More on the What’s changed page at the front.', M + 24, yy); }
+      y += bh + 12;
+    }
+    crewHead();
     let shade = false, firstInScene = true;
     blocks.forEach(b => {
       if (b.scene !== pScene) {
@@ -3132,7 +3432,8 @@ async function exportSetChangePlot() {
 
   const safe = showName.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
   doc.save(safe + '_Set_Changes.pdf');
-  toast('Set change plot exported');
+  toast(offline ? 'Plot exported (couldn’t check what changed)' : 'Set change plot exported');
+  return true;
 }
 
 // ── SHARED EXPORT HELPERS ────────────────────────────────────────────────────
@@ -3146,7 +3447,7 @@ async function exportSetChangePlot() {
 // "SCENE CHANGE 12" -> "12". Falls back to the whole label so a change named
 // something without digits still exports something.
 function changeShortNum(v) {
-  const m = String(v || '').match(/(\d+[A-Za-z.]*)\s*$/);
+  const m = String(v || '').match(/(\d+(?:\.\d+)?[A-Za-z]*)\s*$/);
   return m ? m[1] : String(v || '').trim();
 }
 
@@ -6320,6 +6621,6 @@ document.addEventListener('keydown', e => {
 applyTheme(currentTheme(), false);
 if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v2 dev</div>
 </body>
 </html>
