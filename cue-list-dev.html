@@ -203,9 +203,11 @@
   @media (max-width: 600px) {
     .back-btn .back-label { display: none; }
     .back-btn { font-size: 18px; line-height: 1; padding: 3px 11px 5px; }
-    /* ‹ and the show name get the first row; the buttons wrap below. */
-    .bar-title { flex: 1 1 calc(100% - 60px); }
-    .bar-title h1 { max-width: 70%; }
+    /* ‹, the show name, the lock and ⋯ share the first row; the switch goes under. */
+    .bar-title { flex: 1 1 0; }
+    .bar-title h1 { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bar-title { flex-direction: column; align-items: flex-start; gap: 0; }
+    .bar-title .bar-sub { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   }
   .top-btn.primary { background: var(--purple); color: #fff; border-color: var(--purple); }
 
@@ -598,12 +600,25 @@
   .mv-plus:hover { border-style: solid; color: var(--text); }
   /* ── Export / history / toast ── */
   .overlay.open { display: flex; }
+  /* ⋯ menu: Export, display toggles, Settings */
+  .hdr-more { position: relative; flex: none; }
+  .more-btn { font-size: 18px; font-weight: 700; min-width: 40px; letter-spacing: .05em; }
+  .more-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 650; display: none; flex-direction: column; min-width: 230px;
+    background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,.22); padding: 6px; }
+  .hdr-more.open .more-menu { display: flex; }
+  .more-menu .top-btn { display: flex; align-items: center; width: 100%; min-height: 42px; justify-content: flex-start; text-align: left;
+    border: none; background: transparent; color: var(--text); font-size: 15px; padding: 0 12px; border-radius: 9px; white-space: nowrap; }
+  .more-menu .top-btn:hover { background: var(--purple-light); }
+  .more-menu .top-btn.primary { background: transparent; color: var(--purple); font-weight: 600; }
+  .mm-sep { height: 1px; background: var(--border); margin: 5px 4px; }
+  .mm-head { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); padding: 6px 12px 2px; }
+  @media (max-width: 600px) { #edit-btn .lk-w { display: none; } #edit-btn.lock-tg span { padding: 6px 10px; font-size: 15px; } }
   /* Script | Cue sheet: flips to the script in this tab, at the same cue. */
   .vw-switch { display: inline-flex; flex: none; background: rgba(127,127,140,.16); border-radius: 10px; padding: 3px; gap: 3px; margin: 0 6px; }
   .vw-switch button { border: none; background: transparent; color: var(--text-muted); font: 600 14px 'DM Sans', system-ui, sans-serif; padding: 6px 16px; min-height: 34px; border-radius: 8px; cursor: pointer; }
   .vw-switch button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(20,20,40,.16); cursor: default; }
   body.cl-noscripts .vw-switch { display: none; }
-  @media (max-width: 600px) { .vw-switch { flex: 1 1 100%; margin: 2px 0 0; } .vw-switch button { flex: 1; min-height: 40px; font-size: 15px; } }
+  @media (max-width: 600px) { .bar { flex-wrap: wrap; } .vw-switch { flex: 1 1 100%; order: 5; margin: 2px 0 0; } .vw-switch button { flex: 1; min-height: 40px; font-size: 15px; } }
   .export-opts { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 14px; }
   .export-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 56px; padding: 10px 14px;
     border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); text-align: left; font: inherit; }
@@ -895,14 +910,24 @@
         </div>
       </div>
       <div class="vw-switch" id="vw-switch" role="group" aria-label="View"><button type="button" onclick="flipToScript()" aria-pressed="false">Script</button><button type="button" class="on" aria-pressed="true">Cue sheet</button></div>
-      <button class="top-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Dark mode">🌙</button>
-      <button class="top-btn" id="layout-btn" onclick="cycleLayout()" title="Switch layout: Sheet or Wings">Layout: Sheet</button>
-      <button class="top-btn" id="photo-btn" onclick="setPhotos(!showPhotos)" title="Show or hide all line photos">Photos</button>
-      <button class="top-btn" id="awake-btn" onclick="toggleAwake()" title="Keep the screen on">Awake</button>
-      <button class="top-btn" id="export-btn" onclick="openExport()" title="Download the cue sheet or set change plot">Export</button>
       <span class="edit-state" id="edit-state"></span>
-      <button class="top-btn lock-tg" id="edit-btn" onclick="setEditMode(!editMode)" title="Switch between View only and Editing" aria-label="View only or editing"><span class="lk-v">🔒 View only</span><span class="lk-e">✎ Editing</span></button>
-      <button class="top-btn" onclick="openSheet()">Settings</button>
+      <button class="top-btn lock-tg" id="edit-btn" onclick="setEditMode(!editMode)" title="Switch between View only and Editing" aria-label="View only or editing"><span class="lk-v">🔒<span class="lk-w"> View only</span></span><span class="lk-e">✎<span class="lk-w"> Editing</span></span></button>
+      <!-- Everything used less often lives in ⋯. These are the same buttons that
+           used to sit in the bar, so their labels (Photos ✓, Awake ✓) still update. -->
+      <div class="hdr-more" id="hdr-more">
+        <button class="top-btn more-btn" id="more-btn" onclick="toggleMore(event)" aria-haspopup="menu" aria-expanded="false" aria-label="More">⋯</button>
+        <div class="more-menu" id="more-menu" role="menu" onclick="moreClick(event)">
+          <button class="top-btn" id="export-btn" onclick="openExport()" data-close="1" role="menuitem">Export…</button>
+          <div class="mm-sep"></div>
+          <div class="mm-head">Display</div>
+          <button class="top-btn" id="layout-btn" onclick="cycleLayout()" role="menuitem">Layout: Sheet</button>
+          <button class="top-btn" id="photo-btn" onclick="setPhotos(!showPhotos)" role="menuitem">Photos</button>
+          <button class="top-btn" id="theme-toggle" onclick="toggleDarkMode()" role="menuitem">🌙</button>
+          <button class="top-btn" id="awake-btn" onclick="toggleAwake()" role="menuitem">Awake</button>
+          <div class="mm-sep"></div>
+          <button class="top-btn" onclick="openSheet()" data-close="1" role="menuitem">Settings</button>
+        </div>
+      </div>
     </div>
     <div class="pr-bar" id="pr-bar" style="padding:2px 12px 6px"></div>
     <div class="search-row">
@@ -5352,6 +5377,18 @@ function rowMenuDo(what, arg){
 // through mmtJump, or ?cue= in the address.
 const DASH_WIN = /-dev\.html$/i.test(location.pathname) ? 'mmt-dashboard-dev' : 'mmt-dashboard';
 function jumpToScript(cueId){ flipToScript(cueId); }
+function toggleMore(e, force){
+  if (e) e.stopPropagation();
+  const w = document.getElementById('hdr-more'); if (!w) return;
+  const on = force === undefined ? !w.classList.contains('open') : !!force;
+  w.classList.toggle('open', on);
+  document.getElementById('more-btn').setAttribute('aria-expanded', on ? 'true' : 'false');
+}
+// Export and Settings open their own panel, so the menu gets out of the way;
+// the display toggles leave it open so you can see what changed.
+function moreClick(e){ const b = e.target.closest('button'); if (b && b.dataset.close) toggleMore(null, false); }
+document.addEventListener('pointerdown', e => { const w = document.getElementById('hdr-more'); if (w && w.classList.contains('open') && !w.contains(e.target)) toggleMore(null, false); }, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleMore(null, false); });
 // Script | Cue sheet: go to the script in this same tab, at this cue (else the
 // row at the top of the screen). Anything not yet saved is sent first; if it
 // can't be, stay here rather than leave it behind.
@@ -6664,7 +6701,7 @@ function applyTheme(t, persist){
   const shown = (typeof layout !== 'undefined' && layout === 'wings' && t === 'light') ? 'dark' : t;
   document.documentElement.setAttribute('data-theme', shown === 'light' ? '' : shown);
   const btn = document.getElementById('theme-toggle');
-  if (btn) btn.textContent = THEME_ICON[shown];
+  if (btn) btn.textContent = THEME_ICON[shown] + '  Theme: ' + ({ light: 'Light', dark: 'Dark', red: 'Red' })[shown];
   document.querySelectorAll('#theme-row button').forEach(b => b.classList.toggle('on', b.dataset.th === t));
   if (persist !== false){
     lsSet('mmt_cuelist_theme', t);
@@ -6886,6 +6923,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v4 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v5 dev</div>
 </body>
 </html>

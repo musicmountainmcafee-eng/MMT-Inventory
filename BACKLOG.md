@@ -8,7 +8,10 @@
   before/after screenshots checked: all 25 script page + 19 cue sheet features kept).
   Decisions: run views in header on computer / ⋯ on phone; one dark mode setting for both; Awake in ⋯; phone opens the view you came from.
   - Step 2 (Script | Cue sheet switch, same tab, same cue): on dev (Dashboard 10.25 v3 dev, Cue Sheet 10.25 v4 dev). Waiting for Mac to try it.
-  - Next: step 3, tidy the cue sheet header into ⋯.
+  - Step 3 (cue sheet header: Export, Layout, Photos, Theme, Awake, Settings into ⋯; phone lock is icons; phone header one row + switch): on dev (Cue Sheet 10.25 v5 dev).
+  - Mac chose to keep steps 2+ on dev and go live with several together.
+  - Next: step 4, tidy the script page header the same way.
+  - Later (step 8): one dark mode setting for both views.
 
 ## Bugs
 - **Cue sheet "Script ›" does nothing on phone/iPad** (live 10.25 v1). Fixed on dev by step 2 (same-tab switch); goes live with it.
