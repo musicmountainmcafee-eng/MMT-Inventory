@@ -613,6 +613,55 @@
   .hist-when { font-weight: 600; font-size: 14px; }
   .hist-what { font-size: 13px; color: var(--text-muted); }
   #history-body { max-height: 55vh; overflow-y: auto; margin-bottom: 10px; }
+  /* ── Crew plot view (?plot=) ── */
+  body.plotview #app, body.plotview #pin-screen { display: none !important; }
+  #pv[hidden] { display: none; }
+  body.plotview #build-tag { bottom: calc(66px + var(--safe-b, 0px)) !important; }
+  #pv { max-width: 1200px; margin: 0 auto; padding: 0 16px calc(84px + var(--safe-b, 0px)); }
+  .pv-head { display: flex; align-items: center; gap: 12px; padding: 16px 0 10px; border-bottom: 2px solid var(--text); margin-bottom: 12px; position: sticky; top: 0; background: var(--bg); z-index: 5; }
+  .pv-ttl { flex: 1; min-width: 0; }
+  .pv-head h1 { font-size: 22px; margin: 0; line-height: 1.2; }
+  .pv-sub { font-size: 12.5px; color: var(--text-muted); }
+  .pv-tabs { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px calc(10px + var(--safe-b, 0px)); background: var(--surface); border-top: 1px solid var(--border); z-index: 20; scrollbar-width: none; }
+  .pv-tabs::-webkit-scrollbar { display: none; }
+  .pv-tab { flex: none; font: inherit; font-size: 14px; padding: 9px 14px; min-height: 40px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; white-space: nowrap; }
+  .pv-tab.on { background: var(--purple); border-color: var(--purple); color: #fff; font-weight: 700; }
+  .pv-empty { color: var(--text-muted); padding: 30px 4px; font-size: 15px; }
+  .pv-count { color: var(--text-muted); margin: 0 0 10px; font-size: 14px; }
+  .pv-sec { margin-bottom: 18px; }
+  .pv-scene { background: #26262d; color: #fff; font-weight: 700; font-size: 12.5px; letter-spacing: .05em; text-transform: uppercase; padding: 6px 10px; border-radius: 6px 6px 0 0; }
+  .pv-none { color: var(--text-muted); font-size: 13px; padding: 8px 10px; margin: 0; border: 1px solid var(--border); border-top: none; }
+  .pv-table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--surface); }
+  .pv-table th { text-align: left; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .pv-table td { padding: 7px 8px; border-top: 1px solid var(--border); vertical-align: top; }
+  .pv-table tr.pv-first td { border-top: 2px solid var(--text-muted); }
+  .pv-table td.pv-n { font-weight: 700; white-space: nowrap; }
+  .pv-spk .spk-chip { margin: 0 4px 2px 0; }
+  .pv-cards { display: none; }
+  .pv-since { background: var(--purple-light); border-left: 4px solid var(--purple); padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; }
+  .pv-grp h4 { margin: 0 0 4px; font-size: 15px; }
+  .pv-grp ul, .pv-yours ul { margin: 0 0 14px; padding-left: 20px; }
+  .pv-grp li, .pv-yours li { margin: 3px 0; }
+  .pv-grp li.k-n b, .pv-grp li.k-n::marker, .pv-yours li.k-n::marker { color: #1d7a3a; }
+  .pv-grp li.k-c b, .pv-grp li.k-c::marker, .pv-yours li.k-c::marker { color: #b5651d; }
+  .pv-grp li.k-g b, .pv-grp li.k-g::marker, .pv-yours li.k-g::marker { color: #b02a20; }
+  .pv-tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; color: #fff; border-radius: 3px; padding: 1px 5px; vertical-align: 2px; }
+  .pv-tag.n { background: #1d7a3a; } .pv-tag.g { background: #b02a20; }
+  .pv-yours { background: #fff4e6; color: #3a2a10; border: 1px solid #f0c48f; border-radius: 10px; padding: 10px 14px 0; margin-bottom: 14px; }
+  .cl-link-in { width: 100%; font: inherit; font-size: 13px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
+  @media (max-width: 760px) {
+    .pv-table { display: none; }
+    .pv-cards { display: block; }
+    .pv-card { border: 1px solid var(--border); border-top: none; background: var(--surface); }
+    .pv-card + .pv-card { border-top: 2px solid var(--text-muted); }
+    .pv-ch { padding: 8px 10px 4px; font-size: 14px; }
+    .pv-ch span { float: right; color: var(--text-muted); font-size: 12.5px; }
+    .pv-mv { display: grid; grid-template-columns: 52px 1fr; gap: 3px 8px; padding: 6px 10px 9px; font-size: 14px; }
+    .pv-mv + .pv-mv { border-top: 1px dashed var(--border); }
+    .pv-mv .pv-piece { grid-column: 1 / -1; font-size: 15px; }
+    .pv-mv i { font-style: normal; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; padding-top: 2px; }
+    .pv-head h1 { font-size: 20px; }
+  }
   #toast { position: fixed; left: 50%; bottom: calc(24px + var(--safe-b)); transform: translateX(-50%) translateY(20px); opacity: 0;
     background: #1e1e32; color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 14px; z-index: 9000; pointer-events: none;
     transition: opacity .2s, transform .2s; }
@@ -875,10 +924,28 @@
     <div class="export-opts">
       <button class="export-opt" onclick="runExport('cues')"><b>Cue sheet</b><span>PDF of every cue, with line photos</span></button>
       <button class="export-opt" onclick="runExport('plot')"><b>Set change plot</b><span>PDF for the deck: what’s changed since the last one sent, Before House, every change, then a page for each person</span></button>
+      <button class="export-opt" onclick="openCrewLink()"><b>Crew link</b><span>A link to the plot with a tab for each person, always up to date. No uploading.</span></button>
       <button class="export-opt" onclick="runExport('xlsx')"><b>Set change plot (Excel)</b><span>The same plot as a spreadsheet, with a tab for each person</span></button>
       <button class="export-opt" onclick="runExport('spikes')"><b>Spike key</b><span>PDF to post backstage: each piece, its tape and spike notes</span></button>
     </div>
     <div class="modal-btns"><button class="top-btn" onclick="closeExport()">Cancel</button></div>
+  </div>
+</div>
+
+<!-- ── CREW PLOT VIEW (?plot=) ─────────────────────────────────────────────── -->
+<div id="pv" hidden>
+  <header class="pv-head"><div class="pv-ttl"><h1 id="pv-who">Set change plot</h1><div id="pv-sub" class="pv-sub">Set changes</div></div>
+    <button class="top-btn" id="pv-pdf" onclick="pvPDF()">Download PDF</button></header>
+  <main id="pv-body"></main>
+  <nav id="pv-tabs" class="pv-tabs"></nav>
+</div>
+<!-- ── CREW LINK ──────────────────────────────────────────────────────────── -->
+<div class="overlay" id="crew-link" onclick="if(event.target===this) closeCrewLink()">
+  <div class="modal">
+    <h3>Crew link</h3>
+    <p class="note">Anyone with this link can view the set change plot, with a tab for each person. It shows edits as they're saved, and its Changes tab lists everything since the version you last marked as sent. Send it once; it stays the same for this script.</p>
+    <input id="crew-link-url" class="cl-link-in" readonly onclick="this.select()">
+    <div class="modal-btns" style="gap:8px;margin-top:12px"><button class="top-btn" onclick="closeCrewLink()">Close</button><button class="top-btn" onclick="window.open(document.getElementById('crew-link-url').value,'_blank')">Open</button><button class="top-btn primary" onclick="copyCrewLink()">Copy link</button></div>
   </div>
 </div>
 
@@ -1474,7 +1541,7 @@ function pickScript(id, name, silent){
 }
 
 function fetchCues(showLoading){
-  if (!scriptId) return;
+  if (!scriptId || PLOT_ID) return;
   // A refresh landing mid-edit would wipe what's being typed.
   if (editMode || editSaving) return;
   if (showLoading) setStatus('loading…', 'stale');
@@ -6618,9 +6685,194 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'Backspace') pinPress('back');
 });
 
+// ══ CREW PLOT LINK ═══════════════════════════════════════════════════════════
+// cue-list.html?plot=<script>: the set change plot as a read-only page with
+// tabs along the bottom (Changes · Full plot · Before House · each person).
+// No PIN — it's view only, like a Drive "anyone with the link" share. Live:
+// it re-reads the Sheet every minute and when the tab comes back into view.
+// Changes compare against the last version marked as sent.
+const PLOT_ID = (() => { try { return new URLSearchParams(location.search).get('plot') || ''; } catch (e) { return ''; } })();
+let pvTab = '', pvLog = null, pvBase = undefined, pvAt = 0, pvBusy = false;
+function plotLinkFor(id){
+  const nm = id ? '' : ssTitle(scriptId, scriptName);
+  return location.origin + location.pathname + '?plot=' + encodeURIComponent(id || scriptId) + (nm && nm !== 'Untitled' ? '&name=' + encodeURIComponent(nm) : '');
+}
+function plotViewBoot(){
+  document.body.classList.add('plotview');
+  document.getElementById('pin-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('pv').hidden = false;
+  scriptId = PLOT_ID;
+  try { scriptName = new URLSearchParams(location.search).get('name') || ''; } catch (e) { scriptName = ''; }
+  clRole = ''; clName = '';
+  try { pvTab = new URLSearchParams(location.search).get('tab') || localStorage.getItem('mmt_pv_tab_' + PLOT_ID) || ''; } catch (e) {}
+  document.getElementById('pv-body').innerHTML = '<p class="pv-empty">Loading the plot…</p>';
+  let left = 2; const go = () => { if (--left === 0) pvFetch(true); };
+  ssLoad(go); spkLoad(go);
+  setInterval(() => { if (!document.hidden) pvFetch(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - pvAt > 15000) pvFetch(); });
+}
+function pvFetch(first){
+  if (pvBusy) return; pvBusy = true;
+  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), d => {
+    if (!d || !d.success || !d.cueData) { pvBusy = false; if (first) document.getElementById('pv-body').innerHTML = '<p class="pv-empty">This plot couldn’t be found. Ask for a new link.</p>'; return; }
+    const hash = JSON.stringify([d.cueData.cues, d.cueData.presets, d.cueData.annotations]);
+    applyPayload(d.cueData);
+    plotSentGet().then(last => {
+      pvBusy = false; pvAt = Date.now();
+      if (last !== undefined) pvBase = last;
+      const changed = first || hash !== pvFetch._h || JSON.stringify(pvBase || null) !== pvFetch._b;
+      pvFetch._h = hash; pvFetch._b = JSON.stringify(pvBase || null);
+      if (scriptName === '' && d.name) scriptName = d.name;
+      pvLog = null;
+      if (pvBase && pvBase.snap) { const df = plotDiff(pvBase.snap, plotSnap()); pvLog = { since: pvBase.at, by: pvBase.by || '', groups: df.groups, mine: df.mine }; }
+      pvStamp();
+      if (changed) pvRender(first);
+    });
+  }, () => { pvBusy = false; pvStamp(true); }, 20000);
+}
+function pvStamp(off){
+  const el = document.getElementById('pv-sub'); if (!el) return;
+  const t = pvAt ? new Date(pvAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+  el.textContent = 'Set changes' + (t ? ' · up to date as of ' + t : '') + (off ? ' · offline, showing last copy' : '');
+}
+function pvTitle(){
+  let name = '';
+  try { name = ssTitle(scriptId, scriptName); } catch (e) {}
+  if (!name || name === 'Untitled') name = 'Set change plot';
+  document.title = name + ' · Set changes';
+  document.getElementById('show-name').textContent = name;
+  return name;
+}
+// Everything the tabs need, read from the same cues the PDF prints.
+function pvModel(){
+  const SL = sceneLabels(); let scene = '';
+  const sections = []; let cur = null;
+  const crew = new Map(); const NOBODY = '\u0000';
+  cuesInScriptOrder().forEach(c => {
+    if (isSceneCue(c)) { scene = SL[c.id] || c.number || ''; cur = { label: scene, changes: [] }; sections.push(cur); return; }
+    if (c.type !== SHIFT_TYPE_ID) return;
+    if (!cur) { cur = { label: '', changes: [] }; sections.push(cur); }
+    cur.changes.push(c);
+    (c.moves || []).forEach(m => {
+      const names = whoNames(m.who); const keys = names.length ? names : [NOBODY];
+      keys.forEach(n => {
+        const k = n === NOBODY ? NOBODY : n.toLowerCase();
+        if (!crew.has(k)) crew.set(k, { key: k, name: n === NOBODY ? 'No one assigned' : n, items: [] });
+        crew.get(k).items.push({ scene, c, m, others: names.filter(o => o.toLowerCase() !== k) });
+      });
+    });
+  });
+  const people = [...crew.values()].filter(p => p.key !== NOBODY).sort((a, b) => a.name.localeCompare(b.name));
+  if (crew.has(NOBODY)) people.push(crew.get(NOBODY));
+  const pre = allPieces().map(({ key, piece }) => ({ ...(presets[key] || {}), piece })).filter(r => !r.hidden);
+  return { sections, people, pre };
+}
+function pvSetTab(t){
+  pvTab = t;
+  try { localStorage.setItem('mmt_pv_tab_' + PLOT_ID, t); } catch (e) {}
+  pvRender(true);
+}
+function pvRender(toTop){
+  const name = pvTitle();
+  const M = pvModel();
+  const n = pvLog ? pvLog.groups.length : 0;
+  const tabs = [{ id: 'changes', label: 'Changes' + (n ? ' (' + n + ')' : '') }, { id: 'plot', label: 'Full plot' }];
+  if (M.pre.length) tabs.push({ id: 'preset', label: 'Before House' });
+  M.people.forEach(p => tabs.push({ id: 'p:' + p.key, label: p.name, person: p }));
+  if (!tabs.some(t => t.id === pvTab)) pvTab = pvLog && n ? 'changes' : 'plot';
+  const t = tabs.find(x => x.id === pvTab);
+  let html = '';
+  if (pvTab === 'changes') html = pvChangesHTML();
+  else if (pvTab === 'plot') html = M.sections.map(s => pvSectionHTML(s.label, s.changes.map(c => ({ c, moves: c.moves && c.moves.length ? c.moves.map(m => ({ m })) : [{ m: {} }] })), false)).join('') || '<p class="pv-empty">No set changes yet.</p>';
+  else if (pvTab === 'preset') html = pvPresetHTML(M.pre);
+  else html = pvPersonHTML(t.person);
+  const body = document.getElementById('pv-body');
+  const keep = toTop ? 0 : window.scrollY;
+  body.innerHTML = html;
+  document.getElementById('pv-tabs').innerHTML = tabs.map(x => `<button class="pv-tab${x.id === pvTab ? ' on' : ''}" onclick='pvSetTab(${esc(JSON.stringify(x.id))})'>${esc(x.label)}</button>`).join('');
+  const on = document.querySelector('#pv-tabs .pv-tab.on'); if (on && toTop) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+  document.getElementById('pv-who').textContent = t.person ? t.person.name : name;
+  window.scrollTo(0, keep);
+}
+const pvNum = c => '#' + changeShortNum(c.number);
+// One scene: a table on wide screens, cards on phones (both built, CSS picks).
+function pvSectionHTML(label, blocks, withCol){
+  if (!blocks.length && !label) return '';
+  const rows = blocks.map(b => b.moves.map((x, i) => {
+    const m = x.m, c = b.c;
+    return `<tr class="${i === 0 ? 'pv-first' : ''}"><td class="pv-n">${i === 0 ? esc(pvNum(c)) : ''}</td><td>${i === 0 ? esc(m.trigger || c.cueLine || '') : ''}</td><td class="pv-pg">${i === 0 && c.page ? esc(c.page) : ''}</td>`
+      + `<td><b>${esc(m.piece || '')}</b></td><td>${esc(m.action || '')}</td><td>${esc(wingText(m))}</td><td>${esc(withCol ? x.others.join(', ') : (m.who || ''))}</td>`
+      + `<td class="pv-spk">${m.piece || m.spike || m.spikeIds ? spkChipsHTML(m, scriptId) : ''}</td><td>${esc(m.notes || '')}</td></tr>`;
+  }).join('')).join('');
+  const cards = blocks.map(b => {
+    const c = b.c;
+    return `<div class="pv-card"><div class="pv-ch"><b>${esc(pvNum(c))}</b>${c.cueLine ? ' · ' + esc(c.cueLine) : ''}${c.page ? '<span>pg. ' + esc(c.page) + '</span>' : ''}</div>`
+      + b.moves.map(x => {
+        const m = x.m, w = withCol ? x.others.join(', ') : m.who;
+        const kv = (k, v) => v ? `<i>${k}</i><span>${v}</span>` : '';
+        const spk = m.piece || m.spike || m.spikeIds ? spkChipsHTML(m, scriptId) : '';
+        return `<div class="pv-mv"><b class="pv-piece">${esc(m.piece || '—')}</b>${kv('Do', esc([m.action, wingText(m)].filter(Boolean).join(' · ')))}${kv(withCol ? 'With' : 'Who', esc(w || ''))}${kv('Spike', spk)}${kv('Notes', esc(m.notes || ''))}</div>`;
+      }).join('') + '</div>';
+  }).join('');
+  return `<section class="pv-sec">${label ? `<div class="pv-scene">${esc(label)}</div>` : ''}`
+    + (blocks.length ? `<table class="pv-table"><thead><tr><th>#</th><th>Cue</th><th>Pg</th><th>Piece</th><th>Action</th><th>Wing</th><th>${withCol ? 'With' : 'Who'}</th><th>Spike</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table><div class="pv-cards">${cards}</div>` : '<p class="pv-none">No set changes in this scene.</p>')
+    + '</section>';
+}
+function pvChangesHTML(){
+  if (!pvBase) return '<p class="pv-empty">Nothing has been marked as sent yet, so there’s nothing to compare against. The Full plot tab has everything.</p>';
+  const head = `<div class="pv-since">What’s changed since the version sent <b>${esc(plWhen(pvLog.since))}</b>${pvLog.by ? ' by ' + esc(pvLog.by) : ''}</div>`;
+  if (!pvLog.groups.length) return head + '<p class="pv-empty">Nothing has changed since then.</p>';
+  return head + pvLog.groups.map(g => `<div class="pv-grp"><h4>${esc(g.title)}${g.tag ? ` <span class="pv-tag ${g.tag === 'NEW' ? 'n' : 'g'}">${g.tag}</span>` : ''}</h4><ul>`
+    + g.items.map(it => `<li class="k-${it.k}">${it.lead ? `<b>${esc(it.lead)}</b> ` : ''}${esc(it.text || '')}</li>`).join('') + '</ul></div>').join('');
+}
+function pvPersonHTML(p){
+  const mine = pvLog && p.name !== 'No one assigned' ? (pvLog.mine.get(p.key) || []) : [];
+  const changes = new Set(p.items.map(it => it.c.id)).size;
+  let html = `<p class="pv-count">${p.items.length} move${p.items.length === 1 ? '' : 's'} in ${changes} change${changes === 1 ? '' : 's'}</p>`;
+  if (mine.length) html += `<div class="pv-yours"><b>Changes for you since ${esc(plWhen(pvLog.since))}</b><ul>${mine.map(it => `<li class="k-${it.k}">${esc(it.text)}</li>`).join('')}</ul></div>`;
+  const secs = [];
+  p.items.forEach(it => {
+    let s = secs[secs.length - 1];
+    if (!s || s.label !== it.scene) { s = { label: it.scene, blocks: [] }; secs.push(s); }
+    let b = s.blocks[s.blocks.length - 1];
+    if (!b || b.c !== it.c) { b = { c: it.c, moves: [] }; s.blocks.push(b); }
+    b.moves.push({ m: it.m, others: it.others });
+  });
+  return html + secs.map(s => pvSectionHTML(s.label, s.blocks, p.name !== 'No one assigned')).join('');
+}
+function pvPresetHTML(rows){
+  return `<section class="pv-sec"><div class="pv-scene">Before house opens</div><table class="pv-table pv-pre"><thead><tr><th>Piece</th><th>Preset location</th><th>Spike</th><th>Notes</th></tr></thead><tbody>`
+    + rows.map(r => `<tr class="pv-first"><td><b>${esc(r.piece)}</b></td><td>${esc(r.location || '')}</td><td class="pv-spk">${spkChipsHTML(r, scriptId)}</td><td>${esc(r.notes || '')}</td></tr>`).join('')
+    + '</tbody></table><div class="pv-cards">'
+    + rows.map(r => `<div class="pv-card"><div class="pv-mv"><b class="pv-piece">${esc(r.piece)}</b>${r.location ? `<i>Preset</i><span>${esc(r.location)}</span>` : ''}${spkChipsHTML(r, scriptId) ? `<i>Spike</i><span>${spkChipsHTML(r, scriptId)}</span>` : ''}${r.notes ? `<i>Notes</i><span>${esc(r.notes)}</span>` : ''}</div></div>`).join('')
+    + '</div></section>';
+}
+async function pvPDF(){
+  const btn = document.getElementById('pv-pdf'); btn.disabled = true;
+  try { pvTitle(); await exportSetChangePlot(pvLog, false); } catch (e) { console.error(e); toast('Couldn’t make the PDF — try again'); }
+  btn.disabled = false;
+}
+
+// The TD's side: the link to hand out.
+function openCrewLink(){
+  closeExport();
+  if (!scriptId) { toast('Pick a script first'); return; }
+  document.getElementById('crew-link-url').value = plotLinkFor();
+  document.getElementById('crew-link').classList.add('open');
+}
+function closeCrewLink(){ document.getElementById('crew-link').classList.remove('open'); }
+function copyCrewLink(){
+  const v = document.getElementById('crew-link-url').value;
+  const ok = () => toast('Link copied');
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(ok, () => { document.getElementById('crew-link-url').select(); document.execCommand('copy'); ok(); });
+  else { document.getElementById('crew-link-url').select(); document.execCommand('copy'); ok(); }
+}
+
 applyTheme(currentTheme(), false);
-if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
+if (PLOT_ID) plotViewBoot();
+else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v2 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v3 dev</div>
 </body>
 </html>
