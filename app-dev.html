@@ -5237,6 +5237,35 @@ table td { font-size: 14px !important; }
   #scripts-editor .zoom-group #zoom-info { color: #6b6b78 !important; font: 500 13px 'DM Mono', monospace !important; min-width: 44px; }
   #scripts-editor .viewer:has(#mv-drawer.open) .page-nav { display: none !important; }
   body.se-touch #scripts-editor.place-mode .place-banner { bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important; }
+  /* Phone: no tool row. Mark and Undo float in the corner; the cue types come
+     up in a tray only while marking (redesign step 5). */
+  @media (max-width: 768px) {
+    body.se-touch #scripts-editor:not(.running):not(.sv-cues) .tool-sidebar {
+      position: fixed !important; z-index: 40; right: 12px; left: auto; bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+      padding: 0 !important; gap: 8px !important; background: transparent !important; border: none !important; overflow: visible;
+    }
+    body.se-touch #scripts-editor:not(.place-mode) .tool-sidebar #type-quick,
+    body.se-touch #scripts-editor .tool-sidebar .tool-divider,
+    body.se-touch #scripts-editor .tool-sidebar .tool-spacer { display: none !important; }
+    body.se-touch #scripts-editor .tool-sidebar .tool-btn[title="Undo"] { order: 1; background: #fff !important; box-shadow: 0 4px 14px rgba(20,20,37,.2); border-radius: 999px !important; }
+    body.se-touch #scripts-editor .tool-sidebar .se-mode-btn { order: 2; height: 46px; border-radius: 999px !important; background: #534AB7 !important; border-color: #534AB7 !important; color: #fff !important; box-shadow: 0 4px 14px rgba(83,74,183,.4); padding: 0 14px !important; }
+    body.se-touch #scripts-editor:not(.place-mode) .page-nav { left: 12px; transform: none; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); max-width: calc(100% - 170px); }
+    body.se-touch #scripts-editor .page-nav button { min-width: 38px !important; padding: 0 6px !important; }
+    body.se-touch #scripts-editor .page-nav .page-jump { gap: 4px !important; }
+    body.se-touch #scripts-editor:has(#mv-drawer.open) .tool-sidebar { display: none !important; }
+    /* Marking: a tray along the bottom with every cue type, Undo and Done. */
+    body.se-touch #scripts-editor.place-mode:not(.running) .tool-sidebar {
+      left: 0; right: 0; bottom: 0; flex-wrap: wrap !important; justify-content: flex-end; gap: 10px !important;
+      padding: 14px 14px calc(14px + env(safe-area-inset-bottom, 0px)) !important; background: #fff !important;
+      border-radius: 18px 18px 0 0; box-shadow: 0 -8px 26px rgba(20,20,37,.18);
+    }
+    body.se-touch #scripts-editor.place-mode .tool-sidebar #type-quick { order: 0; flex: 1 1 100% !important; flex-wrap: wrap !important; display: flex !important; }
+    body.se-touch #scripts-editor.place-mode .tool-sidebar .tool-btn[title="Undo"] { box-shadow: none; border: 1px solid var(--se-line) !important; }
+    body.se-touch #scripts-editor.place-mode .page-nav { display: none !important; }
+    body.se-touch #scripts-editor.place-mode .place-banner { top: 10px; bottom: auto !important; }
+    body.se-touch #scripts-editor.place-mode .place-banner button { display: none; }
+    body.se-touch #scripts-editor .canvas-wrap { padding-bottom: 96px !important; }
+  }
 
   /* Cue list */
   #scripts-editor .cue-panel { width: 320px; background: #fff !important; border-left: 1px solid var(--cue-border) !important; }
@@ -6857,7 +6886,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v4 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v5 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -17810,7 +17839,7 @@ function setPlaceMode(on) {
   // Abandon anything half-drawn when standing down.
   if (!sePlaceMode && (isDrawing || cueRect)) { isDrawing = false; cueRect = null; redrawAnnotations(); }
   const btn = document.getElementById('se-mode-btn');
-  if (btn) btn.classList.toggle('active', sePlaceMode);
+  if (btn) { btn.classList.toggle('active', sePlaceMode); const l = btn.querySelector('span'); if (l) l.textContent = sePlaceMode ? 'Done' : 'Mark'; }
   const banner = document.getElementById('place-banner');
   const txt = document.getElementById('place-banner-txt');
   if (banner && txt) {
