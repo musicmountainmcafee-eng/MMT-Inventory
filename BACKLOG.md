@@ -26,6 +26,8 @@
     pill buttons, icons on every main button and menu item (drawn with CSS masks), cue sheet as white cards with black scene bars.
     Colors apply to the light theme / normal script look; cue sheet Dark and Red themes and the script page's Dark look keep their
     colors (Dark look still uses its purple accents). Script page + cue sheet only; the rest of the dashboard comes later.
+  - The new look now covers the whole dev dashboard too (Dashboard 10.26 v2 dev): black menu and header bar, white for the
+    current tab, black main buttons, soft grey pill buttons, rounded cards; dark mode keeps its colors (one <style id="new-look"> block).
   - Next: Mac tries everything on dev, then take live together.
 
 ## Bugs
