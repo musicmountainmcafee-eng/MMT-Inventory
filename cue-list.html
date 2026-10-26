@@ -598,6 +598,47 @@
   @keyframes jumpflash { 0%, 35% { background: #ffe9a8; } 100% { background: inherit; } }
   /* Crew whose "Can change: Scripts" is off: look, don't touch. */
   body.cl-readonly #edit-btn, body.cl-readonly #pr-guard { display: none !important; }
+  /* Paste set changes */
+  .ps-modal { max-width: 880px; }
+  .ps-text { width: 100%; box-sizing: border-box; min-height: 110px; font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; padding: 10px 12px;
+    border: 1px solid var(--border, #ddd); border-radius: 10px; background: var(--bg, #f7f7f7); color: var(--text, #222); resize: vertical; white-space: pre; overflow: auto; }
+  .ps-text:focus { outline: none; border-color: var(--ink, #111); background: var(--surface, #fff); }
+  .ps-cap { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted, #777); margin: 14px 0 6px; }
+  .ps-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; }
+  .ps-col { display: flex; flex-direction: column; gap: 4px; min-width: 0; border: 1px solid var(--border, #ddd); border-radius: 10px; padding: 7px 8px; font-size: 12px; }
+  .ps-col > span { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ps-col small { color: var(--text-muted, #777); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 1.2em; }
+  .ps-col select { font: inherit; font-size: 13px; padding: 5px 6px; border-radius: 7px; border: 1px solid var(--border, #ddd); background: var(--surface, #fff); color: var(--text, #222); }
+  .ps-col.skip { opacity: .55; }
+  .ps-colsum { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12.5px; }
+  .ps-colsum span { border: 1px solid var(--border, #ddd); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+  .ps-colsum span i { font-style: normal; color: var(--text-muted, #777); }
+  .ps-colsum span.skip { opacity: .5; text-decoration: line-through; }
+  .ps-colbtn { font: inherit; font-size: 12.5px; font-weight: 700; border: 0; background: none; color: var(--ink, #111); text-decoration: underline; cursor: pointer; padding: 3px 4px; }
+  .ps-sum { font-size: 13.5px; font-weight: 700; margin: 14px 0 6px; }
+  .ps-dupc { color: #b5651d; }
+  .ps-warn { font-size: 12.5px; color: #b5651d; margin: 4px 0 8px; line-height: 1.45; }
+  .ps-list { max-height: 40vh; overflow-y: auto; border-top: 1px solid var(--border, #ddd); }
+  .ps-g { display: flex; gap: 10px; align-items: flex-start; padding: 9px 2px; border-bottom: 1px solid var(--border, #ddd); font-size: 13.5px; }
+  .ps-g input[type=checkbox] { width: 18px; height: 18px; margin: 1px 0 0; flex: none; accent-color: var(--ink, #111); }
+  .ps-nochk { width: 18px; flex: none; }
+  .ps-g.off .ps-gh, .ps-g.off .ps-mv { opacity: .45; }
+  .ps-gb { flex: 1; min-width: 0; }
+  .ps-gh { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .ps-gh b { font-size: 14.5px; }
+  .ps-g.scene .ps-gh b { text-transform: uppercase; letter-spacing: .04em; font-size: 13px; }
+  .ps-pg { color: var(--text-muted, #777); font-size: 12.5px; }
+  .ps-pg.guess { color: #b5651d; }
+  .ps-line { font-style: italic; }
+  .ps-mv { color: var(--text-muted, #777); font-size: 12.5px; margin-top: 2px; }
+  .ps-dup { margin-top: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: #b5651d; font-weight: 600; }
+  .ps-dupn { color: var(--text-muted, #777); font-weight: 400; }
+  .ps-seg { display: inline-flex; border: 1px solid var(--border, #ddd); border-radius: 999px; padding: 2px; }
+  .ps-seg button { font: inherit; font-size: 12.5px; font-weight: 600; border: 0; background: none; padding: 5px 13px; border-radius: 999px; color: var(--text, #222); cursor: pointer; }
+  .ps-seg button.on { background: var(--ink, #111); color: var(--surface, #fff); }
+  html:not([data-theme="dark"]):not([data-theme="red"]) #ps-go { background: #111 !important; border-color: #111 !important; border-radius: 999px; }
+  #ps-overlay .ppl-btn { border-radius: 999px; }
+  body.cl-readonly #paste-btn { display: none !important; }
   body.editing .cs-crop, body.editing .photo-chip { display: none; }
   .mv-in {
     width: 100%; font: inherit; font-size: 0.92em;
@@ -630,6 +671,7 @@
   .ic-dots { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%225%22%20cy%3D%2212%22%20r%3D%221.7%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%221.7%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%2219%22%20cy%3D%2212%22%20r%3D%221.7%22%20fill%3D%22black%22%2F%3E%3C%2Fsvg%3E"); }
   .ic-back { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M15%2018l-6-6%206-6%22%2F%3E%3C%2Fsvg%3E"); }
   .ic-home { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%2011l9-7%209%207%22%2F%3E%3Cpath%20d%3D%22M5%2010v10h14V10%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-paste { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M9%203h6v3H9zM7%204.5H6a1%201%200%2000-1%201V20a1%201%200%20001%201h12a1%201%200%20001-1V5.5a1%201%200%2000-1-1h-1M9%2011.5h6M9%2015.5h4%22%2F%3E%3C%2Fsvg%3E"); }
   .ic-export { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203v12M7%2010l5%205%205-5M5%2021h14%22%2F%3E%3C%2Fsvg%3E"); }
   .ic-layout { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%223%22%20y%3D%224%22%20width%3D%2218%22%20height%3D%2216%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M3%2010h18M9%2010v10%22%2F%3E%3C%2Fsvg%3E"); }
   .ic-photo { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%223%22%20y%3D%225%22%20width%3D%2218%22%20height%3D%2214%22%20rx%3D%222%22%2F%3E%3Ccircle%20cx%3D%229%22%20cy%3D%2211%22%20r%3D%222%22%2F%3E%3Cpath%20d%3D%22M21%2017l-5-5-8%208%22%2F%3E%3C%2Fsvg%3E"); }
@@ -1030,6 +1072,7 @@
         <button class="top-btn more-btn ic ic-dots" id="more-btn" onclick="toggleMore(event)" aria-haspopup="menu" aria-expanded="false" aria-label="More"></button>
         <div class="more-menu" id="more-menu" role="menu" onclick="moreClick(event)">
           <button class="top-btn ic ic-export" id="export-btn" onclick="openExport()" data-close="1" role="menuitem">Export…</button>
+          <button class="top-btn ic ic-paste" id="paste-btn" onclick="psOpen()" data-close="1" role="menuitem">Paste set changes…</button>
           <div class="mm-sep"></div>
           <div class="mm-head">Display</div>
           <button class="top-btn ic ic-layout" id="layout-btn" onclick="cycleLayout()" role="menuitem">Layout: Sheet</button>
@@ -1074,6 +1117,19 @@
       <button class="export-opt" onclick="runExport('spikes')"><b>Spike key</b><span>PDF to post backstage: each piece, its tape and spike notes</span></button>
     </div>
     <div class="modal-btns"><button class="top-btn" onclick="closeExport()">Cancel</button></div>
+  </div>
+</div>
+
+<!-- ── PASTE SET CHANGES ───────────────────────────────────────────────── -->
+<div class="ppl-overlay" id="ps-overlay" onclick="if(event.target===this) psClose()">
+  <div class="ppl-modal ps-modal" role="dialog" aria-modal="true" aria-labelledby="ps-title">
+    <div class="ppl-head"><h3 id="ps-title">Paste set changes</h3><span class="ppl-show" id="ps-show"></span><button class="ppl-x" onclick="psClose()" aria-label="Close">×</button></div>
+    <p class="ppl-help">Copy the rows from Excel or Google Sheets, <b>header row included</b>, and paste them here. A row with no change number belongs to the change above it.
+      Nothing is added until you press the button at the bottom.</p>
+    <textarea id="ps-text" class="ps-text" placeholder="Paste here" spellcheck="false" autocomplete="off" oninput="psInput(this.value)"></textarea>
+    <div id="ps-cols"></div>
+    <div id="ps-prev"></div>
+    <div class="ppl-btns"><span class="ppl-status"></span><button class="ppl-btn" onclick="psClose()">Cancel</button><button class="ppl-btn primary" id="ps-go" onclick="psCommit()" disabled>Add</button></div>
   </div>
 </div>
 
@@ -5869,6 +5925,338 @@ function flushAdds(forceRead){
   }, () => fail());
 }
 
+// ── PASTE SET CHANGES ───────────────────────────────────────────────────────
+// Rows copied from Excel or Google Sheets (tab-separated, header row included)
+// become set changes. Columns are matched by their header, and each can be
+// changed by hand, since every stage manager lays a plot out differently.
+// A row with no change number belongs to the change above it; a row with one
+// line of text and nothing else ("ACT 1 SCENE 2") is a scene heading.
+// Nothing is added until Add is pressed. New changes go in through the same
+// queue as "+ Add cue" (approximate markers on their page, dragged onto the
+// line later). A change already on the sheet is only touched when Update is
+// picked for it, and then only its moves (and its cue line, if pasted).
+const PS_FIELDS = [['', 'Skip'], ['num', 'Change #'], ['cueLine', 'Cue line'], ['page', 'Page'], ['scene', 'Scene'],
+  ['piece', 'Piece'], ['action', 'Action'], ['wing', 'Wing'], ['wingTo', 'To wing'], ['who', 'Who'], ['spike', 'Spike'], ['notes', 'Notes']];
+const PS_NAMES = {
+  num: ['#', 'no', 'num', 'number', 'shift', 'shift #', 'shift no', 'change', 'change #', 'change no', 'sc', 'sc #', 'q', 'q #',
+        'cue #', 'cue no', 'cue number', 'set change', 'set change #', 'shift number', 'change number'],
+  cueLine: ['cue', 'cue line', 'line', 'called on', 'go on', 'trigger', 'when', 'cue / pg', 'cue/pg', 'standby'],
+  page: ['pg', 'page', 'pg #', 'page #', 'script page', 'script pg', 'p'],
+  scene: ['scene', 'act/scene', 'act / scene', 'act & scene', 'act and scene'],
+  piece: ['piece', 'pieces', 'item', 'items', 'set piece', 'set pieces', 'scenery', 'prop', 'props', 'what', 'unit', 'movement', 'movements', 'description', 'shift description'],
+  action: ['action', 'move', 'on/off', 'on / off', 'in/out', 'in / out', 'direction', 'task'],
+  wing: ['wing', 'from', 'where', 'side', 'stage side', 'sl/sr', 'sr/sl', 'location', 'from wing', 'position', 'storage', 'stored'],
+  wingTo: ['to', 'to wing', 'destination', 'goes to', 'ends'],
+  who: ['who', 'crew', 'run by', 'by', 'person', 'people', 'operator', 'assigned', 'assigned to', 'with'],
+  spike: ['spike', 'spikes', 'spike mark', 'spike marks', 'tape'],
+  notes: ['notes', 'note', 'comments', 'comment', 'details', 'spike / notes', 'spike/notes']
+};
+const PS_MOVE_F = ['piece', 'action', 'wing', 'wingTo', 'who', 'spike', 'notes'];
+let ps = null;   // { rows, head, map, mapTouched, off, dup } while the box is open
+
+function psNorm(h){ return String(h || '').toLowerCase().replace(/[–—]/g, '-').replace(/\s+/g, ' ').replace(/[.:]/g, '').trim(); }
+function psFieldOf(h){ const n = psNorm(h); for (const f in PS_NAMES) if (PS_NAMES[f].indexOf(n) >= 0) return f; return null; }
+
+// Spreadsheet text -> rows of cells. Excel and Sheets copy as tabs, with a
+// cell that holds a tab, quote or line break wrapped in quotes.
+function psParse(text){
+  text = String(text || '').replace(/\r\n?/g, '\n');
+  let sep = '\t';
+  if (text.indexOf('\t') < 0 && text.split('\n').filter(l => l.indexOf(',') >= 0).length >= 2) sep = ',';
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++){
+    const ch = text[i];
+    if (q) {
+      if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += ch;
+      continue;
+    }
+    if (ch === '"' && cell === '') { q = true; continue; }
+    if (ch === sep) { row.push(cell); cell = ''; continue; }
+    if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; continue; }
+    cell += ch;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  const out = rows.map(r => r.map(c => c.replace(/\s+/g, ' ').trim())).map(r => r.some(c => c) ? r : []);
+  while (out.length && !out[0].length) out.shift();
+  while (out.length && !out[out.length - 1].length) out.pop();
+  return out;
+}
+// The header is the first of the top few rows with two or more names we know
+// (an exported plot has its title rows above it).
+function psFindHeader(rows){
+  for (let i = 0; i < Math.min(rows.length, 8); i++) if (rows[i].filter(c => psFieldOf(c)).length >= 2) return i;
+  return -1;
+}
+function psLooksNum(vals){
+  const v = vals.filter(Boolean);
+  return v.length > 0 && v.filter(x => /^#?\s*[a-z]{0,8}\s*#?\s*\d+(\.\d+)?[a-z]?$/i.test(x)).length / v.length >= 0.6;
+}
+function psAutoMap(rows, head){
+  const n = Math.max(0, ...rows.map(r => r.length));
+  let map = [];
+  if (head >= 0) {
+    const used = {};
+    for (let i = 0; i < n; i++) { let f = psFieldOf(rows[head][i]); if (f && used[f]) f = null; if (f) used[f] = true; map.push(f || ''); }
+    // "Cue" is the number on some plots: if no other column is, and it reads like numbers, it's the number.
+    if (!used.num) { const i = map.indexOf('cueLine'); if (i >= 0 && psLooksNum(rows.slice(head + 1).map(r => r[i] || ''))) map[i] = 'num'; }
+  } else {
+    // No header: the cue sheet's own column order.
+    map = ['num', 'cueLine', 'page', 'piece', 'action', 'wing', 'who', 'spike', 'notes'].slice(0, n);
+  }
+  while (map.length < n) map.push('');
+  return map;
+}
+// "#5", "Shift 5", "SC 5", "5" -> "5"; "Pre-show" -> "PRE-SHOW".
+function psKey(raw){
+  const t = typeOf(SHIFT_TYPE_ID).name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return String(raw || '').trim().replace(/^#\s*/, '')
+    .replace(new RegExp('^(?:' + t + '|set change|scene change|shift|change|sc)\\s*(?:#|no\\.?)?\\s*(?=\\S)', 'i'), '')
+    .replace(/^#\s*/, '').trim().toUpperCase();
+}
+function psIsNum(key){ return /^\d+(\.\d+)?[A-Z]?$/.test(key); }
+function psPage(v){ const m = String(v || '').match(/\d+/); return m ? String(parseInt(m[0], 10)) : ''; }
+function psExisting(key){
+  return cues.find(c => c.type === SHIFT_TYPE_ID && psKey(changeShortNum(shortNumber(c, typeOf(c.type).name))) === key) || null;
+}
+function psMove(get){
+  const m = {};
+  PS_MOVE_F.forEach(f => { const v = get(f); if (v) m[f] = v; });
+  if (m.action) { const a = MOVE_ACTIONS.find(x => x.toLowerCase() === m.action.toLowerCase()); if (a) m.action = a; }
+  // "SL 2 → SR 1" in one Wing cell: where it starts and where it ends up.
+  if (m.wing && !m.wingTo) {
+    const p = m.wing.split(/\s*(?:→|->|=>|>)\s*|\s+to\s+/i);
+    if (p.length === 2 && p[0] && p[1] && p[0].length <= 12 && p[1].length <= 12) { m.wing = p[0]; m.wingTo = p[1]; }
+  }
+  if (m.who) m.who = m.who.replace(/\s*(?:&|\/|\+|;)\s*|\s+and\s+/gi, ', ').replace(/,\s*,/g, ',').replace(/^,\s*|,\s*$/g, '');
+  return m;
+}
+// Rows -> scene headings and set changes, in pasted order.
+function psGroups(){
+  if (!ps || !ps.rows.length) return [];
+  const map = ps.map, rows = ps.rows.slice(ps.head + 1);
+  // Without a Change # column, a change ends at a new page, a new cue line or a blank row.
+  const numbered = map.indexOf('num') >= 0;
+  const out = []; let cur = null, lastScene = null;
+  rows.forEach(r => {
+    const get = f => { const i = map.indexOf(f); return i >= 0 ? (r[i] || '') : ''; };
+    if (!r.length) { if (!numbered) cur = null; return; }
+    const filled = [];
+    r.forEach((c, i) => { if (c && map[i]) filled.push(i); });
+    if (!filled.length) return;
+    const sc = get('scene');
+    if (sc && sc !== lastScene) { out.push({ kind: 'scene', name: sc }); lastScene = sc; cur = null; }
+    const hasMove = PS_MOVE_F.some(f => get(f));
+    const rawNum = get('num'), line = get('cueLine'), pg = get('page');
+    if (filled.length === 1 && !hasMove && !pg && !sc) {
+      const i = filled[0], txt = r[i];
+      if ((map[i] === 'num' || i === 0) && !psIsNum(psKey(txt))) { out.push({ kind: 'scene', name: txt }); cur = null; return; }
+    }
+    const key = rawNum ? psKey(rawNum) : '';
+    let g = null;
+    if (key) g = (cur && cur.key === key) ? cur : out.find(x => x.kind === 'change' && x.key === key) || null;
+    else if (cur) {
+      // A cue line starts a new change, unless it's the same line repeated or the change has no moves yet.
+      const newLine = line && (cur.line ? line !== cur.line : cur.moves.length > 0);
+      const newPage = !numbered && pg && cur.page && psPage(pg) !== cur.page;
+      if (!newLine && !newPage) g = cur;
+    }
+    if (!g) { g = { kind: 'change', key, line: '', page: '', moves: [] }; out.push(g); }
+    cur = g;
+    if (line && !g.line) g.line = line;
+    if (pg && !g.page) g.page = psPage(pg);
+    if (hasMove) g.moves.push(psMove(get));
+  });
+  const list = out.filter(g => g.kind === 'scene' || g.key || g.line || g.moves.length);
+  // One row per person doing the same thing ("Push Bed ON": Kyle B, then Chris H) is one move with both names.
+  list.forEach(g => {
+    if (g.kind !== 'change') return;
+    const merged = [];
+    g.moves.forEach(m => {
+      const k = JSON.stringify(['piece', 'action', 'wing', 'wingTo', 'spike', 'notes'].map(f => m[f] || ''));
+      const same = (m.piece || m.action) ? merged.find(x => x.k === k) : null;
+      if (same) { if (m.who && (same.m.who || '').split(', ').indexOf(m.who) < 0) same.m.who = same.m.who ? same.m.who + ', ' + m.who : m.who; }
+      else merged.push({ k, m: Object.assign({}, m) });
+    });
+    g.moves = merged.map(x => x.m);
+  });
+  // A change with no page takes the one before it (or after, at the top);
+  // a scene heading takes the page of the change under it.
+  let last = '';
+  list.forEach(g => { if (g.kind !== 'change') return; if (g.page) last = g.page; else if (last) { g.page = last; g.guess = true; } });
+  let next = '';
+  for (let i = list.length - 1; i >= 0; i--) {
+    const g = list[i];
+    if (g.kind === 'change') { if (g.page) next = g.page; else if (next) { g.page = next; g.guess = true; } }
+    else g.page = next;
+  }
+  // A scene heading with nothing after it (POST-SHOW) stays with the change before it.
+  let before = '';
+  list.forEach(g => { if (g.kind === 'change') { if (g.page) before = g.page; } else if (!g.page) g.page = before; });
+  list.forEach(g => { if (!g.page) { g.page = '1'; g.guess = true; } });
+  list.forEach(g => {
+    g.dup = g.kind === 'scene'
+      ? cues.find(c => c.type === SCENE_TYPE_ID && psNorm(c.number) === psNorm(g.name)) || null
+      : (g.key ? psExisting(g.key) : null);
+  });
+  return list;
+}
+
+function psOpen(){
+  if (cueReadOnly()) { clViewOnlyToast(); return; }
+  if (!scriptId) { toast('Pick a script first'); return; }
+  if (!editMode) setEditMode(true);
+  if (!editMode) return;
+  ps = { rows: [], head: -1, map: [], mapTouched: false, showCols: false, off: {}, upd: {} };
+  const t = document.getElementById('ps-text'); if (t) t.value = '';
+  const sn = document.getElementById('ps-show'); if (sn) sn.textContent = (document.getElementById('show-name') || {}).textContent || '';
+  psRender();
+  document.getElementById('ps-overlay').classList.add('open');
+  document.body.classList.add('sheet-open');
+  setTimeout(() => { if (t && !matchMedia('(pointer: coarse)').matches) t.focus(); }, 60);
+}
+function psClose(){
+  ps = null;
+  document.getElementById('ps-overlay').classList.remove('open');
+  document.body.classList.remove('sheet-open');
+}
+function psInput(text){
+  if (!ps) return;
+  const rows = psParse(text), head = psFindHeader(rows);
+  const n = Math.max(0, ...rows.map(r => r.length));
+  ps.rows = rows;
+  if (!ps.mapTouched || ps.map.length !== n || ps.head !== head) { ps.head = head; ps.map = psAutoMap(rows, head); ps.mapTouched = false; }
+  ps.off = {}; ps.upd = {};
+  psRender();
+}
+function psSetMap(i, f){
+  if (!ps) return;
+  if (f) ps.map = ps.map.map((x, k) => (k !== i && x === f) ? '' : x);   // one column per field
+  ps.map[i] = f; ps.mapTouched = true; ps.showCols = true; ps.off = {}; ps.upd = {};
+  psRender();
+}
+function psToggle(gi, on){ if (!ps) return; if (on) delete ps.off[gi]; else ps.off[gi] = true; psRender(); }
+function psUpd(gi, on){ if (!ps) return; if (on) ps.upd[gi] = true; else delete ps.upd[gi]; psRender(); }
+
+function psMoveText(m){
+  const w = m.wing && m.wingTo ? m.wing + ' → ' + m.wingTo : (m.wing || m.wingTo || '');
+  return [m.piece, m.action, w, m.who, m.spike && 'spike ' + m.spike, m.notes].filter(Boolean).map(esc).join(' · ');
+}
+function psRender(){
+  const cols = document.getElementById('ps-cols'), prev = document.getElementById('ps-prev'), go = document.getElementById('ps-go');
+  if (!ps || !cols) return;
+  if (!ps.rows.length) {
+    cols.innerHTML = ''; prev.innerHTML = '';
+    go.disabled = true; go.textContent = 'Add';
+    return;
+  }
+  const hdr = ps.head >= 0 ? ps.rows[ps.head] : [];
+  // An example from each column: the first real row (not a one-cell heading) that has something there.
+  const data = ps.rows.slice(ps.head + 1).filter(r => r.filter(Boolean).length > 1);
+  const sample = ps.map.map((f, i) => (data.find(r => r[i]) || [])[i] || '');
+  const fName = f => (PS_FIELDS.find(x => x[0] === f) || ['', 'Skip'])[1];
+  if (!ps.showCols && ps.head >= 0) {
+    cols.innerHTML = `<div class="ps-cap">Columns</div><div class="ps-colsum">${ps.map.map((f, i) =>
+      `<span class="${f ? '' : 'skip'}">${esc(hdr[i] || 'Column ' + (i + 1))} <i>→</i> ${fName(f)}</span>`).join('')}
+      <button type="button" class="ps-colbtn" onclick="ps.showCols=true;psRender()">Change</button></div>`;
+  } else cols.innerHTML = `<div class="ps-cap">${ps.head >= 0 ? 'Columns: check each one says the right thing' : 'No header row found, so the columns are a guess: check each one'}</div>
+    <div class="ps-cols">${ps.map.map((f, i) => `<label class="ps-col${f ? '' : ' skip'}">
+      <span>${esc(hdr[i] || 'Column ' + (i + 1))}</span>
+      <select onchange="psSetMap(${i}, this.value)" aria-label="What column ${i + 1} is">${PS_FIELDS.map(([k, l]) => `<option value="${k}"${k === f ? ' selected' : ''}>${l}</option>`).join('')}</select>
+      <small>${esc(sample[i] || '')}</small></label>`).join('')}</div>`;
+
+  const groups = psGroups();
+  let nNew = 0, nScene = 0, nUpd = 0, nMoves = 0, nDup = 0;
+  const items = groups.map((g, gi) => {
+    const on = !ps.off[gi];
+    if (g.kind === 'scene') {
+      if (g.dup) return `<div class="ps-g scene off"><span class="ps-nochk"></span><div class="ps-gb"><div class="ps-gh"><b>${esc(g.name)}</b><span class="ps-pg">scene · already on the sheet</span></div></div></div>`;
+      if (on) nScene++;
+      return `<div class="ps-g scene${on ? '' : ' off'}"><input type="checkbox"${on ? ' checked' : ''} onchange="psToggle(${gi}, this.checked)" aria-label="Add this scene">
+        <div class="ps-gb"><div class="ps-gh"><b>${esc(g.name)}</b><span class="ps-pg">scene bar · pg. ${esc(g.page)}</span></div></div></div>`;
+    }
+    const mv = g.moves.length ? g.moves.map(m => `<div class="ps-mv">${psMoveText(m) || '<i>empty move</i>'}</div>`).join('') : '<div class="ps-mv"><i>No moves</i></div>';
+    const head = `<div class="ps-gh"><b>${g.key ? '#' + esc(g.key) : 'New change'}</b><span class="ps-pg${g.guess ? ' guess' : ''}">pg. ${esc(g.page)}${g.guess ? ' (no page given)' : ''}</span>${g.line ? `<span class="ps-line">“${esc(g.line)}”</span>` : ''}</div>`;
+    if (g.dup) {
+      nDup++;
+      const up = !!ps.upd[gi];
+      if (up) { nUpd++; nMoves += g.moves.length; }
+      const have = (g.dup.moves || []).length;
+      return `<div class="ps-g dup${up ? '' : ' off'}"><span class="ps-nochk"></span><div class="ps-gb">${head}${mv}
+        <div class="ps-dup">Already on the sheet with ${have} move${have !== 1 ? 's' : ''}.
+          <span class="ps-seg"><button type="button" class="${up ? '' : 'on'}" onclick="psUpd(${gi}, false)">Skip</button><button type="button" class="${up ? 'on' : ''}" onclick="psUpd(${gi}, true)">Update</button></span>
+          ${up ? `<span class="ps-dupn">its moves become the ${g.moves.length} above${g.line ? ', and its cue line this one' : ''}</span>` : ''}</div></div></div>`;
+    }
+    if (on) { nNew++; nMoves += g.moves.length; }
+    return `<div class="ps-g${on ? '' : ' off'}"><input type="checkbox"${on ? ' checked' : ''} onchange="psToggle(${gi}, this.checked)" aria-label="Add this set change"><div class="ps-gb">${head}${mv}</div></div>`;
+  });
+  const pl = (n, w) => n + ' ' + w + (n !== 1 ? 's' : '');
+  const guessed = groups.some(g => g.kind === 'change' && g.guess && !g.dup);
+  prev.innerHTML = groups.length
+    ? `<div class="ps-sum">${pl(groups.filter(g => g.kind === 'change').length, 'set change')}, ${pl(groups.reduce((s, g) => s + (g.moves ? g.moves.length : 0), 0), 'move')}${groups.some(g => g.kind === 'scene') ? ', ' + pl(groups.filter(g => g.kind === 'scene').length, 'scene') : ''}${nDup ? ` · <span class="ps-dupc">${nDup} already on the sheet</span>` : ''}</div>
+       ${guessed ? '<div class="ps-warn">Some changes have no page, so they go on the page of the change before them. Each new one lands as an approximate marker either way; drag it onto its line on the script.</div>' : ''}
+       <div class="ps-list">${items.join('')}</div>`
+    : '<div class="ps-warn">Nothing to add yet. Is the Change # or Piece column set?</div>';
+  const parts = [];
+  if (nNew) parts.push('Add ' + pl(nNew, 'set change'));
+  if (nScene) parts.push((nNew ? '' : 'Add ') + pl(nScene, 'scene'));
+  let label = parts.join(' and ');
+  if (nUpd) label += (label ? ', update ' : 'Update ') + nUpd;
+  go.disabled = !(nNew || nScene || nUpd);
+  go.textContent = label || 'Add';
+}
+
+function psCommit(){
+  if (!ps) return;
+  if (!editMode) { toast('Switch to Editing first'); return; }
+  const groups = psGroups();
+  const W = pageWidthGuess();
+  const q = getAdds();
+  let added = 0, scenes = 0, updated = 0, lastId = '';
+  const mvId = () => 'mv' + Date.now() + Math.random().toString(36).slice(2, 6);
+  groups.forEach((g, gi) => {
+    if (g.dup) {
+      if (g.kind !== 'change' || !ps.upd[gi]) return;
+      const c = g.dup;
+      c.moves = g.moves.map(m => Object.assign({ id: mvId() }, m));
+      editedCues[c.id] = true;
+      if (g.line && g.line !== String(c.cueLine || '')) { c.cueLine = g.line; editedLines[c.id] = true; }
+      updated++;
+      return;
+    }
+    if (ps.off[gi]) return;
+    const isScn = g.kind === 'scene';
+    const type = isScn ? SCENE_TYPE_ID : SHIFT_TYPE_ID, t = typeOf(type);
+    const page = parseInt(g.page, 10) || 1;
+    // Under whatever is last on its page so far (pasted ones included), so they keep their order.
+    const onPg = cuesInScriptOrder().filter(c => String(c.page) === String(page));
+    const prev = onPg[onPg.length - 1] || null;
+    const rect = approxRect(page, prev, null);
+    const number = isScn ? g.name : (g.key ? t.name + ' ' + g.key : suggestNumber(SHIFT_TYPE_ID, prev ? prev.id : lastId));
+    const id = Date.now().toString() + Math.random().toString(36).slice(2, 6) + gi;
+    const cue = { id, type, number, page, lineCrop: '' };
+    if (!isScn) { if (g.line) cue.cueLine = g.line; cue.moves = g.moves.map(m => Object.assign({ id: mvId() }, m)); }
+    const ls = labelSpot(number, rect, W);
+    const ann = { type: 'cue', spot: false, rect, labelX: ls.labelX, labelY: ls.labelY, cueId: id, color: t.color, label: number,
+      approx: true, approxBy: (clName || 'cue sheet') + ' (pasted)', approxAt: new Date().toISOString() };
+    q.push({ cue, ann, after: prev ? prev.id : lastId });
+    addLocal({ cue, ann });
+    lastId = id;
+    if (isScn) scenes++; else added++;
+  });
+  if (!added && !scenes && !updated) { toast('Nothing picked to add'); return; }
+  setAdds(q);
+  if (updated) { saveDraft(); markDirty(); }
+  psClose();
+  render();
+  const bits = [];
+  if (added) bits.push(added + ' set change' + (added !== 1 ? 's' : '') + ' added');
+  if (scenes) bits.push(scenes + ' scene' + (scenes !== 1 ? 's' : ''));
+  if (updated) bits.push(updated + ' updated');
+  toast(bits.join(', '));
+  if (added || scenes) flushAdds(); else saveMoveEdits();
+}
+
 // ── WHO ELSE IS HERE (shared: app.html and cue-list.html — keep in step) ────
 // Each device says, with its "anything new?" check, which box it's in. The
 // Sheet's script keeps that for a few seconds (never in the Sheet) and hands
@@ -7100,6 +7488,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v3</div>
 </body>
 </html>

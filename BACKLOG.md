@@ -1,6 +1,6 @@
 # MMT TD Dashboard: to-do list
 
-## Live as of Oct 26 (Dashboard 10.26 v1, Cue Sheet 10.26 v2)
+## Live as of Oct 26 (Dashboard 10.26 v1, Cue Sheet 10.26 v3)
 - Script + Cue sheet redesign, steps 2–8 (plan and feature checklist: "Script + Cue Sheet Redesign: Feature Checklist" doc):
   - Script | Cue sheet switch in the same tab, centered in the header on both pages; the cue sheet is kept loaded inside the
     script page (cue-list?embed=1) so flipping is instant; Both = side by side on screens >=1280px, selection follows.
@@ -16,8 +16,8 @@
 - Cue Sheet 10.26 v2 (Oct 26): long cue numbers (PRE-SHOW) fit the # column; inside the script page the cue sheet's
   View only/Editing and ⋯ share the filter row.
 
-## On dev, waiting for Mac to try
-- **Paste set changes** (Cue Sheet 10.26 v4 dev): ⋯ > Paste set changes… Paste rows from Excel / Google Sheets (header row
+## Live Oct 26 (Cue Sheet 10.26 v3), Mac checking it on real plots
+- **Paste set changes** (same as Cue Sheet 10.26 v4 dev): ⋯ > Paste set changes… Paste rows from Excel / Google Sheets (header row
   included; title rows above it are ignored; CSV works too). Columns matched by header name (#, Shift #, Sc, Cue, Line, Pg,
   Piece/Item, Action/Move, Wing/From, To, Who/Crew, Spike, Notes/Comments, Scene); each can be changed by hand. A row with no
   number joins the change above; a one-cell row is a scene heading; a Scene column makes scene bars. "SL 2 → SR 1" splits into
