@@ -14,7 +14,9 @@
     ⋯ Cue sheet / Set change plot / Before House flip in the same tab; Back returns to the script at the cue): on dev (Dashboard 10.25 v4 dev).
   - Step 5 (phone script page: no tool row; Mark + Undo float in the corner, page arrows bottom left; Mark opens a tray
     with every cue type, Undo and Done; computer and iPad unchanged): on dev (Dashboard 10.25 v5 dev).
-  - Next: step 6, cue sheet filter row (Type and Who drop-downs, Before House as a row at the top).
+  - Step 6 (cue sheet: Type and Who drop-downs with counts beside Find and Page; Before House is a row at the top,
+    "All cues" row to go back; old tabs and chip strip hidden): on dev (Cue Sheet 10.25 v6 dev).
+  - Next: step 7, computer script page: one editor (set changes edited in the side panel, bottom drawer retired).
   - Later (step 8): one dark mode setting for both views.
   - After the layout steps: a NEW LOOK step. Mac wants different colors and cleaner, newer-looking buttons.
     Show 2–3 style options on the real pages (screenshots) and let Mac pick before building.
