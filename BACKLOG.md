@@ -36,12 +36,19 @@
 - Script page Normal / Cards / Step: thin line between a set change's moves; heavier line (Normal) or 2px outline
   (Cards, Step) between cues.
 
-## Paused: dashboard layout reorganize (Oct 26)
-- Mac's answers: today's to-dos first; phone use is mostly the show notes doc, then to-dos, finding things, script/cue sheet;
-  rarely uses To Do 2, Cleaning Log, Drops, Storage Map; every show's scope differs a lot.
-- Two mockups made (layout-options.html, sent in chat): A = by type of task, tidier (Today home, 10-item menu, More);
-  B = show-first (current show picker, show page tabs, to-dos per show; needs a Show field on to-dos = new Sheet column).
-- Next: Mac picks A, B or a mix.
+## On dev: dashboard layout (Dashboard 10.26 v6 dev), Mac checking
+- Picked by Mac one piece at a time (layout-picks.html): to-dos first on Home; phone bar Home · Show notes · Script · To Do · More;
+  menu = current show on top + shorter groups with More; current show = next Mainstage show not yet opened (moves on the day
+  after opening night), picker to override (per device, "Automatic" to go back); show timer small in the top bar; phone
+  header one row.
+- Menu: [Current show ▾] Show notes, Script & Cue Sheet, Pre-Show Checklists (+ Cue Sheet for crew who have it without
+  Scripts) | Home, To Do (count), Shopping | Season: All Shows (was Notes), All Scripts (was Scripts), Show Calendar |
+  Storage: Set Piece Catalogue, Reference Photos | More: Storage Map, Drops, Cleaning Log, To Do 2, Side Job Notes | Links.
+  Nothing removed. More opens by itself on one of its pages; remembers open/closed.
+- Home: Today card (overdue, due today, this week; tick off; add with list + date) | current show card (Show notes /
+  Create notes, Script, Cue sheet) | Also going (or Coming up) | Shopping. Timer pill: full screen, history, on/off.
+- Phone: header Search + Lock; TV, Dark, Settings, Sync at the top of the menu.
+- Tests: test_menu.py, test_home2.py (fake data). Backup: backup/2026-10-26-before-layout.
 
 ## Ideas
 - Dark look on the script page still uses purple accents; could go black and white too.
