@@ -16,7 +16,9 @@
     with every cue type, Undo and Done; computer and iPad unchanged): on dev (Dashboard 10.25 v5 dev).
   - Step 6 (cue sheet: Type and Who drop-downs with counts beside Find and Page; Before House is a row at the top,
     "All cues" row to go back; old tabs and chip strip hidden): on dev (Cue Sheet 10.25 v6 dev).
-  - Next: step 7, computer script page: one editor (set changes edited in the side panel, bottom drawer retired).
+  - Step 7 (computer and iPad script page: a set change's moves are edited as cards in the side panel under its details;
+    no drawer over the script; cue list keeps a third of the panel; phones keep the drawer): on dev (Dashboard 10.25 v6 dev).
+  - Next: step 8, instant switching (both views in one page) and the Both view on a computer; one dark mode setting.
   - Later (step 8): one dark mode setting for both views.
   - After the layout steps: a NEW LOOK step. Mac wants different colors and cleaner, newer-looking buttons.
     Show 2–3 style options on the real pages (screenshots) and let Mac pick before building.

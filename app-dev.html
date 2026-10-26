@@ -2935,6 +2935,39 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #mv-drawer .mvd-act:hover { color: var(--cue-text); border-color: var(--cue-text-faint); }
   #mv-drawer .mvd-act-del { color: var(--cue-red); border-color: var(--cue-red); }
   #mv-drawer .mvd-act-del:hover { color: #fff; background: var(--cue-red); border-color: var(--cue-red); }
+  /* Side panel moves editor (computer). The cue line, Cue sheet ›, Move and
+     Delete are already in the details above, so the drawer's own copies hide. */
+  #scripts-editor #mv-drawer.in-panel { position: static !important; height: auto !important; max-height: none !important; min-height: 0 !important; box-shadow: none !important;
+    border: none !important; border-top: 1px solid var(--cue-border) !important; background: transparent !important; margin-top: 10px; padding-top: 8px; z-index: auto; transform: none !important; }
+  #scripts-editor #mv-drawer.in-panel .mvd-grip, #scripts-editor #mv-drawer.in-panel .mvd-head, #scripts-editor #mv-drawer.in-panel .mvd-line { display: none !important; }
+  #scripts-editor #mv-drawer.in-panel .mvd-body { overflow: visible !important; padding: 0 !important; }
+  #scripts-editor #mv-drawer.in-panel .mvd-body::before { content: 'Moves'; display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--cue-text-faint); margin: 2px 0 6px; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid { display: block; width: 100% !important; min-width: 0 !important; table-layout: auto; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid thead { display: none; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid tbody { display: block; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid tr { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px 6px; position: relative;
+    padding: 10px; margin-bottom: 8px; border: 1px solid var(--cue-border); border-radius: 10px; background: var(--cue-surface); }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid td { display: block; width: auto !important; padding: 0 !important; border: none !important; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid td::before { content: attr(data-l); display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--cue-text-faint); margin: 0 0 2px 2px; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid td { grid-column: span 2; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid td[data-k="piece"], #scripts-editor #mv-drawer.in-panel table.mv-grid td[data-k="notes"] { grid-column: 1 / -1; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid td[data-k="who"], #scripts-editor #mv-drawer.in-panel table.mv-grid td[data-k="spike"] { grid-column: span 3; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid .spk-cell { display: flex; gap: 5px; align-items: center; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid .spk-cell input { flex: 1 1 auto; width: auto !important; min-width: 0; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid .spk-btn { flex: none; min-height: 34px; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid td[data-k="piece"] { padding-right: 30px !important; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid td[data-k="piece"] input { font-weight: 700; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid input { width: 100% !important; box-sizing: border-box; min-height: 34px; margin: 0 !important; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid td.mv-del-td { position: absolute; top: 6px; right: 6px; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid .mv-del { background: none !important; border: none !important; box-shadow: none !important; color: var(--cue-text-faint) !important; width: 28px; height: 28px; min-width: 28px !important; min-height: 28px !important; padding: 0 !important; font-size: 15px; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid .mv-del:hover { color: var(--cue-red) !important; }
+  #scripts-editor #mv-drawer.in-panel table.mv-grid td.mv-del-td::before { content: none; }
+  #scripts-editor #mv-drawer.in-panel .mv-add { margin: 2px 0 6px; }
+  /* A set change gets more of the panel for its moves. */
+  @media (min-width: 769px) {
+    #scripts-editor.sel-shift .cue-add { flex: 1 1 0 !important; height: auto !important; max-height: none !important; min-height: 0; }
+    #scripts-editor.sel-shift #cue-list { flex: 0 0 34% !important; min-height: 150px; }
+  }
   #cue-form-acts { display: none; gap: 8px; margin: 4px 0 2px; }
   #scripts-editor.has-sel #cue-form-acts { display: flex; }
   #cue-form-acts .top-btn { flex: 1; justify-content: center; }
@@ -6886,7 +6919,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v5 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v6 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -19101,10 +19134,26 @@ function closeScriptTools() {
   if (ed) ed.classList.remove('sv-tools-open');
 }
 
+// Computer: the moves are edited in the side panel, under the cue's details,
+// as one card per move (redesign step 7). Phone: the drawer, as before.
+let _mvHome = null;
+function mvPlace() {
+  const d = document.getElementById('mv-drawer'), form = document.getElementById('cue-edit-panel');
+  if (!d || !form) return false;
+  if (!_mvHome) _mvHome = { parent: d.parentNode, next: d.nextSibling };
+  const panel = document.getElementById('cue-panel');
+  const wide = !window.matchMedia('(max-width: 768px)').matches && !!panel && panel.getClientRects().length > 0 && getComputedStyle(panel).display !== 'none';
+  if (wide && d.parentNode !== form) { const acts = document.getElementById('cue-form-acts'); form.insertBefore(d, acts ? acts.nextSibling : null); }
+  if (!wide && d.parentNode !== _mvHome.parent) _mvHome.parent.insertBefore(d, _mvHome.next);
+  d.classList.toggle('in-panel', wide);
+  return wide;
+}
+try { window.matchMedia('(max-width: 768px)').addEventListener('change', () => { const d = document.getElementById('mv-drawer'); if (d && d.classList.contains('open')) { mvPlace(); renderMoveDrawer(); } }); } catch (e) {}
 function openMoveDrawer(cueId) {
   const c = cues.find(x => x.id === cueId);
   if (!c || c.type !== SHIFT_TYPE_ID) return closeMoveDrawer();
   mvDrawerCueId = cueId;
+  mvPlace();
   // On a phone the drawer lives over the cue list. Opening it while the script
   // is showing would put it behind the page image and look like nothing
   // happened, so switch views first.
@@ -19149,7 +19198,7 @@ function renderMoveDrawer(focusFirst) {
   renderSetVocab();
   const moves = c.moves || [];
   const rows = moves.map(m => `<tr>
-    ${MOVE_COLS.map((col, ci) => `<td style="width:${col.pct}">${col.key === 'spike'
+    ${MOVE_COLS.map((col, ci) => `<td style="width:${col.pct}" data-l="${col.label}" data-k="${col.key}">${col.key === 'spike'
         ? `<div class="spk-cell"><button type="button" class="spk-btn" data-cue="${c.id}" data-move="${m.id}"
              onclick="spkOpenPicker(this)" title="Pick spike colors" aria-label="Pick spike colors">${spkBtnHTML(m)}</button>` : ''}<input type="text"
         value="${escA(m[col.key])}" autocomplete="off"
@@ -19159,7 +19208,7 @@ function renderMoveDrawer(focusFirst) {
         oninput="moveEdit(this.dataset.cue,this.dataset.move,this.dataset.key,this.value);acOpen(this)"
         onblur="moveCommit(this.dataset.vocab,this.value);setTimeout(acClose,120)"
         onkeydown="acKey(event,this)"${col.key === 'spike' ? ' placeholder="other"' : ''} />${col.key === 'spike' ? '</div>' : ''}</td>`).join('')}
-    <td style="width:30px"><button class="mv-del" title="Delete move" aria-label="Delete move" tabindex="-1"
+    <td style="width:30px" class="mv-del-td"><button class="mv-del" title="Delete move" aria-label="Delete move" tabindex="-1"
         onclick="moveDelete('${c.id}','${m.id}')">✕</button></td>
   </tr>`).join('');
 
