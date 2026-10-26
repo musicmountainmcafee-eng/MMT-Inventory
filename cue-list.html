@@ -9,7 +9,7 @@
 <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTU1UIEN1ZSBTaGVldCIsInNob3J0X25hbWUiOiJDdWVzIiwic3RhcnRfdXJsIjoiLi9jdWUtbGlzdC5odG1sIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiI2ZmZmZmZiIsInRoZW1lX2NvbG9yIjoiI2ZmZmZmZiJ9">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   /* Global tokens — same values as app.html :root */
   :root {
@@ -203,9 +203,11 @@
   @media (max-width: 600px) {
     .back-btn .back-label { display: none; }
     .back-btn { font-size: 18px; line-height: 1; padding: 3px 11px 5px; }
-    /* ‹ and the show name get the first row; the buttons wrap below. */
-    .bar-title { flex: 1 1 calc(100% - 60px); }
-    .bar-title h1 { max-width: 70%; }
+    /* ‹, the show name, the lock and ⋯ share the first row; the switch goes under. */
+    .bar-title { flex: 1 1 0; }
+    .bar-title h1 { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bar-title { flex-direction: column; align-items: flex-start; gap: 0; }
+    .bar-title .bar-sub { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   }
   .top-btn.primary { background: var(--purple); color: #fff; border-color: var(--purple); }
 
@@ -231,6 +233,26 @@
   .view-tab.on { color: #fff; background: var(--purple); }
 
   .search-row { display: flex; gap: 7px; align-items: center; padding: 0 14px 7px; }
+  /* Filters: Type and Who drop-downs beside Find and Page (redesign step 6).
+     The old Cues / Before House tabs and chip strip stay hidden. */
+  .view-tabs, #type-strip { display: none !important; }
+  .f-sel { flex: none; max-width: 150px; padding: 6px 26px 6px 10px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 9px center;
+    color: var(--text); font: 600 13px 'DM Sans', system-ui, sans-serif; -webkit-appearance: none; appearance: none; cursor: pointer; }
+  .f-sel.on { border-color: var(--purple); background-color: var(--purple-light); color: var(--purple-dark); }
+  .f-sel[hidden] { display: none; }
+  .bh-row { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 1100px; margin: 0 auto 10px; padding: 12px 14px;
+    border: 1px solid var(--grid); border-radius: 10px; background: var(--paper); color: var(--text); font: 15px 'DM Sans', system-ui, sans-serif; text-align: left; cursor: pointer; box-sizing: border-box; }
+  .bh-row b { font-weight: 700; }
+  .bh-row span { color: var(--text-muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bh-row i { font-style: normal; color: var(--text-muted); font-size: 18px; }
+  .bh-row:hover { border-color: var(--purple); }
+  .bh-row[hidden] { display: none; }
+  @media (max-width: 600px) {
+    .search-row { gap: 6px; padding: 0 10px 7px; }
+    .f-sel { max-width: 96px; padding-left: 9px; font-size: 13px; }
+    #page-jump { max-width: 74px; }
+  }
   .search-row .search-wrap { flex: 1; padding: 0; min-width: 0; }
   .search-wrap input { padding: 6px 28px 6px 10px; font-size: 13px; }
   #page-jump {
@@ -598,6 +620,107 @@
   .mv-plus:hover { border-style: solid; color: var(--text); }
   /* ── Export / history / toast ── */
   .overlay.open { display: flex; }
+  /* ── Icons (new look). Drawn from CSS so buttons that rewrite their own label keep them. ── */
+  .ic::before { content: ''; display: inline-block; flex: none; width: 16px; height: 16px; background: currentColor; -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; }
+  .ic-script { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M7%203h7l5%205v13H7z%22%2F%3E%3Cpath%20d%3D%22M14%203v5h5M10%2013h6M10%2017h6%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-list { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M8%206h13M8%2012h13M8%2018h13M3.5%206h.01M3.5%2012h.01M3.5%2018h.01%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-both { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%223%22%20y%3D%224%22%20width%3D%2218%22%20height%3D%2216%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M12%204v16%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-lock { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%225%22%20y%3D%2211%22%20width%3D%2214%22%20height%3D%2210%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M8%2011V7a4%204%200%200%201%208%200v4%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-pen { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2020h9%22%2F%3E%3Cpath%20d%3D%22M16.5%203.5a2.1%202.1%200%200%201%203%203L7%2019l-4%201%201-4z%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-dots { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%225%22%20cy%3D%2212%22%20r%3D%221.7%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%221.7%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%2219%22%20cy%3D%2212%22%20r%3D%221.7%22%20fill%3D%22black%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-back { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M15%2018l-6-6%206-6%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-home { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%2011l9-7%209%207%22%2F%3E%3Cpath%20d%3D%22M5%2010v10h14V10%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-export { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203v12M7%2010l5%205%205-5M5%2021h14%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-layout { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%223%22%20y%3D%224%22%20width%3D%2218%22%20height%3D%2216%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M3%2010h18M9%2010v10%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-photo { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%223%22%20y%3D%225%22%20width%3D%2218%22%20height%3D%2214%22%20rx%3D%222%22%2F%3E%3Ccircle%20cx%3D%229%22%20cy%3D%2211%22%20r%3D%222%22%2F%3E%3Cpath%20d%3D%22M21%2017l-5-5-8%208%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-moon { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M20%2014.5A8%208%200%200%201%209.5%204a8%208%200%201%200%2010.5%2010.5z%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-awake { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%224%22%2F%3E%3Cpath%20d%3D%22M12%202v2M12%2020v2M4.9%204.9l1.4%201.4M17.7%2017.7l1.4%201.4M2%2012h2M20%2012h2M4.9%2019.1l1.3-1.3M17.7%206.3l1.4-1.4%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-gear { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%223%22%2F%3E%3Cpath%20d%3D%22M12%202v3M12%2019v3M4.2%204.2l2.1%202.1M17.7%2017.7l2.1%202.1M2%2012h3M19%2012h3M4.2%2019.8l2.1-2.1M17.7%206.3l2.1-2.1%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-cards { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%223%22%20y%3D%225%22%20width%3D%228%22%20height%3D%2214%22%20rx%3D%221.5%22%2F%3E%3Crect%20x%3D%2213%22%20y%3D%225%22%20width%3D%228%22%20height%3D%2214%22%20rx%3D%221.5%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-step { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M5%206l6%206-6%206M13%206l6%206-6%206%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-spike { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%2020L20%204M4%204h6M4%204v6%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-history { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%2012a9%209%200%201%200%203-6.7L3%208%22%2F%3E%3Cpath%20d%3D%22M3%203v5h5M12%207v5l3%202%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-pdf { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M7%203h7l5%205v13H7z%22%2F%3E%3Cpath%20d%3D%22M14%203v5h5%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-types { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%227%22%20cy%3D%227%22%20r%3D%223%22%2F%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%227%22%20r%3D%223%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%2217%22%20r%3D%223%22%2F%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2217%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-filter { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%205h18M6%2012h12M10%2019h4%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-user { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%228%22%20r%3D%224%22%2F%3E%3Cpath%20d%3D%22M4%2021c1.5-4%204.5-6%208-6s6.5%202%208%206%22%2F%3E%3C%2Fsvg%3E"); }
+  .ic-search { --ic: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2211%22%20cy%3D%2211%22%20r%3D%227%22%2F%3E%3Cpath%20d%3D%22M20%2020l-3.5-3.5%22%2F%3E%3C%2Fsvg%3E"); }
+
+  /* ── New look: black and white (Inter, black header, white for what's on, pill buttons).
+     Colors apply to the light theme; Dark and Red keep theirs and get the shapes and icons. ── */
+  body * { font-family: 'Inter', system-ui, -apple-system, sans-serif !important; }
+  html:not([data-theme="dark"]):not([data-theme="red"]) { --bg:#f4f4f5; --surface:#ffffff; --border:#e4e4e7; --text:#111111; --text-muted:#5f5f66; --purple:#111111; --purple-light:#efeff1; --purple-dark:#111111;
+    --paper:#ffffff; --grid:#ededf0; --head-bg:#ffffff; --head-ink:#8d8d94; --rule:#ededf0; --ink:#111111; --bar-bg:#111111; --bar-ink:#ffffff; --bar-meta:rgba(255,255,255,.75); }
+  html:not([data-theme="dark"]):not([data-theme="red"]) body { background:#f4f4f5; }
+  html:not([data-theme="red"]) header { background:#111111 !important; border:none !important; box-shadow:0 6px 20px rgba(0,0,0,.22); }
+  html:not([data-theme="red"]) header .bar-title h1 { color:#fff !important; font-size:18px; font-weight:700; }
+  html:not([data-theme="red"]) header .bar-sub, html:not([data-theme="red"]) header .bar-sub span { color:#bdbdc2 !important; }
+  .top-btn { border-radius:999px !important; font-weight:600; display:inline-flex; align-items:center; gap:7px; }
+  html:not([data-theme="red"]) header .top-btn { background:rgba(255,255,255,.16) !important; border:none !important; color:#fff !important; font-size:14px; padding:8px 14px; }
+  .back-btn.ic::before { width:15px; height:15px; }
+  .more-btn.ic { padding:8px 11px !important; }
+  .more-btn.ic::before { width:18px; height:18px; }
+  html:not([data-theme="red"]) .more-menu .top-btn { color:var(--text) !important; background:transparent !important; gap:12px; }
+  .more-menu .top-btn.ic::before { color:var(--text-muted); }
+  html:not([data-theme="red"]) .vw-switch { background:rgba(255,255,255,.16) !important; border-radius:999px !important; padding:4px !important; }
+  .vw-switch button { border-radius:999px !important; display:inline-flex; align-items:center; justify-content:center; gap:7px; }
+  html:not([data-theme="red"]) .vw-switch button { color:#d4d4d8 !important; }
+  html:not([data-theme="red"]) .vw-switch button.on { background:#ffffff !important; color:#111111 !important; box-shadow:0 2px 8px rgba(0,0,0,.15) !important; }
+  #edit-btn.lock-tg { gap:3px; }
+  html:not([data-theme="red"]) #edit-btn.lock-tg { padding:3px !important; background:rgba(255,255,255,.16) !important; }
+  #edit-btn.lock-tg > span { border-radius:999px; display:inline-flex; align-items:center; gap:6px; }
+  html:not([data-theme="red"]) #edit-btn.lock-tg > span { padding:6px 12px !important; color:#d4d4d8; background:transparent; }
+  #edit-btn .lk-w { color:inherit !important; }
+  html:not([data-theme="red"]) #edit-btn.lock-tg:not(.on) .lk-v, html:not([data-theme="red"]) #edit-btn.lock-tg.on .lk-e { background:#ffffff !important; color:#111111 !important; }
+  html:not([data-theme="red"]) .f-sel, html:not([data-theme="red"]) .search-wrap input, html:not([data-theme="red"]) #page-jump { background-color:rgba(255,255,255,.16) !important; border:none !important; color:#fff !important; border-radius:999px !important; }
+  html:not([data-theme="red"]) .f-sel { padding-left:34px !important; background-repeat:no-repeat !important; background-position:12px center, right 9px center !important; }
+  html:not([data-theme="red"]) #f-type { background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%205h18M6%2012h12M10%2019h4%22%2F%3E%3C%2Fsvg%3E"), url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%209l6%206%206-6%22%2F%3E%3C%2Fsvg%3E") !important; }
+  html:not([data-theme="red"]) #f-who { background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%228%22%20r%3D%224%22%2F%3E%3Cpath%20d%3D%22M4%2021c1.5-4%204.5-6%208-6s6.5%202%208%206%22%2F%3E%3C%2Fsvg%3E"), url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%209l6%206%206-6%22%2F%3E%3C%2Fsvg%3E") !important; }
+  html:not([data-theme="red"]) .search-wrap input { padding-left:36px !important; background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2211%22%20cy%3D%2211%22%20r%3D%227%22%2F%3E%3Cpath%20d%3D%22M20%2020l-3.5-3.5%22%2F%3E%3C%2Fsvg%3E") !important; background-repeat:no-repeat !important; background-position:13px center !important; }
+  html:not([data-theme="red"]) .search-wrap input::placeholder { color:#bdbdc2; }
+  .f-sel option, #page-jump option { color:#111111; }
+  html:not([data-theme="red"]) .f-sel { background-size:15px 15px, 12px 12px !important; }
+  html:not([data-theme="red"]) .search-wrap input { background-size:15px 15px !important; }
+  html:not([data-theme="red"]) .f-sel.on { background-color:#ffffff !important; color:#111111 !important; }
+  @media (max-width: 600px) { html:not([data-theme="red"]) .f-sel { padding-left:30px !important; background-position:10px center, right 8px center !important; } }
+  .bh-row.ic::before { width:18px; height:18px; }
+  html:not([data-theme="dark"]):not([data-theme="red"]) .bh-row { border:none !important; border-radius:18px !important; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+  html:not([data-theme="dark"]):not([data-theme="red"]) .sheet { border:none !important; border-radius:18px !important; box-shadow:0 4px 24px rgba(0,0,0,.08) !important; }
+  html:not([data-theme="dark"]):not([data-theme="red"]) table.cs td { border-left:none !important; }
+  html:not([data-theme="dark"]):not([data-theme="red"]) table.cs.pl tr.pl-top td { border-top:8px solid #f4f4f5 !important; }
+  html:not([data-theme="dark"]):not([data-theme="red"]) table.cs.pl tr.scene td { background:#111111 !important; }
+  html:not([data-theme="dark"]):not([data-theme="red"]) .jump-btn { background:#efeff1 !important; color:#111111 !important; border:none !important; border-radius:999px !important; }
+  /* Inside the script page: its header has Back, the name and the switch. */
+  html.cl-embed #back-btn, html.cl-embed .bar-title, html.cl-embed #vw-switch, html.cl-embed #build-tag { display: none !important; }
+  html.cl-embed .bar { justify-content: flex-end; padding-top: 6px; }
+  html.cl-embed #dev-badge { display: none !important; }
+  /* ⋯ menu: Export, display toggles, Settings */
+  .hdr-more { position: relative; flex: none; }
+  .more-btn { font-size: 18px; font-weight: 700; min-width: 40px; letter-spacing: .05em; }
+  .more-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 650; display: none; flex-direction: column; min-width: 230px;
+    background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,.22); padding: 6px; }
+  .hdr-more.open .more-menu { display: flex; }
+  .more-menu .top-btn { display: flex; align-items: center; width: 100%; min-height: 42px; justify-content: flex-start; text-align: left;
+    border: none; background: transparent; color: var(--text); font-size: 15px; padding: 0 12px; border-radius: 9px; white-space: nowrap; }
+  .more-menu .top-btn:hover { background: var(--purple-light); }
+  .more-menu .top-btn.primary { background: transparent; color: var(--purple); font-weight: 600; }
+  .mm-sep { height: 1px; background: var(--border); margin: 5px 4px; }
+  .mm-head { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); padding: 6px 12px 2px; }
+  @media (max-width: 600px) { #edit-btn .lk-w { display: none; } #edit-btn.lock-tg span { padding: 6px 10px; font-size: 15px; } }
+  /* Script | Cue sheet: flips to the script in this tab, at the same cue. */
+  .vw-switch { display: inline-flex; flex: none; background: rgba(127,127,140,.16); border-radius: 10px; padding: 3px; gap: 3px; margin: 0 6px; }
+  .vw-switch button { border: none; background: transparent; color: var(--text-muted); font: 600 14px 'DM Sans', system-ui, sans-serif; padding: 6px 16px; min-height: 34px; border-radius: 8px; cursor: pointer; }
+  .vw-switch button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(20,20,40,.16); cursor: default; }
+  body.cl-noscripts .vw-switch { display: none; }
+  /* Same spot as on the script page: the middle of the header. */
+  @media (min-width: 601px) {
+    .bar { position: relative; min-height: 56px; box-sizing: border-box; }
+    .vw-switch { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; z-index: 2; }
+    .bar-title { max-width: calc(50% - 290px); margin-right: auto; overflow: hidden; }
+    .bar-title h1 { flex: 0 1 auto !important; min-width: 0; }
+    .bar-title h1 { max-width: 100%; }
+  }
+  @media (max-width: 600px) { .bar { flex-wrap: wrap; } .vw-switch { flex: 1 1 100%; order: 5; margin: 2px 0 0; } .vw-switch button { flex: 1; min-height: 40px; font-size: 15px; } }
   .export-opts { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 14px; }
   .export-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 56px; padding: 10px 14px;
     border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); text-align: left; font: inherit; }
@@ -880,7 +1003,7 @@
 <div id="app">
   <header>
     <div class="bar">
-      <button class="top-btn back-btn" id="back-btn" onclick="goToDashboard()" title="Back to the dashboard" aria-label="Back to the dashboard">‹<span class="back-label"> Dashboard</span></button>
+      <button class="top-btn back-btn ic ic-back" id="back-btn" onclick="goToDashboard()" title="Back to the dashboard" aria-label="Back to the dashboard"><span class="back-label">Dashboard</span></button>
       <div class="bar-title">
         <h1 id="show-name">Loading…</h1>
         <div class="bar-sub">
@@ -888,14 +1011,25 @@
           <span id="status-count"></span><span id="status">connecting</span>
         </div>
       </div>
-      <button class="top-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Dark mode">🌙</button>
-      <button class="top-btn" id="layout-btn" onclick="cycleLayout()" title="Switch layout: Sheet or Wings">Layout: Sheet</button>
-      <button class="top-btn" id="photo-btn" onclick="setPhotos(!showPhotos)" title="Show or hide all line photos">Photos</button>
-      <button class="top-btn" id="awake-btn" onclick="toggleAwake()" title="Keep the screen on">Awake</button>
-      <button class="top-btn" id="export-btn" onclick="openExport()" title="Download the cue sheet or set change plot">Export</button>
+      <div class="vw-switch" id="vw-switch" role="group" aria-label="View"><button type="button" class="ic ic-script" onclick="flipToScript()" aria-pressed="false">Script</button><button type="button" class="on ic ic-list" aria-pressed="true">Cue sheet</button></div>
       <span class="edit-state" id="edit-state"></span>
-      <button class="top-btn lock-tg" id="edit-btn" onclick="setEditMode(!editMode)" title="Switch between View only and Editing" aria-label="View only or editing"><span class="lk-v">🔒 View only</span><span class="lk-e">✎ Editing</span></button>
-      <button class="top-btn" onclick="openSheet()">Settings</button>
+      <button class="top-btn lock-tg" id="edit-btn" onclick="setEditMode(!editMode)" title="Switch between View only and Editing" aria-label="View only or editing"><span class="lk-v ic ic-lock"><span class="lk-w">View only</span></span><span class="lk-e ic ic-pen"><span class="lk-w">Editing</span></span></button>
+      <!-- Everything used less often lives in ⋯. These are the same buttons that
+           used to sit in the bar, so their labels (Photos ✓, Awake ✓) still update. -->
+      <div class="hdr-more" id="hdr-more">
+        <button class="top-btn more-btn ic ic-dots" id="more-btn" onclick="toggleMore(event)" aria-haspopup="menu" aria-expanded="false" aria-label="More"></button>
+        <div class="more-menu" id="more-menu" role="menu" onclick="moreClick(event)">
+          <button class="top-btn ic ic-export" id="export-btn" onclick="openExport()" data-close="1" role="menuitem">Export…</button>
+          <div class="mm-sep"></div>
+          <div class="mm-head">Display</div>
+          <button class="top-btn ic ic-layout" id="layout-btn" onclick="cycleLayout()" role="menuitem">Layout: Sheet</button>
+          <button class="top-btn ic ic-photo" id="photo-btn" onclick="setPhotos(!showPhotos)" role="menuitem">Photos</button>
+          <button class="top-btn ic ic-moon" id="theme-toggle" onclick="toggleDarkMode()" role="menuitem">🌙</button>
+          <button class="top-btn ic ic-awake" id="awake-btn" onclick="toggleAwake()" role="menuitem">Awake</button>
+          <div class="mm-sep"></div>
+          <button class="top-btn ic ic-gear" onclick="openSheet()" data-close="1" role="menuitem">Settings</button>
+        </div>
+      </div>
     </div>
     <div class="pr-bar" id="pr-bar" style="padding:2px 12px 6px"></div>
     <div class="search-row">
@@ -903,6 +1037,8 @@
         <button class="view-tab on" id="tab-cues"    onclick="setView('cues')">Cues</button>
         <button class="view-tab"    id="tab-presets" onclick="setView('presets')">Before House</button>
       </div>
+      <select id="f-type" class="f-sel" onchange="fType(this.value)" aria-label="Show cue type"></select>
+      <select id="f-who" class="f-sel" onchange="fWho(this.value)" aria-label="Show who"></select>
       <div class="search-wrap">
         <input id="search" type="search" placeholder="Search cues, lines, notes…" autocomplete="off"
                autocorrect="off" autocapitalize="off" spellcheck="false" oninput="onSearch()">
@@ -914,7 +1050,7 @@
   </header>
 
   <div id="pr-guard" class="pr-guard" hidden></div>
-  <div class="sheet-wrap"><div class="sheet" id="sheet-body"></div></div>
+  <div class="sheet-wrap"><button type="button" class="bh-row ic ic-home" id="bh-row" onclick="bhRowTap()"></button><div class="sheet" id="sheet-body"></div></div>
 </div>
 
 <!-- ── EXPORT ─────────────────────────────────────────────────────────────── -->
@@ -1024,6 +1160,7 @@
 <script>
 // Applied before anything renders, so a dark-set device never flashes white.
 try {
+  if (/[?&]embed=1(&|$)/.test(location.search) && window.parent !== window) document.documentElement.classList.add('cl-embed');
   var _own = localStorage.getItem('mmt_cuelist_theme');
   var _t = (_own === 'light' || _own === 'dark' || _own === 'red')
     ? _own : (localStorage.getItem('mmt_theme') === 'dark' ? 'dark' : 'light');
@@ -1050,6 +1187,9 @@ try {
    else's work (saveMoveEdits).
    ═══════════════════════════════════════════════════════════════════════════ */
 
+// Inside the script page (app.html), which supplies the Back button, the show
+// name and the Script | Cue sheet switch (redesign step 8).
+const CL_EMBED = document.documentElement.classList.contains('cl-embed');
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
 const CORRECT_PIN = '1483';   // the TD PIN (same as app.html TD_PIN)
 const POLL_MS = 15000;
@@ -1073,6 +1213,7 @@ let clCrewPerms = { cuesheet: true, editScripts: true }; // app.html CREW_PERMS_
 function clApplyPermsValue(v){
   if (!v || typeof v !== 'object') return;
   if (v.tabs && 'cuesheet' in v.tabs) clCrewPerms.cuesheet = !!v.tabs.cuesheet;
+  if (v.tabs && 'scripts' in v.tabs) clCrewPerms.scripts = !!v.tabs.scripts;
   if (v.edit && 'scripts' in v.edit) clCrewPerms.editScripts = !!v.edit.scripts;
 }
 function clIsCrew(){ return clRole === 'crew'; }
@@ -1080,6 +1221,7 @@ function cueReadOnly(){ return clIsCrew() && !clCrewPerms.editScripts; }
 function clViewOnlyToast(){ toast('The cue sheet is view only for crew. Ask Mac to change it.'); }
 function clApplyRole(){
   document.body.classList.toggle('cl-readonly', cueReadOnly());
+  document.body.classList.toggle('cl-noscripts', clIsCrew() && clCrewPerms.scripts === false);
   if (cueReadOnly() && typeof editMode !== 'undefined' && editMode) setEditMode(false);
 }
 function clFetchCrewPins(done){
@@ -1795,7 +1937,7 @@ function setView(v){
 function render(){
   renderTypeStrip();
   const isCues = view === 'cues';
-  document.getElementById('type-strip').style.display = isCues ? 'flex' : 'none';
+  renderFilters(isCues);
   document.getElementById('page-jump').style.display  = isCues ? 'block' : 'none';
   if (!isCues) return renderPresetSheet();
 
@@ -5341,23 +5483,45 @@ function rowMenuDo(what, arg){
 // cue. With none open, it opens one. The dashboard's "Cue sheet ›" lands here
 // through mmtJump, or ?cue= in the address.
 const DASH_WIN = /-dev\.html$/i.test(location.pathname) ? 'mmt-dashboard-dev' : 'mmt-dashboard';
-function jumpToScript(cueId){
-  if (!scriptId) return;
-  const msg = { type: 'script', scriptId, cueId: String(cueId), name: scriptName || '' };
-  const url = DASH_PAGE + '?script=' + encodeURIComponent(scriptId) + '&cue=' + encodeURIComponent(cueId) + '&name=' + encodeURIComponent(scriptName || '') + '#scripts';
+function jumpToScript(cueId){ flipToScript(cueId); }
+function toggleMore(e, force){
+  if (e) e.stopPropagation();
+  const w = document.getElementById('hdr-more'); if (!w) return;
+  const on = force === undefined ? !w.classList.contains('open') : !!force;
+  w.classList.toggle('open', on);
+  document.getElementById('more-btn').setAttribute('aria-expanded', on ? 'true' : 'false');
+}
+// Export and Settings open their own panel, so the menu gets out of the way;
+// the display toggles leave it open so you can see what changed.
+function moreClick(e){ const b = e.target.closest('button'); if (b && b.dataset.close) toggleMore(null, false); }
+document.addEventListener('pointerdown', e => { const w = document.getElementById('hdr-more'); if (w && w.classList.contains('open') && !w.contains(e.target)) toggleMore(null, false); }, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleMore(null, false); });
+// Script | Cue sheet: go to the script in this same tab, at this cue (else the
+// row at the top of the screen). Anything not yet saved is sent first; if it
+// can't be, stay here rather than leave it behind.
+let _flipping = false;
+async function flipToScript(cueId){
+  if (CL_EMBED) {
+    if (!cueId) { try { const r = firstVisibleRow(); cueId = (r && r.getAttribute('data-cue')) || ''; } catch (e) {} }
+    try { closeBox(); closeRowMenu(); } catch (e) {}
+    try { if (clPending()) saveMoveEdits(); } catch (e) {}
+    try { window.parent.csEmbedToScript(cueId); return; } catch (e) {}
+  }
+  if (_flipping || !scriptId) return;
+  if (clIsCrew() && clCrewPerms.scripts === false) { toast('Scripts are turned off for crew. Ask Mac.'); return; }
+  if (!cueId) { try { const r = firstVisibleRow(); cueId = (r && r.getAttribute('data-cue')) || ''; } catch (e) {} }
+  _flipping = true;
   try {
-    const o = window.opener;
-    if (o && !o.closed && /\/app(-dev)?\.html$/.test(o.location.pathname) && typeof o.mmtJump === 'function') { o.mmtJump(msg); o.focus(); return; }
-  } catch (e) {}
-  try {
-    const w = window.open('', DASH_WIN);
-    if (w) {
-      let blank = false; try { blank = !w.location.href || w.location.href === 'about:blank'; } catch (e) {}
-      if (!blank && typeof w.mmtJump === 'function') { w.mmtJump(msg); w.focus(); return; }
-      w.location.href = url; return;
+    try { closeBox(); closeRowMenu(); } catch (e) {}
+    if (clUnsaved() || editSaving) {
+      toast('Saving…');
+      if (!editSaving) { if (clPending()) saveMoveEdits(); else flushAdds(); }
+      const t0 = Date.now();
+      while ((clUnsaved() || editSaving) && Date.now() - t0 < 12000) await new Promise(r => setTimeout(r, 250));
+      if (clUnsaved()) { toast('Not saved yet. Your changes are safe here; try again in a moment.'); return; }
     }
-  } catch (e) {}
-  location.href = url;
+    location.href = DASH_PAGE + '?script=' + encodeURIComponent(scriptId) + (cueId ? '&cue=' + encodeURIComponent(cueId) : '') + '&name=' + encodeURIComponent(scriptName || '') + '#scripts';
+  } finally { setTimeout(() => { _flipping = false; }, 1500); }
 }
 let _jumpCue = '';
 window.mmtJump = function (m){
@@ -6489,6 +6653,42 @@ function renderTypeStrip(){
   document.getElementById('type-strip').innerHTML = html + whoChipsHTML();
 }
 
+// Type and Who as two drop-downs, counts kept. Same filters as the old chips.
+function renderFilters(isCues){
+  const ft = document.getElementById('f-type'), fw = document.getElementById('f-who'), bh = document.getElementById('bh-row');
+  if (!ft || !fw) return;
+  const counts = {};
+  cues.forEach(c => { if (!isScene(c)) counts[c.type] = (counts[c.type] || 0) + 1; });
+  const total = cues.filter(c => !isScene(c)).length;
+  ft.innerHTML = `<option value="">All types · ${total}</option>` + cueTypes
+    .filter(t => t.id !== SCENE_TYPE_ID && counts[t.id])
+    .map(t => `<option value="${esc(t.id)}">${esc(t.name)} · ${counts[t.id]}</option>`).join('');
+  ft.value = activeType || ''; if (ft.value !== (activeType || '')) ft.value = '';
+  ft.classList.toggle('on', !!activeType);
+  const who = allWho();
+  fw.innerHTML = `<option value="">Everyone</option>` + who.map(w => {
+    const key = w.toLowerCase();
+    const n = cues.filter(c => (c.moves || []).some(m => onMove(m, key))).length;
+    return `<option value="${esc(key)}">${esc(w)} · ${n}</option>`;
+  }).join('');
+  fw.value = activeWho || ''; if (fw.value !== (activeWho || '')) fw.value = '';
+  fw.classList.toggle('on', !!activeWho);
+  ft.hidden = !isCues; fw.hidden = !isCues || !who.length;
+  if (bh) {
+    if (isCues) {
+      const pcs = allPieces(), none = pcs.filter(({ key }) => !String(((presets || {})[key] || {}).location || '').trim()).length;
+      bh.innerHTML = `<b>Before House</b><span>${pcs.length} piece${pcs.length === 1 ? '' : 's'}${none ? ' · ' + none + ' with no location' : ''}</span><i aria-hidden="true">›</i>`;
+      bh.setAttribute('aria-label', 'Open Before House');
+    } else {
+      bh.innerHTML = `<i aria-hidden="true">‹</i><b>All cues</b><span>Back to the cue sheet</span>`;
+      bh.setAttribute('aria-label', 'Back to all cues');
+    }
+  }
+}
+function fType(v){ activeType = v || null; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function fWho(v){ activeWho = v || null; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function bhRowTap(){ setView(view === 'cues' ? 'presets' : 'cues'); window.scrollTo({ top: 0 }); }
+
 function whoChipsHTML(){
   const who = allWho();
   if (!who.length) return '';
@@ -6650,7 +6850,7 @@ function applyTheme(t, persist){
   const shown = (typeof layout !== 'undefined' && layout === 'wings' && t === 'light') ? 'dark' : t;
   document.documentElement.setAttribute('data-theme', shown === 'light' ? '' : shown);
   const btn = document.getElementById('theme-toggle');
-  if (btn) btn.textContent = THEME_ICON[shown];
+  if (btn) btn.textContent = 'Theme: ' + ({ light: 'Light', dark: 'Dark', red: 'Red' })[shown];
   document.querySelectorAll('#theme-row button').forEach(b => b.classList.toggle('on', b.dataset.th === t));
   if (persist !== false){
     lsSet('mmt_cuelist_theme', t);
@@ -6658,6 +6858,8 @@ function applyTheme(t, persist){
     // this page's own, so it leaves mmt_theme alone rather than writing a
     // value app.html would read as light.
     if (t !== 'red') { try { localStorage.setItem('mmt_theme', t); } catch(e){} }
+    try { localStorage.setItem('mmt_run_dark', t === 'light' ? '0' : '1'); } catch(e){}
+    try { if (CL_EMBED && typeof window.parent.runApplyDark === 'function') { window.parent.runApplyDark(); } } catch(e){}
   }
 }
 function currentTheme(){
@@ -6873,6 +7075,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v1</div>
 </body>
 </html>
