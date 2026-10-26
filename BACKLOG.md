@@ -1,6 +1,6 @@
 # MMT TD Dashboard: to-do list
 
-## Live as of Oct 26 (Dashboard 10.26 v1, Cue Sheet 10.26 v3)
+## Live as of Oct 26 (Dashboard 10.26 v2, Cue Sheet 10.26 v3)
 - Script + Cue sheet redesign, steps 2–8 (plan and feature checklist: "Script + Cue Sheet Redesign: Feature Checklist" doc):
   - Script | Cue sheet switch in the same tab, centered in the header on both pages; the cue sheet is kept loaded inside the
     script page (cue-list?embed=1) so flipping is instant; Both = side by side on screens >=1280px, selection follows.
@@ -31,8 +31,10 @@
 ## Earlier (Oct 25, 10.25 v1)
 - Box editing + jump links; changelog export ("Mark this as sent?", What's changed page, Changes for you); #6.5 plot numbering fix.
 
-## On dev, Mac checking
-- Script page: placing a scene puts the cursor in its scene name box (computer/iPad side panel; phone editor). Dashboard 10.26 v3 dev.
+## Live Oct 26 (Dashboard 10.26 v2)
+- Script page: placing a scene puts the cursor in its scene name box (computer/iPad side panel; phone editor).
+- Script page Normal / Cards / Step: thin line between a set change's moves; heavier line (Normal) or 2px outline
+  (Cards, Step) between cues.
 
 ## Paused: dashboard layout reorganize (Oct 26)
 - Mac's answers: today's to-dos first; phone use is mostly the show notes doc, then to-dos, finding things, script/cue sheet;

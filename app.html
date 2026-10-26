@@ -3101,6 +3101,14 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #run-bar .run-sub { font-size: 13px; color: #6b6b78; line-height: 1.35; }
   #run-bar .run-moves { display: grid; grid-template-columns: auto 1fr auto; gap: 3px 10px; font-size: 14px; align-items: baseline; }
   #run-bar .run-who { color: #534AB7; font-weight: 600; text-align: right; }
+  /* A line between moves, so one move's last line doesn't run into the next one's first.
+     Each move is three cells; every cell after the first move gets the rule, and the
+     column gap is padding instead so the rule runs unbroken across the row. */
+  #run-bar .run-moves { column-gap: 0; row-gap: 0; }
+  #run-bar .run-moves > * { padding: 5px 0; }
+  #run-bar .run-moves > :nth-child(3n+1), #run-bar .run-moves > :nth-child(3n+2) { padding-right: 12px; }
+  #run-bar .run-moves > :nth-child(n+4) { border-top: 1px solid rgba(0,0,0,.14); }
+  #scripts-editor.run-dark #run-bar .run-moves > :nth-child(n+4) { border-top-color: rgba(255,255,255,.18); }
   #run-bar .run-more { display: flex; gap: 8px; padding: 0 14px; }
   #run-bar .run-more:empty { display: none; }
   #run-bar .run-more button { flex: 1; min-height: 36px; border: 1px dashed #c9c7d9; border-radius: 10px; background: #fff; color: #534AB7; font: 600 13px 'DM Sans', sans-serif; cursor: pointer; }
@@ -3174,6 +3182,14 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #scripts-editor.run-dark #run-bar .run-who, #scripts-editor.run-dark #run-bar .run-nextlbl { color: #b3aaff; }
   #scripts-editor.run-dark #run-bar .run-row.run-done { background: none; border-color: transparent; color: #6e6e7a; }
   #scripts-editor.run-dark #run-bar .run-item.run-next { background: #26234a; border-color: #8f86f0; }
+  /* Between one cue and the next: heavier than the thin rule between a set change's moves. */
+  #scripts-editor .cue-table td { border-bottom: 2px solid #a9a9b3 !important; }
+  #scripts-editor.compact .cue-table tbody tr { border-bottom: 2px solid #a9a9b3 !important; }
+  #scripts-editor.run-dark:not(.compact) .cue-table tbody td, #scripts-editor.run-dark.compact .cue-table tbody tr { border-bottom: 2px solid #4c4c5a !important; }
+  #run-bar .run-card, #run-bar .run-card.run-shift, #run-bar .run-row, #run-bar .run-item { border: 2px solid #a9a9b3; }
+  #run-bar .run-list { gap: 12px; }
+  #scripts-editor.run-dark #run-bar .run-card, #scripts-editor.run-dark #run-bar .run-card.run-shift,
+  #scripts-editor.run-dark #run-bar .run-row, #scripts-editor.run-dark #run-bar .run-item { border-color: #4c4c5a; }
   #scripts-editor.run-dark #run-bar .run-hit { border-color: #a79bf5 !important; box-shadow: 0 0 0 3px rgba(167,155,245,.3); }
   #scripts-editor.run-dark #run-bar .run-foot { background: #15151b; border-color: #26262e; }
   #scripts-editor.run-dark #run-bar .run-nextpg { color: #a0a0ad; }
@@ -5405,6 +5421,8 @@ table td { font-size: 14px !important; }
   #scripts-editor .cue-table .ct-moves { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
   #scripts-editor .cue-table .ct-mv { display: flex; align-items: center; gap: 6px; color: #3c3c46; line-height: 1.3; }
   #scripts-editor .cue-table .ct-mv b { font-weight: 600; color: #141414; }
+  #scripts-editor .cue-table .ct-mv + .ct-mv { border-top: 1px solid rgba(0,0,0,.12); margin-top: 4px; padding-top: 4px; }
+  #scripts-editor.run-dark .cue-table .ct-mv + .ct-mv { border-top-color: rgba(255,255,255,.16); }
   #scripts-editor .cue-table .ct-mv-tape { display: inline-flex; flex-shrink: 0; }
   #scripts-editor .cue-table .ct-mv-none { color: #96969f; }
   #scripts-editor .ct-linepic { display: inline-flex; align-items: center; gap: 4px; color: #6b6b78; font-style: normal; }
@@ -7042,7 +7060,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -17960,7 +17978,7 @@ drawCanvas.addEventListener('pointerup', e => {
         // One placement per arming, then straight back to scrolling — on a
         // phone the next touch is almost always a scroll, not another cue.
         setPlaceMode(false);
-        selectCue(cueId, false);
+        selectCue(cueId, typeId === SCENE_TYPE_ID && !seIsNarrow());
         if (seIsNarrow() && typeId !== SHIFT_TYPE_ID) editCue(cueId);
         toast(num + ' placed');
       } else {
@@ -19685,6 +19703,8 @@ function editCue(id) {
   const crop = document.getElementById('ce-line-crop');
   if (crop) { if (c.lineCrop) { crop.src = c.lineCrop; crop.style.display = 'block'; } else { crop.removeAttribute('src'); crop.style.display = 'none'; } }
   document.getElementById('cue-edit-overlay').classList.add('open');
+  // A scene with no name yet: start in its name box.
+  if (c.type === SCENE_TYPE_ID && !c.number) { const n = document.getElementById('ce-num'); if (n) n.focus(); }
 }
 
 function saveCueEdit() {
@@ -20404,9 +20424,15 @@ function loadCueIntoForm(cueId, focusNum) {
   if (edSel) edSel.classList.toggle('sel-shift', c.type === SHIFT_TYPE_ID);
   if (modeEl) modeEl.textContent = 'Editing ' + (c.number || 'cue') + ' — saves automatically';
   if (hint) hint.style.display = 'none';
-  if (focusNum && !seIsTouch()) {
-    const ai = document.getElementById('cue-action');
-    if (ai) { ai.focus(); }   // cue # is auto-set; jump straight to Action for details
+  // A new cue's number is set for it, so the cursor goes to Action for details.
+  // A new scene starts with no name, so the cursor goes to its name (on a
+  // phone or iPad too: a scene can't do without one).
+  if (focusNum) {
+    const isScene = c.type === SCENE_TYPE_ID;
+    if (isScene || !seIsTouch()) {
+      const el = document.getElementById(isScene ? 'cue-num' : 'cue-action');
+      if (el && el.offsetParent !== null) { el.focus(); if (isScene && el.select) el.select(); }
+    }
   }
 }
 
