@@ -5944,9 +5944,9 @@ const PS_NAMES = {
   cueLine: ['cue', 'cue line', 'line', 'called on', 'go on', 'trigger', 'when', 'cue / pg', 'cue/pg', 'standby'],
   page: ['pg', 'page', 'pg #', 'page #', 'script page', 'script pg', 'p'],
   scene: ['scene', 'act/scene', 'act / scene', 'act & scene', 'act and scene'],
-  piece: ['piece', 'pieces', 'item', 'items', 'set piece', 'set pieces', 'scenery', 'prop', 'props', 'what', 'unit'],
+  piece: ['piece', 'pieces', 'item', 'items', 'set piece', 'set pieces', 'scenery', 'prop', 'props', 'what', 'unit', 'movement', 'movements', 'description', 'shift description'],
   action: ['action', 'move', 'on/off', 'on / off', 'in/out', 'in / out', 'direction', 'task'],
-  wing: ['wing', 'from', 'where', 'side', 'location', 'from wing', 'position', 'storage', 'stored'],
+  wing: ['wing', 'from', 'where', 'side', 'stage side', 'sl/sr', 'sr/sl', 'location', 'from wing', 'position', 'storage', 'stored'],
   wingTo: ['to', 'to wing', 'destination', 'goes to', 'ends'],
   who: ['who', 'crew', 'run by', 'by', 'person', 'people', 'operator', 'assigned', 'assigned to', 'with'],
   spike: ['spike', 'spikes', 'spike mark', 'spike marks', 'tape'],
@@ -5978,7 +5978,10 @@ function psParse(text){
     cell += ch;
   }
   if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
-  return rows.map(r => r.map(c => c.replace(/\s+/g, ' ').trim())).filter(r => r.some(c => c));
+  const out = rows.map(r => r.map(c => c.replace(/\s+/g, ' ').trim())).map(r => r.some(c => c) ? r : []);
+  while (out.length && !out[0].length) out.shift();
+  while (out.length && !out[out.length - 1].length) out.pop();
+  return out;
 }
 // The header is the first of the top few rows with two or more names we know
 // (an exported plot has its title rows above it).
@@ -6033,9 +6036,12 @@ function psMove(get){
 function psGroups(){
   if (!ps || !ps.rows.length) return [];
   const map = ps.map, rows = ps.rows.slice(ps.head + 1);
+  // Without a Change # column, a change ends at a new page, a new cue line or a blank row.
+  const numbered = map.indexOf('num') >= 0;
   const out = []; let cur = null, lastScene = null;
   rows.forEach(r => {
     const get = f => { const i = map.indexOf(f); return i >= 0 ? (r[i] || '') : ''; };
+    if (!r.length) { if (!numbered) cur = null; return; }
     const filled = [];
     r.forEach((c, i) => { if (c && map[i]) filled.push(i); });
     if (!filled.length) return;
@@ -6050,7 +6056,12 @@ function psGroups(){
     const key = rawNum ? psKey(rawNum) : '';
     let g = null;
     if (key) g = (cur && cur.key === key) ? cur : out.find(x => x.kind === 'change' && x.key === key) || null;
-    else if (cur && !(line && cur.line && line !== cur.line)) g = cur;
+    else if (cur) {
+      // A cue line starts a new change, unless it's the same line repeated or the change has no moves yet.
+      const newLine = line && (cur.line ? line !== cur.line : cur.moves.length > 0);
+      const newPage = !numbered && pg && cur.page && psPage(pg) !== cur.page;
+      if (!newLine && !newPage) g = cur;
+    }
     if (!g) { g = { kind: 'change', key, line: '', page: '', moves: [] }; out.push(g); }
     cur = g;
     if (line && !g.line) g.line = line;
@@ -6058,6 +6069,18 @@ function psGroups(){
     if (hasMove) g.moves.push(psMove(get));
   });
   const list = out.filter(g => g.kind === 'scene' || g.key || g.line || g.moves.length);
+  // One row per person doing the same thing ("Push Bed ON": Kyle B, then Chris H) is one move with both names.
+  list.forEach(g => {
+    if (g.kind !== 'change') return;
+    const merged = [];
+    g.moves.forEach(m => {
+      const k = JSON.stringify(['piece', 'action', 'wing', 'wingTo', 'spike', 'notes'].map(f => m[f] || ''));
+      const same = (m.piece || m.action) ? merged.find(x => x.k === k) : null;
+      if (same) { if (m.who && (same.m.who || '').split(', ').indexOf(m.who) < 0) same.m.who = same.m.who ? same.m.who + ', ' + m.who : m.who; }
+      else merged.push({ k, m: Object.assign({}, m) });
+    });
+    g.moves = merged.map(x => x.m);
+  });
   // A change with no page takes the one before it (or after, at the top);
   // a scene heading takes the page of the change under it.
   let last = '';
@@ -6068,6 +6091,9 @@ function psGroups(){
     if (g.kind === 'change') { if (g.page) next = g.page; else if (next) { g.page = next; g.guess = true; } }
     else g.page = next;
   }
+  // A scene heading with nothing after it (POST-SHOW) stays with the change before it.
+  let before = '';
+  list.forEach(g => { if (g.kind === 'change') { if (g.page) before = g.page; } else if (!g.page) g.page = before; });
   list.forEach(g => { if (!g.page) { g.page = '1'; g.guess = true; } });
   list.forEach(g => {
     g.dup = g.kind === 'scene'
@@ -6151,7 +6177,7 @@ function psRender(){
         <div class="ps-gb"><div class="ps-gh"><b>${esc(g.name)}</b><span class="ps-pg">scene bar · pg. ${esc(g.page)}</span></div></div></div>`;
     }
     const mv = g.moves.length ? g.moves.map(m => `<div class="ps-mv">${psMoveText(m) || '<i>empty move</i>'}</div>`).join('') : '<div class="ps-mv"><i>No moves</i></div>';
-    const head = `<div class="ps-gh"><b>#${esc(g.key || 'new')}</b><span class="ps-pg${g.guess ? ' guess' : ''}">pg. ${esc(g.page)}${g.guess ? ' (no page given)' : ''}</span>${g.line ? `<span class="ps-line">“${esc(g.line)}”</span>` : ''}</div>`;
+    const head = `<div class="ps-gh"><b>${g.key ? '#' + esc(g.key) : 'New change'}</b><span class="ps-pg${g.guess ? ' guess' : ''}">pg. ${esc(g.page)}${g.guess ? ' (no page given)' : ''}</span>${g.line ? `<span class="ps-line">“${esc(g.line)}”</span>` : ''}</div>`;
     if (g.dup) {
       nDup++;
       const up = !!ps.upd[gi];
@@ -7462,6 +7488,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v3 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v4 dev</div>
 </body>
 </html>
