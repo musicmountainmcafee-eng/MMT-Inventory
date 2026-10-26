@@ -7042,7 +7042,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v2 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v3 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -17960,7 +17960,7 @@ drawCanvas.addEventListener('pointerup', e => {
         // One placement per arming, then straight back to scrolling — on a
         // phone the next touch is almost always a scroll, not another cue.
         setPlaceMode(false);
-        selectCue(cueId, false);
+        selectCue(cueId, typeId === SCENE_TYPE_ID && !seIsNarrow());
         if (seIsNarrow() && typeId !== SHIFT_TYPE_ID) editCue(cueId);
         toast(num + ' placed');
       } else {
@@ -19685,6 +19685,8 @@ function editCue(id) {
   const crop = document.getElementById('ce-line-crop');
   if (crop) { if (c.lineCrop) { crop.src = c.lineCrop; crop.style.display = 'block'; } else { crop.removeAttribute('src'); crop.style.display = 'none'; } }
   document.getElementById('cue-edit-overlay').classList.add('open');
+  // A scene with no name yet: start in its name box.
+  if (c.type === SCENE_TYPE_ID && !c.number) { const n = document.getElementById('ce-num'); if (n) n.focus(); }
 }
 
 function saveCueEdit() {
@@ -20404,9 +20406,15 @@ function loadCueIntoForm(cueId, focusNum) {
   if (edSel) edSel.classList.toggle('sel-shift', c.type === SHIFT_TYPE_ID);
   if (modeEl) modeEl.textContent = 'Editing ' + (c.number || 'cue') + ' — saves automatically';
   if (hint) hint.style.display = 'none';
-  if (focusNum && !seIsTouch()) {
-    const ai = document.getElementById('cue-action');
-    if (ai) { ai.focus(); }   // cue # is auto-set; jump straight to Action for details
+  // A new cue's number is set for it, so the cursor goes to Action for details.
+  // A new scene starts with no name, so the cursor goes to its name (on a
+  // phone or iPad too: a scene can't do without one).
+  if (focusNum) {
+    const isScene = c.type === SCENE_TYPE_ID;
+    if (isScene || !seIsTouch()) {
+      const el = document.getElementById(isScene ? 'cue-num' : 'cue-action');
+      if (el && el.offsetParent !== null) { el.focus(); if (isScene && el.select) el.select(); }
+    }
   }
 }
 
