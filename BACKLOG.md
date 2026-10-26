@@ -16,6 +16,15 @@
 - Cue Sheet 10.26 v2 (Oct 26): long cue numbers (PRE-SHOW) fit the # column; inside the script page the cue sheet's
   View only/Editing and ⋯ share the filter row.
 
+## On dev, waiting for Mac to try
+- **Paste set changes** (Cue Sheet 10.26 v3 dev): ⋯ > Paste set changes… Paste rows from Excel / Google Sheets (header row
+  included; title rows above it are ignored; CSV works too). Columns matched by header name (#, Shift #, Sc, Cue, Line, Pg,
+  Piece/Item, Action/Move, Wing/From, To, Who/Crew, Spike, Notes/Comments, Scene); each can be changed by hand. A row with no
+  number joins the change above; a one-cell row is a scene heading; a Scene column makes scene bars. "SL 2 → SR 1" splits into
+  wing/to. Preview before anything is added. A change number already on the sheet is flagged: Skip (default) or Update
+  (replaces its moves, and its cue line if pasted). New ones go in through the "+ Add cue" queue as approx. markers on their
+  page. Editing only; view-only crew don't see it.
+
 ## Earlier (Oct 25, 10.25 v1)
 - Box editing + jump links; changelog export ("Mark this as sent?", What's changed page, Changes for you); #6.5 plot numbering fix.
 
