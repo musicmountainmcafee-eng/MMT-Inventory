@@ -10,8 +10,12 @@
   - Step 2 (Script | Cue sheet switch, same tab, same cue): on dev (Dashboard 10.25 v3 dev, Cue Sheet 10.25 v4 dev). Waiting for Mac to try it.
   - Step 3 (cue sheet header: Export, Layout, Photos, Theme, Awake, Settings into ⋯; phone lock is icons; phone header one row + switch): on dev (Cue Sheet 10.25 v5 dev).
   - Mac chose to keep steps 2+ on dev and go live with several together.
-  - Next: step 4, tidy the script page header the same way.
+  - Step 4 (script page header: Dark look into ⋯; Spike map only in ⋯; phone run views in ⋯; phone header one row + switch;
+    ⋯ Cue sheet / Set change plot / Before House flip in the same tab; Back returns to the script at the cue): on dev (Dashboard 10.25 v4 dev).
+  - Next: step 5, phone script page: cue type chips only while marking.
   - Later (step 8): one dark mode setting for both views.
+  - After the layout steps: a NEW LOOK step. Mac wants different colors and cleaner, newer-looking buttons.
+    Show 2–3 style options on the real pages (screenshots) and let Mac pick before building.
 
 ## Bugs
 - **Cue sheet "Script ›" does nothing on phone/iPad** (live 10.25 v1). Fixed on dev by step 2 (same-tab switch); goes live with it.
