@@ -21,9 +21,12 @@
   - Step 8 (cue sheet kept loaded inside the script page (cue-list?embed=1): Script | Cue sheet flips instantly with no reload;
     Both = side by side on screens >=1280px, selection follows; Dark look and cue sheet theme are one setting;
     standalone cue sheet still opens the script page): on dev (Dashboard 10.25 v7 dev, Cue Sheet 10.25 v7 dev).
-  - Layout steps 2–8 done on dev. Next: Mac tries them, then take live together; then the NEW LOOK step.
-  - After the layout steps: a NEW LOOK step. Mac wants different colors and cleaner, newer-looking buttons.
-    Show 2–3 style options on the real pages (screenshots) and let Mac pick before building.
+  - Layout steps 2–8 done on dev. Switch is centered in the header on both pages (10.25 v8 dev).
+  - NEW LOOK on dev (Dashboard + Cue Sheet 10.26 v1 dev): black and white, Inter font, black header, white for what's on,
+    pill buttons, icons on every main button and menu item (drawn with CSS masks), cue sheet as white cards with black scene bars.
+    Colors apply to the light theme / normal script look; cue sheet Dark and Red themes and the script page's Dark look keep their
+    colors (Dark look still uses its purple accents). Script page + cue sheet only; the rest of the dashboard comes later.
+  - Next: Mac tries everything on dev, then take live together.
 
 ## Bugs
 - **Cue sheet "Script ›" does nothing on phone/iPad** (live 10.25 v1). Fixed on dev by step 2 (same-tab switch); goes live with it.
