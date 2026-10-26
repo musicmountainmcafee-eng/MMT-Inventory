@@ -31,6 +31,9 @@
 ## Earlier (Oct 25, 10.25 v1)
 - Box editing + jump links; changelog export ("Mark this as sent?", What's changed page, Changes for you); #6.5 plot numbering fix.
 
+## On dev, Mac checking
+- Script page: placing a scene puts the cursor in its scene name box (computer/iPad side panel; phone editor). Dashboard 10.26 v3 dev.
+
 ## Paused: dashboard layout reorganize (Oct 26)
 - Mac's answers: today's to-dos first; phone use is mostly the show notes doc, then to-dos, finding things, script/cue sheet;
   rarely uses To Do 2, Cleaning Log, Drops, Storage Map; every show's scope differs a lot.
