@@ -17,6 +17,13 @@
 ## Earlier (Oct 25, 10.25 v1)
 - Box editing + jump links; changelog export ("Mark this as sent?", What's changed page, Changes for you); #6.5 plot numbering fix.
 
+## Paused: dashboard layout reorganize (Oct 26)
+- Mac's answers: today's to-dos first; phone use is mostly the show notes doc, then to-dos, finding things, script/cue sheet;
+  rarely uses To Do 2, Cleaning Log, Drops, Storage Map; every show's scope differs a lot.
+- Two mockups made (layout-options.html, sent in chat): A = by type of task, tidier (Today home, 10-item menu, More);
+  B = show-first (current show picker, show page tabs, to-dos per show; needs a Show field on to-dos = new Sheet column).
+- Next: Mac picks A, B or a mix.
+
 ## Ideas
 - Dark look on the script page still uses purple accents; could go black and white too.
 

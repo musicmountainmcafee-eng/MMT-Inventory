@@ -693,6 +693,13 @@
   /* Inside the script page: its header has Back, the name and the switch. */
   html.cl-embed #back-btn, html.cl-embed .bar-title, html.cl-embed #vw-switch, html.cl-embed #build-tag { display: none !important; }
   html.cl-embed .bar { justify-content: flex-end; padding-top: 6px; }
+  /* Inside the script page its own header is already above, so View only/Editing and ⋯ share the filter row. */
+  @media (min-width: 601px) {
+    html.cl-embed header { display: flex; flex-wrap: wrap; align-items: center; }
+    html.cl-embed header > .search-row { order: 1; flex: 1 1 0; min-width: 0; padding: 8px 0 8px 14px; }
+    html.cl-embed header > .bar { order: 2; flex: none; min-height: 0; padding: 8px 14px 8px 8px; }
+    html.cl-embed header > .pr-bar, html.cl-embed header > .type-strip { order: 3; flex: 1 1 100%; }
+  }
   html.cl-embed #dev-badge { display: none !important; }
   /* ⋯ menu: Export, display toggles, Settings */
   .hdr-more { position: relative; flex: none; }
@@ -910,7 +917,10 @@
   table.cs.pl tr.pl-top td { border-top: 3px solid var(--ink); }
   table.cs.pl tr.band td { background: transparent; }
   table.cs.pl tr.scene + tr.pl-top td { border-top-width: 0; }
-  table.cs.pl td.pl-numc { font-weight: 700; color: var(--ink); white-space: nowrap; }
+  table.cs.pl td.pl-numc { font-weight: 700; color: var(--ink); white-space: normal; overflow-wrap: anywhere; }
+  /* A word for a number (PRE-SHOW) wraps inside the # column instead of running into Cue. */
+  table.cs.pl td.pl-numc .approx-tag { margin-left: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  table.cs.pl td.pl-numc .jump-btn { max-width: 100%; white-space: nowrap; }
   table.cs.pl td.pl-numc .pl-num { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
   table.cs.pl td.pl-numc .cs-chip { margin: 0; }
   table.cs.pl tr.pl-row:not(.pl-top) td { border-top: 1px solid var(--grid); }
@@ -1999,10 +2009,25 @@ function render(){
     el.innerHTML = title + `<div class="cs-empty"><b>${what}</b>${how}</div>`;
   } else if (plot){
     const cols = {
-      full:    [['#',5],['Cue',14],['PG',6],['Piece',15],['Action',9],['Wing',9],['Who',11],['Spike',14],['Notes',17]],
-      merged:  [['#',6],['Cue / PG',16],['Piece',15],['Action',9],['Wing',9],['Who',12],['Spike',14],['Notes',19]],
+      full:    [['#',7],['Cue',14],['PG',5],['Piece',15],['Action',9],['Wing',9],['Who',11],['Spike',14],['Notes',16]],
+      merged:  [['#',8],['Cue / PG',16],['Piece',15],['Action',9],['Wing',9],['Who',12],['Spike',14],['Notes',17]],
       compact: [['#',9],['Cue',25],['Piece',24],['Who',17],['Spike / Notes',25]]
     }[mode];
+    // A word for a number (PRE-SHOW, INTERMISSION) widens the # column enough to read,
+    // instead of breaking it letter by letter on narrow screens.
+    // On a phone (compact) it may wrap at a hyphen or space, so only the longest piece has to fit.
+    const numLen = Math.min(14, Math.max(0, ...cues.filter(c => c.type !== SCENE_TYPE_ID).map(c => {
+      const t = typeOf(c.type);
+      const n = c.type === SHIFT_TYPE_ID ? '#' + changeShortNum(shortNumber(c, t.name)) : shortNumber(c, t.name);
+      return mode === 'compact' ? Math.max(0, ...(n.match(/[^-\s]+[-\s]?/g) || ['']).map(p => p.length)) : n.length;
+    })));
+    if (numLen > 4) {
+      const W = el.clientWidth || 1000, fs = parseFloat(getComputedStyle(el).fontSize) || 14;
+      const need = Math.ceil((numLen * 0.68 * fs + 22) / W * 100);
+      let extra = Math.max(0, need - cols[0][1]);
+      // Borrow from Notes first, then Cue, never taking more than half of either.
+      [cols.length - 1, 1].forEach(k => { const take = Math.min(extra, Math.floor(cols[k][1] / 2)); cols[k][1] -= take; cols[0][1] += take; extra -= take; });
+    }
     el.innerHTML = title + `<table class="cs pl">
       <colgroup>${cols.map(c => `<col style="width:${c[1]}%">`).join('')}</colgroup>
       <thead><tr>${cols.map(c => `<th>${c[0]}</th>`).join('')}</tr></thead>
@@ -7075,6 +7100,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v2 dev</div>
 </body>
 </html>
