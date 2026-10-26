@@ -2935,6 +2935,16 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #mv-drawer .mvd-act:hover { color: var(--cue-text); border-color: var(--cue-text-faint); }
   #mv-drawer .mvd-act-del { color: var(--cue-red); border-color: var(--cue-red); }
   #mv-drawer .mvd-act-del:hover { color: #fff; background: var(--cue-red); border-color: var(--cue-red); }
+  /* Cue sheet inside the script page (step 8). */
+  #scripts-editor #cs-wrap { display: none; flex: 1 1 0; min-width: 0; min-height: 0; background: var(--cue-bg, #f8f7f4); }
+  #scripts-editor #cs-wrap iframe { width: 100%; height: 100%; border: 0; display: block; background: transparent; }
+  #scripts-editor.cs-mode #cs-wrap, #scripts-editor.both-mode #cs-wrap { display: block; }
+  #scripts-editor.cs-mode .viewer, #scripts-editor.cs-mode .cue-panel, #scripts-editor.cs-mode .tool-sidebar,
+  body #scripts-editor.cs-mode .cue-topbar .se-find, body #scripts-editor.cs-mode .cue-topbar .sv-more, body #scripts-editor.cs-mode #run-switch, body #scripts-editor.cs-mode #se-approx { display: none !important; }
+  #scripts-editor.both-mode .viewer { flex: 1 1 0 !important; min-width: 0; }
+  #scripts-editor.both-mode #cs-wrap { border-left: 1px solid var(--cue-border); }
+  #scripts-editor #sv-switch .sv-both { display: none; }
+  @media (min-width: 1280px) { #scripts-editor #sv-switch .sv-both { display: inline-flex; } }
   /* Side panel moves editor (computer). The cue line, Cue sheet ›, Move and
      Delete are already in the details above, so the drawer's own copies hide. */
   #scripts-editor #mv-drawer.in-panel { position: static !important; height: auto !important; max-height: none !important; min-height: 0 !important; box-shadow: none !important;
@@ -6563,8 +6573,9 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
     </div>
     <!-- Script | Cue sheet: flips to the cue sheet in this tab, at the same cue. -->
     <div class="sv-switch" id="sv-switch" role="group" aria-label="View">
-      <button class="sv-btn on" data-sv="script" onclick="setScriptsView('script')" aria-pressed="true">Script</button>
+      <button class="sv-btn on" data-sv="script" onclick="setSheetMode('script')" aria-pressed="true">Script</button>
       <button class="sv-btn"    data-sv="sheet"  onclick="flipToCueSheet()" aria-pressed="false">Cue sheet</button>
+      <button class="sv-btn sv-both" data-sv="both" onclick="setSheetMode('both')" aria-pressed="false" title="Script and cue sheet side by side">Both</button>
     </div>
     <div class="run-switch" id="run-switch" role="group" aria-label="View">
       <button type="button" data-rv="normal" class="on" aria-pressed="true" onclick="setRunView('normal')" title="Edit the script">Normal</button>
@@ -6659,6 +6670,8 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
         <div class="mvd-body" id="mvd-body"></div>
       </div>
     </div>
+    <!-- The cue sheet, kept loaded once opened, so Script | Cue sheet flips instantly (redesign step 8). -->
+    <div id="cs-wrap"><iframe id="cs-frame" title="Cue sheet"></iframe></div>
     <!-- CUE PANEL -->
     <div class="cue-panel" id="cue-panel">
       <div id="run-bar" aria-live="polite"></div>
@@ -6919,7 +6932,7 @@ details.t2-fold[open]>summary::before{content:"▾ ";}
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v6 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v7 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7470,33 +7483,69 @@ function openCueSheetAt(cueId) { flipToCueSheet(cueId); }
 // Script | Cue sheet: go to the cue sheet in this same tab, at this cue (the
 // selected one, else the first on the page showing). Anything not yet saved is
 // sent first; if it can't be, stay here rather than leave it behind.
-let _flipping = false;
-async function flipToCueSheet(cueId, view) {
-  if (_flipping || typeof showId === 'undefined' || !showId) return;
-  if (typeof crewCanSee === 'function' && !crewCanSee('cuesheet')) { toast('The cue sheet is turned off for crew. Ask Mac.'); return; }
-  try {
-    if (!cueId && !view) cueId = (typeof selectedCueId !== 'undefined' && selectedCueId) || '';
-    if (!cueId && !view) { const pg = cuesInScriptOrder().filter(c => c.page === currentPage); if (pg.length) cueId = pg[0].id; }
-  } catch (e) {}
-  _flipping = true;
-  try {
-    if (cueHasUnsaved() && !_cs.readOnly) {
-      toast('Saving…');
-      clearTimeout(_cs.timer); try { csPush(); } catch (e) {}
-      const t0 = Date.now();
-      while (cueHasUnsaved() && Date.now() - t0 < 12000) await new Promise(r => setTimeout(r, 250));
-      if (cueHasUnsaved()) { toast('Not saved yet. Your changes are safe here; try again in a moment.'); return; }
-    }
-    const name = (document.getElementById('show-name') || {}).textContent || '';
-    // So the browser's Back comes back to this script, at this cue.
-    try {
-      const here = (typeof selectedCueId !== 'undefined' && selectedCueId) || cueId || '';
-      history.replaceState(null, '', location.pathname + '?script=' + encodeURIComponent(showId) + (here ? '&cue=' + encodeURIComponent(here) : '') + (name ? '&name=' + encodeURIComponent(name) : '') + '#scripts');
-    } catch (e) {}
-    const extra = view === 'shift' ? '&type=shift' : view === 'presets' ? '&view=presets&edit=1' : '';
-    location.href = CUE_PAGE + '?script=' + encodeURIComponent(showId) + (cueId ? '&cue=' + encodeURIComponent(cueId) : '') + (name ? '&name=' + encodeURIComponent(name) : '') + extra;
-  } finally { setTimeout(() => { _flipping = false; }, 1500); }
+async function flipToCueSheet(cueId, view) { return setSheetMode('sheet', cueId, view); }
+// Script | Cue sheet | Both. The cue sheet loads once (inside this page) and
+// then stays, so flipping is instant and the script never reloads.
+let _sheetMode = 'script', _bothPoll = null;
+function csFrame() { return document.getElementById('cs-frame'); }
+function csFrameWin() { try { const w = csFrame().contentWindow; return (w && typeof w.fetchCues === 'function') ? w : null; } catch (e) { return null; } }
+function csSheetUrl(cueId, view) {
+  const name = (document.getElementById('show-name') || {}).textContent || '';
+  return CUE_PAGE + '?embed=1&script=' + encodeURIComponent(showId) + (cueId ? '&cue=' + encodeURIComponent(cueId) : '') + (name ? '&name=' + encodeURIComponent(name) : '')
+    + (view === 'shift' ? '&type=shift' : view === 'presets' ? '&view=presets&edit=1' : '');
 }
+async function setSheetMode(mode, cueId, view) {
+  if (typeof showId === 'undefined' || !showId) return;
+  const ed = document.getElementById('scripts-editor'); if (!ed) return;
+  if (mode !== 'script' && typeof crewCanSee === 'function' && !crewCanSee('cuesheet')) { toast('The cue sheet is turned off for crew. Ask Mac.'); return; }
+  if (mode === 'both' && !window.matchMedia('(min-width: 1280px)').matches) mode = 'sheet';
+  if (mode !== 'script') {
+    try {
+      if (!cueId && !view) cueId = (typeof selectedCueId !== 'undefined' && selectedCueId) || '';
+      if (!cueId && !view) { const pg = cuesInScriptOrder().filter(c => c.page === currentPage && c.type !== SCENE_TYPE_ID); if (pg.length) cueId = pg[0].id; }
+    } catch (e) {}
+    try { if (typeof runView !== 'undefined' && runView !== 'normal') setRunView('normal', true); } catch (e) {}
+    const f = csFrame(), w = csFrameWin();
+    const unsaved = cueHasUnsaved() && !_cs.readOnly;
+    if (unsaved) { clearTimeout(_cs.timer); try { csPush(); } catch (e) {} }
+    if (!w || f.dataset.sid !== String(showId)) {
+      // First time (or another script): load it. Wait a moment for this page's
+      // last edit to reach the Sheet so the cue sheet opens with it.
+      const t0 = Date.now();
+      while (unsaved && cueHasUnsaved() && Date.now() - t0 < 6000) await new Promise(r => setTimeout(r, 200));
+      f.dataset.sid = String(showId);
+      f.src = csSheetUrl(cueId, view);
+    } else {
+      (async () => {
+        const t0 = Date.now();
+        while (unsaved && cueHasUnsaved() && Date.now() - t0 < 6000) await new Promise(r => setTimeout(r, 200));
+        try { w.fetchCues(); } catch (e) {}
+      })();
+      try {
+        if (view === 'presets') { w.setView('presets'); }
+        else if (view === 'shift') { w.setView('cues'); w.fType('shift'); }
+        else if (cueId) w.mmtJump({ type: 'cue', scriptId: showId, cueId: String(cueId) });
+      } catch (e) {}
+    }
+  } else {
+    try { csPoll(); } catch (e) {}
+  }
+  const was = _sheetMode;
+  _sheetMode = mode;
+  ed.classList.toggle('cs-mode', mode === 'sheet');
+  ed.classList.toggle('both-mode', mode === 'both');
+  document.querySelectorAll('#sv-switch .sv-btn').forEach(b => {
+    const on = b.getAttribute('data-sv') === mode; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  clearInterval(_bothPoll);
+  if (mode === 'both') _bothPoll = setInterval(() => { try { csPoll(); } catch (e) {} }, 5000);
+  if (mode !== 'sheet' && was !== mode) setTimeout(() => { try { renderPage(); } catch (e) {} if (mode === 'script' && cueId) { try { jumpToCue(cueId); } catch (e) {} } }, 80);
+}
+// From the cue sheet's "Script ›": show the script at that cue (in Both, just follow).
+window.csEmbedToScript = function (cueId) {
+  if (_sheetMode === 'both') { try { csPoll(); } catch (e) {} if (cueId) jumpToCue(cueId); return; }
+  setSheetMode('script', cueId);
+};
 let _jumpWait = null;
 window.mmtJump = function (m) {
   if (!m || m.type !== 'script' || !m.scriptId) return;
@@ -18054,6 +18103,7 @@ function openCueInfo(cueId) {
 // Select/highlight a cue: marks it as the active cue (for the Delete key) and
 // persistently highlights its row in the cue sheet.
 function selectCue(cueId, focusNum) {
+  try { if (_sheetMode === 'both' && cueId) { const w = csFrameWin(); if (w) w.mmtJump({ type: 'cue', scriptId: showId, cueId: String(cueId) }); } } catch (e) {}
   if (seIsTouch() && document.activeElement && document.activeElement.blur) {
     const ae = document.activeElement;
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) ae.blur();
@@ -19074,7 +19124,7 @@ function setScriptsView(v) {
   const ed = document.getElementById('scripts-editor');
   if (ed) ed.classList.toggle('sv-cues', _scriptsView === 'cues');
   document.querySelectorAll('#sv-switch .sv-btn').forEach(b =>
-    b.classList.toggle('on', b.getAttribute('data-sv') === _scriptsView));
+    b.classList.toggle('on', b.getAttribute('data-sv') === ((typeof _sheetMode !== 'undefined' && _sheetMode !== 'script') ? _sheetMode : _scriptsView)));
   // The canvas sizes itself to its container, which just changed.
   if (_scriptsView === 'script') {
     try { setTimeout(() => { if (typeof renderPage === 'function') renderPage(); }, 60); } catch(e) {}
@@ -19725,6 +19775,12 @@ function runApplyDark() {
 }
 function runToggleDark() {
   try { localStorage.setItem('mmt_run_dark', seDarkOn() ? '0' : '1'); } catch (e) {}
+  try {
+    const dark = seDarkOn(), own = localStorage.getItem('mmt_cuelist_theme');
+    const t = dark ? (own === 'red' ? 'red' : 'dark') : 'light';
+    localStorage.setItem('mmt_cuelist_theme', t);
+    const w = csFrameWin(); if (w && typeof w.applyTheme === 'function') w.applyTheme(t, false);
+  } catch (e) {}
   runApplyDark(); _runSig = ''; runSync();
 }
 // A on a narrow screen has no room beside the script, so it lists instead.
@@ -21535,6 +21591,7 @@ function cueLoadDecision(localRev, syncedRev, serverRev, serverHasData) {
 }
 
 function goHome() {
+  try { if (_sheetMode !== 'script') setSheetMode('script'); } catch (e) {}
   saveShowData();
   closeScriptsEditor();
   loadScriptList();

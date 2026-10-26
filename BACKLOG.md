@@ -18,8 +18,10 @@
     "All cues" row to go back; old tabs and chip strip hidden): on dev (Cue Sheet 10.25 v6 dev).
   - Step 7 (computer and iPad script page: a set change's moves are edited as cards in the side panel under its details;
     no drawer over the script; cue list keeps a third of the panel; phones keep the drawer): on dev (Dashboard 10.25 v6 dev).
-  - Next: step 8, instant switching (both views in one page) and the Both view on a computer; one dark mode setting.
-  - Later (step 8): one dark mode setting for both views.
+  - Step 8 (cue sheet kept loaded inside the script page (cue-list?embed=1): Script | Cue sheet flips instantly with no reload;
+    Both = side by side on screens >=1280px, selection follows; Dark look and cue sheet theme are one setting;
+    standalone cue sheet still opens the script page): on dev (Dashboard 10.25 v7 dev, Cue Sheet 10.25 v7 dev).
+  - Layout steps 2–8 done on dev. Next: Mac tries them, then take live together; then the NEW LOOK step.
   - After the layout steps: a NEW LOOK step. Mac wants different colors and cleaner, newer-looking buttons.
     Show 2–3 style options on the real pages (screenshots) and let Mac pick before building.
 

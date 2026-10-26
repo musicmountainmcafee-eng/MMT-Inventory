@@ -620,6 +620,10 @@
   .mv-plus:hover { border-style: solid; color: var(--text); }
   /* ── Export / history / toast ── */
   .overlay.open { display: flex; }
+  /* Inside the script page: its header has Back, the name and the switch. */
+  html.cl-embed #back-btn, html.cl-embed .bar-title, html.cl-embed #vw-switch, html.cl-embed #build-tag { display: none !important; }
+  html.cl-embed .bar { justify-content: flex-end; padding-top: 6px; }
+  html.cl-embed #dev-badge { display: none !important; }
   /* ⋯ menu: Export, display toggles, Settings */
   .hdr-more { position: relative; flex: none; }
   .more-btn { font-size: 18px; font-weight: 700; min-width: 40px; letter-spacing: .05em; }
@@ -1079,6 +1083,7 @@
 <script>
 // Applied before anything renders, so a dark-set device never flashes white.
 try {
+  if (/[?&]embed=1(&|$)/.test(location.search) && window.parent !== window) document.documentElement.classList.add('cl-embed');
   var _own = localStorage.getItem('mmt_cuelist_theme');
   var _t = (_own === 'light' || _own === 'dark' || _own === 'red')
     ? _own : (localStorage.getItem('mmt_theme') === 'dark' ? 'dark' : 'light');
@@ -1105,6 +1110,9 @@ try {
    else's work (saveMoveEdits).
    ═══════════════════════════════════════════════════════════════════════════ */
 
+// Inside the script page (app.html), which supplies the Back button, the show
+// name and the Script | Cue sheet switch (redesign step 8).
+const CL_EMBED = document.documentElement.classList.contains('cl-embed');
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
 const CORRECT_PIN = '1483';   // the TD PIN (same as app.html TD_PIN)
 const POLL_MS = 15000;
@@ -5416,6 +5424,12 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleMore(n
 // can't be, stay here rather than leave it behind.
 let _flipping = false;
 async function flipToScript(cueId){
+  if (CL_EMBED) {
+    if (!cueId) { try { const r = firstVisibleRow(); cueId = (r && r.getAttribute('data-cue')) || ''; } catch (e) {} }
+    try { closeBox(); closeRowMenu(); } catch (e) {}
+    try { if (clPending()) saveMoveEdits(); } catch (e) {}
+    try { window.parent.csEmbedToScript(cueId); return; } catch (e) {}
+  }
   if (_flipping || !scriptId) return;
   if (clIsCrew() && clCrewPerms.scripts === false) { toast('Scripts are turned off for crew. Ask Mac.'); return; }
   if (!cueId) { try { const r = firstVisibleRow(); cueId = (r && r.getAttribute('data-cue')) || ''; } catch (e) {} }
@@ -6767,6 +6781,8 @@ function applyTheme(t, persist){
     // this page's own, so it leaves mmt_theme alone rather than writing a
     // value app.html would read as light.
     if (t !== 'red') { try { localStorage.setItem('mmt_theme', t); } catch(e){} }
+    try { localStorage.setItem('mmt_run_dark', t === 'light' ? '0' : '1'); } catch(e){}
+    try { if (CL_EMBED && typeof window.parent.runApplyDark === 'function') { window.parent.runApplyDark(); } } catch(e){}
   }
 }
 function currentTheme(){
@@ -6981,6 +6997,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v6 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.25 v7 dev</div>
 </body>
 </html>
