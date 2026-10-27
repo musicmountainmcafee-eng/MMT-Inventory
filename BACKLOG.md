@@ -1,6 +1,6 @@
 # MMT TD Dashboard: to-do list
 
-## Live as of Oct 26 (Dashboard 10.26 v2, Cue Sheet 10.26 v3)
+## Live as of Oct 26 (Dashboard 10.26 v3, Cue Sheet 10.26 v3)
 - Script + Cue sheet redesign, steps 2–8 (plan and feature checklist: "Script + Cue Sheet Redesign: Feature Checklist" doc):
   - Script | Cue sheet switch in the same tab, centered in the header on both pages; the cue sheet is kept loaded inside the
     script page (cue-list?embed=1) so flipping is instant; Both = side by side on screens >=1280px, selection follows.
@@ -36,7 +36,7 @@
 - Script page Normal / Cards / Step: thin line between a set change's moves; heavier line (Normal) or 2px outline
   (Cards, Step) between cues.
 
-## On dev: dashboard layout (Dashboard 10.26 v6 dev), Mac checking
+## Live Oct 26: dashboard layout (Dashboard 10.26 v3 = 10.26 v6 dev)
 - Picked by Mac one piece at a time (layout-picks.html): to-dos first on Home; phone bar Home · Show notes · Script · To Do · More;
   menu = current show on top + shorter groups with More; current show = next Mainstage show not yet opened (moves on the day
   after opening night), picker to override (per device, "Automatic" to go back); show timer small in the top bar; phone
@@ -49,6 +49,10 @@
   Create notes, Script, Cue sheet) | Also going (or Coming up) | Shopping. Timer pill: full screen, history, on/off.
 - Phone: header Search + Lock; TV, Dark, Settings, Sync at the top of the menu.
 - Tests: test_menu.py, test_home2.py (fake data). Backup: backup/2026-10-26-before-layout.
+
+## Next
+- **Quick links** (sidebar Links: Public Catalogue, Staff Portal, Notes & Tasks + custom links): Mac doesn't find them useful;
+  find them a better place / make them useful. Not started (ask Mac what he'd open from there).
 
 ## Ideas
 - Dark look on the script page still uses purple accents; could go black and white too.

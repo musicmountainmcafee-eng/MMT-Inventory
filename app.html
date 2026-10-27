@@ -2065,6 +2065,62 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   /* Collapsed state — an icon rail, not a squeezed menu. The label is hidden
      outright rather than left to clip mid-word. */
   .sidebar.collapsed { width: 56px; }
+
+
+  /* ── Phone: one-row header; wall TV, dark mode, settings, sync in the menu ── */
+  .sb-tools { display: none; }
+  @media (max-width: 768px) {
+    .content-topbar { flex-wrap: nowrap !important; }
+    .content-topbar-left { min-width: 0; flex: 1 1 auto; }
+    .content-topbar-left > div { min-width: 0; }
+    .content-topbar-left h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .content-topbar-right { flex-wrap: nowrap !important; flex: none; }
+    .content-topbar .tb-move { display: none !important; }
+    .sb-tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 6px; padding: 10px 10px 4px; }
+    .sb-tool { all: unset; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px 7px; border-radius: 10px; min-width: 0;
+      background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.8); font-size: 10.5px; font-weight: 600; cursor: pointer; white-space: nowrap; text-align: center; }
+    .sb-tool span { overflow: hidden; text-overflow: ellipsis; }
+    .sb-tool:active { background: rgba(255,255,255,0.14); }
+    .sb-tool svg { width: 18px; height: 18px; flex: none; }
+    body.crew-role .sb-tool.td-only { display: none !important; }
+  }
+  /* ── Side menu: current show, groups, More ── */
+  .sb-show { margin: 2px 0 2px; }
+  .sb-show-pick { all: unset; box-sizing: border-box; position: relative; display: flex; flex-direction: column; gap: 1px; width: 100%; margin: 2px 0 8px;
+    padding: 11px 34px 11px 13px; border-radius: 12px; background: rgba(255,255,255,0.08); color: #fff; cursor: pointer; }
+  .sb-show-pick:hover { background: rgba(255,255,255,0.12); }
+  .sb-show-pick:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .sb-show-pick small { font-size: 10.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+  .sb-show-pick b { font-size: 15px; font-weight: 700; line-height: 1.25; white-space: normal; }
+  .sb-show-pick span { font-size: 12px; color: #c4b5fd; }
+  .sb-show-chev { position: absolute; right: 11px; top: 50%; width: 16px; height: 16px; margin-top: -8px; opacity: .7; }
+  .sb-show.sb-show-empty .sb-show-pick { margin-bottom: 2px; }
+  /* .sidebar-link is display:flex !important further down, so these need the #sidebar to win. */
+  #sidebar .sb-cs-solo { display: none !important; }
+  body.crew-no-scripts #sidebar .sb-cs-solo:not(.crew-hide) { display: flex !important; }
+  #sidebar .sb-hide { display: none !important; }
+  .sb-more-btn { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 7px;
+    color: rgba(255,255,255,0.65); font-size: 14px; font-weight: 500; cursor: pointer; }
+  .sb-more-btn:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
+  .sb-more-btn:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+  .sb-more-chev { margin-left: auto; font-size: 18px; line-height: 1; transition: transform .15s; opacity: .7; }
+  .sb-more-btn.open .sb-more-chev { transform: rotate(90deg); }
+  .sb-more-dot { width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; }
+  .sb-more { padding-left: 8px; border-left: 1px solid rgba(255,255,255,0.1); margin: 0 0 4px 18px; }
+  #sidebar .sb-count { margin-left: auto; background: rgba(255,255,255,0.16) !important; color: #fff !important; }
+  .sb-show-menu { position: fixed; z-index: 2000; width: 300px; max-width: calc(100vw - 16px); max-height: 70vh; overflow-y: auto; background: var(--surface, #fff);
+    color: var(--text, #111); border: 1px solid var(--border, #e5e7eb); border-radius: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.25); padding: 6px; }
+  .sb-show-menu .sbm-h { font-size: 10.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--text-muted, #6b7280); padding: 10px 10px 4px; }
+  .sb-show-menu .sbm-row { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 9px; cursor: pointer; }
+  .sb-show-menu .sbm-row:hover, .sb-show-menu .sbm-row:focus-visible { background: var(--bg, #f4f4f5); }
+  .sb-show-menu .sbm-row span { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .sb-show-menu .sbm-row b { font-size: 14px; font-weight: 600; }
+  .sb-show-menu .sbm-row small { font-size: 12px; color: var(--text-muted, #6b7280); }
+  .sb-show-menu .sbm-row.on { background: var(--bg, #f4f4f5); }
+  .sb-show-menu .sbm-row i { font-style: normal; font-weight: 700; }
+  .sidebar.collapsed .sb-show-pick, .sidebar.collapsed .sb-more-chev, .sidebar.collapsed .sb-group .sidebar-section-label { display: none; }
+  .sidebar.collapsed .sb-more-btn { justify-content: center; padding: 10px 0; }
+  .sidebar.collapsed .sb-more { padding-left: 0; border-left: 0; margin-left: 0; }
   .sidebar.collapsed .sidebar-header h2,
   .sidebar.collapsed .sidebar-footer,
   .sidebar.collapsed .sl-label { display: none; }
@@ -2588,6 +2644,78 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
     .hub-link { width: 100%; }
   }
 
+
+  /* ── Home v2: Today first; the show timer in the top bar ── */
+  .home-main-grid.home-v2 { display: grid !important; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) !important; gap: 18px; align-items: start; }
+  .home-v2 > .home-card, .home-v2 .home-right-col > * { margin-top: 0 !important; }
+  .home-v2 .home-right-col { display: flex !important; flex-direction: column; gap: 18px; min-width: 0; }
+  .home-v2 #home-show-grid { order: 0; }
+  .home-v2 .home-right-col { align-items: stretch !important; }
+  .home-v2 .home-right-col > *, .home-v2 .home-show-grid > * { width: 100% !important; max-width: none !important; box-sizing: border-box; }
+  .home-v2 .hs-cur { display: block !important; }
+  .home-v2 .hs-cur .home-show-badge { display: inline-block; }
+  .home-v2 .hs-cur .home-show-name { display: block; margin-top: 8px; }
+  .home-v2 .later-when::before { content: none !important; }
+  .home-v2 .home-show-grid { display: flex !important; flex-direction: column; gap: 18px; }
+  .home-v2 .home-show-grid > * { margin: 0 !important; }
+  .htm-card:not(.full) .htm-strip, .htm-card:not(.full) .htm-off { display: none !important; }
+  .htm-card { margin: 0 !important; }
+  .ht-card { padding: 18px 20px !important; }
+  .ht-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .ht-head b { font-size: 18px; } .ht-head small { color: var(--text-muted); font-size: 13px; } .ht-head .home-card-lnk { margin-left: auto; }
+  .ht-grp { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 14px 0 2px; }
+  .ht-grp span { font-weight: 500; letter-spacing: 0; margin-left: 4px; opacity: .8; }
+  .ht-grp.od { color: #b91c1c; }
+  .ht-row { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--border); font-size: 14px; cursor: pointer; }
+  .ht-row input { width: 18px; height: 18px; flex: none; margin: 0; accent-color: #111; }
+  .ht-row.done .ht-text { text-decoration: line-through; color: var(--text-muted); }
+  .ht-text { flex: 1; min-width: 0; }
+  .ht-list { font-size: 12px; color: var(--text-muted); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .ht-list i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .ht-due { font-size: 12px; color: var(--text-muted); white-space: nowrap; min-width: 62px; text-align: right; }
+  .ht-due.od { color: #b91c1c; font-weight: 600; } .ht-due.td { color: #b45309; font-weight: 600; }
+  .ht-none { padding: 14px 2px; color: var(--text-muted); font-size: 14px; }
+  .ht-later { display: inline-block; margin-top: 10px; font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .ht-later:hover { text-decoration: underline; }
+  .ht-add { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .ht-add input, .ht-add select { font: inherit; font-size: 14px; border: 1px solid var(--border); border-radius: 999px; padding: 9px 14px; background: var(--bg); color: var(--text); min-width: 0; }
+  .ht-add #ht-text { flex: 1 1 200px; }
+  .ht-add select { flex: 0 1 140px; } .ht-add #ht-date { flex: 0 0 auto; padding: 8px 12px; }
+  .ht-addbtn { font: 600 14px inherit; padding: 0 20px; min-height: 40px; border-radius: 999px; border: 0; background: #111; color: #fff; cursor: pointer; }
+  [data-theme="dark"] .ht-addbtn { background: #f4f4f5; color: #111; }
+  [data-theme="dark"] .ht-row input { accent-color: #f4f4f5; }
+  .hs-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .hs-btns .home-show-btn { display: inline-flex; align-items: center; gap: 7px; }
+  .hs-btns .home-show-btn svg { width: 16px; height: 16px; flex: none; }
+  .hs-btns .home-show-btn.pri { background: #111 !important; color: #fff !important; border-color: #111 !important; }
+  [data-theme="dark"] .hs-btns .home-show-btn.pri { background: #f4f4f5 !important; color: #111 !important; border-color: #f4f4f5 !important; }
+  .htm-pill { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 999px; border: 0; background: rgba(255,255,255,.14);
+    color: #fff; font: 500 13px Inter, system-ui, sans-serif; cursor: pointer; white-space: nowrap; max-width: 320px; overflow: hidden; }
+  .htm-pill i, .htm-pill-sm i { width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; display: inline-block; flex: none; }
+  .htm-pill span { overflow: hidden; text-overflow: ellipsis; }
+  .htm-pill b { font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .htm-pill-sm { all: unset; display: none; }
+  .htm-pill-menu { width: 260px; }
+  .content-topbar-right button.htm-pill { background: rgba(255,255,255,.14) !important; color: #fff !important; border: 0 !important; border-radius: 999px !important; }
+  .content-topbar-right button.htm-pill:hover { background: rgba(255,255,255,.22) !important; }
+  html[data-theme="dark"] .content-topbar-right button.htm-pill { background: var(--surface-2) !important; color: var(--text) !important; border: 1px solid var(--border) !important; }
+  html[data-theme="dark"] .htm-pill-sm { color: var(--text-muted); }
+  body.crew-no-home .htm-pill, body.crew-no-home .htm-pill-sm { display: none !important; }
+  body.crew-no-notes [onclick^="curShowNotes"], body.crew-no-scripts [onclick^="curShowScript"] { display: none !important; }
+  body.crew-no-cuesheet [onclick^="curShowCue"] { display: none !important; }
+  body.crew-no-todo #home-today { display: none !important; }
+  @media (max-width: 768px) {
+    .home-main-grid.home-v2 { grid-template-columns: 1fr !important; }
+    .htm-pill { display: none !important; }
+    .htm-pill-sm { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: rgba(255,255,255,.75); cursor: pointer; margin-top: 2px; white-space: nowrap; max-width: 100%; }
+    .htm-pill-sm span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .content-topbar .htm-pill-sm { min-height: 0 !important; height: auto !important; padding: 2px 0 !important; border: 0 !important; background: none !important; width: auto !important; }
+    .ht-add #ht-text { flex: 1 1 100%; }
+    .content-topbar-left p { display: none; }
+    .ht-list { display: none; }
+    .ht-row { padding: 11px 2px; }
+    .ht-add select { flex: 1 1 0; }
+  }
   /* ── Show timer card (Home): a slim strip; the display runs hidden ────────── */
   .htm-card { margin-bottom: 16px; }
   .htm-strip { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; min-height: 76px; padding: 8px 10px 8px 16px; display: flex; align-items: center; gap: 14px; box-sizing: border-box; }
@@ -5870,15 +5998,15 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
   <!-- SIDEBAR OVERLAY (mobile only) -->
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
-  <!-- Phone navigation. Ten tabs behind a hamburger is a lot of tapping; these
-       are the ones worth one tap. Everything else is still under More. -->
+  <!-- Phone navigation: the pages used most on a phone, one tap each. Shopping
+       and everything else are in the menu (More). -->
   <div id="offline-bar" role="status">No connection — changes are saved on this device and will sync when you're back</div>
 
   <nav class="bottom-nav" id="bottom-nav" aria-label="Main">
     <a class="bottom-tab" data-tab="home"     href="#home"     onclick="switchTab('home');return false;"><span class="bt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7M5 9.5V20h14V9.5M10 20v-5.5h4V20"/></svg></span>Home</a>
-    <a class="bottom-tab" data-tab="notes"    href="#notes"    onclick="switchTab('notes');return false;"><span class="bt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1zM9 2.5v3M15 2.5v3M8.5 11h7M8.5 15h5"/></svg></span>Shows</a>
+    <a class="bottom-tab" data-tab="notes" data-sub="show" href="#notes" onclick="curShowNotes();return false;"><span class="bt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1zM9 2.5v3M15 2.5v3M8.5 11h7M8.5 15h5"/></svg></span>Show notes</a>
+    <a class="bottom-tab" data-tab="scripts" data-sub="show" href="#scripts" onclick="curShowScript();return false;"><span class="bt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM8 7.5h.01M8 12h.01M8 16.5h.01M11 8h5M11 12h5M11 16h3"/></svg></span>Script</a>
     <a class="bottom-tab" data-tab="todo"     href="#todo"     onclick="switchTab('todo');return false;"><span class="bt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5l1.5 1.5L8 5.5M11 7h9M4 12.5l1.5 1.5L8 11.5M11 13h9M4.5 17.5h3v3h-3zM11 19h9"/></svg></span>To Do</a>
-    <a class="bottom-tab" data-tab="shopping" href="#shopping" onclick="switchTab('shopping');return false;"><span class="bt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2.2l2.3 11h10.2l2-7.5H6.4M9.2 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0M16 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0"/></svg></span>Shop</a>
     <button class="bottom-tab" type="button" onclick="toggleSidebar()"><span class="bt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>More</button>
   </nav>
 
@@ -5891,27 +6019,54 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
         <button class="sidebar-close" onclick="toggleSidebar()" aria-label="Close menu">×</button>
       </div>
     </div>
+    <!-- On a phone the header keeps only Search and Lock; these four live here. -->
+    <div class="sb-tools" id="sb-tools">
+      <button type="button" class="sb-tool td-only" onclick="closeSidebarMobile();openTvMode()" title="Shop wall display" aria-label="Shop wall display"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zM8 21h8M12 17v4"/></svg><span>TV</span></button>
+      <button type="button" class="sb-tool" onclick="toggleDarkMode()" title="Dark mode" aria-label="Dark mode"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg><span>Dark</span></button>
+      <button type="button" class="sb-tool td-only" onclick="closeSidebarMobile();openSettings()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 12a2.5 2.5 0 105 0a2.5 2.5 0 10-5 0M12 2.8l1.6 2.1 2.6-.4.9 2.5 2.4 1.1-.4 2.6 1.6 2.1-1.6 2.1.4 2.6-2.4 1.1-.9 2.5-2.6-.4L12 21.2l-1.6-2.1-2.6.4-.9-2.5-2.4-1.1.4-2.6L3.3 12l1.6-2.1-.4-2.6 2.4-1.1.9-2.5 2.6.4z"/></svg><span>Settings</span></button>
+      <button type="button" class="sb-tool" onclick="closeSidebarMobile();refreshData()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 00-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0014.3 4.9L20 16M20 20v-4h-4"/></svg><span>Sync</span></button>
+    </div>
     <nav class="sidebar-nav">
-      <a class="sidebar-link active" href="#home" data-tab="home" onclick="switchTab('home');closeSidebarMobile();return false;" data-label="Home"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7M5 9.5V20h14V9.5M10 20v-5.5h4V20"/></svg></span><span class="sl-label">Home</span></a>
-      <a class="sidebar-link" href="#todo" data-tab="todo" onclick="switchTab('todo');closeSidebarMobile();return false;" data-label="To Do"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5l1.5 1.5L8 5.5M11 7h9M4 12.5l1.5 1.5L8 11.5M11 13h9M4.5 17.5h3v3h-3zM11 19h9"/></svg></span><span class="sl-label">To Do</span></a>
-      <a class="sidebar-link parked-daytracker" style="display:none;" href="#daytracker" data-tab="daytracker" onclick="switchTab('daytracker');closeSidebarMobile();return false;" data-label="Day Tracker"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1018 0a9 9 0 10-18 0M12 7v5l3 2"/></svg></span><span class="sl-label">Day Tracker</span></a>
-      <a class="sidebar-link" href="#notes" data-tab="notes" onclick="switchTab('notes');closeSidebarMobile();return false;" data-label="Notes"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1zM9 2.5v3M15 2.5v3M8.5 11h7M8.5 15h5"/></svg></span><span class="sl-label">Notes</span></a>
-      <a class="sidebar-link" href="#calendar" data-tab="calendar" onclick="switchTab('calendar');closeSidebarMobile();return false;" data-label="Show Calendar"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16a1 1 0 011 1V20a1 1 0 01-1 1H4a1 1 0 01-1-1V6.5a1 1 0 011-1zM3 10h18M8 3v4M16 3v4M8 14h2M14 14h2M8 17.5h2"/></svg></span><span class="sl-label">Show Calendar</span></a>
-      <a class="sidebar-link" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');closeSidebarMobile();return false;" data-label="Set Piece Catalogue"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h10v18H5zM15 8l4.5 13M3 21h18M8 7h4"/></svg></span><span class="sl-label">Set Piece Catalogue</span></a>
-      <a class="sidebar-link" href="#storagemap" data-tab="storagemap" onclick="switchTab('storagemap');closeSidebarMobile();return false;" data-label="Storage Map"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5zM9 4v13.5M15 6.5V20"/></svg></span><span class="sl-label">Storage Map</span></a>
-      <a class="sidebar-link" href="#drops" data-tab="drops" onclick="switchTab('drops');closeSidebarMobile();return false;" data-label="Drops"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18M7 4V2M17 4V2M5 4v13c2.3 1.6 4.7 1.6 7 0s4.7-1.6 7 0V4"/></svg></span><span class="sl-label">Drops</span></a>
-      <a class="sidebar-link" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');closeSidebarMobile();return false;" data-label="Scripts"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM8 7.5h.01M8 12h.01M8 16.5h.01M11 8h5M11 12h5M11 16h3"/></svg></span><span class="sl-label">Scripts</span></a>
-      <a class="sidebar-link" href="cue-list.html" data-link="cuesheet" onclick="openCueSheetFromMenu();closeSidebarMobile();return false;" data-label="Cue Sheet"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1zM3 9h18M8.5 9v11M11.5 12.5h6M11.5 16h6"/></svg></span><span class="sl-label">Cue Sheet</span></a>
+      <!-- The show being worked on: the next Mainstage show still to open
+           (it moves on the day after opening night), or the one picked here. -->
+      <div class="sb-show" id="sb-show">
+        <button type="button" class="sb-show-pick" id="sb-show-pick" onclick="curShowPicker(event)" aria-haspopup="menu" aria-expanded="false" title="Change the current show">
+          <small>Current show</small><b id="sb-show-name">&nbsp;</b><span id="sb-show-when"></span>
+          <svg class="sb-show-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      <a class="sidebar-link sb-cur" data-sub="show" href="#notes" data-tab="notes" onclick="curShowNotes();closeSidebarMobile();return false;" data-label="Show notes"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1zM9 2.5v3M15 2.5v3M8.5 11h7M8.5 15h5"/></svg></span><span class="sl-label">Show notes</span></a>
+      <a class="sidebar-link sb-cur" data-sub="show" href="#scripts" data-tab="scripts" onclick="curShowScript();closeSidebarMobile();return false;" data-label="Script &amp; Cue Sheet"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM8 7.5h.01M8 12h.01M8 16.5h.01M11 8h5M11 12h5M11 16h3"/></svg></span><span class="sl-label">Script &amp; Cue Sheet</span></a>
+      <a class="sidebar-link sb-cs-solo" href="cue-list.html" data-link="cuesheet" onclick="openCueSheetFromMenu();closeSidebarMobile();return false;" data-label="Cue Sheet"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1zM3 9h18M8.5 9v11M11.5 12.5h6M11.5 16h6"/></svg></span><span class="sl-label">Cue Sheet</span></a>
       <a class="sidebar-link" href="#checklists" data-tab="checklists" onclick="switchTab('checklists');closeSidebarMobile();return false;" data-label="Pre-Show Checklists"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4.5H6a1 1 0 00-1 1V20a1 1 0 001 1h12a1 1 0 001-1V5.5a1 1 0 00-1-1h-1M9 3h6v3H9zM9 13.5l2 2 4-4.5"/></svg></span><span class="sl-label">Pre-Show Checklists</span></a>
+      </div>
+      <div class="sidebar-divider"></div>
+      <a class="sidebar-link active" href="#home" data-tab="home" onclick="switchTab('home');closeSidebarMobile();return false;" data-label="Home"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7M5 9.5V20h14V9.5M10 20v-5.5h4V20"/></svg></span><span class="sl-label">Home</span></a>
+      <a class="sidebar-link" href="#todo" data-tab="todo" onclick="switchTab('todo');closeSidebarMobile();return false;" data-label="To Do"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5l1.5 1.5L8 5.5M11 7h9M4 12.5l1.5 1.5L8 11.5M11 13h9M4.5 17.5h3v3h-3zM11 19h9"/></svg></span><span class="sl-label">To Do</span><span class="cleaning-badge sb-count" id="sb-todo-count" style="display:none;"></span></a>
+      <a class="sidebar-link parked-daytracker" style="display:none;" href="#daytracker" data-tab="daytracker" onclick="switchTab('daytracker');closeSidebarMobile();return false;" data-label="Day Tracker"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1018 0a9 9 0 10-18 0M12 7v5l3 2"/></svg></span><span class="sl-label">Day Tracker</span></a>
+      <a class="sidebar-link" href="#shopping" data-tab="shopping" onclick="switchTab('shopping');closeSidebarMobile();return false;" data-label="Shopping"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2.2l2.3 11h10.2l2-7.5H6.4M9.2 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0M16 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0"/></svg></span><span class="sl-label">Shopping</span></a>
+      <div class="sb-group">
+        <div class="sidebar-section-label">Season</div>
+      <a data-sub="list" class="sidebar-link" href="#notes" data-tab="notes" onclick="switchTab('notes');closeSidebarMobile();return false;" data-label="All Shows"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1zM9 2.5v3M15 2.5v3M8.5 11h7M8.5 15h5"/></svg></span><span class="sl-label">All Shows</span></a>
+      <a data-sub="list" class="sidebar-link" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');closeSidebarMobile();return false;" data-label="All Scripts"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM8 7.5h.01M8 12h.01M8 16.5h.01M11 8h5M11 12h5M11 16h3"/></svg></span><span class="sl-label">All Scripts</span></a>
+      <a class="sidebar-link" href="#calendar" data-tab="calendar" onclick="switchTab('calendar');closeSidebarMobile();return false;" data-label="Show Calendar"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16a1 1 0 011 1V20a1 1 0 01-1 1H4a1 1 0 01-1-1V6.5a1 1 0 011-1zM3 10h18M8 3v4M16 3v4M8 14h2M14 14h2M8 17.5h2"/></svg></span><span class="sl-label">Show Calendar</span></a>
+      </div>
+      <div class="sb-group">
+        <div class="sidebar-section-label">Storage</div>
+      <a class="sidebar-link" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');closeSidebarMobile();return false;" data-label="Set Piece Catalogue"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h10v18H5zM15 8l4.5 13M3 21h18M8 7h4"/></svg></span><span class="sl-label">Set Piece Catalogue</span></a>
       <a class="sidebar-link" href="#reference" data-tab="reference" onclick="switchTab('reference');closeSidebarMobile();return false;" data-label="Reference Photos"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.8-2.5h6.4L17 8h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1zM8.5 13.5a3.5 3.5 0 107 0a3.5 3.5 0 10-7 0"/></svg></span><span class="sl-label">Reference Photos</span></a>
+      </div>
       <!-- PARKED: Show Archive sidebar link -->
       <div class="sidebar-divider"></div>
-      <a class="sidebar-link" href="#shopping" data-tab="shopping" onclick="switchTab('shopping');closeSidebarMobile();return false;" data-label="Shopping Lists"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2.2l2.3 11h10.2l2-7.5H6.4M9.2 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0M16 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0"/></svg></span><span class="sl-label">Shopping Lists</span></a>
+      <!-- Used less often: still all here, one tap down. Opens by itself when one of them is the page you're on. -->
+      <button type="button" class="sidebar-link sb-more-btn" id="sb-more-btn" onclick="sbMoreToggle()" aria-expanded="false" aria-controls="sb-more" data-label="More"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg></span><span class="sl-label">More</span><span class="sb-more-dot" id="sb-more-dot" hidden></span><span class="sb-more-chev" aria-hidden="true">›</span></button>
+      <div class="sb-more" id="sb-more" hidden>
+      <a class="sidebar-link" href="#storagemap" data-tab="storagemap" onclick="switchTab('storagemap');closeSidebarMobile();return false;" data-label="Storage Map"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5zM9 4v13.5M15 6.5V20"/></svg></span><span class="sl-label">Storage Map</span></a>
+      <a class="sidebar-link" href="#drops" data-tab="drops" onclick="switchTab('drops');closeSidebarMobile();return false;" data-label="Drops"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18M7 4V2M17 4V2M5 4v13c2.3 1.6 4.7 1.6 7 0s4.7-1.6 7 0V4"/></svg></span><span class="sl-label">Drops</span></a>
       <a class="sidebar-link" href="#cleaning" data-tab="cleaning" onclick="switchTab('cleaning');closeSidebarMobile();return false;" data-label="Cleaning Log"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 21V13l1.5-3h4.5l1 3v8zM10.5 10V7h4v3M14.5 7H18l-1.5 2M20 5.5l1.5-.8M20 8.5l1.5.8M20.5 7h1.5"/></svg></span><span class="sl-label">Cleaning Log</span><span class="cleaning-badge" id="cleaning-badge" style="display:none;"></span></a>
       <a class="sidebar-link" href="#todo2" data-tab="todo2" onclick="switchTab('todo2');closeSidebarMobile();return false;" data-label="To Do 2 (beta)"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1zM7.5 9.5l1.5 1.5 2.5-2.5M14 10h3M7.5 15h4M14 15h3"/></svg></span><span class="sl-label">To Do 2 (beta)</span><span class="cleaning-badge" id="t2-badge" style="display:none;"></span></a>
       <!-- PARKED: Paint sidebar shortcut -->
-      <div class="sidebar-divider td-only"></div>
       <a class="sidebar-link td-only" href="#sidework" data-tab="sidework" onclick="switchTab('sidework');closeSidebarMobile();return false;" data-label="Side Job Notes"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1zM9 7V5a1 1 0 011-1h4a1 1 0 011 1v2M3 12.5h18"/></svg></span><span class="sl-label">Side Job Notes</span></a>
+      </div>
       <!-- Quick links: their own group at the bottom (moved from Home). -->
       <div class="sb-links" id="sb-links">
         <div class="sidebar-divider"></div>
@@ -5934,15 +6089,17 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
         <button class="hamburger" onclick="toggleSidebar()" title="Menu" aria-label="Menu" id="mobile-hamburger">☰</button>
         <div>
           <h1>MMT Dashboard</h1>
+          <button type="button" class="htm-pill-sm" id="htm-pill-sm" onclick="htmPillMenu(event)" aria-haspopup="menu" title="Show timer"><i id="htm-pill-sm-dot"></i><span id="htm-pill-sm-text">Show timer</span></button>
           <p>Music Mountain Theatre</p>
         </div>
       </div>
       <div class="content-topbar-right">
+        <button type="button" class="htm-pill" id="htm-pill" onclick="htmPillMenu(event)" aria-haspopup="menu" aria-expanded="false" title="Show timer: full screen, history"><i id="htm-pill-dot"></i><span id="htm-pill-label">Show timer</span><b id="htm-pill-num"></b></button>
         <button class="lock-btn" id="gs-open-btn" onclick="openGlobalSearch()" title="Search everything (/)" aria-label="Search everything (/)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a7 7 0 1014 0a7 7 0 10-14 0M20.5 20.5l-4.5-4.5"/></svg></button>
-        <button class="lock-btn td-only" onclick="openTvMode()" title="Shop wall display" aria-label="Shop wall display"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zM8 21h8M12 17v4"/></svg></button>
-        <button class="theme-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode" aria-label="Toggle dark mode"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button>
-        <button class="lock-btn td-only" onclick="openSettings()" title="Settings" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 12a2.5 2.5 0 105 0a2.5 2.5 0 10-5 0M12 2.8l1.6 2.1 2.6-.4.9 2.5 2.4 1.1-.4 2.6 1.6 2.1-1.6 2.1.4 2.6-2.4 1.1-.9 2.5-2.6-.4L12 21.2l-1.6-2.1-2.6.4-.9-2.5-2.4-1.1.4-2.6L3.3 12l1.6-2.1-.4-2.6 2.4-1.1.9-2.5 2.6.4z"/></svg></button>
-        <button class="lock-btn" id="refresh-btn" onclick="refreshData()" title="Sync now" aria-label="Sync now"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 00-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0014.3 4.9L20 16M20 20v-4h-4"/></svg></button>
+        <button class="lock-btn td-only tb-move" onclick="openTvMode()" title="Shop wall display" aria-label="Shop wall display"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zM8 21h8M12 17v4"/></svg></button>
+        <button class="theme-btn tb-move" id="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode" aria-label="Toggle dark mode"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button>
+        <button class="lock-btn td-only tb-move" onclick="openSettings()" title="Settings" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 12a2.5 2.5 0 105 0a2.5 2.5 0 10-5 0M12 2.8l1.6 2.1 2.6-.4.9 2.5 2.4 1.1-.4 2.6 1.6 2.1-1.6 2.1.4 2.6-2.4 1.1-.9 2.5-2.6-.4L12 21.2l-1.6-2.1-2.6.4-.9-2.5-2.4-1.1.4-2.6L3.3 12l1.6-2.1-.4-2.6 2.4-1.1.9-2.5 2.6.4z"/></svg></button>
+        <button class="lock-btn tb-move" id="refresh-btn" onclick="refreshData()" title="Sync now" aria-label="Sync now"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 00-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0014.3 4.9L20 16M20 20v-4h-4"/></svg></button>
         <button class="lock-btn" onclick="lock()">Lock</button>
       </div>
     </div>
@@ -5978,10 +6135,14 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
     </div>
 
     <!-- SECTION: MAIN GRID -->
-    <div class="home-main-grid">
+    <!-- Today's to-dos lead; the current show and shopping sit beside them
+         (under them on a phone). The show timer lives in the top bar now. -->
+    <div class="home-main-grid home-v2">
 
       <!-- PARKED: Day Tracker "Today" card. -->
       <!-- Quick links moved to their own group at the bottom of the sidebar. -->
+
+      <div class="home-card ht-card" id="home-today"><span class="spinner"></span></div>
 
       <!-- Shows + Shopping -->
       <div class="home-right-col">
@@ -7060,7 +7221,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v3</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7365,7 +7526,41 @@ function htmRead() {
   big = big.replace(/(\d)\s*(AM|PM)$/i, '$1 $2');
   set('htm-label', label || 'Show timer'); set('htm-num', big || '--:--'); set('htm-line', line || ' '); set('htm-meta', (meta ? meta + ' · ' : '') + 'view only');
   const dot = document.getElementById('htm-dot'); if (dot) dot.style.background = color || '';
+  htmPillPaint(label || 'Show timer', big || '', color);
 }
+// The timer in the top bar: what it says now, small. Tap for the full display,
+// the history, or to turn it off.
+function htmPillPaint(label, big, color) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el && el.textContent !== v) el.textContent = v; };
+  const short = /^no show running$/i.test(label) ? 'No show' : label;
+  set('htm-pill-label', label); set('htm-pill-num', big);
+  set('htm-pill-sm-text', short + (big ? ' · ' + big : ''));
+  ['htm-pill-dot', 'htm-pill-sm-dot'].forEach(id => { const d = document.getElementById(id); if (d) d.style.background = color || ''; });
+}
+function htmPillMenu(ev) {
+  if (ev) ev.stopPropagation();
+  const old = document.getElementById('htm-pill-menu'); if (old) { htmPillMenuClose(); return; }
+  const btn = ev && ev.currentTarget || document.getElementById('htm-pill');
+  const on = htmOn();
+  const m = document.createElement('div');
+  m.id = 'htm-pill-menu'; m.className = 'sb-show-menu htm-pill-menu'; m.setAttribute('role', 'menu');
+  const item = (fn, label, sub) => `<button type="button" role="menuitem" class="sbm-row" onclick="htmPillMenuClose();${fn}"><span><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</span></button>`;
+  m.innerHTML = (on ? item('htmFull(true)', 'Full screen', 'The stage display, view only') + item('htmHistory()', 'History', 'Running times, night by night') : '')
+    + item('htmToggle();htmPillPaintOff()', on ? 'Turn the timer off' : 'Turn the timer on', on ? 'On this device' : '');
+  document.body.appendChild(m);
+  const r = btn.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 8, r.left)) + 'px';
+  m.style.top = Math.min(r.bottom + 6, innerHeight - m.offsetHeight - 8) + 'px';
+  if (btn.setAttribute) btn.setAttribute('aria-expanded', 'true');
+  setTimeout(() => document.addEventListener('click', htmPillMenuOutside, true), 0);
+}
+function htmPillMenuOutside(e) { const m = document.getElementById('htm-pill-menu'); if (m && !m.contains(e.target)) htmPillMenuClose(); }
+function htmPillMenuClose() {
+  const m = document.getElementById('htm-pill-menu'); if (m) m.remove();
+  document.removeEventListener('click', htmPillMenuOutside, true);
+  ['htm-pill', 'htm-pill-sm'].forEach(id => { const b = document.getElementById(id); if (b) b.setAttribute('aria-expanded', 'false'); });
+}
+function htmPillPaintOff() { if (!htmOn()) htmPillPaint('Timer off', '', ''); }
 setInterval(() => { if (document.visibilityState === 'visible' && _htm.frame && htmOn()) htmRead(); }, 500);
 // History: the timer's saved act times (KVStore "timer_histall"), read only.
 function htmFmt(ms) { const t = Math.round((ms || 0) / 1000), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); }
@@ -7442,7 +7637,7 @@ function htmToggle() {
 function htmPaint() { const c = document.getElementById('htm-card'); if (c) c.classList.toggle('off', !htmOn()); }
 window.addEventListener('resize', htmScale);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { const c = document.getElementById('htm-card'); if (c && c.classList.contains('full')) htmFull(false); htmHistClose(); } });
-function htmStart() { htmPaint(); htmBuild(); try { new ResizeObserver(htmScale).observe(document.getElementById('htm-box')); } catch (e) {} }
+function htmStart() { htmPaint(); htmPillPaintOff(); htmBuild(); try { new ResizeObserver(htmScale).observe(document.getElementById('htm-box')); } catch (e) {} }
 
 function initApp() {
   setTimeout(() => { try { htmStart(); } catch (e) { console.warn('timer card', e); } }, 0);   // after the whole script has loaded
@@ -7565,6 +7760,7 @@ function applyCrewPerms() {
     a.classList.toggle('crew-hide', !crewCanSee(a.getAttribute('data-tab') || a.getAttribute('data-link')));
   });
   try { if (typeof currentTab !== 'undefined' && !crewCanSee(currentTab)) switchTab(crewHomeTab()); } catch (e) {}
+  try { sbTidy(); } catch (e) {}
   // Scripts view only: running views only, never the editor.
   try { if (crew && !crewPerms.edit.scripts && typeof runView !== 'undefined' && runView === 'normal' && document.getElementById('scripts-editor').classList.contains('open')) setRunView('a'); } catch (e) {}
 }
@@ -7792,6 +7988,7 @@ function switchTab(tab) {
   if (!TABS.includes(tab)) tab = 'home';
   if (typeof crewCanSee === 'function' && !crewCanSee(tab)) tab = crewHomeTab();
   if (tab !== 'scripts') window._ssPendingShow = '';   // a show waiting for its script lets go
+  if (tab !== 'home' && typeof _htDone !== 'undefined' && _htDone.size) { _htDone.clear(); try { renderHomeToday(); } catch (e) {} }
   currentTab = tab;
   // Leaving Notes must drop the window-filling mode, or every other tab
   // inherits a locked page that can't scroll.
@@ -7840,6 +8037,7 @@ function switchTab(tab) {
   if (tab === 'sidework' && typeof ensureSideWorkLoaded === 'function') ensureSideWorkLoaded();
   if (tab === 'reference' && typeof ensureReferenceLoaded === 'function') ensureReferenceLoaded();
   if (tab === 'checklists' && typeof ensureChecklistsLoaded === 'function') ensureChecklistsLoaded();
+  try { sbSyncActive(); } catch (e) {}
 }
 
 // On load, honor a #tab hash (e.g. deep link to #inventory)
@@ -10767,10 +10965,12 @@ function confirmAddLink() {
 // ── WIDGETS ───────────────────────────────────────────────────────────────────
 function renderWidgets() {
   try { renderHomeShowCards(); } catch(e) { console.error('renderHomeShowCards:', e); }
+  try { renderHomeToday(); } catch(e) { console.error('renderHomeToday:', e); }
   try { renderHomeDayCard(); } catch(e) { console.error('renderHomeDayCard:', e); }
   try { renderHomeShopSummary(); } catch(e) { console.error('renderHomeShopSummary:', e); }
   try { renderSeasonOverview(); } catch(e) { console.error('renderSeasonOverview:', e); }
   try { renderNotesAccess(); } catch(e) { console.error('renderNotesAccess:', e); }
+  try { sbShowRender(); sbTodoCount(); } catch(e) {}
 }
 
 // ── HOME: TODAY CARD (Day Tracker) ──────────────────────────────────────────
@@ -10856,112 +11056,139 @@ function homeDayToggle(id, done) {
 function renderHomeShowCards() {
   const el = document.getElementById('home-show-grid');
   if (!el) return;
-
-  // Sort Mainstage shows by start date so we can find "the next one up" reliably.
-  const sorted = MAINSTAGE.slice().sort((a, b) => new Date(a.start) - new Date(b.start));
-  const curMain  = sorted.find(s => showStatus(s.start, s.end) === 'current');
-  const techMain = sorted.find(s => showStatus(s.start, s.end) === 'tech');
-  const upcoming = sorted.filter(s => showStatus(s.start, s.end) === 'upcoming');
-
-  // LEFT card: whichever show is actually happening right now — playing or in tech.
-  // If nothing is current/in-tech, but the previous show has already closed,
-  // treat the very next upcoming show as "In Tech" anyway.
-  let leftShow = curMain || techMain || null;
-  let leftState = curMain ? 'current' : (techMain ? 'tech' : null);
-  if (!leftShow && upcoming.length) {
-    leftShow = upcoming[0];
-    leftState = 'tech';
-  }
-
-  // RIGHT card: the next show after whichever one is on the left.
-  let rightShow = null;
-  if (leftShow) {
-    rightShow = sorted.find(s => s !== leftShow && new Date(s.start) > new Date(leftShow.start)) || null;
-  } else if (upcoming.length > 1) {
-    rightShow = upcoming[1];
-  }
-
-  function card(show, state) {
-    // state: 'current' | 'tech' | 'upcoming'
-    const badge = state === 'current' ? 'Now Playing — Mainstage'
-                : state === 'tech'    ? 'In Tech — Mainstage'
-                : 'Up Next — Mainstage';
-    const badgeCls = state === 'current' ? 'now-b' : state === 'tech' ? 'tech-b' : 'next-b';
-    const dates = formatDates(show.start, show.end);
-    const key = showNotesKey(show.name, false);
-    const url = showNotes[key];
-    const btnLabel  = url ? 'Open notes →' : 'Create notes →';
-    // JSON + HTML escaping: "It's a Wonderful Life" used to break the button.
-    const btnAction = `handleNotes('${key}', ${esc(JSON.stringify(show.name))}, this)`;
-
-    let countdown;
-    if (state === 'current') {
-      const left = daysUntil(show.end);
-      countdown = left === 0 ? 'Closes tonight' : left + ' day' + (left !== 1 ? 's' : '') + ' left';
-    } else {
-      const until = daysUntil(show.start);
-      countdown = until === 0 ? 'Opens tonight' : until < 0 ? 'Opening night has passed' : 'Opens in ' + until + ' day' + (until !== 1 ? 's' : '');
-    }
-
-    return `<div class="home-show-card">
-      <span class="home-show-badge ${badgeCls}">${esc(badge)}</span>
-      <div class="home-show-name home-show-name-link" role="link" tabindex="0"
-           title="Open show page"
-           onclick="openShowHub('${esc(showSlug(show.name))}')"
-           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openShowHub('${esc(showSlug(show.name))}');}">${esc(show.name)}<span class="home-show-name-arrow" aria-hidden="true">→</span></div>
-      <div class="home-show-dates">${esc(dates)}</div>
-      <div class="home-show-foot">
-        <span class="home-show-countdown">${esc(countdown)}</span>
-        <div style="display:flex;gap:6px;">
-          <button class="home-show-btn" onclick="openScriptForShow('${show.name.replace(/'/g, "\\'")}')">Open script →</button>
-          <button class="home-show-btn" onclick="${btnAction}">${btnLabel}</button>
-        </div>
-      </div>
-    </div>`;
-  }
-
-  let html = '';
-  if (leftShow)  html += card(leftShow, leftState);
-  if (rightShow) html += card(rightShow, 'upcoming');
-  if (!leftShow && !rightShow) html = '<div class="home-show-card" style="color:var(--text-faint);font-size:13px;">No upcoming shows configured.</div>';
-
-  // Everything after "Up Next", as a compact list rather than more big cards —
-  // nine full cards would bury the rest of the page. Both stages are included,
-  // so children's theatre finally has a way in from Home.
-  const shownNames = new Set([leftShow && leftShow.name, rightShow && rightShow.name].filter(Boolean));
-  const later = allShows()
-    .filter(sh => showStatus(sh.start, sh.end) !== 'past' && !shownNames.has(sh.name))
-    .sort((a, b) => a.start.localeCompare(b.start));
-
-  if (later.length) {
+  const sh = curShow();
+  if (!sh) { el.innerHTML = '<div class="home-show-card" style="color:var(--text-faint);font-size:13px;">No upcoming shows configured.</div>'; return; }
+  const ref = showRef(sh), slug = showSlug(sh.name), st = showStatus(sh.start, sh.end);
+  const badge = (st === 'current' ? 'Running now' : st === 'tech' ? 'In tech' : st === 'upcoming' ? 'Up next' : 'Closed') + ' · ' + (ref.isKids ? "Children's" : 'Mainstage') + (sh.picked ? ' · picked' : '');
+  const badgeCls = st === 'current' ? 'now-b' : st === 'tech' ? 'tech-b' : 'next-b';
+  let countdown;
+  if (st === 'current') { const left = daysUntil(sh.end); countdown = left === 0 ? 'closes tonight' : 'closes in ' + left + ' day' + (left !== 1 ? 's' : ''); }
+  else { const until = daysUntil(sh.start); countdown = until === 0 ? 'opens tonight' : until < 0 ? 'closed' : 'opens in ' + until + ' day' + (until !== 1 ? 's' : ''); }
+  const docUrl = showNotes[ref.notesKey];
+  // No notes doc yet: the first button makes one, as the old Home card did.
+  const notesBtn = docUrl
+    ? `<button class="home-show-btn pri" onclick="curShowNotes()">${HS_ICON.notes}Show notes</button>`
+    : `<button class="home-show-btn pri" onclick="handleNotes('${esc(ref.notesKey)}', ${esc(JSON.stringify(sh.name))}, this)">${HS_ICON.notes}Create notes</button>`;
+  let html = `<div class="home-show-card hs-cur">
+    <span class="home-show-badge ${badgeCls}">${esc(badge)}</span>
+    <div class="home-show-name home-show-name-link" role="link" tabindex="0" title="Open show page"
+         onclick="openShowHub('${esc(slug)}')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openShowHub('${esc(slug)}');}">${esc(sh.name)}<span class="home-show-name-arrow" aria-hidden="true"> &rarr;</span></div>
+    <div class="home-show-dates">${esc(formatDates(sh.start, sh.end))} · ${esc(countdown)}</div>
+    <div class="hs-btns">${notesBtn}
+      <button class="home-show-btn" onclick="curShowScript()">${HS_ICON.script}Script</button>
+      <button class="home-show-btn" onclick="curShowCue()">${HS_ICON.cue}Cue sheet</button>
+    </div>
+  </div>`;
+  // Everything else happening now (running or in tech, either stage); if
+  // nothing is, the next two to open.
+  const others = allShows().filter(x => showSlug(x.name) !== slug);
+  let going = others.filter(x => { const t = showStatus(x.start, x.end); return t === 'current' || t === 'tech'; });
+  const title = going.length ? 'Also going' : 'Coming up';
+  if (!going.length) going = others.filter(x => showStatus(x.start, x.end) === 'upcoming').slice(0, 2);
+  if (going.length) {
     html += `<div class="home-show-card home-later-card">
-      <div class="home-card-hdr">
-        <span class="home-card-lbl">Later this season</span>
-        <a class="home-card-lnk" href="#" onclick="switchTab('notes');return false;">All shows &rarr;</a>
-      </div>
-      ${later.map(sh => {
-        const st = showStatus(sh.start, sh.end);
-        const until = daysUntil(sh.start);
-        const when = st === 'current' ? 'Running now'
-                   : st === 'tech'    ? 'In tech'
-                   : until === 0      ? 'Opens tonight'
-                   : until === 1      ? 'Opens tomorrow'
-                   : 'Opens in ' + until + ' days';
-        const kids = sh.type !== 'Mainstage';
-        const slug = esc(showSlug(sh.name));
-        return `<div class="later-row" role="link" tabindex="0" title="Open show page"
-             onclick="openShowHub('${slug}')"
-             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openShowHub('${slug}');}">
+      <div class="home-card-hdr"><span class="home-card-lbl">${title}</span><a class="home-card-lnk" href="#" onclick="switchTab('notes');return false;">All shows &rarr;</a></div>
+      ${going.map(x => {
+        const t = showStatus(x.start, x.end), xs = esc(showSlug(x.name)), kids = x.type !== 'Mainstage';
+        const when = t === 'current' ? 'closes ' + new Date(x.end + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : (daysUntil(x.start) <= 6 ? 'opens ' + new Date(x.start + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' }) : 'opens in ' + daysUntil(x.start) + ' days');
+        return `<div class="later-row" role="link" tabindex="0" title="Open show page" onclick="openShowHub('${xs}')"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openShowHub('${xs}');}">
           <span class="later-tag ${kids ? 'ct' : 'ms'}">${kids ? 'CT' : 'MS'}</span>
-          <span class="later-name">${esc(sh.name)}</span>
-          <span class="later-dates">${esc(formatDates(sh.start, sh.end))}</span>
-          <span class="later-when${st === 'current' || st === 'tech' ? ' is-live' : ''}" data-dates="${esc(formatDates(sh.start, sh.end))}">${esc(when)}</span>
+          <span class="later-name">${esc(x.name)}</span>
+          <span class="later-when${t === 'current' || t === 'tech' ? ' is-live' : ''}">${t === 'current' ? 'Running' : t === 'tech' ? 'In tech' : ''}${t === 'current' || t === 'tech' ? ' · ' : ''}${esc(when)}</span>
         </div>`;
       }).join('')}
     </div>`;
   }
-
   el.innerHTML = html;
+}
+const HS_ICON = {
+  notes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1zM9 2.5v3M15 2.5v3M8.5 11h7M8.5 15h5"/></svg>',
+  script: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM8 7.5h.01M8 12h.01M8 16.5h.01M11 8h5M11 12h5M11 16h3"/></svg>',
+  cue: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1zM3 9h18M8.5 9v11M11.5 12.5h6M11.5 16h6"/></svg>'
+};
+// The current show's cue sheet: on the script page, flipped to Cue sheet.
+// Crew who can see the cue sheet but not scripts get the cue sheet page.
+function curShowCue() {
+  const sh = curShow(); if (!sh) return;
+  const slug = showSlug(sh.name);
+  const go = () => {
+    const rec = hubRec(slug);
+    if (!rec.scriptId) { toast('No script is linked to ' + sh.name + ' yet'); return; }
+    if (crewOn() && !crewCanSee('scripts')) { spCue(slug); return; }
+    openScriptForShow(sh.name);
+    let n = 0;
+    const t = setInterval(() => {
+      n++;
+      const ready = typeof showId !== 'undefined' && showId === rec.scriptId && typeof pdfDoc !== 'undefined' && pdfDoc;
+      if (ready || n > 100) { clearInterval(t); if (ready) { try { setSheetMode('sheet'); } catch (e) {} } }
+    }, 150);
+  };
+  if (_hubLoaded) go(); else loadHub(go);
+}
+
+// ── HOME: TODAY ────────────────────────────────────────────────────────────
+// Overdue, due today and due this week, across every to-do list (shopping
+// lists stay on Shopping). Ticking one off here is the same as on To Do; it
+// stays on screen, struck through, until you leave Home, so a slip can be undone.
+const _htDone = new Set();
+function htIso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function renderHomeToday() {
+  const el = document.getElementById('home-today');
+  if (!el) return;
+  const now = new Date(), t = htIso(now), wkD = new Date(now); wkD.setDate(wkD.getDate() + 7); const wk = htIso(wkD);
+  const ls = (lists || []).filter(l => !tvIsShoppingList(l.name));
+  const all = [];
+  ls.forEach(l => (tasks[l.name] || []).forEach(x => { if (!x.done || _htDone.has(String(x.id))) all.push({ x, l }); }));
+  const od = all.filter(a => a.x.due && a.x.due < t), td = all.filter(a => a.x.due === t);
+  const week = all.filter(a => a.x.due && a.x.due > t && a.x.due <= wk).sort((a, b) => a.x.due.localeCompare(b.x.due));
+  const later = all.filter(a => !a.x.due || a.x.due > wk).filter(a => !a.x.done).length;
+  const fmt = (iso, wd) => new Date(iso + 'T00:00:00').toLocaleDateString('en-US', wd ? { weekday: 'short', month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric' });
+  const row = a => {
+    const d = a.x.due, cls = d < t ? 'od' : d === t ? 'td' : '';
+    const lbl = d < t ? 'Overdue · ' + fmt(d) : d === t ? 'Today' : fmt(d, true);
+    const done = !!a.x.done;
+    return `<label class="ht-row${done ? ' done' : ''}"><input type="checkbox"${done ? ' checked' : ''} onchange="htCheck(${esc(JSON.stringify(a.l.name))}, ${esc(JSON.stringify(String(a.x.id)))}, this.checked)" aria-label="Done: ${esc(a.x.text)}">
+      <span class="ht-text">${escHtml(a.x.text)}</span><span class="ht-list"><i style="background:${esc(a.l.color || '#999')}"></i>${esc(a.l.name)}</span><span class="ht-due ${cls}">${esc(lbl)}</span></label>`;
+  };
+  const grp = (label, arr, cls) => arr.length ? `<div class="ht-grp ${cls || ''}">${label} <span>${arr.length}</span></div>${arr.map(row).join('')}` : '';
+  const body = grp('Overdue', od, 'od') + grp('Due today', td) + grp('This week', week);
+  let pick = ''; try { pick = localStorage.getItem('mmt_ht_list') || ''; } catch (e) {}
+  if (!ls.some(l => l.name === pick)) pick = ls.length ? ls[0].name : '';
+  el.innerHTML = `<div class="ht-head"><b>Today</b><small>${esc(now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }))}</small>
+      <a class="home-card-lnk" href="#" onclick="switchTab('todo');return false;">All to-dos &rarr;</a></div>
+    ${body || '<div class="ht-none">Nothing due this week.</div>'}
+    ${later ? `<a class="ht-later" href="#" onclick="switchTab('todo');return false;">${later} more with no date or later &rarr;</a>` : ''}
+    ${ls.length ? `<form class="ht-add" onsubmit="htAdd(event)">
+      <input id="ht-text" type="text" placeholder="Add a to-do…" autocomplete="off" aria-label="New to-do">
+      <select id="ht-list" aria-label="List">${ls.map(l => `<option${l.name === pick ? ' selected' : ''}>${esc(l.name)}</option>`).join('')}</select>
+      <input id="ht-date" type="date" aria-label="Due date (optional)">
+      <button type="submit" class="ht-addbtn">Add</button>
+    </form>` : ''}`;
+}
+function htCheck(listName, id, done) {
+  if (done) _htDone.add(String(id)); else _htDone.delete(String(id));
+  toggleTask(listName, String(id), done);
+  renderHomeToday();
+  try { sbTodoCount(); } catch (e) {}
+}
+function htAdd(ev) {
+  if (ev) ev.preventDefault();
+  const text = (document.getElementById('ht-text').value || '').trim();
+  const list = document.getElementById('ht-list').value;
+  const due = document.getElementById('ht-date').value || null;
+  if (!text || !list) { document.getElementById('ht-text').focus(); return; }
+  if (!tasks[list]) tasks[list] = [];
+  tasks[list].unshift({ id: Date.now().toString(), text, done: false, due });
+  try { localStorage.setItem('mmt_ht_list', list); } catch (e) {}
+  renderTasks();
+  saveData();
+  renderHomeToday();
+  try { sbTodoCount(); } catch (e) {}
+  toast('Added to ' + list);
+  const inp = document.getElementById('ht-text'); if (inp && !matchMedia('(pointer: coarse)').matches) inp.focus();
 }
 
 function renderHomeTasksCard() {
@@ -11432,11 +11659,13 @@ function openShowHub(slug) {
   if (!_hubLoaded) loadHub(() => renderShowHub());
   renderNotesTab();
   hubFitSoon();
+  try { sbSyncActive(); } catch (e) {}
 }
 
 function closeShowHub() {
   _hubSlug = '';
   renderNotesTab();
+  try { sbSyncActive(); } catch (e) {}
 }
 
 // ── field writers ──
@@ -13030,6 +13259,136 @@ async function importFromUrl() {
 
 // Load stored shows on startup (before first render)
 loadStoredShows();
+
+
+// ── CURRENT SHOW (side menu, Home, phone bar) ─────────────────────────────
+// The show being worked on is the next Mainstage show that hasn't opened yet:
+// on the day after opening night it moves on to the next one. Children's
+// shows are reached from the picker. A show picked there stays picked (on
+// this device) until "Automatic" is chosen again.
+function curShowAuto() {
+  const t = todayISO();
+  const ms = MAINSTAGE.slice().filter(x => x && x.start).sort((a, b) => a.start.localeCompare(b.start));
+  const s = ms.find(x => x.start >= t) || ms[ms.length - 1] || null;
+  return s ? Object.assign({}, s, { type: 'Mainstage' }) : null;
+}
+function curShowPick() { try { return localStorage.getItem('mmt_cur_show') || ''; } catch (e) { return ''; } }
+function curShow() {
+  const p = curShowPick();
+  if (p) { const s = allShows().find(x => showSlug(x.name) === p); if (s) return Object.assign({}, s, { picked: true }); }
+  return curShowAuto();
+}
+function curShowWhen(sh) {
+  if (!sh) return '';
+  const st = showStatus(sh.start, sh.end), d = daysUntil(sh.start);
+  const on = new Date(sh.start + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const off = new Date(sh.end + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (st === 'current') return 'Running · closes ' + off;
+  if (st === 'tech') return 'In tech · opens ' + (d === 0 ? 'tonight' : d === 1 ? 'tomorrow' : on);
+  if (st === 'upcoming') return 'Opens ' + on;
+  return 'Closed ' + off;
+}
+function sbShowRender() {
+  const sh = curShow();
+  const n = document.getElementById('sb-show-name'), w = document.getElementById('sb-show-when');
+  if (n) n.textContent = sh ? sh.name : 'No show';
+  const when = sh ? curShowWhen(sh) : '';
+  if (w) w.textContent = sh ? (sh.picked ? 'Picked · ' : (showStatus(sh.start, sh.end) === 'upcoming' ? 'Up next · ' : '')) + (/^Opens/.test(when) && !sh.picked ? 'o' + when.slice(1) : when) : '';
+  try { sbSyncActive(); } catch (e) {}
+}
+function curShowNotes() { const sh = curShow(); if (!sh) { switchTab('notes'); return; } openShowHub(showSlug(sh.name)); sbSyncActive(); }
+function curShowScript() { const sh = curShow(); if (!sh) { switchTab('scripts'); return; } openScriptForShow(sh.name); }
+function curShowSet(slug) {
+  try { if (slug) localStorage.setItem('mmt_cur_show', slug); else localStorage.removeItem('mmt_cur_show'); } catch (e) {}
+  curShowPickerClose();
+  sbShowRender();
+  try { renderWidgets(); } catch (e) {}
+}
+function curShowPicker(ev) {
+  if (ev) ev.stopPropagation();
+  if (document.getElementById('sb-show-menu')) { curShowPickerClose(); return; }
+  const btn = document.getElementById('sb-show-pick');
+  const auto = curShowAuto(), pick = curShowPick();
+  const live = allShows().filter(x => showStatus(x.start, x.end) !== 'past');
+  const row = (slug, name, sub, on) => `<button type="button" role="menuitemradio" aria-checked="${on}" class="sbm-row${on ? ' on' : ''}" onclick="curShowSet('${esc(slug)}')"><span><b>${esc(name)}</b><small>${esc(sub)}</small></span>${on ? '<i>✓</i>' : ''}</button>`;
+  const grp = (label, list) => list.length ? `<div class="sbm-h">${label}</div>` + list.map(x => row(showSlug(x.name), x.name, curShowWhen(x), pick === showSlug(x.name))).join('') : '';
+  const m = document.createElement('div');
+  m.id = 'sb-show-menu'; m.className = 'sb-show-menu'; m.setAttribute('role', 'menu');
+  m.innerHTML = row('', 'Automatic', auto ? 'Next Mainstage show to open: ' + auto.name : 'Next Mainstage show to open', !pick)
+    + grp('Mainstage', live.filter(x => x.type === 'Mainstage').slice(0, 6))
+    + grp("Children's", live.filter(x => x.type !== 'Mainstage').slice(0, 6));
+  document.body.appendChild(m);
+  const r = btn.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(r.left, innerWidth - m.offsetWidth - 8)) + 'px';
+  m.style.top = Math.min(r.bottom + 6, innerHeight - m.offsetHeight - 8) + 'px';
+  btn.setAttribute('aria-expanded', 'true');
+  setTimeout(() => document.addEventListener('click', curShowPickerOutside, true), 0);
+}
+function curShowPickerOutside(e) { const m = document.getElementById('sb-show-menu'); if (m && !m.contains(e.target)) curShowPickerClose(); }
+function curShowPickerClose() {
+  const m = document.getElementById('sb-show-menu'); if (m) m.remove();
+  document.removeEventListener('click', curShowPickerOutside, true);
+  const b = document.getElementById('sb-show-pick'); if (b) b.setAttribute('aria-expanded', 'false');
+}
+// Two menu items share a page (Show notes / All Shows; Script & Cue Sheet /
+// All Scripts): light the one that matches what's on screen.
+function sbSyncActive() {
+  const tab = typeof currentTab !== 'undefined' ? currentTab : '';
+  const sh = curShow(), slug = sh ? showSlug(sh.name) : '';
+  const ed = document.getElementById('scripts-editor');
+  document.querySelectorAll('.sidebar-link[data-sub], .bottom-tab[data-sub]').forEach(a => {
+    const t = a.getAttribute('data-tab');
+    if (t !== tab) { a.classList.remove('active'); return; }
+    const showSide = t === 'notes' ? (!!_hubSlug && _hubSlug === slug) : !!(ed && ed.classList.contains('open'));
+    if (a.classList.contains('bottom-tab')) { a.classList.toggle('active', showSide); return; }
+    a.classList.toggle('active', a.getAttribute('data-sub') === (showSide ? 'show' : 'list'));
+  });
+  // The page you're on is never hidden inside a closed More.
+  const more = document.getElementById('sb-more');
+  if (more && more.hidden && more.querySelector('.sidebar-link.active')) sbMoreToggle(true);
+}
+function sbMoreToggle(open) {
+  const more = document.getElementById('sb-more'), btn = document.getElementById('sb-more-btn');
+  if (!more) return;
+  const on = typeof open === 'boolean' ? open : more.hidden;
+  more.hidden = !on;
+  if (btn) { btn.setAttribute('aria-expanded', on ? 'true' : 'false'); btn.classList.toggle('open', on); }
+  try { localStorage.setItem('mmt_sb_more', on ? '1' : '0'); } catch (e) {}
+  sbTidy();
+}
+// Groups with nothing to show (crew) lose their heading; More shows a dot
+// when something inside it has a count waiting.
+function sbTidy() {
+  document.querySelectorAll('#sidebar .sb-group').forEach(g => {
+    const vis = [...g.querySelectorAll('.sidebar-link')].some(a => !a.classList.contains('crew-hide') && getComputedStyle(a).display !== 'none');
+    g.style.display = vis ? '' : 'none';
+  });
+  const more = document.getElementById('sb-more'), btn = document.getElementById('sb-more-btn'), dot = document.getElementById('sb-more-dot');
+  if (more && btn) {
+    const any = [...more.querySelectorAll('.sidebar-link')].some(a => !a.classList.contains('crew-hide') && getComputedStyle(a).display !== 'none');
+    btn.classList.toggle('sb-hide', !any);
+    if (dot) dot.hidden = !(more.hidden && [...more.querySelectorAll('.cleaning-badge')].some(b => b.style.display !== 'none' && b.textContent.trim()));
+  }
+  const show = document.getElementById('sb-show');
+  if (show) show.classList.toggle('sb-show-empty', ![...show.querySelectorAll('.sidebar-link')].some(a => !a.classList.contains('crew-hide') && getComputedStyle(a).display !== 'none'));
+}
+function sbTodoCount() {
+  const el = document.getElementById('sb-todo-count'); if (!el) return;
+  let n = 0;
+  try { (lists || []).forEach(l => (tasks[l.name] || []).forEach(t => { if (!t.done) n++; })); } catch (e) {}
+  el.textContent = n ? String(n) : ''; el.style.display = n ? '' : 'none';
+}
+(function sbInit() {
+  const go = () => {
+    try { if (localStorage.getItem('mmt_sb_more') === '1') sbMoreToggle(true); } catch (e) {}
+    sbShowRender(); sbTidy(); sbTodoCount();
+    const ed = document.getElementById('scripts-editor');
+    if (ed && window.MutationObserver) new MutationObserver(() => { try { sbSyncActive(); } catch (e) {} }).observe(ed, { attributes: true, attributeFilter: ['class'] });
+    const more = document.getElementById('sb-more');
+    if (more && window.MutationObserver) new MutationObserver(() => { try { sbTidy(); } catch (e) {} }).observe(more, { attributes: true, subtree: true, attributeFilter: ['style', 'class'], childList: true, characterData: true });
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+})();
 
 // ── SIDEBAR NAV ──────────────────────────────────────────────────────────────
 function toggleSidebar() {
