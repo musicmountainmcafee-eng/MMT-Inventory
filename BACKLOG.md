@@ -1,6 +1,6 @@
 # MMT TD Dashboard: to-do list
 
-## Live as of Oct 26 (Dashboard 10.26 v3, Cue Sheet 10.26 v3)
+## Live as of Oct 26 (Dashboard 10.26 v4, Cue Sheet 10.26 v3)
 - Script + Cue sheet redesign, steps 2–8 (plan and feature checklist: "Script + Cue Sheet Redesign: Feature Checklist" doc):
   - Script | Cue sheet switch in the same tab, centered in the header on both pages; the cue sheet is kept loaded inside the
     script page (cue-list?embed=1) so flipping is instant; Both = side by side on screens >=1280px, selection follows.
@@ -50,9 +50,13 @@
 - Phone: header Search + Lock; TV, Dark, Settings, Sync at the top of the menu.
 - Tests: test_menu.py, test_home2.py (fake data). Backup: backup/2026-10-26-before-layout.
 
-## Next
-- **Quick links** (sidebar Links: Public Catalogue, Staff Portal, Notes & Tasks + custom links): Mac doesn't find them useful;
-  find them a better place / make them useful. Not started (ask Mac what he'd open from there).
+## On dev: links (Dashboard 10.26 v7 dev), Mac checking
+- Links list left the bottom of the menu; Links page in More, grouped automatically (Mail, Drive & Docs, Forms, Ordering,
+  Tools) by address; a group can be picked per link (stored as links[].group in the Sheet; automatic ones store nothing).
+  Built-ins (Public Catalogue, Staff Portal, Notes & Tasks) not shown; pages still exist. Crew: Links goes with Home, as before.
+- A show's own links: added on its show page (Links card), stored in KV showhub shows.<slug>.links [{name,url}];
+  the current show's appear under it in the menu and as small buttons on Home's show card.
+- Tests: test_links.py.
 
 ## Ideas
 - Dark look on the script page still uses purple accents; could go black and white too.
