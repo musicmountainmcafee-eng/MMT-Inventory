@@ -7221,7 +7221,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v4</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -11141,7 +11141,8 @@ function renderHomeToday() {
   const now = new Date(), t = htIso(now), wkD = new Date(now); wkD.setDate(wkD.getDate() + 7); const wk = htIso(wkD);
   const ls = (lists || []).filter(l => !tvIsShoppingList(l.name));
   const all = [];
-  ls.forEach(l => (tasks[l.name] || []).forEach(x => { if (!x.done || _htDone.has(String(x.id))) all.push({ x, l }); }));
+  // A to-do is found again by its list and place (ids in the Sheet can be numbers, text or missing).
+  ls.forEach(l => (tasks[l.name] || []).forEach((x, i) => { if (!x.done || _htDone.has(htKey(l.name, x, i))) all.push({ x, l, i }); }));
   const od = all.filter(a => a.x.due && a.x.due < t), td = all.filter(a => a.x.due === t);
   const week = all.filter(a => a.x.due && a.x.due > t && a.x.due <= wk).sort((a, b) => a.x.due.localeCompare(b.x.due));
   const later = all.filter(a => !a.x.due || a.x.due > wk).filter(a => !a.x.done).length;
@@ -11150,7 +11151,7 @@ function renderHomeToday() {
     const d = a.x.due, cls = d < t ? 'od' : d === t ? 'td' : '';
     const lbl = d < t ? 'Overdue · ' + fmt(d) : d === t ? 'Today' : fmt(d, true);
     const done = !!a.x.done;
-    return `<label class="ht-row${done ? ' done' : ''}"><input type="checkbox"${done ? ' checked' : ''} onchange="htCheck(${esc(JSON.stringify(a.l.name))}, ${esc(JSON.stringify(String(a.x.id)))}, this.checked)" aria-label="Done: ${esc(a.x.text)}">
+    return `<label class="ht-row${done ? ' done' : ''}"><input type="checkbox"${done ? ' checked' : ''} onchange="htCheck(${esc(JSON.stringify(a.l.name))}, ${a.i}, this.checked)" aria-label="Done: ${esc(a.x.text)}">
       <span class="ht-text">${escHtml(a.x.text)}</span><span class="ht-list"><i style="background:${esc(a.l.color || '#999')}"></i>${esc(a.l.name)}</span><span class="ht-due ${cls}">${esc(lbl)}</span></label>`;
   };
   const grp = (label, arr, cls) => arr.length ? `<div class="ht-grp ${cls || ''}">${label} <span>${arr.length}</span></div>${arr.map(row).join('')}` : '';
@@ -11168,9 +11169,15 @@ function renderHomeToday() {
       <button type="submit" class="ht-addbtn">Add</button>
     </form>` : ''}`;
 }
-function htCheck(listName, id, done) {
-  if (done) _htDone.add(String(id)); else _htDone.delete(String(id));
-  toggleTask(listName, String(id), done);
+function htKey(listName, t, i) { return t && t.id != null && t.id !== '' ? 'id:' + String(t.id) : listName + '#' + i; }
+function htCheck(listName, i, done) {
+  const t = (tasks[listName] || [])[i];
+  if (!t) { renderHomeToday(); return; }
+  const k = htKey(listName, t, i);
+  if (done) _htDone.add(k); else _htDone.delete(k);
+  t.done = done;
+  renderTasks();
+  saveData();
   renderHomeToday();
   try { sbTodoCount(); } catch (e) {}
 }
@@ -14488,13 +14495,13 @@ function addTask(listName) {
 }
 
 function toggleTask(listName, id, done) {
-  const task = tasks[listName]?.find(t => t.id === id);
+  const task = (tasks[listName] || []).find(t => t.id != null && t.id !== '' && String(t.id) === String(id));
   if (task) { task.done = done; renderTasks(); saveData(); }
 }
 
 function deleteTask(listName, id) {
   if (!tasks[listName]) return;
-  tasks[listName] = tasks[listName].filter(t => t.id !== id);
+  tasks[listName] = tasks[listName].filter(t => !(t.id != null && t.id !== '' && String(t.id) === String(id)));
   renderTasks();
   saveData();
 }
