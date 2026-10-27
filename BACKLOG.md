@@ -1,6 +1,6 @@
 # MMT TD Dashboard: to-do list
 
-## Live as of Oct 26 (Dashboard 10.26 v4, Cue Sheet 10.26 v3)
+## Live as of Oct 26 (Dashboard 10.26 v5, Cue Sheet 10.26 v3)
 - Script + Cue sheet redesign, steps 2–8 (plan and feature checklist: "Script + Cue Sheet Redesign: Feature Checklist" doc):
   - Script | Cue sheet switch in the same tab, centered in the header on both pages; the cue sheet is kept loaded inside the
     script page (cue-list?embed=1) so flipping is instant; Both = side by side on screens >=1280px, selection follows.
@@ -50,7 +50,7 @@
 - Phone: header Search + Lock; TV, Dark, Settings, Sync at the top of the menu.
 - Tests: test_menu.py, test_home2.py (fake data). Backup: backup/2026-10-26-before-layout.
 
-## On dev: links (Dashboard 10.26 v7 dev), Mac checking
+## Live Oct 26: links (Dashboard 10.26 v5 = 10.26 v7 dev)
 - Links list left the bottom of the menu; Links page in More, grouped automatically (Mail, Drive & Docs, Forms, Ordering,
   Tools) by address; a group can be picked per link (stored as links[].group in the Sheet; automatic ones store nothing).
   Built-ins (Public Catalogue, Staff Portal, Notes & Tasks) not shown; pages still exist. Crew: Links goes with Home, as before.
