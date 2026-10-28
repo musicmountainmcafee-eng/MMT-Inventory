@@ -1,6 +1,6 @@
 # MMT TD Dashboard: to-do list
 
-## Live as of Oct 26 (Dashboard 10.26 v5, Cue Sheet 10.26 v3)
+## Live as of Oct 27 (Dashboard 10.27 v1, Cue Sheet 10.26 v3)
 - Script + Cue sheet redesign, steps 2–8 (plan and feature checklist: "Script + Cue Sheet Redesign: Feature Checklist" doc):
   - Script | Cue sheet switch in the same tab, centered in the header on both pages; the cue sheet is kept loaded inside the
     script page (cue-list?embed=1) so flipping is instant; Both = side by side on screens >=1280px, selection follows.
@@ -58,7 +58,7 @@
   the current show's appear under it in the menu and as small buttons on Home's show card.
 - Tests: test_links.py.
 
-## On dev: sidebar redesign (Dashboard 10.27 v2 dev), Mac checking
+## Live Oct 27: sidebar redesign (Dashboard 10.27 v1 = 10.27 v2 dev)
 - From Mac's picture: real MMT logo at the top (mmt-logo-white.png, made from "MMT Logo.png"); folding groups
   Productions ▾ (current show picker + its pages + links, All Shows, All Scripts, Show Calendar; open by default),
   Warehouse ▾ (Set Piece Catalogue, Drops, Storage Map, Reference Photos), More ▾ (Cleaning Log, To Do 2, Links, Side Job
@@ -68,6 +68,9 @@
 - Bottom: Today card (date + weather at the theatre, Open-Meteo, 30 min cache) and Open show timer (full screen).
 - Black and white kept. Sidebar widened 220 -> 248px. Current show sits above the groups (Mac's pick, 10.27 v2 dev).
 - Tests: test_sidebar2.py (+ test_menu, test_links updated).
+
+## Next
+- Drops tab (Mac working on it Oct 28).
 
 ## Ideas
 - Dark look on the script page still uses purple accents; could go black and white too.

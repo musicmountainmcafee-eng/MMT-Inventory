@@ -126,7 +126,7 @@
   .sidebar-overlay.open { display: block; }
 
   .sidebar {
-    width: 220px; flex-shrink: 0;
+    width: 248px; flex-shrink: 0;
     background: #16162a;
     display: flex; flex-direction: column;
     position: fixed; top: 0; bottom: 0; left: 0;
@@ -179,7 +179,7 @@
   /* Main content area shifts right on desktop */
   .app-main {
     flex: 1; min-width: 0; display: flex; flex-direction: column;
-    margin-left: 220px;
+    margin-left: 248px;
     min-height: 100vh;
   }
   @media (max-width: 768px) {
@@ -2138,14 +2138,74 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #sidebar .sb-cs-solo { display: none !important; }
   body.crew-no-scripts #sidebar .sb-cs-solo:not(.crew-hide) { display: flex !important; }
   #sidebar .sb-hide { display: none !important; }
-  .sb-more-btn { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 7px;
-    color: rgba(255,255,255,0.65); font-size: 14px; font-weight: 500; cursor: pointer; }
-  .sb-more-btn:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
-  .sb-more-btn:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
-  .sb-more-chev { margin-left: auto; font-size: 18px; line-height: 1; transition: transform .15s; opacity: .7; }
-  .sb-more-btn.open .sb-more-chev { transform: rotate(90deg); }
-  .sb-more-dot { width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; }
-  .sb-more { padding-left: 8px; border-left: 1px solid rgba(255,255,255,0.1); margin: 0 0 4px 18px; }
+  /* Folding groups (Productions, Warehouse, More) */
+  .sb-fold-btn { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 7px;
+    color: rgba(255,255,255,0.65); font-size: 14px; font-weight: 500; cursor: pointer; margin-bottom: 1px; }
+  .sb-fold-btn:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
+  .sb-fold-btn:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+  .sb-fold-chev { margin-left: auto; width: 16px; height: 16px; opacity: .6; transition: transform .15s; flex: none; }
+  .sb-fold-btn.open .sb-fold-chev { transform: rotate(180deg); }
+  .sb-fold-dot { width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; margin-left: auto; }
+  .sb-fold-dot + .sb-fold-chev { margin-left: 8px; }
+  .sb-fold { margin: 0 0 6px 18px; padding-left: 6px; border-left: 1px solid rgba(255,255,255,0.12); }
+  .sb-fold .sidebar-link { padding-left: 8px; }
+  .sb-fold .sb-show-pick { margin-top: 4px; }
+  /* Logo */
+  /* The logo gets the header to itself, centred; the collapse / close buttons sit in its top corner. */
+  .sidebar-header { position: relative; justify-content: center !important; padding: 16px 78px 14px 14px !important; }
+  @media (max-width: 768px) { .sidebar-header { padding: 16px 84px 14px 18px !important; } }
+  .sidebar-header > div { position: absolute; top: 10px; right: 10px; }
+  .sidebar-header .sidebar-toggle-btn, .sidebar-header .sidebar-close { width: 30px; height: 30px; padding: 0 !important; }
+  .sidebar-header .sidebar-toggle-btn svg { width: 17px !important; height: 17px !important; }
+  .sb-logo { margin: 0; display: flex; justify-content: center; }
+  .sb-logo img { display: block; width: 140px; max-width: 100%; height: auto; }
+  .sidebar.collapsed .sidebar-header > div { position: static; }
+  .sb-logo-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .sidebar.collapsed .sb-logo { display: none !important; }
+  html[data-theme="dark"] .sb-logo img { opacity: .92; }
+  /* Quick Add */
+  .sb-qa { padding: 2px 0 4px; }
+  .sb-qa-h { display: flex; align-items: center; gap: 8px; padding: 8px 10px 4px !important; }
+  .sb-qa-plus { width: 18px; height: 18px; border-radius: 50%; background: #fff; color: #111; display: inline-flex; align-items: center; justify-content: center; }
+  .sb-qa-plus svg { width: 12px; height: 12px; }
+  .sb-qa-item { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; padding: 7px 10px 7px 20px; border-radius: 7px;
+    color: rgba(255,255,255,0.62); font-size: 13.5px; cursor: pointer; }
+  .sb-qa-item:hover { background: rgba(255,255,255,0.07); color: #fff; }
+  .sb-qa-item:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+  .sb-qa-item .sl-icon svg { width: 17px; height: 17px; }
+  body.crew-no-todo .qa-task, body.crew-no-shopping .qa-shop, body.crew-no-inventory .qa-inv, body.crew-inv-ro .qa-inv, body.crew-no-reference .qa-ref { display: none !important; }
+  .sidebar.collapsed .sb-qa-h span:not(.sb-qa-plus), .sidebar.collapsed .sb-qa-item > span:not(.sl-icon) { display: none; }
+  .sidebar.collapsed .sb-qa-h { justify-content: center; font-size: 0 !important; }
+  .sidebar.collapsed .sb-qa-item { justify-content: center; padding: 8px 0; }
+  .qa-pop { position: fixed; z-index: 2100; width: 300px; background: var(--surface, #fff); color: var(--text, #111); border: 1px solid var(--border, #e5e7eb);
+    border-radius: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.25); padding: 14px; }
+  .qa-pop.qa-sheet { left: 8px; right: 8px; width: auto; bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .qa-pop form { display: flex; flex-direction: column; gap: 8px; }
+  .qa-pop b { font-size: 15px; }
+  .qa-pop input, .qa-pop select { font: inherit; font-size: 15px; padding: 9px 12px; border: 1px solid var(--border, #ddd); border-radius: 10px; background: var(--bg, #f7f7f7); color: var(--text, #111); min-width: 0; }
+  .qa-row { display: flex; gap: 8px; } .qa-row select { flex: 1; } .qa-row input { flex: 0 0 auto; }
+  .qa-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }
+  .qa-btns button { font: 600 14px Inter, system-ui, sans-serif; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--border, #ddd); background: var(--surface, #fff); color: var(--text, #111); cursor: pointer; }
+  .qa-btns .pri { background: #111; color: #fff; border-color: #111; }
+  [data-theme="dark"] .qa-btns .pri { background: #f4f4f5; color: #111; }
+  /* Today card + timer button */
+  .sidebar-footer.sb-foot { display: flex; flex-direction: column; gap: 8px; padding: 10px 10px 12px !important; }
+  .sb-today { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); color: #fff; }
+  .sb-today > div { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+  .sb-today b { font-size: 13px; } .sb-today span { font-size: 12.5px; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sb-wx { display: inline-flex; align-items: center; gap: 4px; flex: none; color: #fff !important; }
+  .sb-wx svg { width: 22px; height: 22px; } .sb-wx b { font-size: 14px; }
+  .sb-timer-btn { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.12); color: #fff; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  .sb-timer-btn:hover { background: rgba(255,255,255,0.07); }
+  .sb-timer-btn svg { width: 20px; height: 20px; flex: none; }
+  body.crew-no-home .sb-timer-btn { display: none !important; }
+  .sidebar.collapsed .sb-today { display: none; }
+  .sidebar.collapsed .sidebar-footer.sb-foot { display: flex !important; padding: 8px 6px !important; }
+  .sidebar.collapsed .sb-timer-btn { justify-content: center; padding: 10px 0; } .sidebar.collapsed .sb-timer-btn span { display: none; }
+  html[data-theme="dark"] .sb-today, html[data-theme="dark"] .sb-timer-btn { color: var(--text) !important; border-color: var(--border); }
+  html[data-theme="dark"] .sb-today span { color: var(--text-muted); }
+  html[data-theme="dark"] .sb-qa-plus { background: var(--text); color: var(--bg); }
   #sidebar .sb-count { margin-left: auto; background: rgba(255,255,255,0.16) !important; color: #fff !important; }
   .sb-show-menu { position: fixed; z-index: 2000; width: 300px; max-width: calc(100vw - 16px); max-height: 70vh; overflow-y: auto; background: var(--surface, #fff);
     color: var(--text, #111); border: 1px solid var(--border, #e5e7eb); border-radius: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.25); padding: 6px; }
@@ -2157,9 +2217,9 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   .sb-show-menu .sbm-row small { font-size: 12px; color: var(--text-muted, #6b7280); }
   .sb-show-menu .sbm-row.on { background: var(--bg, #f4f4f5); }
   .sb-show-menu .sbm-row i { font-style: normal; font-weight: 700; }
-  .sidebar.collapsed .sb-show-pick, .sidebar.collapsed .sb-more-chev, .sidebar.collapsed .sb-group .sidebar-section-label { display: none; }
-  .sidebar.collapsed .sb-more-btn { justify-content: center; padding: 10px 0; }
-  .sidebar.collapsed .sb-more { padding-left: 0; border-left: 0; margin-left: 0; }
+  .sidebar.collapsed .sb-show-pick, .sidebar.collapsed .sb-fold-chev, .sidebar.collapsed .sb-fold-dot { display: none; }
+  .sidebar.collapsed .sb-fold-btn { justify-content: center; padding: 10px 0; }
+  .sidebar.collapsed .sb-fold { padding-left: 0; border-left: 0; margin-left: 0; }
   .sidebar.collapsed .sidebar-header h2,
   .sidebar.collapsed .sidebar-footer,
   .sidebar.collapsed .sl-label { display: none; }
@@ -6052,7 +6112,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
   <!-- PERSISTENT SIDEBAR -->
   <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
-      <h2>MMT Dashboard</h2>
+      <h2 class="sb-logo"><img src="mmt-logo-white.png" alt="Music Mountain Theatre" width="360" height="294"><span class="sb-logo-txt">MMT Dashboard</span></h2>
       <div style="display:flex;gap:4px;align-items:center;">
         <button class="sidebar-toggle-btn" id="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="Collapse sidebar" aria-label="Collapse sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1zM9 4v16M15.5 9.5L13 12l2.5 2.5"/></svg></button>
         <button class="sidebar-close" onclick="toggleSidebar()" aria-label="Close menu">×</button>
@@ -6079,37 +6139,47 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
       <a class="sidebar-link" href="#checklists" data-tab="checklists" onclick="switchTab('checklists');closeSidebarMobile();return false;" data-label="Pre-Show Checklists"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4.5H6a1 1 0 00-1 1V20a1 1 0 001 1h12a1 1 0 001-1V5.5a1 1 0 00-1-1h-1M9 3h6v3H9zM9 13.5l2 2 4-4.5"/></svg></span><span class="sl-label">Pre-Show Checklists</span></a>
         <div class="sb-show-links" id="sb-show-links"></div>
       </div>
-      <div class="sidebar-divider"></div>
+      <div class="sidebar-divider sb-show-div"></div>
       <a class="sidebar-link active" href="#home" data-tab="home" onclick="switchTab('home');closeSidebarMobile();return false;" data-label="Home"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7M5 9.5V20h14V9.5M10 20v-5.5h4V20"/></svg></span><span class="sl-label">Home</span></a>
-      <a class="sidebar-link" href="#todo" data-tab="todo" onclick="switchTab('todo');closeSidebarMobile();return false;" data-label="To Do"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5l1.5 1.5L8 5.5M11 7h9M4 12.5l1.5 1.5L8 11.5M11 13h9M4.5 17.5h3v3h-3zM11 19h9"/></svg></span><span class="sl-label">To Do</span><span class="cleaning-badge sb-count" id="sb-todo-count" style="display:none;"></span></a>
-      <a class="sidebar-link parked-daytracker" style="display:none;" href="#daytracker" data-tab="daytracker" onclick="switchTab('daytracker');closeSidebarMobile();return false;" data-label="Day Tracker"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1018 0a9 9 0 10-18 0M12 7v5l3 2"/></svg></span><span class="sl-label">Day Tracker</span></a>
-      <a class="sidebar-link" href="#shopping" data-tab="shopping" onclick="switchTab('shopping');closeSidebarMobile();return false;" data-label="Shopping"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2.2l2.3 11h10.2l2-7.5H6.4M9.2 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0M16 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0"/></svg></span><span class="sl-label">Shopping</span></a>
-      <div class="sb-group">
-        <div class="sidebar-section-label">Season</div>
+      <button type="button" class="sidebar-link sb-fold-btn" id="sb-fold-prod" onclick="sbFold('prod')" aria-expanded="false" aria-controls="sb-fold-prod-body" data-label="Productions" data-open="1"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h16v10a1 1 0 01-1 1H5a1 1 0 01-1-1zM4 9l1.5-4.5 3.5 1M10 5.6l4-1.1M15.5 4.2l4.5-.7L20 9M8 5.2L9 9M14 4.6L15 9"/></svg></span><span class="sl-label">Productions</span><svg class="sb-fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="sb-fold" id="sb-fold-prod-body" hidden>
       <a data-sub="list" class="sidebar-link" href="#notes" data-tab="notes" onclick="switchTab('notes');closeSidebarMobile();return false;" data-label="All Shows"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1zM9 2.5v3M15 2.5v3M8.5 11h7M8.5 15h5"/></svg></span><span class="sl-label">All Shows</span></a>
       <a data-sub="list" class="sidebar-link" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');closeSidebarMobile();return false;" data-label="All Scripts"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM8 7.5h.01M8 12h.01M8 16.5h.01M11 8h5M11 12h5M11 16h3"/></svg></span><span class="sl-label">All Scripts</span></a>
       <a class="sidebar-link" href="#calendar" data-tab="calendar" onclick="switchTab('calendar');closeSidebarMobile();return false;" data-label="Show Calendar"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16a1 1 0 011 1V20a1 1 0 01-1 1H4a1 1 0 01-1-1V6.5a1 1 0 011-1zM3 10h18M8 3v4M16 3v4M8 14h2M14 14h2M8 17.5h2"/></svg></span><span class="sl-label">Show Calendar</span></a>
       </div>
-      <div class="sb-group">
-        <div class="sidebar-section-label">Storage</div>
+      <a class="sidebar-link" href="#todo" data-tab="todo" onclick="switchTab('todo');closeSidebarMobile();return false;" data-label="To Do"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5l1.5 1.5L8 5.5M11 7h9M4 12.5l1.5 1.5L8 11.5M11 13h9M4.5 17.5h3v3h-3zM11 19h9"/></svg></span><span class="sl-label">To Do</span><span class="cleaning-badge sb-count" id="sb-todo-count" style="display:none;"></span></a>
+      <a class="sidebar-link parked-daytracker" style="display:none;" href="#daytracker" data-tab="daytracker" onclick="switchTab('daytracker');closeSidebarMobile();return false;" data-label="Day Tracker"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1018 0a9 9 0 10-18 0M12 7v5l3 2"/></svg></span><span class="sl-label">Day Tracker</span></a>
+      <a class="sidebar-link" href="#shopping" data-tab="shopping" onclick="switchTab('shopping');closeSidebarMobile();return false;" data-label="Shopping"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2.2l2.3 11h10.2l2-7.5H6.4M9.2 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0M16 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0"/></svg></span><span class="sl-label">Shopping</span></a>
+      <button type="button" class="sidebar-link sb-fold-btn" id="sb-fold-ware" onclick="sbFold('ware')" aria-expanded="false" aria-controls="sb-fold-ware-body" data-label="Warehouse" data-open="0"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></span><span class="sl-label">Warehouse</span><svg class="sb-fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="sb-fold" id="sb-fold-ware-body" hidden>
       <a class="sidebar-link" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');closeSidebarMobile();return false;" data-label="Set Piece Catalogue"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h10v18H5zM15 8l4.5 13M3 21h18M8 7h4"/></svg></span><span class="sl-label">Set Piece Catalogue</span></a>
+      <a class="sidebar-link" href="#drops" data-tab="drops" onclick="switchTab('drops');closeSidebarMobile();return false;" data-label="Drops"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18M7 4V2M17 4V2M5 4v13c2.3 1.6 4.7 1.6 7 0s4.7-1.6 7 0V4"/></svg></span><span class="sl-label">Drops</span></a>
+      <a class="sidebar-link" href="#storagemap" data-tab="storagemap" onclick="switchTab('storagemap');closeSidebarMobile();return false;" data-label="Storage Map"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5zM9 4v13.5M15 6.5V20"/></svg></span><span class="sl-label">Storage Map</span></a>
       <a class="sidebar-link" href="#reference" data-tab="reference" onclick="switchTab('reference');closeSidebarMobile();return false;" data-label="Reference Photos"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.8-2.5h6.4L17 8h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1zM8.5 13.5a3.5 3.5 0 107 0a3.5 3.5 0 10-7 0"/></svg></span><span class="sl-label">Reference Photos</span></a>
       </div>
       <!-- PARKED: Show Archive sidebar link -->
-      <div class="sidebar-divider"></div>
-      <!-- Used less often: still all here, one tap down. Opens by itself when one of them is the page you're on. -->
-      <button type="button" class="sidebar-link sb-more-btn" id="sb-more-btn" onclick="sbMoreToggle()" aria-expanded="false" aria-controls="sb-more" data-label="More"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg></span><span class="sl-label">More</span><span class="sb-more-dot" id="sb-more-dot" hidden></span><span class="sb-more-chev" aria-hidden="true">›</span></button>
-      <div class="sb-more" id="sb-more" hidden>
-      <a class="sidebar-link" href="#storagemap" data-tab="storagemap" onclick="switchTab('storagemap');closeSidebarMobile();return false;" data-label="Storage Map"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5zM9 4v13.5M15 6.5V20"/></svg></span><span class="sl-label">Storage Map</span></a>
-      <a class="sidebar-link" href="#drops" data-tab="drops" onclick="switchTab('drops');closeSidebarMobile();return false;" data-label="Drops"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18M7 4V2M17 4V2M5 4v13c2.3 1.6 4.7 1.6 7 0s4.7-1.6 7 0V4"/></svg></span><span class="sl-label">Drops</span></a>
+      <button type="button" class="sidebar-link sb-fold-btn" id="sb-fold-more" onclick="sbFold('more')" aria-expanded="false" aria-controls="sb-fold-more-body" data-label="More" data-open="0"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg></span><span class="sl-label">More</span><svg class="sb-fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="sb-fold" id="sb-fold-more-body" hidden>
       <a class="sidebar-link" href="#cleaning" data-tab="cleaning" onclick="switchTab('cleaning');closeSidebarMobile();return false;" data-label="Cleaning Log"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 21V13l1.5-3h4.5l1 3v8zM10.5 10V7h4v3M14.5 7H18l-1.5 2M20 5.5l1.5-.8M20 8.5l1.5.8M20.5 7h1.5"/></svg></span><span class="sl-label">Cleaning Log</span><span class="cleaning-badge" id="cleaning-badge" style="display:none;"></span></a>
       <a class="sidebar-link" href="#todo2" data-tab="todo2" onclick="switchTab('todo2');closeSidebarMobile();return false;" data-label="To Do 2 (beta)"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1zM7.5 9.5l1.5 1.5 2.5-2.5M14 10h3M7.5 15h4M14 15h3"/></svg></span><span class="sl-label">To Do 2 (beta)</span><span class="cleaning-badge" id="t2-badge" style="display:none;"></span></a>
       <a class="sidebar-link" href="#links" data-tab="links" onclick="switchTab('links');closeSidebarMobile();return false;" data-label="Links"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 005.66 0l3-3a4 4 0 00-5.66-5.66l-1 1M14 10a4 4 0 00-5.66 0l-3 3a4 4 0 005.66 5.66l1-1"/></svg></span><span class="sl-label">Links</span></a>
       <!-- PARKED: Paint sidebar shortcut -->
       <a class="sidebar-link td-only" href="#sidework" data-tab="sidework" onclick="switchTab('sidework');closeSidebarMobile();return false;" data-label="Side Job Notes"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1zM9 7V5a1 1 0 011-1h4a1 1 0 011 1v2M3 12.5h18"/></svg></span><span class="sl-label">Side Job Notes</span></a>
       </div>
+      <div class="sidebar-divider"></div>
+      <!-- Quick Add: the common "add one thing" jobs without going to the page first. -->
+      <div class="sb-qa" id="sb-qa">
+        <div class="sidebar-section-label sb-qa-h"><span class="sb-qa-plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>Quick Add</div>
+        <button type="button" class="sb-qa-item qa-task" onclick="qaOpen('task', this)"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5l1.5 1.5L8 5.5M11 7h9M4 12.5l1.5 1.5L8 11.5M11 13h9M4.5 17.5h3v3h-3zM11 19h9"/></svg></span><span>New to-do</span></button>
+        <button type="button" class="sb-qa-item qa-shop" onclick="qaOpen('shop', this)"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2.2l2.3 11h10.2l2-7.5H6.4M9.2 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0M16 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0"/></svg></span><span>Shopping item</span></button>
+        <button type="button" class="sb-qa-item qa-inv" onclick="qaSetPiece()"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></span><span>Set piece</span></button>
+        <button type="button" class="sb-qa-item qa-ref" onclick="qaPhoto()"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.8-2.5h6.4L17 8h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1zM8.5 13.5a3.5 3.5 0 107 0a3.5 3.5 0 10-7 0"/></svg></span><span>Reference photo</span></button>
+      </div>
     </nav>
-    <div class="sidebar-footer">Music Mountain Theatre</div>
+    <div class="sidebar-footer sb-foot">
+      <div class="sb-today" id="sb-today"><div><b>Today</b><span id="sb-today-date"></span></div><span class="sb-wx" id="sb-wx" title=""></span></div>
+      <button type="button" class="sb-timer-btn" onclick="sbOpenTimer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a8 8 0 100-16 8 8 0 000 16zM12 9v4l2.5 1.5M10 2.5h4M12 2.5V5"/></svg><span>Open show timer</span></button>
+    </div>
   </div>
 
   <!-- MAIN CONTENT -->
@@ -7266,7 +7336,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.26 v5</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.27 v1</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -13468,34 +13538,42 @@ function sbSyncActive() {
     if (a.classList.contains('bottom-tab')) { a.classList.toggle('active', showSide); return; }
     a.classList.toggle('active', a.getAttribute('data-sub') === (showSide ? 'show' : 'list'));
   });
-  // The page you're on is never hidden inside a closed More.
-  const more = document.getElementById('sb-more');
-  if (more && more.hidden && more.querySelector('.sidebar-link.active')) sbMoreToggle(true);
+  // The page you're on is never hidden inside a closed group.
+  document.querySelectorAll('#sidebar .sb-fold').forEach(b => {
+    if (b.hidden && b.querySelector('.sidebar-link.active')) sbFold(b.id.replace(/^sb-fold-|-body$/g, ''), true, true);
+  });
 }
-function sbMoreToggle(open) {
-  const more = document.getElementById('sb-more'), btn = document.getElementById('sb-more-btn');
-  if (!more) return;
-  const on = typeof open === 'boolean' ? open : more.hidden;
-  more.hidden = !on;
-  if (btn) { btn.setAttribute('aria-expanded', on ? 'true' : 'false'); btn.classList.toggle('open', on); }
-  try { localStorage.setItem('mmt_sb_more', on ? '1' : '0'); } catch (e) {}
+// Folding groups (Productions, Warehouse, More). Each remembers open/closed
+// on this device; Productions starts open, the others closed.
+function sbFold(key, open, quiet) {
+  const btn = document.getElementById('sb-fold-' + key), body = document.getElementById('sb-fold-' + key + '-body');
+  if (!btn || !body) return;
+  const on = typeof open === 'boolean' ? open : body.hidden;
+  body.hidden = !on;
+  btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+  btn.classList.toggle('open', on);
+  if (!quiet) { try { localStorage.setItem('mmt_sb_fold_' + key, on ? '1' : '0'); } catch (e) {} }
   sbTidy();
 }
-// Groups with nothing to show (crew) lose their heading; More shows a dot
-// when something inside it has a count waiting.
+function sbMoreToggle(open) { sbFold('more', open); }   // older name, still used in places
+// A group with nothing in it for this person (crew) hides its button; a
+// closed group shows a dot when something inside has a count waiting.
 function sbTidy() {
-  document.querySelectorAll('#sidebar .sb-group').forEach(g => {
-    const vis = [...g.querySelectorAll('.sidebar-link')].some(a => !a.classList.contains('crew-hide') && getComputedStyle(a).display !== 'none');
-    g.style.display = vis ? '' : 'none';
-  });
-  const more = document.getElementById('sb-more'), btn = document.getElementById('sb-more-btn'), dot = document.getElementById('sb-more-dot');
-  if (more && btn) {
-    const any = [...more.querySelectorAll('.sidebar-link')].some(a => !a.classList.contains('crew-hide') && getComputedStyle(a).display !== 'none');
+  const vis = a => !a.classList.contains('crew-hide') && getComputedStyle(a).display !== 'none';
+  document.querySelectorAll('#sidebar .sb-fold').forEach(body => {
+    const key = body.id.replace(/^sb-fold-|-body$/g, ''), btn = document.getElementById('sb-fold-' + key);
+    if (!btn) return;
+    const any = [...body.querySelectorAll('.sidebar-link')].some(vis);
     btn.classList.toggle('sb-hide', !any);
-    if (dot) dot.hidden = !(more.hidden && [...more.querySelectorAll('.cleaning-badge')].some(b => b.style.display !== 'none' && b.textContent.trim()));
-  }
+    let dot = btn.querySelector('.sb-fold-dot');
+    const waiting = body.hidden && [...body.querySelectorAll('.cleaning-badge')].some(b => b.style.display !== 'none' && b.textContent.trim());
+    if (waiting && !dot) { dot = document.createElement('span'); dot.className = 'sb-fold-dot'; btn.insertBefore(dot, btn.querySelector('.sb-fold-chev')); }
+    if (!waiting && dot) dot.remove();
+  });
   const show = document.getElementById('sb-show');
-  if (show) show.classList.toggle('sb-show-empty', ![...show.querySelectorAll('.sidebar-link')].some(a => !a.classList.contains('crew-hide') && getComputedStyle(a).display !== 'none'));
+  if (show) show.classList.toggle('sb-show-empty', ![...show.querySelectorAll('.sidebar-link')].some(vis));
+  const qa = document.getElementById('sb-qa');
+  if (qa) qa.classList.toggle('sb-hide', ![...qa.querySelectorAll('.sb-qa-item')].some(b => getComputedStyle(b).display !== 'none'));
 }
 function sbTodoCount() {
   const el = document.getElementById('sb-todo-count'); if (!el) return;
@@ -13505,15 +13583,135 @@ function sbTodoCount() {
 }
 (function sbInit() {
   const go = () => {
-    try { if (localStorage.getItem('mmt_sb_more') === '1') sbMoreToggle(true); } catch (e) {}
-    sbShowRender(); sbTidy(); sbTodoCount();
+    document.querySelectorAll('#sidebar .sb-fold-btn').forEach(b => {
+      const key = b.id.replace(/^sb-fold-/, '');
+      let v = null; try { v = localStorage.getItem('mmt_sb_fold_' + key); } catch (e) {}
+      if (v === null && key === 'more') { try { v = localStorage.getItem('mmt_sb_more'); } catch (e) {} }
+      sbFold(key, v === null ? b.getAttribute('data-open') === '1' : v === '1', true);
+    });
+    sbShowRender(); sbTidy(); sbTodoCount(); sbTodayRender();
     const ed = document.getElementById('scripts-editor');
     if (ed && window.MutationObserver) new MutationObserver(() => { try { sbSyncActive(); } catch (e) {} }).observe(ed, { attributes: true, attributeFilter: ['class'] });
-    const more = document.getElementById('sb-more');
-    if (more && window.MutationObserver) new MutationObserver(() => { try { sbTidy(); } catch (e) {} }).observe(more, { attributes: true, subtree: true, attributeFilter: ['style', 'class'], childList: true, characterData: true });
+    document.querySelectorAll('#sidebar .sb-fold').forEach(body => { if (window.MutationObserver) new MutationObserver(() => { try { sbTidy(); } catch (e) {} }).observe(body, { attributes: true, subtree: true, attributeFilter: ['style', 'class'], childList: true, characterData: true }); });
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
 })();
+
+
+// ── QUICK ADD (side menu) ─────────────────────────────────────────────────
+// A to-do or a shopping item goes in from a small form here, saved the same
+// way as on To Do / Shopping. A set piece opens the catalogue's own Add form;
+// a reference photo opens Reference Photos with the camera ready.
+function qaOpen(kind, btn) {
+  qaClose();
+  const m = document.createElement('div');
+  m.id = 'qa-pop'; m.className = 'qa-pop'; m.setAttribute('role', 'dialog');
+  m.setAttribute('aria-label', kind === 'task' ? 'New to-do' : 'New shopping item');
+  if (kind === 'task') {
+    const ls = (lists || []).filter(l => !tvIsShoppingList(l.name));
+    let pick = ''; try { pick = localStorage.getItem('mmt_ht_list') || ''; } catch (e) {}
+    if (!ls.some(l => l.name === pick)) pick = ls.length ? ls[0].name : '';
+    m.innerHTML = `<form onsubmit="qaSave(event,'task')"><b>New to-do</b>
+      <input name="t" placeholder="What needs doing?" autocomplete="off" aria-label="To-do">
+      <div class="qa-row"><select name="l" aria-label="List">${ls.map(l => `<option${l.name === pick ? ' selected' : ''}>${esc(l.name)}</option>`).join('')}</select>
+      <input name="d" type="date" aria-label="Due date (optional)"></div>
+      <div class="qa-btns"><button type="button" onclick="qaClose()">Cancel</button><button type="submit" class="pri">Add</button></div></form>`;
+  } else {
+    const stores = Object.keys(shopData || {});
+    let pick = ''; try { pick = localStorage.getItem('mmt_qa_store') || ''; } catch (e) {}
+    if (stores.indexOf(pick) < 0) pick = (typeof activeStore !== 'undefined' && activeStore) || stores[0] || '';
+    m.innerHTML = `<form onsubmit="qaSave(event,'shop')"><b>Shopping item</b>
+      <input name="t" placeholder="What to buy?" autocomplete="off" aria-label="Item">
+      <select name="s" aria-label="Store">${stores.map(x => `<option${x === pick ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select>
+      <div class="qa-btns"><button type="button" onclick="qaClose()">Cancel</button><button type="submit" class="pri">Add</button></div></form>`;
+  }
+  document.body.appendChild(m);
+  const r = (btn || document.getElementById('sb-qa')).getBoundingClientRect();
+  if (innerWidth > 768) {
+    m.style.left = Math.min(r.right + 8, innerWidth - m.offsetWidth - 8) + 'px';
+    m.style.top = Math.max(8, Math.min(r.top - 10, innerHeight - m.offsetHeight - 8)) + 'px';
+  } else m.classList.add('qa-sheet');
+  setTimeout(() => { const t = m.querySelector('input[name=t]'); if (t) t.focus(); document.addEventListener('click', qaOutside, true); }, 30);
+}
+function qaOutside(e) { const m = document.getElementById('qa-pop'); if (m && !m.contains(e.target)) qaClose(); }
+function qaClose() { const m = document.getElementById('qa-pop'); if (m) m.remove(); document.removeEventListener('click', qaOutside, true); }
+function qaSave(ev, kind) {
+  ev.preventDefault();
+  const f = ev.target, text = (f.t.value || '').trim();
+  if (!text) { f.t.focus(); return; }
+  if (kind === 'task') {
+    const list = f.l.value; if (!list) return;
+    if (!tasks[list]) tasks[list] = [];
+    tasks[list].unshift({ id: Date.now().toString(), text, done: false, due: f.d.value || null });
+    try { localStorage.setItem('mmt_ht_list', list); } catch (e) {}
+    renderTasks(); saveData();
+    try { renderHomeToday(); sbTodoCount(); } catch (e) {}
+    toast('Added to ' + list);
+  } else {
+    const store = f.s.value; if (!store) return;
+    if (!shopData[store]) shopData[store] = [];
+    shopData[store].push({ text: userRole === 'crew' ? text + ' [' + userName + ']' : text, done: false });   // same as the Shopping page
+    try { localStorage.setItem('mmt_qa_store', store); } catch (e) {}
+    saveShopData();
+    try { renderShop(); renderHomeShopSummary(); } catch (e) {}
+    toast('Added to ' + store);
+  }
+  qaClose();
+}
+function qaSetPiece() {
+  closeSidebarMobile();
+  if (!crewCanEdit('inventory')) { crewViewOnly('Set pieces'); return; }
+  switchTab('inventory');
+  setTimeout(() => { try { ivOpenAdd(); } catch (e) {} }, 60);   // the Add form doesn't wait for the list to load
+}
+function qaPhoto() {
+  switchTab('reference');
+  const sh = curShow(), f = document.getElementById('ref-f-show');
+  if (f && !f.value && sh) f.value = sh.name;
+  const file = document.getElementById('ref-file');
+  if (file) file.click();   // still inside the tap, so the camera / file picker is allowed to open
+  closeSidebarMobile();
+}
+
+// ── TODAY CARD + SHOW TIMER BUTTON (bottom of the side menu) ─────────────
+// The weather is for the theatre (Lambertville, NJ), from Open-Meteo (no key),
+// kept for 30 minutes. Without a connection the card just shows the date.
+const SB_WX_AT = { lat: 40.3657, lon: -74.9479 };
+function sbTodayRender() {
+  const d = document.getElementById('sb-today-date');
+  if (d) d.textContent = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  let c = null; try { c = JSON.parse(localStorage.getItem('mmt_sb_wx') || 'null'); } catch (e) {}
+  if (c && Date.now() - c.at < 30 * 60000) { sbWxPaint(c); return; }
+  if (c) sbWxPaint(c);
+  try {
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + SB_WX_AT.lat + '&longitude=' + SB_WX_AT.lon + '&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=1')
+      .then(r => r.ok ? r.json() : null).then(j => {
+        if (!j || !j.current) return;
+        const w = { at: Date.now(), t: Math.round(j.current.temperature_2m), code: j.current.weather_code,
+          hi: j.daily && Math.round(j.daily.temperature_2m_max[0]), lo: j.daily && Math.round(j.daily.temperature_2m_min[0]) };
+        try { localStorage.setItem('mmt_sb_wx', JSON.stringify(w)); } catch (e) {}
+        sbWxPaint(w);
+      }).catch(() => {});
+  } catch (e) {}
+}
+function sbWxPaint(w) {
+  const el = document.getElementById('sb-wx'); if (!el || !w) return;
+  const c = w.code, kind = c === 0 ? 'sun' : c <= 3 ? 'part' : c <= 48 ? 'cloud' : c <= 67 || (c >= 80 && c <= 82) ? 'rain' : c <= 77 || c === 85 || c === 86 ? 'snow' : 'storm';
+  const word = { sun: 'Clear', part: 'Partly cloudy', cloud: 'Cloudy', rain: 'Rain', snow: 'Snow', storm: 'Storms' }[kind];
+  const P = { sun: 'M12 16a4 4 0 100-8 4 4 0 000 8zM12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1 1M17.4 17.4l1 1M5.6 18.4l1-1M17.4 6.6l1-1',
+    part: 'M8 4.5v1M3.5 9h1M4.8 5.8l.7.7M11.2 5.8l-.7.7M5.6 11.5A3 3 0 1110.9 8M7 19h10a3.5 3.5 0 00.4-7 5 5 0 00-9.6 1.2A2.9 2.9 0 007 19z',
+    cloud: 'M7 18h10a3.5 3.5 0 00.4-7 5 5 0 00-9.6 1.2A2.9 2.9 0 007 18z', rain: 'M7 15h10a3.5 3.5 0 00.4-7 5 5 0 00-9.6 1.2A2.9 2.9 0 007 15zM9 18l-1 2.5M13 18l-1 2.5M17 18l-1 2.5',
+    snow: 'M7 15h10a3.5 3.5 0 00.4-7 5 5 0 00-9.6 1.2A2.9 2.9 0 007 15zM9 19h.01M12 20.5h.01M15 19h.01', storm: 'M7 15h10a3.5 3.5 0 00.4-7 5 5 0 00-9.6 1.2A2.9 2.9 0 007 15zM12.5 15l-2 3.5h3l-2 3' }[kind];
+  el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${P}"/></svg><b>${w.t}°</b>`;
+  el.title = word + (w.hi != null ? ' · high ' + w.hi + '°, low ' + w.lo + '°' : '') + ' · Lambertville';
+  el.setAttribute('aria-label', 'Weather: ' + el.title);
+}
+function sbOpenTimer() {
+  closeSidebarMobile();
+  if (!htmOn()) { htmToggle(); htmPillPaintOff(); }
+  let n = 0;
+  const t = setInterval(() => { n++; if (_htm.frame) { clearInterval(t); htmFull(true); } else if (n > 40) { clearInterval(t); toast('The show timer is still loading. Try again in a moment.'); } }, 150);
+}
 
 // ── SIDEBAR NAV ──────────────────────────────────────────────────────────────
 function toggleSidebar() {
