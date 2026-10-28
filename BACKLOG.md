@@ -93,6 +93,7 @@
 - Tests: test_photos.py.
 
 ## Next
+- Mac at his computer: paste Apps Script 10.28 v1 (copy-sheet-script.html) + New version, then check show photos on dev.
 - Drops tab (Mac working on it Oct 28).
 - Full audit of the dashboard: what works, what doesn't (after 3 pm Oct 28, when Mac has more usage).
   Already noticed: Home show card's links are read before the show list loads on first draw (caught, redraws).
