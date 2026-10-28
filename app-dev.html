@@ -7336,7 +7336,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.27 v4 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.27 v5 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -22236,21 +22236,28 @@ function prSplit(p) { const n = String((p && p.name) || 'Someone'), i = n.lastIn
 function prInitials(n) { const w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').trim().split(/\s+/).filter(Boolean); if (!w.length) return '?'; return (w.length > 1 ? w[0][0] + w[w.length - 1][0] : w[0].slice(0, 2)).toUpperCase(); }
 function prFacesPaint(describe) {
   const el = document.getElementById('pr-faces'); if (!el) return;
+  const me = prSplit({ name: prName() });
   const ps = _prPeople.slice(0, 4), more = _prPeople.length - ps.length;
   const h = ps.map(p => { const s = prSplit(p); return `<button type="button" class="pr-face" style="--pc:${prColor(p.id)}" onclick="prFaceOpen(event,'${prEsc(p.id)}')" title="${prEsc(s.name + (s.dev ? ' (' + s.dev + ')' : '') + ': ' + describe(p))}" aria-label="${prEsc(s.name + ' is here, ' + describe(p))}">${prEsc(prInitials(s.name))}</button>`; }).join('')
-    + (more > 0 ? `<button type="button" class="pr-face pr-more" onclick="prFaceOpen(event,'')" aria-label="${more} more here">+${more}</button>` : '');
+    + (more > 0 ? `<button type="button" class="pr-face pr-more" onclick="prFaceOpen(event,'')" aria-label="${more} more here">+${more}</button>` : '')
+    + `<button type="button" class="pr-face pr-self" style="--pc:${prColor(prDevId())}" onclick="prFaceOpen(event,'@me')" title="You: ${prEsc(me.name + (me.dev ? ' (' + me.dev + ')' : ''))}" aria-label="You, ${prEsc(me.name)}">${prEsc(prInitials(me.name))}</button>`;
   if (el.innerHTML !== h) el.innerHTML = h;
-  el.hidden = !_prPeople.length;
+  el.hidden = false;
 }
 function prFaceOpen(ev, id) {
   if (ev) ev.stopPropagation();
   prFaceClose();
-  const list = id ? _prPeople.filter(p => p.id === id) : _prPeople;
+  const self = id === '@me';
+  const list = self ? [] : id ? _prPeople.filter(p => p.id === id) : _prPeople;
+  const me = prSplit({ name: prName() });
   const m = document.createElement('div'); m.id = 'pr-pop'; m.className = 'pr-pop'; m.setAttribute('role', 'dialog');
-  m.innerHTML = list.map(p => { const s = prSplit(p); return `<div class="pr-pop-row"><span class="pr-face sm" style="--pc:${prColor(p.id)}">${prEsc(prInitials(s.name))}</span>
+  m.innerHTML = (self ? `<div class="pr-pop-row"><span class="pr-face sm" style="--pc:${prColor(prDevId())}">${prEsc(prInitials(me.name))}</span>
+      <span class="pr-pop-t"><b>${prEsc(me.name)} (you)</b><small>${prEsc(me.dev || 'this device')}</small></span></div>
+      <div class="pr-pop-note">${_prPeople.length ? (_prPeople.length === 1 ? '1 other person is' : _prPeople.length + ' other people are') + ' here too.' : 'Only you are here right now.'}</div>` : '')
+    + list.map(p => { const s = prSplit(p); return `<div class="pr-pop-row"><span class="pr-face sm" style="--pc:${prColor(p.id)}">${prEsc(prInitials(s.name))}</span>
       <span class="pr-pop-t"><b>${prEsc(s.name)}</b><small>${prEsc((s.dev ? s.dev + ' · ' : '') + prDescribe(p))}</small></span>
       ${typeof prGo === 'function' && prCanGo(p) ? `<button type="button" onclick="prFaceClose();prGo(_prPeople.find(x=>x.id==='${prEsc(p.id)}'))">Go there</button>` : ''}</div>`; }).join('')
-    + `<div class="pr-pop-me">You show as <b>${prEsc(prSplit({ name: prName() }).name)}</b> · <a href="#" onclick="prFaceClose();prRename();return false;">change</a></div>`;
+    + `<div class="pr-pop-me">You show as <b>${prEsc(me.name)}</b> · <a href="#" onclick="prFaceClose();prRename();return false;">change</a></div>`;
   document.body.appendChild(m);
   const r = (ev && ev.currentTarget || document.getElementById('pr-faces')).getBoundingClientRect();
   m.style.left = Math.max(8, Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 8)) + 'px';
@@ -22266,6 +22273,9 @@ const PR_FACES_CSS = `#pr-bar{display:none!important}
 .pr-face:first-child{margin-left:0}
 .pr-face:hover,.pr-face:focus-visible{transform:translateY(-1px);box-shadow:0 0 0 2px #fff}
 .pr-face.pr-more{background:#3f3f46}
+.pr-faces .pr-face.pr-self{margin-left:8px}
+.pr-faces .pr-face.pr-self:first-child{margin-left:0}
+.pr-pop-note{padding:2px 6px 8px 44px;font-size:12px;color:var(--text-muted,#6b7280)}
 .pr-face.sm{width:28px;height:28px;line-height:28px;font-size:11px;margin:0;box-shadow:none;cursor:default}
 .pr-pop{position:fixed;z-index:3000;width:290px;max-width:calc(100vw - 16px);background:var(--surface,#fff);color:var(--text,#111);border:1px solid var(--border,#e5e7eb);border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.25);padding:8px;font:14px Inter,system-ui,sans-serif}
 .pr-pop-row{display:flex;align-items:center;gap:10px;padding:8px 6px}
@@ -22277,6 +22287,7 @@ const PR_FACES_CSS = `#pr-bar{display:none!important}
 #pr-faces .pr-face,#pr-pop .pr-face{width:32px!important;height:32px!important;min-width:0!important;min-height:0!important;max-height:32px!important;padding:0!important;border:0!important;border-radius:50%!important;line-height:32px!important;font-size:12px!important;display:inline-block!important}
 #pr-pop .pr-face.sm{width:28px!important;height:28px!important;max-height:28px!important;line-height:28px!important;font-size:11px!important}
 #pr-pop .pr-pop-row button{min-height:0!important;height:auto!important;padding:6px 12px!important;border:0!important;border-radius:999px!important;font-size:13px!important;line-height:1.2!important;width:auto!important}`;
+document.addEventListener('DOMContentLoaded', () => { try { prInjectCSS(); prFacesPaint(prDescribe); } catch (e) {} });
 function prInjectCSS() { if (document.getElementById('pr-css')) return; const s = document.createElement('style'); s.id = 'pr-css'; s.textContent = PR_CSS + PR_FACES_CSS; document.head.appendChild(s); }
 // Moving to another box: tell the others straight away rather than at the next check.
 let _prNudgeT = null;
