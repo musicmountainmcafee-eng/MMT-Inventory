@@ -58,6 +58,17 @@
   the current show's appear under it in the menu and as small buttons on Home's show card.
 - Tests: test_links.py.
 
+## On dev: sidebar redesign (Dashboard 10.27 v1 dev), Mac checking
+- From Mac's picture: real MMT logo at the top (mmt-logo-white.png, made from "MMT Logo.png"); folding groups
+  Productions ▾ (current show picker + its pages + links, All Shows, All Scripts, Show Calendar; open by default),
+  Warehouse ▾ (Set Piece Catalogue, Drops, Storage Map, Reference Photos), More ▾ (Cleaning Log, To Do 2, Links, Side Job
+  Notes); each remembers open/closed and opens by itself on one of its pages. Home, To Do, Shopping stay at the top level.
+- Quick Add: New to-do, Shopping item (small forms, same saves as To Do / Shopping), Set piece (catalogue's Add form),
+  Reference photo (Reference Photos with the camera open, current show filled in). Crew only see what they may.
+- Bottom: Today card (date + weather at the theatre, Open-Meteo, 30 min cache) and Open show timer (full screen).
+- Black and white kept. Sidebar widened 220 -> 248px. Still to decide: current show inside Productions (dev) or above it.
+- Tests: test_sidebar2.py (+ test_menu, test_links updated).
+
 ## Ideas
 - Dark look on the script page still uses purple accents; could go black and white too.
 
@@ -71,10 +82,13 @@
   - "Find your name" search instead of one tab per person; remember the choice; "You're not on any set changes" for cast with none.
 
 ## Waiting on an answer
-- Page numbering setting: is the offset between PDF page and script page constant?
-- Script revisions: should cues carry over to a new script version?
+- (answered Oct 27) Page numbers: PDF pages are fine; the odd script needs its own numbers -> see Later.
+- (answered Oct 27) Script revisions: doesn't happen much -> Later.
 
 ## Later
+- Script page numbers for the odd script whose printed numbers differ from the PDF (per-script setting).
+- Photos on every show card.
+- Script revisions: carry cues over to a new version (rare).
 - Loading spinner
 - Back buttons in the installed app
 - Day Tracker
