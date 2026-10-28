@@ -78,7 +78,9 @@
 - Tests: test_sidebar2.py (+ test_menu, test_links updated).
 
 ## Next
+- Name + initials per login (on dev: Dashboard 10.27 v6 dev, Cue Sheet 10.27 v3 dev); waiting for Mac's OK to go live.
 - Drops tab (Mac working on it Oct 28).
+- Full audit of the dashboard: what works, what doesn't (after 3 pm Oct 28, when Mac has more usage).
 
 ## Ideas
 - Dark look on the script page still uses purple accents; could go black and white too.
