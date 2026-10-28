@@ -6984,6 +6984,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
       <button type="button" data-rv="b" class="ic ic-step" aria-pressed="false" onclick="setRunView('b')" title="Running: step through the cues in order">B · Step</button>
     </div>
     <div class="cue-topbar-actions">
+      <div class="pr-faces" id="pr-faces" hidden aria-label="Who else is here"></div>
       <button type="button" class="top-btn se-find" onclick="openFindCue()" title="Find a cue (/)" aria-label="Find a cue"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a7 7 0 1014 0a7 7 0 10-14 0M20.5 20.5l-4.5-4.5"/></svg><span>Find</span></button>
       <button type="button" class="top-btn se-approx" id="se-approx" hidden onclick="nextApproxCue()" title="Cues added from the cue sheet, still on approximate spots. Tap to go to the next one."></button>
       <!-- Pages that have their own home open there; this menu keeps what
@@ -7335,7 +7336,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.27 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.27 v3</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -22173,13 +22174,19 @@ function prDevId() {
 }
 function prKind() {
   const u = navigator.userAgent || '';
-  return /iPad/.test(u) ? 'iPad' : /iPhone/.test(u) ? 'iPhone' : /Android/.test(u) ? (/Mobile/.test(u) ? 'Android phone' : 'Android tablet') : /Mac/.test(u) ? 'Mac' : /Windows/.test(u) ? 'PC' : 'Device';
+  return /iPad/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1) ? 'iPad' : /iPhone/.test(u) ? 'iPhone' : /Android/.test(u) ? (/Mobile/.test(u) ? 'Android' : 'Android tablet') : /Mac/.test(u) ? 'Mac' : /Windows/.test(u) ? 'PC' : 'Computer';
 }
-function prName() { try { const n = localStorage.getItem('mmt_dev_name'); if (n) return n; } catch (e) {} return prKind(); }
+// The name you logged in with (or one set here), then the device.
+function prName() {
+  let n = '';
+  try { n = localStorage.getItem('mmt_dev_name') || localStorage.getItem('mmt_user_name') || localStorage.getItem('mmt_cuelist_name') || ''; } catch (e) {}
+  n = String(n).trim().slice(0, 18);
+  return n ? n + ' · ' + prKind() : prKind();
+}
 function prRename() {
-  const n = prompt('Your name, as the others see it:', prName());
+  const n = prompt('Your name, as the others see it:', prSplit({ name: prName() }).name);
   if (n === null || !n.trim()) return;
-  try { localStorage.setItem('mmt_dev_name', n.trim().slice(0, 30)); } catch (e) {}
+  try { localStorage.setItem('mmt_dev_name', n.trim().slice(0, 18)); } catch (e) {}
   prPaint(); prNudge();
 }
 function prColor(id) { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return PR_COLORS[h % PR_COLORS.length]; }
@@ -22221,7 +22228,67 @@ const PR_CSS = `.pr-bar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;f
 .pr-chip i{width:8px;height:8px;border-radius:50%;background:var(--pc)}
 .pr-chip em{font-style:normal;color:#777}
 .pr-me{cursor:pointer;font:inherit;color:#555;background:transparent}`;
-function prInjectCSS() { if (document.getElementById('pr-css')) return; const s = document.createElement('style'); s.id = 'pr-css'; s.textContent = PR_CSS; document.head.appendChild(s); }
+// Google Drive-style faces: everyone else here, as a circle with their
+// initials in their colour, at the top of the page. Tap one: who, on which
+// device, what they're on, and Go there. The name is the one they logged in
+// with; the device rides along after " · " (older pages just show it as text).
+function prSplit(p) { const n = String((p && p.name) || 'Someone'), i = n.lastIndexOf(' · '); return i > 0 ? { name: n.slice(0, i), dev: n.slice(i + 3) } : { name: n, dev: '' }; }
+function prInitials(n) { const w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').trim().split(/\s+/).filter(Boolean); if (!w.length) return '?'; return (w.length > 1 ? w[0][0] + w[w.length - 1][0] : w[0].slice(0, 2)).toUpperCase(); }
+function prFacesPaint(describe) {
+  const el = document.getElementById('pr-faces'); if (!el) return;
+  const me = prSplit({ name: prName() });
+  const ps = _prPeople.slice(0, 4), more = _prPeople.length - ps.length;
+  const h = ps.map(p => { const s = prSplit(p); return `<button type="button" class="pr-face" style="--pc:${prColor(p.id)}" onclick="prFaceOpen(event,'${prEsc(p.id)}')" title="${prEsc(s.name + (s.dev ? ' (' + s.dev + ')' : '') + ': ' + describe(p))}" aria-label="${prEsc(s.name + ' is here, ' + describe(p))}">${prEsc(prInitials(s.name))}</button>`; }).join('')
+    + (more > 0 ? `<button type="button" class="pr-face pr-more" onclick="prFaceOpen(event,'')" aria-label="${more} more here">+${more}</button>` : '')
+    + `<button type="button" class="pr-face pr-self" style="--pc:${prColor(prDevId())}" onclick="prFaceOpen(event,'@me')" title="You: ${prEsc(me.name + (me.dev ? ' (' + me.dev + ')' : ''))}" aria-label="You, ${prEsc(me.name)}">${prEsc(prInitials(me.name))}</button>`;
+  if (el.innerHTML !== h) el.innerHTML = h;
+  el.hidden = false;
+}
+function prFaceOpen(ev, id) {
+  if (ev) ev.stopPropagation();
+  prFaceClose();
+  const self = id === '@me';
+  const list = self ? [] : id ? _prPeople.filter(p => p.id === id) : _prPeople;
+  const me = prSplit({ name: prName() });
+  const m = document.createElement('div'); m.id = 'pr-pop'; m.className = 'pr-pop'; m.setAttribute('role', 'dialog');
+  m.innerHTML = (self ? `<div class="pr-pop-row"><span class="pr-face sm" style="--pc:${prColor(prDevId())}">${prEsc(prInitials(me.name))}</span>
+      <span class="pr-pop-t"><b>${prEsc(me.name)} (you)</b><small>${prEsc(me.dev || 'this device')}</small></span></div>
+      <div class="pr-pop-note">${_prPeople.length ? (_prPeople.length === 1 ? '1 other person is' : _prPeople.length + ' other people are') + ' here too.' : 'Only you are here right now.'}</div>` : '')
+    + list.map(p => { const s = prSplit(p); return `<div class="pr-pop-row"><span class="pr-face sm" style="--pc:${prColor(p.id)}">${prEsc(prInitials(s.name))}</span>
+      <span class="pr-pop-t"><b>${prEsc(s.name)}</b><small>${prEsc((s.dev ? s.dev + ' · ' : '') + prDescribe(p))}</small></span>
+      ${typeof prGo === 'function' && prCanGo(p) ? `<button type="button" onclick="prFaceClose();prGo(_prPeople.find(x=>x.id==='${prEsc(p.id)}'))">Go there</button>` : ''}</div>`; }).join('')
+    + `<div class="pr-pop-me">You show as <b>${prEsc(me.name)}</b> · <a href="#" onclick="prFaceClose();prRename();return false;">change</a></div>`;
+  document.body.appendChild(m);
+  const r = (ev && ev.currentTarget || document.getElementById('pr-faces')).getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 8)) + 'px';
+  m.style.top = Math.min(r.bottom + 8, innerHeight - m.offsetHeight - 8) + 'px';
+  setTimeout(() => document.addEventListener('click', prFaceOutside, true), 0);
+}
+function prFaceOutside(e) { const m = document.getElementById('pr-pop'); if (m && !m.contains(e.target)) prFaceClose(); }
+function prFaceClose() { const m = document.getElementById('pr-pop'); if (m) m.remove(); document.removeEventListener('click', prFaceOutside, true); }
+const PR_FACES_CSS = `#pr-bar{display:none!important}
+.pr-faces{display:inline-flex;align-items:center;flex:none;padding-left:4px}
+.pr-faces[hidden]{display:none}
+.pr-face{all:unset;box-sizing:border-box;width:32px;height:32px;border-radius:50%;background:var(--pc,#555);color:#fff;font:700 12px/32px Inter,system-ui,sans-serif;text-align:center;cursor:pointer;box-shadow:0 0 0 2px #111;margin-left:-6px;letter-spacing:.02em}
+.pr-face:first-child{margin-left:0}
+.pr-face:hover,.pr-face:focus-visible{transform:translateY(-1px);box-shadow:0 0 0 2px #fff}
+.pr-face.pr-more{background:#3f3f46}
+.pr-faces .pr-face.pr-self{margin-left:8px}
+.pr-faces .pr-face.pr-self:first-child{margin-left:0}
+.pr-pop-note{padding:2px 6px 8px 44px;font-size:12px;color:var(--text-muted,#6b7280)}
+.pr-face.sm{width:28px;height:28px;line-height:28px;font-size:11px;margin:0;box-shadow:none;cursor:default}
+.pr-pop{position:fixed;z-index:3000;width:290px;max-width:calc(100vw - 16px);background:var(--surface,#fff);color:var(--text,#111);border:1px solid var(--border,#e5e7eb);border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.25);padding:8px;font:14px Inter,system-ui,sans-serif}
+.pr-pop-row{display:flex;align-items:center;gap:10px;padding:8px 6px}
+.pr-pop-t{display:flex;flex-direction:column;flex:1;min-width:0}
+.pr-pop-t small{color:var(--text-muted,#6b7280);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pr-pop-row button{all:unset;font-weight:600;font-size:13px;padding:6px 11px;border-radius:999px;background:#111;color:#fff;cursor:pointer;white-space:nowrap}
+.pr-pop-me{border-top:1px solid var(--border,#e5e7eb);margin-top:4px;padding:8px 6px 4px;font-size:12px;color:var(--text-muted,#6b7280)}
+.pr-pop-me a{color:inherit}
+#pr-faces .pr-face,#pr-pop .pr-face{width:32px!important;height:32px!important;min-width:0!important;min-height:0!important;max-height:32px!important;padding:0!important;border:0!important;border-radius:50%!important;line-height:32px!important;font-size:12px!important;display:inline-block!important}
+#pr-pop .pr-face.sm{width:28px!important;height:28px!important;max-height:28px!important;line-height:28px!important;font-size:11px!important}
+#pr-pop .pr-pop-row button{min-height:0!important;height:auto!important;padding:6px 12px!important;border:0!important;border-radius:999px!important;font-size:13px!important;line-height:1.2!important;width:auto!important}`;
+document.addEventListener('DOMContentLoaded', () => { try { prInjectCSS(); prFacesPaint(prDescribe); } catch (e) {} });
+function prInjectCSS() { if (document.getElementById('pr-css')) return; const s = document.createElement('style'); s.id = 'pr-css'; s.textContent = PR_CSS + PR_FACES_CSS; document.head.appendChild(s); }
 // Moving to another box: tell the others straight away rather than at the next check.
 let _prNudgeT = null;
 document.addEventListener('focusin', () => { clearTimeout(_prNudgeT); _prNudgeT = setTimeout(prNudge, 250); });
@@ -22253,13 +22320,23 @@ function prDescribe(p) {
   }
   if (w[0] === 'cue') return cueName(w[1]) + (w[2] ? ' · ' + (PR_FIELD[w[2]] || w[2]) : '');
   if (w[0] === 'pre') return 'Before House · ' + ((presets[w[1]] || {}).piece || w[1]);
-  return p.page && /^p\d+$/.test(p.page) ? 'page ' + p.page.slice(1) : 'looking';
+  return p.page === 'cuesheet' ? 'cue sheet' : p.page && /^p\d+$/.test(p.page) ? 'page ' + p.page.slice(1) : 'looking';
+}
+// Go there: their page, and the cue they're on.
+function prCanGo(p) { return /^p\d+$/.test(p.page || '') || /^(cue|mv):/.test(p.where || ''); }
+function prGo(p) {
+  if (!p) return;
+  const w = String(p.where || '').split(':');
+  try { if (_sheetMode === 'sheet') setSheetMode('script'); } catch (e) {}
+  if (/^p\d+$/.test(p.page || '') && Number(p.page.slice(1)) !== currentPage) goToPage(Number(p.page.slice(1)));
+  if ((w[0] === 'cue' || w[0] === 'mv') && cues.some(c => String(c.id) === w[1])) setTimeout(() => { try { selectCue(w[1]); } catch (e) {} }, 400);
 }
 function prPaint() {
   prInjectCSS();
   prUnmarkAll();
   const bar = document.getElementById('pr-bar');
   if (bar) bar.innerHTML = _prPeople.length ? prBarHTML(prDescribe) : '';
+  prFacesPaint(prDescribe);
   _prPeople.forEach(p => {
     const w = String(p.where || '').split(':');
     if (w[0] === 'mv' || w[0] === 'cue') {

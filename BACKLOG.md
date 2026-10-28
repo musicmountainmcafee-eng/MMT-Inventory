@@ -1,5 +1,12 @@
 # MMT TD Dashboard: to-do list
 
+## Live Oct 27: who's here bubbles (Dashboard 10.27 v3, Cue Sheet 10.27 v1)
+- Google Drive-style: everyone in the same script shows as a coloured circle with initials at the top of the script page
+  and the cue sheet (yours always last, even when alone; 4 others then +N). Tap: name, device, where they are, Go there;
+  your own: "Only you are here right now" + change name. Name = login name + device ("Kyle · iPad"); server unchanged.
+  Old chip row hidden; cue outlines kept. Not shown twice inside the script page's cue sheet. Tests: test_faces.py.
+- Backup: backup/2026-10-27-before-faces-live.
+
 ## Live as of Oct 27 (Dashboard 10.27 v2, Cue Sheet 10.26 v3)
 - 10.27 v2: logo removed from the top of the menu (took too much space); compact "MMT Dashboard" title back.
 - Script + Cue sheet redesign, steps 2–8 (plan and feature checklist: "Script + Cue Sheet Redesign: Feature Checklist" doc):
