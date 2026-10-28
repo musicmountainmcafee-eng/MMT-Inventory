@@ -1,9 +1,8 @@
 // Bump this version whenever the cached app changes so old caches are purged.
-const CACHE_NAME = 'mmt-cache-v7';
+const CACHE_NAME = 'mmt-cache-v8';   // v8 (Oct 28): old pages became signposts; drop cached copies
 const CACHE_URLS = [
   '/MMT-Inventory/app.html',
   '/MMT-Inventory/cue-list.html',
-  '/MMT-Inventory/next-notes.html',
   '/MMT-Inventory/icon-192.png',
   '/MMT-Inventory/icon-512.png',
   'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap',

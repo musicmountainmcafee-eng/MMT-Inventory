@@ -92,6 +92,16 @@
 - Fixed: Home show card errored on first draw (icons defined too late).
 - Tests: test_photos.py.
 
+## Audit (Oct 28) — part 1 done
+- Old pages turned into "This page has moved" signposts (nothing saves from them; code in backup/2026-10-28-before-signposts):
+  dashboard, team, tasks, staff, drops, timer-v2.31/3.0/3.1/3.2/3.3-backup. Removed: script-copy, app-1, cues, next-notes.
+  Kept as is: capture, capture-dev, timer-dev (capture-dev loads it), marquee-hole-spacer, notes-dev, spike-map.
+  Settings' "Open team dashboard" link removed. Offline cache v8 (drops cached copies).
+- To fix (Mac's answers): to-dos/shopping full fix (refresh on return + save one item at a time; Apps Script paste);
+  Escape closes New List / Settings / notes-link pop-ups; Home early-draw errors (_hub, TV_SKIP_LISTS, docZoom);
+  empty Add gives a hint; phone version tag over More; page titles match menu names; To Do 2 banner over its menu.
+  Kept: To Do 2, Cleaning Log, Side Job Notes. Backstage iMac Firefox is very old: get its version (About Firefox).
+
 ## Next
 - Mac at his computer: paste Apps Script 10.28 v1 (copy-sheet-script.html) + New version, then check show photos on dev.
 - Drops tab (Mac working on it Oct 28).
