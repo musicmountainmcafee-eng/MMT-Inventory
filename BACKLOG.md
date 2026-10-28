@@ -1,6 +1,7 @@
 # MMT TD Dashboard: to-do list
 
-## Live as of Oct 27 (Dashboard 10.27 v1, Cue Sheet 10.26 v3)
+## Live as of Oct 27 (Dashboard 10.27 v2, Cue Sheet 10.26 v3)
+- 10.27 v2: logo removed from the top of the menu (took too much space); compact "MMT Dashboard" title back.
 - Script + Cue sheet redesign, steps 2–8 (plan and feature checklist: "Script + Cue Sheet Redesign: Feature Checklist" doc):
   - Script | Cue sheet switch in the same tab, centered in the header on both pages; the cue sheet is kept loaded inside the
     script page (cue-list?embed=1) so flipping is instant; Both = side by side on screens >=1280px, selection follows.
