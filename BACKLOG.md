@@ -1,5 +1,10 @@
 # MMT TD Dashboard: to-do list
 
+## Live Oct 27: name + initials per login (Dashboard 10.27 v4, Cue Sheet 10.27 v2)
+- Tap your own bubble > change: name and initials for everyone signed in as that login (TD, Kyle...), any device.
+  Stored in KV presence_names {login: {name, initials}}; empty = login name. Sent as "KB|Name · Device".
+  Tests: test_rename.py. Backup: backup/2026-10-27-before-names-live.
+
 ## Live Oct 27: who's here bubbles (Dashboard 10.27 v3, Cue Sheet 10.27 v1)
 - Google Drive-style: everyone in the same script shows as a coloured circle with initials at the top of the script page
   and the cue sheet (yours always last, even when alone; 4 others then +N). Tap: name, device, where they are, Go there;
@@ -78,7 +83,6 @@
 - Tests: test_sidebar2.py (+ test_menu, test_links updated).
 
 ## Next
-- Name + initials per login (on dev: Dashboard 10.27 v6 dev, Cue Sheet 10.27 v3 dev); waiting for Mac's OK to go live.
 - Drops tab (Mac working on it Oct 28).
 - Full audit of the dashboard: what works, what doesn't (after 3 pm Oct 28, when Mac has more usage).
 
