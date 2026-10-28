@@ -97,7 +97,13 @@
   dashboard, team, tasks, staff, drops, timer-v2.31/3.0/3.1/3.2/3.3-backup. Removed: script-copy, app-1, cues, next-notes.
   Kept as is: capture, capture-dev, timer-dev (capture-dev loads it), marquee-hole-spacer, notes-dev, spike-map.
   Settings' "Open team dashboard" link removed. Offline cache v8 (drops cached copies).
-- To fix (Mac's answers): to-dos/shopping full fix (refresh on return + save one item at a time; Apps Script paste);
+- On dev (Dashboard 10.28 v3 dev) + Apps Script 10.28 v2 (paste pending, same paste as the show photos):
+  - To-dos and shopping save one change at a time (taskOps / shopOps; the page works out what changed since its last copy
+    from the Sheet). The answer brings the up-to-date lists back. Lists refresh when the app comes back to the front
+    (15 s+) and every 2 min. Old script: falls back to the whole-list save, retries in 6 h. Tests: test_ops.py + node ops_gs_test.js.
+  - Escape closes New List / Settings / notes link; Home draws with no errors; empty Add says "Type ... first";
+    phone version tag above the bottom bar; page titles = menu names; To Do 2 menu above its banner. Test: test_tidy.py.
+- Was (Mac's answers): to-dos/shopping full fix (refresh on return + save one item at a time; Apps Script paste);
   Escape closes New List / Settings / notes-link pop-ups; Home early-draw errors (_hub, TV_SKIP_LISTS, docZoom);
   empty Add gives a hint; phone version tag over More; page titles match menu names; To Do 2 banner over its menu.
   Kept: To Do 2, Cleaning Log, Side Job Notes. Backstage iMac Firefox is very old: get its version (About Firefox).

@@ -33,6 +33,8 @@ function doPost(e) {
     if (data.action === 'saveShowNote') return saveShowNote(data);
     if (data.action === 'saveCleaning') return saveCleaning(e, data);
     if (data.action === 'saveKV')       return saveKV(data);
+    if (data.action === 'taskOps')      return taskOps(data);
+    if (data.action === 'shopOps')      return shopOps(data);
     return response({ success: false, error: 'Unknown action' });
   } catch(err) {
     return response({ success: false, error: err.message });
@@ -81,6 +83,14 @@ function doGet(e) {
   if (action === 'getShowPhotos') return wrap(getShowPhotos(e));
   if (action === 'saveKV')        return wrap(saveKV(e.parameter));
   if (action === 'saveTask')      return wrap(saveTask(e.parameter));
+  if (action === 'taskOpsGet' || action === 'shopOpsGet') {
+    try {
+      const data = JSON.parse(Utilities.newBlob(Utilities.base64Decode(e.parameter.data)).getDataAsString());
+      return wrap(action === 'taskOpsGet' ? taskOps(data) : shopOps(data));
+    } catch(err) {
+      return wrap(response({ success: false, error: err.message }));
+    }
+  }
   if (action === 'saveTasksGet') {
     try {
       const data = JSON.parse(decodeURIComponent(e.parameter.data));
@@ -1666,3 +1676,119 @@ function _spMeta(h, prop) {
 }
 // A Wix picture at a sensible size (16:9, 960 wide) instead of whatever the page used.
 function _spWixImg(src) { var i = src.indexOf('/v1/'); var b = i > 0 ? src.slice(0, i) : src; var f = b.split('/').pop(); return b + '/v1/fill/w_960,h_540,al_c,q_85,enc_auto/' + f; }
+
+
+// ── One change at a time (to-dos and shopping) ──────────────────────────────
+// Each device sends only what it changed (added, ticked, edited, moved,
+// deleted), and the change is applied to the Sheet's current copy. Before
+// this, every tick sent the device's whole list, so an older copy on one
+// device could undo what another device had added. The answer carries the
+// up-to-date lists back. opsVersion tells the page this script understands it.
+var OPS_VERSION = 1;
+function _opsLock() { var l = LockService.getScriptLock(); l.waitLock(20000); return l; }
+
+function taskOps(data) {
+  var lock; try { lock = _opsLock(); } catch (err) { return response({ success: false, error: 'Busy, try again' }); }
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Tasks');
+    if (!sheet) { sheet = ss.insertSheet('Tasks'); sheet.getRange('A1:F1').setValues([['List', 'Task', 'Done', 'Due', 'ID', 'Notify']]); }
+    var last = sheet.getLastRow();
+    var body = last > 1 ? sheet.getRange(2, 1, last - 1, 6).getValues() : [];
+    var changed = false;
+    // Rows from before IDs were kept get a lasting one now.
+    body.forEach(function (r, i) { if (r[1] && !r[4]) { r[4] = 'r' + Date.now().toString(36) + i; changed = true; } });
+    var B = function (v) { return v === true || String(v).toUpperCase() === 'TRUE'; };
+    var find = function (op) {
+      for (var i = 0; i < body.length; i++) if (op.id && String(body[i][4]) === String(op.id)) return i;
+      if (op.was) for (var j = 0; j < body.length; j++) if (body[j][0] === op.was.list && body[j][1] === op.was.text) return j;
+      return -1;
+    };
+    var rowsOf = function (list) { var out = []; body.forEach(function (r, i) { if (r[0] === list) out.push(i); }); return out; };
+    var dropPlaceholder = function (list) { for (var i = body.length - 1; i >= 0; i--) if (body[i][0] === list && !body[i][1]) body.splice(i, 1); };
+    var keepList = function (list) { if (list && !rowsOf(list).length) body.push([list, '', '', '', '', '']); };
+    var insert = function (row, top) {
+      var list = row[0]; dropPlaceholder(list);
+      var at = rowsOf(list);
+      if (!at.length) body.push(row);
+      else body.splice(top ? at[0] : at[at.length - 1] + 1, 0, row);
+    };
+    (data.ops || []).forEach(function (op) {
+      if (op.op === 'add') {
+        if (op.id && find({ id: op.id }) >= 0) return;
+        insert([op.list, op.text || '', B(op.done) ? 'TRUE' : 'FALSE', op.due || '', op.id || ('t' + Date.now().toString(36)), B(op.notify) ? 'TRUE' : ''], !!op.top);
+        changed = true;
+      } else if (op.op === 'set') {
+        var i = find(op); if (i < 0) return;
+        var r = body[i], f = op.f || {};
+        if ('text' in f) r[1] = f.text;
+        if ('done' in f) r[2] = B(f.done) ? 'TRUE' : 'FALSE';
+        if ('due' in f) r[3] = f.due || '';
+        if ('notify' in f) r[5] = B(f.notify) ? 'TRUE' : '';
+        if ('list' in f && f.list && f.list !== r[0]) { var from = r[0]; body.splice(i, 1); r[0] = f.list; insert(r, !!op.top); keepList(from); }
+        changed = true;
+      } else if (op.op === 'del') {
+        var k = find(op); if (k < 0) return;
+        var list = body[k][0]; body.splice(k, 1); keepList(list); changed = true;
+      } else if (op.op === 'addList') {
+        keepList(op.list); changed = true;
+      } else if (op.op === 'delList') {
+        body = body.filter(function (r) { return r[0] !== op.list; }); changed = true;
+      } else if (op.op === 'renameList') {
+        body.forEach(function (r) { if (r[0] === op.from) r[0] = op.to; }); changed = true;
+      }
+    });
+    if (changed) {
+      if (last > 1) sheet.getRange(2, 1, last - 1, 6).clearContent();
+      if (body.length) sheet.getRange(2, 1, body.length, 6).setValues(body);
+    }
+    var colors = ['#534AB7','#f5a623','#3B6D11','#185FA5','#9b59b6','#1abc9c','#e67e22','#e91e63'];
+    var lists = [], tasks = {};
+    body.forEach(function (r) {
+      if (!r[0]) return;
+      if (!tasks[r[0]]) { tasks[r[0]] = []; lists.push({ name: r[0], color: colors[(lists.length) % colors.length] }); }
+      if (r[1]) tasks[r[0]].push({ id: String(r[4]), text: r[1], done: B(r[2]), due: r[3] || null, notify: B(r[5]) });
+    });
+    return response({ success: true, opsVersion: OPS_VERSION, lists: lists, tasks: tasks });
+  } finally { lock.releaseLock(); }
+}
+
+// Shopping items have no IDs of their own; new ones get one. An item is found
+// by its ID, or by its text (the nth item with that text in that store).
+function shopOps(data) {
+  var lock; try { lock = _opsLock(); } catch (err) { return response({ success: false, error: 'Busy, try again' }); }
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Shopping');
+    if (!sheet) { sheet = ss.insertSheet('Shopping'); sheet.getRange('A1').setValue('Data'); }
+    var shop = {}; try { shop = JSON.parse(_bigReadCol(sheet, 2, 1) || '{}') || {}; } catch (err) { shop = {}; }
+    var find = function (store, key) {
+      var items = shop[store] || [], n = 0;
+      for (var i = 0; i < items.length; i++) {
+        if (key.id && items[i].id === key.id) return i;
+        if (!key.id && !items[i].id && items[i].text === key.text) { if (n === (key.n || 0)) return i; n++; }
+      }
+      if (key.id && key.text != null) { for (var j = 0; j < items.length; j++) if (items[j].text === key.text) return j; }
+      return -1;
+    };
+    (data.ops || []).forEach(function (op) {
+      if (op.op === 'addStore') { if (!shop[op.store]) shop[op.store] = []; }
+      else if (op.op === 'delStore') { delete shop[op.store]; }
+      else if (op.op === 'add') {
+        if (!shop[op.store]) shop[op.store] = [];
+        if (op.item && op.item.id && find(op.store, { id: op.item.id }) >= 0) return;
+        if (op.top) shop[op.store].unshift(op.item); else shop[op.store].push(op.item);
+      } else if (op.op === 'set') {
+        var i = find(op.store, op.key || {}); if (i < 0) return;
+        var it = shop[op.store][i], f = op.f || {};
+        Object.keys(f).forEach(function (k) { it[k] = f[k]; });
+      } else if (op.op === 'del') {
+        var k = find(op.store, op.key || {}); if (k >= 0) shop[op.store].splice(k, 1);
+      }
+    });
+    var str = JSON.stringify(shop);
+    var big = _bigTooBig(str); if (big) return big;
+    _bigWriteCol(sheet, 2, 1, str);
+    return response({ success: true, opsVersion: OPS_VERSION, shopping: shop });
+  } finally { lock.releaseLock(); }
+}

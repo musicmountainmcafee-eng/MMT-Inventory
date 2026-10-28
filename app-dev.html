@@ -4323,6 +4323,15 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   .iv-gal-b { display:flex; gap:4px; margin-top:4px; }
   .iv-gal-b .iv-btn { padding:4px 8px; }
   .iv-gal-b .iv-btn svg { margin:0; }
+
+  .empty-nudge { animation: nudge .35s; border-color: #dc2626 !important; }
+  .empty-nudge::placeholder { color: #dc2626; opacity: 1; }
+  @keyframes nudge { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  @media (prefers-reduced-motion: reduce) { .empty-nudge { animation: none; } }
+  /* Phone: the version tag sat on top of the bottom bar's More button. */
+  @media (max-width: 768px) { #build-tag { bottom: calc(env(safe-area-inset-bottom, 0px) + 66px) !important; right: 6px !important; opacity: .8; } }
+  .t2-menu { z-index: 40; }
+  .t2-menu[open] { z-index: 60; }
   /* ── LOADING ───────────────────────────────────────────────────────────── */
   /* Every remote call goes through jsonp(), so one counter there drives both
      the top bar and the first-visit panel spinner. */
@@ -6322,7 +6331,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
   <div class="tab-panel" id="tab-notes" data-tab="notes">
     <div class="tabs">
       <div class="tab-title-row" style="display:flex;align-items:center;gap:12px;padding:0 14px;">
-        <span style="font-size:18px;font-weight:700;">Notes</span>
+        <span style="font-size:18px;font-weight:700;">All Shows</span>
         <button class="edit-links-btn td-only" id="lists-edit-btn" style="display:none;margin-left:auto;" onclick="toggleListsEdit()">Edit</button>
       </div>
     </div>
@@ -6392,7 +6401,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
   <div class="tab-panel" id="tab-scripts" data-tab="scripts">
     <div class="sp-wrap">
       <div class="sp-head">
-        <h2>Scripts</h2>
+        <h2>All Scripts</h2>
         <input id="sp-find" class="sp-input" type="search" placeholder="Find a show or script…" oninput="renderScriptsHome()" autocomplete="off">
       </div>
       <div id="sp-shows"><div class="sp-empty">Loading shows…</div></div>
@@ -7359,7 +7368,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.28 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.28 v3 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7423,6 +7432,11 @@ let CHILDRENS = [
   { name: 'Frosty & Rudolph',       start: '2026-11-28', end: '2026-12-19' },
 ];
 
+// Declared here, near the top: Home draws once before the rest of the page has
+// been read, and these were read too early (harmless, but it errored every load).
+var TV_SKIP_LISTS = /\b(shop|shopping|buy|to ?buy|purchase|purchases|store|pick ?ups?|supplies)\b/i;
+var docZoom = 0.75;
+var _hub = null;
 // Home show card icons (here, near the top: the card can be drawn before the rest of the page is read).
 const HS_ICON = {
   notes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1zM9 2.5v3M15 2.5v3M8.5 11h7M8.5 15h5"/></svg>',
@@ -9486,7 +9500,7 @@ const TV_MAX_TASKS   = 10;
 
 // Shopping does not belong on the build list — it has its own panel, and it
 // gets ticked off at the store rather than here.
-const TV_SKIP_LISTS = /\b(shop|shopping|buy|to ?buy|purchase|purchases|store|pick ?ups?|supplies)\b/i;
+// (declared near the top of the page: Home can draw before this point)
 
 function tvIsShoppingList(name) { return TV_SKIP_LISTS.test(String(name || '')); }
 
@@ -11462,7 +11476,7 @@ function htAdd(ev) {
   const text = (document.getElementById('ht-text').value || '').trim();
   const list = document.getElementById('ht-list').value;
   const due = document.getElementById('ht-date').value || null;
-  if (!text || !list) { document.getElementById('ht-text').focus(); return; }
+  if (!text || !list) { emptyAddHint(document.getElementById('ht-text'), 'Type the to-do first'); return; }
   if (!tasks[list]) tasks[list] = [];
   tasks[list].unshift({ id: Date.now().toString(), text, done: false, due });
   try { localStorage.setItem('mmt_ht_list', list); } catch (e) {}
@@ -11833,7 +11847,7 @@ function selectShowTab(idx) {
 // notes. Stored under KV key 'showhub', same path the checklists use.
 //   _hub = { shows: { <slug>: { tech, strike, scriptId, scriptName, notes } } }
 
-let _hub = null;
+// (declared near the top of the page: Home can draw before this point)
 let _hubLoaded = false;
 let _hubSlug = '';          // '' = normal Notes view, otherwise the open show
 let _hubSaveTimer = null;
@@ -12508,6 +12522,7 @@ async function fetchShopData() {
       if (pendingLocal) return;
 
       shopData = data.shopping;
+      shSetBase(shopData);
       DEFAULT_STORES.forEach(s => { if (!shopData[s]) shopData[s] = []; });
       if (!activeStore || !shopData[activeStore]) activeStore = Object.keys(shopData)[0] || DEFAULT_STORES[0];
       try { localStorage.setItem('mmt_shopping', JSON.stringify(shopData)); } catch(e) {}
@@ -12536,6 +12551,7 @@ function syncShopToServer() {
   // Queued. The old version tried a POST, fell back to a JSONP GET, and gave
   // up silently — so a shopping item added in the shop on bad wifi could sit
   // on that one device forever.
+  if (shQueueOps()) return;
   let getUrl = null;
   try {
     getUrl = SCRIPT_URL + '?action=saveShopping&shopping='
@@ -12589,7 +12605,7 @@ function switchStore(name) {
 function addShopItem() {
   const input = document.getElementById('shop-input');
   const text = input.value.trim();
-  if (!text) return;
+  if (!text) { emptyAddHint(input, 'Type the item first'); return; }
   const itemText = userRole === 'crew' ? text + ' [' + userName + ']' : text;
   if (!shopData[activeStore]) shopData[activeStore] = [];
   shopData[activeStore].push({ text: itemText, done: false });
@@ -12869,7 +12885,7 @@ function initScratchpad() {
 }
 
 // ── DOC ZOOM ────────────────────────────────────────────────────────────────
-let docZoom = 0.75;
+// (declared near the top of the page: Home can draw before this point)
 
 function applyZoom() {
   const iframe = document.getElementById('notes-iframe');
@@ -13553,7 +13569,10 @@ loadStoredShows();
 // Kept with the show in the Show Hub record (KV showhub: shows.<slug>.links =
 // [{ name, url }]). Edited on the show's page; the current show's also show
 // under it in the menu and on Home's show card.
-function showLinks(slug) { const r = hubRec(slug); return Array.isArray(r.links) ? r.links.filter(l => l && l.url) : []; }
+function showLinks(slug) {
+  let r = {}; try { r = hubRec(slug); } catch (e) {}   // Home's first draw can come before the show list has loaded
+  return Array.isArray(r.links) ? r.links.filter(l => l && l.url) : [];
+}
 function hubLinksCard(slug) {
   const ls = showLinks(slug), can = !crewOn();
   return `<div class="hub-card hub-links-card">
@@ -14091,8 +14110,13 @@ function loadData() {
   return fetchAllData().then(d => {
     // SAFETY: only overwrite with server data if it actually has content
     // Never wipe cached data with empty responses
-    if (d.lists && d.lists.length) lists = d.lists;
-    if (d.tasks && Object.keys(d.tasks).length) tasks = d.tasks;
+    // Changes still waiting to go out are newer than what the Sheet has.
+    const pendingTasks = typeof outboxRead === 'function' && outboxRead().some(e => e.key === 'tasks');
+    if (!pendingTasks) {
+      if (d.lists && d.lists.length) lists = d.lists;
+      if (d.tasks && Object.keys(d.tasks).length) tasks = d.tasks;
+      if (d.lists && d.lists.length) tkSetBase(lists, tasks);
+    }
     if (d.showNotes && Object.keys(d.showNotes).length) showNotes = d.showNotes;
     if (d.activity) activity = d.activity;
     // Only update cache if we have real data
@@ -14327,7 +14351,8 @@ function apiPost(body, opts) {
   next.push({
     id: 'w' + Date.now() + Math.random().toString(36).slice(2, 7),
     at: Date.now(),
-    key: o.replaceKey || null,
+    key: o.replaceKey || o.key || null,
+    kind: o.kind || null,
     label: o.label || 'change',
     body: typeof body === 'string' ? body : JSON.stringify(body),
     getUrl: o.getUrl || null,     // phones sometimes have POST intercepted
@@ -14348,14 +14373,20 @@ function outboxSendOne(entry) {
     // The Sheet's own answer: "busy" or an error means it didn't save; keep it
     // in the outbox and try again.
     let d = null; try { d = JSON.parse(t); } catch (e) {}
+    if (d && d.success === false && entry.kind === 'ops' && /unknown action/i.test(d.error || '')) { const e = new Error('old script'); e.refused = true; e.unsupported = true; throw e; }
     if (d && d.success === false) { const e = new Error(d.error || 'Not saved'); e.refused = true; throw e; }
-    return true;
+    if (entry.kind === 'ops' && !(d && d.opsVersion)) { const e = new Error('old script'); e.refused = true; e.unsupported = true; throw e; }
+    return d || true;
   }).catch(err => {
     if (err && err.refused) throw err;
     if (!entry.getUrl) throw err;
     // Google's account redirect can eat a POST on mobile; the GET form works.
     return new Promise((resolve, reject) => {
-      try { jsonp(entry.getUrl, d => (d && d.success === false) ? reject(err) : resolve(true), () => reject(err)); }
+      try { jsonp(entry.getUrl, d => {
+        if (d && d.success === false) reject(err);
+        else if (entry.kind === 'ops' && !(d && d.opsVersion)) { const e = new Error('old script'); e.refused = true; e.unsupported = true; reject(e); }
+        else resolve(d || true);
+      }, () => reject(err)); }
       catch(e) { reject(err); }
     });
   });
@@ -14370,13 +14401,15 @@ function outboxDrain() {
   _outboxDraining = true;
   const entry = list[0];
 
-  outboxSendOne(entry).then(() => {
+  outboxSendOne(entry).then(d => {
     const rest = outboxRead().filter(e => e.id !== entry.id);
     outboxWrite(rest);
     _outboxDraining = false;
     _outboxBackoff = 3000;
+    if (entry.kind === 'ops' && d && d.opsVersion) { try { opsApply(entry.key, d); } catch (e) {} }
     if (rest.length) setTimeout(outboxDrain, OUTBOX_MIN_GAP);
-  }).catch(() => {
+  }).catch(err => {
+    if (err && err.unsupported) { opsUnsupported(entry); _outboxDraining = false; setTimeout(outboxDrain, OUTBOX_MIN_GAP); return; }
     // Keep it. Count the attempt so a permanently bad write can be spotted
     // rather than blocking everything behind it forever.
     const cur = outboxRead();
@@ -14826,6 +14859,182 @@ function ensureDefaultLists() {
   });
 }
 
+// ── ONE CHANGE AT A TIME (to-dos and shopping) ──────────────────────────────
+// Each device remembers the copy it last had from the Sheet (the "base"). A
+// save works out what changed since then (added, ticked, edited, moved,
+// deleted) and sends only that; the Sheet applies it to its own current copy
+// and answers with the up-to-date lists. An older copy on one device can no
+// longer undo what another device did. Lists also refresh when the app comes
+// back to the front and every couple of minutes. If the Sheet's script is older
+// and doesn't know this yet, it falls back to the old whole-list save.
+// (var: these can be reached before this part of the page has run.)
+var _tkBase = null, _shBase = null, _opsApplyWait = null;
+try { _tkBase = JSON.parse(localStorage.getItem('mmt_tk_base') || 'null'); } catch (e) {}
+try { _shBase = JSON.parse(localStorage.getItem('mmt_sh_base') || 'null'); } catch (e) {}
+function opsClone(x) { return JSON.parse(JSON.stringify(x)); }
+function opsOn() { try { return Date.now() - Number(localStorage.getItem('mmt_ops_off') || 0) > 6 * 3600e3; } catch (e) { return true; } }
+function tkSetBase(l, t) { _tkBase = opsClone({ lists: l, tasks: t }); try { localStorage.setItem('mmt_tk_base', JSON.stringify(_tkBase)); } catch (e) {} }
+function shSetBase(s) { _shBase = opsClone(s); try { localStorage.setItem('mmt_sh_base', JSON.stringify(_shBase)); } catch (e) {} }
+function opsNewId(p) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function opsB64(o) { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))); }
+
+function tkDiff(base, curLists, curTasks) {
+  const ops = [], norm = v => (v == null ? '' : String(v));
+  const bl = new Set((base.lists || []).map(l => l.name)), cl = new Set((curLists || []).map(l => l.name));
+  const index = (ls, ts) => { const m = {}; Object.keys(ts || {}).forEach(list => (ts[list] || []).forEach((t, i) => { if (t && t.id) m[t.id] = { list, t, i, n: ts[list].length }; })); return m; };
+  const B = index(base.lists, base.tasks), C = index(curLists, curTasks);
+  cl.forEach(name => { if (!bl.has(name)) ops.push({ op: 'addList', list: name }); });
+  Object.keys(C).forEach(id => {
+    const c = C[id], b = B[id];
+    if (!b) { ops.push({ op: 'add', list: c.list, id, text: c.t.text || '', done: !!c.t.done, due: c.t.due || '', notify: !!c.t.notify, top: c.i === 0 && c.n > 1 }); return; }
+    const f = {};
+    if (norm(c.t.text) !== norm(b.t.text)) f.text = c.t.text || '';
+    if (!!c.t.done !== !!b.t.done) f.done = !!c.t.done;
+    if (norm(c.t.due) !== norm(b.t.due)) f.due = c.t.due || '';
+    if (!!c.t.notify !== !!b.t.notify) f.notify = !!c.t.notify;
+    if (c.list !== b.list) f.list = c.list;
+    if (Object.keys(f).length) ops.push({ op: 'set', id, was: { list: b.list, text: b.t.text }, f, top: !!f.list && c.i === 0 });
+  });
+  Object.keys(B).forEach(id => { if (!C[id]) ops.push({ op: 'del', id, was: { list: B[id].list, text: B[id].t.text } }); });
+  bl.forEach(name => { if (!cl.has(name)) ops.push({ op: 'delList', list: name }); });
+  return ops;
+}
+function shKeyed(items) {
+  const m = {}, seen = {};
+  (items || []).forEach((it, i) => {
+    if (!it) return;
+    let k;
+    if (it.id) k = 'i:' + it.id;
+    else { const n = seen[it.text] || 0; seen[it.text] = n + 1; k = 't:' + it.text + '#' + n; }
+    m[k] = { it, i };
+  });
+  return m;
+}
+function shDiff(base, cur) {
+  const ops = [];
+  Object.keys(cur).forEach(store => {
+    if (!(store in base)) ops.push({ op: 'addStore', store });
+    const bk = shKeyed(base[store]);
+    // New items get an ID, so they can be told apart from now on.
+    const seen = {};
+    (cur[store] || []).forEach(it => {
+      if (!it || it.id) return;
+      const n = seen[it.text] || 0; seen[it.text] = n + 1;
+      if (!bk['t:' + it.text + '#' + n]) it.id = opsNewId('s');
+    });
+    const ck = shKeyed(cur[store]), list = cur[store] || [];
+    Object.keys(ck).forEach(k => {
+      const c = ck[k], b = bk[k];
+      const key = c.it.id ? { id: c.it.id, text: c.it.text } : { text: c.it.text, n: Number(k.split('#').pop()) };
+      if (!b) { ops.push({ op: 'add', store, item: opsClone(c.it), top: c.i === 0 && list.length > 1 }); return; }
+      const f = {};
+      Object.keys(c.it).forEach(p => { if (p !== 'id' && JSON.stringify(c.it[p]) !== JSON.stringify(b.it[p])) f[p] = c.it[p]; });
+      if (Object.keys(f).length) ops.push({ op: 'set', store, key, f });
+    });
+    Object.keys(bk).forEach(k => {
+      if (ck[k]) return;
+      const b = bk[k];
+      ops.push({ op: 'del', store, key: b.it.id ? { id: b.it.id, text: b.it.text } : { text: b.it.text, n: Number(k.split('#').pop()) } });
+    });
+  });
+  Object.keys(base).forEach(store => { if (!(store in cur)) ops.push({ op: 'delStore', store }); });
+  return ops;
+}
+// Called by saveData() / syncShopToServer(). Returns false when the old
+// whole-list save should be used instead.
+function tkQueueOps() {
+  if (!opsOn() || !_tkBase) return false;
+  Object.keys(tasks).forEach(l => (tasks[l] || []).forEach(t => { if (t && !t.id) t.id = opsNewId('t'); }));
+  const ops = tkDiff(_tkBase, lists, tasks);
+  if (!ops.length) return true;
+  apiPost({ action: 'taskOps', ops }, { key: 'tasks', append: true, kind: 'ops', label: 'to-do lists',
+    getUrl: SCRIPT_URL + '?action=taskOpsGet&data=' + encodeURIComponent(opsB64({ ops })) + '&_=' + Date.now() });
+  tkSetBase(lists, tasks);
+  return true;
+}
+function shQueueOps() {
+  if (!opsOn() || !_shBase) return false;
+  const ops = shDiff(_shBase, shopData);
+  try { localStorage.setItem('mmt_shopping', JSON.stringify(shopData)); } catch (e) {}
+  if (!ops.length) return true;
+  apiPost({ action: 'shopOps', ops }, { key: 'shopping', append: true, kind: 'ops', label: 'shopping list',
+    getUrl: SCRIPT_URL + '?action=shopOpsGet&data=' + encodeURIComponent(opsB64({ ops })) + '&_=' + Date.now() });
+  shSetBase(shopData);
+  return true;
+}
+// The Sheet's script doesn't know one-change saves yet: send the whole list
+// the old way, as before, and don't ask again for a while.
+function opsUnsupported(entry) {
+  try { localStorage.setItem('mmt_ops_off', String(Date.now())); } catch (e) {}
+  const body = entry.key === 'tasks' ? { action: 'saveTasks', lists, tasks } : { action: 'saveShopping', shopping: shopData };
+  const rest = outboxRead().filter(e => e.key !== entry.key);
+  rest.unshift({ id: entry.id, at: Date.now(), key: entry.key, label: entry.label, body: JSON.stringify(body), getUrl: null, tries: 0 });
+  outboxWrite(rest);
+}
+function opsTyping() {
+  const a = document.activeElement;
+  return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.closest('#tab-todo, #home-today, #qa-pop, #tab-shopping, .modal-overlay'));
+}
+// The Sheet's up-to-date lists, unless this device still has changes waiting
+// to go (those would be lost) or someone is typing (the redraw would get in the way).
+function opsApply(key, d) {
+  if (outboxRead().some(e => e.key === key)) return;
+  if (opsTyping()) { clearTimeout(_opsApplyWait); _opsApplyWait = setTimeout(() => opsApply(key, d), 1500); return; }
+  if (key === 'tasks' && d && d.lists && d.tasks) {
+    if (!d.lists.length && lists.length > 1) return;   // never wipe from an empty answer
+    const same = JSON.stringify({ l: d.lists.map(l => l.name), t: d.tasks }) === JSON.stringify({ l: lists.map(l => l.name), t: tasks });
+    // Keep this device's list colours.
+    const colors = {}; lists.forEach(l => { colors[l.name] = l.color; });
+    lists = d.lists.map(l => ({ ...l, color: colors[l.name] || l.color }));
+    tasks = d.tasks;
+    tkSetBase(lists, tasks);
+    try { localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes })); } catch (e) {}
+    if (!same) { try { renderWidgets(); } catch (e) {} try { if (currentTab === 'todo') renderTasksTab(); } catch (e) {} try { renderHomeTasksCard(); } catch (e) {} }
+  }
+  if (key === 'shopping' && d && d.shopping) {
+    const same = JSON.stringify(d.shopping) === JSON.stringify(shopData);
+    shopData = d.shopping;
+    shSetBase(shopData);
+    try { localStorage.setItem('mmt_shopping', JSON.stringify(shopData)); } catch (e) {}
+    if (!same) { if (!activeStore || !shopData[activeStore]) activeStore = Object.keys(shopData)[0] || activeStore; try { renderShop(); } catch (e) {} try { renderHomeShopSummary(); } catch (e) {} }
+  }
+}
+// Fresh lists when the app comes back to the front (after 15 s away) and every 2 minutes.
+var _opsHiddenAt = 0;
+function opsRefresh() {
+  if (document.hidden || typeof jsonp !== 'function') return;
+  if (!outboxRead().some(e => e.key === 'tasks')) {
+    jsonp(SCRIPT_URL + '?action=getTasks&_=' + Date.now(), d => {
+      if (d && d.success && d.lists) {
+        if (d.showNotes && Object.keys(d.showNotes).length) showNotes = d.showNotes;
+        opsApply('tasks', d);
+      }
+    }, () => {});
+  }
+  try { fetchShopData(); } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { _opsHiddenAt = Date.now(); return; }
+  if (_opsHiddenAt && Date.now() - _opsHiddenAt > 15000) setTimeout(opsRefresh, 300);
+});
+setInterval(() => { if (!document.hidden) opsRefresh(); }, 120000);
+// An Add pressed with nothing typed: say so, and put the cursor in the box.
+function emptyAddHint(input, msg) {
+  if (!input) return;
+  input.focus();
+  input.classList.remove('empty-nudge'); void input.offsetWidth; input.classList.add('empty-nudge');
+  const ph = input.getAttribute('data-ph') || input.placeholder;
+  input.setAttribute('data-ph', ph); input.placeholder = msg;
+  clearTimeout(input._nudgeT); input._nudgeT = setTimeout(() => { input.placeholder = ph; input.classList.remove('empty-nudge'); }, 2500);
+}
+// Escape closes the pop-ups that didn't listen to it: New List, Settings, notes link.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const lm = document.getElementById('list-modal');
+  if (lm && lm.style.display !== 'none' && getComputedStyle(lm).display !== 'none') { try { closeListModal(); } catch (err) { lm.style.display = 'none'; } return; }
+  if (document.querySelector('#ne-overlay.open')) { try { closeNotesEditModal(); } catch (err) {} return; }
+  if (document.querySelector('#settings-overlay.open')) { try { closeSettings(); } catch (err) {} }
+});
 async function saveData() {
   // Update local cache immediately
   try {
@@ -14835,6 +15044,7 @@ async function saveData() {
   // Queued rather than fired and forgotten. This used to try a POST, then a
   // JSONP GET, and give up quietly if both failed — so an edit made on bad
   // wifi never reached the Sheet and nothing said so.
+  if (tkQueueOps()) return;
   let getUrl = null;
   try {
     const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify({ lists, tasks })))));
@@ -14939,7 +15149,7 @@ function addTask(listName) {
   const input = document.getElementById('input-' + key);
   const dateEl = document.getElementById('date-' + key);
   const text = input.value.trim();
-  if (!text) return;
+  if (!text) { emptyAddHint(input, 'Type the to-do first'); return; }
   const task = {
     id: Date.now().toString(),
     text,
@@ -15424,7 +15634,7 @@ function ivRender() {
   const cats = ivCategories().filter(c => ivAll().some(i => ivGroupOf(i) === c));
   const top = `
     <div class="iv-top">
-      <div class="iv-title"><b>${ivDrops() ? 'Drops' : 'Inventory'}</b><small>${ivE(sub)}</small></div>
+      <div class="iv-title"><b>${ivDrops() ? 'Drops' : 'Set Piece Catalogue'}</b><small>${ivE(sub)}</small></div>
       ${ivDrops() ? '' : `<button class="iv-btn iv-desk-only" onclick="ivOpen({v:'outnow'})">Out now <span class="iv-badge${late.length ? ' late' : ''}">${out.length}${late.length ? ' · ' + late.length + ' late' : ''}</span></button>`}
       <button class="iv-btn iv-desk-only" onclick="ivOpenScan()">Scan</button>
       ${ivDrops() ? `<button class="iv-btn iv-desk-only" onclick="ivOpenRack()">Map</button>` : ''}
@@ -15707,7 +15917,7 @@ const IV_VIEWS = {
   item: null,   // set below
   menu() {
     const out = ivAll().filter(ivIsOut).length;
-    return { sheet: true, w: 420, label: 'More', html: `${ivHead(ivDrops() ? 'Drops' : 'Inventory', '', { sheet: true })}<div class="iv-obody iv-menu">
+    return { sheet: true, w: 420, label: 'More', html: `${ivHead(ivDrops() ? 'Drops' : 'Set Piece Catalogue', '', { sheet: true })}<div class="iv-obody iv-menu">
       ${ivDrops() ? '' : `<button onclick="ivClose();ivOpen({v:'outnow'})">Out now <span class="iv-badge" style="margin-left:auto">${out}</span></button>`}
       <button onclick="ivClose();ivOpenScan()">Scan labels</button>
       ${ivDrops() ? `<button onclick="ivClose();ivOpenRack()">Storage map</button>` : ''}

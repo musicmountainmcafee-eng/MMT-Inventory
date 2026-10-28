@@ -41,6 +41,8 @@ function doPost(e) {
     if (data.action === &#x27;saveShowNote&#x27;) return saveShowNote(data);
     if (data.action === &#x27;saveCleaning&#x27;) return saveCleaning(e, data);
     if (data.action === &#x27;saveKV&#x27;)       return saveKV(data);
+    if (data.action === &#x27;taskOps&#x27;)      return taskOps(data);
+    if (data.action === &#x27;shopOps&#x27;)      return shopOps(data);
     return response({ success: false, error: &#x27;Unknown action&#x27; });
   } catch(err) {
     return response({ success: false, error: err.message });
@@ -89,6 +91,14 @@ function doGet(e) {
   if (action === &#x27;getShowPhotos&#x27;) return wrap(getShowPhotos(e));
   if (action === &#x27;saveKV&#x27;)        return wrap(saveKV(e.parameter));
   if (action === &#x27;saveTask&#x27;)      return wrap(saveTask(e.parameter));
+  if (action === &#x27;taskOpsGet&#x27; || action === &#x27;shopOpsGet&#x27;) {
+    try {
+      const data = JSON.parse(Utilities.newBlob(Utilities.base64Decode(e.parameter.data)).getDataAsString());
+      return wrap(action === &#x27;taskOpsGet&#x27; ? taskOps(data) : shopOps(data));
+    } catch(err) {
+      return wrap(response({ success: false, error: err.message }));
+    }
+  }
   if (action === &#x27;saveTasksGet&#x27;) {
     try {
       const data = JSON.parse(decodeURIComponent(e.parameter.data));
@@ -1674,9 +1684,125 @@ function _spMeta(h, prop) {
 }
 // A Wix picture at a sensible size (16:9, 960 wide) instead of whatever the page used.
 function _spWixImg(src) { var i = src.indexOf(&#x27;/v1/&#x27;); var b = i &gt; 0 ? src.slice(0, i) : src; var f = b.split(&#x27;/&#x27;).pop(); return b + &#x27;/v1/fill/w_960,h_540,al_c,q_85,enc_auto/&#x27; + f; }
+
+
+// ── One change at a time (to-dos and shopping) ──────────────────────────────
+// Each device sends only what it changed (added, ticked, edited, moved,
+// deleted), and the change is applied to the Sheet&#x27;s current copy. Before
+// this, every tick sent the device&#x27;s whole list, so an older copy on one
+// device could undo what another device had added. The answer carries the
+// up-to-date lists back. opsVersion tells the page this script understands it.
+var OPS_VERSION = 1;
+function _opsLock() { var l = LockService.getScriptLock(); l.waitLock(20000); return l; }
+
+function taskOps(data) {
+  var lock; try { lock = _opsLock(); } catch (err) { return response({ success: false, error: &#x27;Busy, try again&#x27; }); }
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName(&#x27;Tasks&#x27;);
+    if (!sheet) { sheet = ss.insertSheet(&#x27;Tasks&#x27;); sheet.getRange(&#x27;A1:F1&#x27;).setValues([[&#x27;List&#x27;, &#x27;Task&#x27;, &#x27;Done&#x27;, &#x27;Due&#x27;, &#x27;ID&#x27;, &#x27;Notify&#x27;]]); }
+    var last = sheet.getLastRow();
+    var body = last &gt; 1 ? sheet.getRange(2, 1, last - 1, 6).getValues() : [];
+    var changed = false;
+    // Rows from before IDs were kept get a lasting one now.
+    body.forEach(function (r, i) { if (r[1] &amp;&amp; !r[4]) { r[4] = &#x27;r&#x27; + Date.now().toString(36) + i; changed = true; } });
+    var B = function (v) { return v === true || String(v).toUpperCase() === &#x27;TRUE&#x27;; };
+    var find = function (op) {
+      for (var i = 0; i &lt; body.length; i++) if (op.id &amp;&amp; String(body[i][4]) === String(op.id)) return i;
+      if (op.was) for (var j = 0; j &lt; body.length; j++) if (body[j][0] === op.was.list &amp;&amp; body[j][1] === op.was.text) return j;
+      return -1;
+    };
+    var rowsOf = function (list) { var out = []; body.forEach(function (r, i) { if (r[0] === list) out.push(i); }); return out; };
+    var dropPlaceholder = function (list) { for (var i = body.length - 1; i &gt;= 0; i--) if (body[i][0] === list &amp;&amp; !body[i][1]) body.splice(i, 1); };
+    var keepList = function (list) { if (list &amp;&amp; !rowsOf(list).length) body.push([list, &#x27;&#x27;, &#x27;&#x27;, &#x27;&#x27;, &#x27;&#x27;, &#x27;&#x27;]); };
+    var insert = function (row, top) {
+      var list = row[0]; dropPlaceholder(list);
+      var at = rowsOf(list);
+      if (!at.length) body.push(row);
+      else body.splice(top ? at[0] : at[at.length - 1] + 1, 0, row);
+    };
+    (data.ops || []).forEach(function (op) {
+      if (op.op === &#x27;add&#x27;) {
+        if (op.id &amp;&amp; find({ id: op.id }) &gt;= 0) return;
+        insert([op.list, op.text || &#x27;&#x27;, B(op.done) ? &#x27;TRUE&#x27; : &#x27;FALSE&#x27;, op.due || &#x27;&#x27;, op.id || (&#x27;t&#x27; + Date.now().toString(36)), B(op.notify) ? &#x27;TRUE&#x27; : &#x27;&#x27;], !!op.top);
+        changed = true;
+      } else if (op.op === &#x27;set&#x27;) {
+        var i = find(op); if (i &lt; 0) return;
+        var r = body[i], f = op.f || {};
+        if (&#x27;text&#x27; in f) r[1] = f.text;
+        if (&#x27;done&#x27; in f) r[2] = B(f.done) ? &#x27;TRUE&#x27; : &#x27;FALSE&#x27;;
+        if (&#x27;due&#x27; in f) r[3] = f.due || &#x27;&#x27;;
+        if (&#x27;notify&#x27; in f) r[5] = B(f.notify) ? &#x27;TRUE&#x27; : &#x27;&#x27;;
+        if (&#x27;list&#x27; in f &amp;&amp; f.list &amp;&amp; f.list !== r[0]) { var from = r[0]; body.splice(i, 1); r[0] = f.list; insert(r, !!op.top); keepList(from); }
+        changed = true;
+      } else if (op.op === &#x27;del&#x27;) {
+        var k = find(op); if (k &lt; 0) return;
+        var list = body[k][0]; body.splice(k, 1); keepList(list); changed = true;
+      } else if (op.op === &#x27;addList&#x27;) {
+        keepList(op.list); changed = true;
+      } else if (op.op === &#x27;delList&#x27;) {
+        body = body.filter(function (r) { return r[0] !== op.list; }); changed = true;
+      } else if (op.op === &#x27;renameList&#x27;) {
+        body.forEach(function (r) { if (r[0] === op.from) r[0] = op.to; }); changed = true;
+      }
+    });
+    if (changed) {
+      if (last &gt; 1) sheet.getRange(2, 1, last - 1, 6).clearContent();
+      if (body.length) sheet.getRange(2, 1, body.length, 6).setValues(body);
+    }
+    var colors = [&#x27;#534AB7&#x27;,&#x27;#f5a623&#x27;,&#x27;#3B6D11&#x27;,&#x27;#185FA5&#x27;,&#x27;#9b59b6&#x27;,&#x27;#1abc9c&#x27;,&#x27;#e67e22&#x27;,&#x27;#e91e63&#x27;];
+    var lists = [], tasks = {};
+    body.forEach(function (r) {
+      if (!r[0]) return;
+      if (!tasks[r[0]]) { tasks[r[0]] = []; lists.push({ name: r[0], color: colors[(lists.length) % colors.length] }); }
+      if (r[1]) tasks[r[0]].push({ id: String(r[4]), text: r[1], done: B(r[2]), due: r[3] || null, notify: B(r[5]) });
+    });
+    return response({ success: true, opsVersion: OPS_VERSION, lists: lists, tasks: tasks });
+  } finally { lock.releaseLock(); }
+}
+
+// Shopping items have no IDs of their own; new ones get one. An item is found
+// by its ID, or by its text (the nth item with that text in that store).
+function shopOps(data) {
+  var lock; try { lock = _opsLock(); } catch (err) { return response({ success: false, error: &#x27;Busy, try again&#x27; }); }
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName(&#x27;Shopping&#x27;);
+    if (!sheet) { sheet = ss.insertSheet(&#x27;Shopping&#x27;); sheet.getRange(&#x27;A1&#x27;).setValue(&#x27;Data&#x27;); }
+    var shop = {}; try { shop = JSON.parse(_bigReadCol(sheet, 2, 1) || &#x27;{}&#x27;) || {}; } catch (err) { shop = {}; }
+    var find = function (store, key) {
+      var items = shop[store] || [], n = 0;
+      for (var i = 0; i &lt; items.length; i++) {
+        if (key.id &amp;&amp; items[i].id === key.id) return i;
+        if (!key.id &amp;&amp; !items[i].id &amp;&amp; items[i].text === key.text) { if (n === (key.n || 0)) return i; n++; }
+      }
+      if (key.id &amp;&amp; key.text != null) { for (var j = 0; j &lt; items.length; j++) if (items[j].text === key.text) return j; }
+      return -1;
+    };
+    (data.ops || []).forEach(function (op) {
+      if (op.op === &#x27;addStore&#x27;) { if (!shop[op.store]) shop[op.store] = []; }
+      else if (op.op === &#x27;delStore&#x27;) { delete shop[op.store]; }
+      else if (op.op === &#x27;add&#x27;) {
+        if (!shop[op.store]) shop[op.store] = [];
+        if (op.item &amp;&amp; op.item.id &amp;&amp; find(op.store, { id: op.item.id }) &gt;= 0) return;
+        if (op.top) shop[op.store].unshift(op.item); else shop[op.store].push(op.item);
+      } else if (op.op === &#x27;set&#x27;) {
+        var i = find(op.store, op.key || {}); if (i &lt; 0) return;
+        var it = shop[op.store][i], f = op.f || {};
+        Object.keys(f).forEach(function (k) { it[k] = f[k]; });
+      } else if (op.op === &#x27;del&#x27;) {
+        var k = find(op.store, op.key || {}); if (k &gt;= 0) shop[op.store].splice(k, 1);
+      }
+    });
+    var str = JSON.stringify(shop);
+    var big = _bigTooBig(str); if (big) return big;
+    _bigWriteCol(sheet, 2, 1, str);
+    return response({ success: true, opsVersion: OPS_VERSION, shopping: shop });
+  } finally { lock.releaseLock(); }
+}
 </textarea>
 <script>function cp(){const t=document.getElementById('c');t.select();t.setSelectionRange(0,t.value.length);
 const done=()=>{document.getElementById('ok').textContent='Copied ('+t.value.length.toLocaleString()+' characters)';};
 (navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(done,()=>{document.execCommand('copy');done();});}</script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.28 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.28 v2</div>
 </body></html>
