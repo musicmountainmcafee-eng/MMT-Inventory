@@ -86,6 +86,7 @@ function doGet(e) {
   if (action === &#x27;saveCueData&#x27;)   return wrap(saveCueData(e, null));
   if (action === &#x27;saveShowNote&#x27;) return wrap(saveShowNote(e.parameter));
   if (action === &#x27;getKV&#x27;)         return wrap(getKV(e));
+  if (action === &#x27;getShowPhotos&#x27;) return wrap(getShowPhotos(e));
   if (action === &#x27;saveKV&#x27;)        return wrap(saveKV(e.parameter));
   if (action === &#x27;saveTask&#x27;)      return wrap(saveTask(e.parameter));
   if (action === &#x27;saveTasksGet&#x27;) {
@@ -1617,9 +1618,65 @@ function getDriveImage(e) {
       (e.parameter.callback || &#x27;callback&#x27;) + &#x27;(&#x27; + JSON.stringify({ success: false, error: err.message }) + &#x27;)&#x27;
     ).setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
-}</textarea>
+}
+
+// ── Show photos from the theatre&#x27;s website ──────────────────────────────────
+// Reads the season pages on musicmountaintheatre.org (a Wix site) and the
+// Showpass ticket page each show links to, and hands back every show picture
+// with what&#x27;s around it (the link, the alt text, nearby words, the ticket
+// page&#x27;s title). The dashboard matches them to shows by name. Read-only;
+// kept for 6 hours so the website is asked at most a few times a day.
+function getShowPhotos(e) {
+  var cache = CacheService.getScriptCache(), ck = &#x27;showphotos_v1&#x27;;
+  var refresh = e &amp;&amp; e.parameter &amp;&amp; e.parameter.refresh;
+  if (!refresh) { var hit = cache.get(ck); if (hit) { try { return response(JSON.parse(hit)); } catch (err) {} } }
+  var y = new Date().getFullYear(), base = &#x27;https://www.musicmountaintheatre.org/&#x27;;
+  var paths = [&#x27;&#x27;, &#x27;mainstage-schedule-&#x27; + y, &#x27;young-audience-schedule-&#x27; + y, &#x27;mainstage-schedule-&#x27; + (y + 1), &#x27;young-audience-schedule-&#x27; + (y + 1), &#x27;holidays&#x27;];
+  var res = [];
+  try { res = UrlFetchApp.fetchAll(paths.map(function (p) { return { url: base + p, muteHttpExceptions: true, followRedirects: true }; })); }
+  catch (err) { return response({ success: false, error: String(err) }); }
+  var items = [], sp = {}, seen = {};
+  res.forEach(function (r, k) {
+    if (!r || r.getResponseCode() !== 200) return;
+    var html = r.getContentText(), re = /&lt;img\b[^&gt;]*&gt;/gi, m;
+    while ((m = re.exec(html))) {
+      var tag = m[0], src = _spAttr(tag, &#x27;src&#x27;) || _spAttr(tag, &#x27;data-src&#x27;);
+      if (!src || src.indexOf(&#x27;wixstatic.com/media/&#x27;) &lt; 0) continue;
+      var img = _spWixImg(src); if (seen[img + &#x27;|&#x27; + paths[k]]) continue; seen[img + &#x27;|&#x27; + paths[k]] = 1;
+      var a = html.lastIndexOf(&#x27;&lt;a &#x27;, m.index), ac = html.lastIndexOf(&#x27;&lt;/a&gt;&#x27;, m.index), href = &#x27;&#x27;;
+      if (a &gt; ac &amp;&amp; m.index - a &lt; 6000) href = _spAttr(html.slice(a, html.indexOf(&#x27;&gt;&#x27;, a) + 1), &#x27;href&#x27;) || &#x27;&#x27;;
+      items.push({ img: img, alt: _spAttr(tag, &#x27;alt&#x27;) || &#x27;&#x27;, href: href, near: _spText(html.slice(Math.max(0, m.index - 2500), m.index + 2500)).slice(0, 600), page: paths[k] });
+    }
+    var sre = /https:\/\/www\.showpass\.com\/([a-z0-9][a-z0-9-]*)\/?/gi, s;
+    while ((s = sre.exec(html))) if (s[1].toLowerCase() !== &#x27;o&#x27; &amp;&amp; s[1].toLowerCase() !== &#x27;api&#x27;) sp[&#x27;https://www.showpass.com/&#x27; + s[1].toLowerCase() + &#x27;/&#x27;] = 1;
+  });
+  var spUrls = Object.keys(sp).slice(0, 40), shows = [];
+  if (spUrls.length) {
+    var sres = [];
+    try { sres = UrlFetchApp.fetchAll(spUrls.map(function (u) { return { url: u, muteHttpExceptions: true, followRedirects: true }; })); } catch (err) {}
+    sres.forEach(function (r, k) {
+      if (!r || r.getResponseCode() !== 200) return;
+      var h = r.getContentText(), t = _spMeta(h, &#x27;og:title&#x27;), im = _spMeta(h, &#x27;og:image&#x27;);
+      if (t || im) shows.push({ title: t, img: im, href: spUrls[k] });
+    });
+  }
+  var out = { success: true, items: items.slice(0, 250), showpass: shows, at: Date.now() };
+  try { cache.put(ck, JSON.stringify(out), 21600); } catch (err) {}
+  return response(out);
+}
+function _spDecode(s) { return String(s || &#x27;&#x27;).replace(/&amp;amp;/g, &#x27;&amp;&#x27;).replace(/&amp;#39;|&amp;#x27;/g, &quot;&#x27;&quot;).replace(/&amp;quot;/g, &#x27;&quot;&#x27;).replace(/&amp;lt;/g, &#x27;&lt;&#x27;).replace(/&amp;gt;/g, &#x27;&gt;&#x27;); }
+function _spAttr(tag, name) { var m = new RegExp(&#x27;\\s&#x27; + name + &#x27;\\s*=\\s*(&quot;([^&quot;]*)&quot;|\&#x27;([^\&#x27;]*)\&#x27;)&#x27;, &#x27;i&#x27;).exec(tag); return m ? _spDecode(m[2] != null ? m[2] : m[3]) : &#x27;&#x27;; }
+function _spText(h) { return _spDecode(String(h).replace(/&lt;script[\s\S]*?&lt;\/script&gt;|&lt;style[\s\S]*?&lt;\/style&gt;/gi, &#x27; &#x27;).replace(/&lt;[^&gt;]*&gt;/g, &#x27; &#x27;)).replace(/\s+/g, &#x27; &#x27;).trim(); }
+function _spMeta(h, prop) {
+  var re = /&lt;meta\b[^&gt;]*&gt;/gi, m;
+  while ((m = re.exec(h))) { var t = m[0]; if ((_spAttr(t, &#x27;property&#x27;) || _spAttr(t, &#x27;name&#x27;)).toLowerCase() === prop) return _spAttr(t, &#x27;content&#x27;); }
+  return &#x27;&#x27;;
+}
+// A Wix picture at a sensible size (16:9, 960 wide) instead of whatever the page used.
+function _spWixImg(src) { var i = src.indexOf(&#x27;/v1/&#x27;); var b = i &gt; 0 ? src.slice(0, i) : src; var f = b.split(&#x27;/&#x27;).pop(); return b + &#x27;/v1/fill/w_960,h_540,al_c,q_85,enc_auto/&#x27; + f; }
+</textarea>
 <script>function cp(){const t=document.getElementById('c');t.select();t.setSelectionRange(0,t.value.length);
 const done=()=>{document.getElementById('ok').textContent='Copied ('+t.value.length.toLocaleString()+' characters)';};
 (navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(done,()=>{document.execCommand('copy');done();});}</script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.17 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.28 v1</div>
 </body></html>

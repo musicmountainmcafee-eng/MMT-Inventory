@@ -78,6 +78,7 @@ function doGet(e) {
   if (action === 'saveCueData')   return wrap(saveCueData(e, null));
   if (action === 'saveShowNote') return wrap(saveShowNote(e.parameter));
   if (action === 'getKV')         return wrap(getKV(e));
+  if (action === 'getShowPhotos') return wrap(getShowPhotos(e));
   if (action === 'saveKV')        return wrap(saveKV(e.parameter));
   if (action === 'saveTask')      return wrap(saveTask(e.parameter));
   if (action === 'saveTasksGet') {
@@ -1610,3 +1611,58 @@ function getDriveImage(e) {
     ).setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
 }
+
+// ── Show photos from the theatre's website ──────────────────────────────────
+// Reads the season pages on musicmountaintheatre.org (a Wix site) and the
+// Showpass ticket page each show links to, and hands back every show picture
+// with what's around it (the link, the alt text, nearby words, the ticket
+// page's title). The dashboard matches them to shows by name. Read-only;
+// kept for 6 hours so the website is asked at most a few times a day.
+function getShowPhotos(e) {
+  var cache = CacheService.getScriptCache(), ck = 'showphotos_v1';
+  var refresh = e && e.parameter && e.parameter.refresh;
+  if (!refresh) { var hit = cache.get(ck); if (hit) { try { return response(JSON.parse(hit)); } catch (err) {} } }
+  var y = new Date().getFullYear(), base = 'https://www.musicmountaintheatre.org/';
+  var paths = ['', 'mainstage-schedule-' + y, 'young-audience-schedule-' + y, 'mainstage-schedule-' + (y + 1), 'young-audience-schedule-' + (y + 1), 'holidays'];
+  var res = [];
+  try { res = UrlFetchApp.fetchAll(paths.map(function (p) { return { url: base + p, muteHttpExceptions: true, followRedirects: true }; })); }
+  catch (err) { return response({ success: false, error: String(err) }); }
+  var items = [], sp = {}, seen = {};
+  res.forEach(function (r, k) {
+    if (!r || r.getResponseCode() !== 200) return;
+    var html = r.getContentText(), re = /<img\b[^>]*>/gi, m;
+    while ((m = re.exec(html))) {
+      var tag = m[0], src = _spAttr(tag, 'src') || _spAttr(tag, 'data-src');
+      if (!src || src.indexOf('wixstatic.com/media/') < 0) continue;
+      var img = _spWixImg(src); if (seen[img + '|' + paths[k]]) continue; seen[img + '|' + paths[k]] = 1;
+      var a = html.lastIndexOf('<a ', m.index), ac = html.lastIndexOf('</a>', m.index), href = '';
+      if (a > ac && m.index - a < 6000) href = _spAttr(html.slice(a, html.indexOf('>', a) + 1), 'href') || '';
+      items.push({ img: img, alt: _spAttr(tag, 'alt') || '', href: href, near: _spText(html.slice(Math.max(0, m.index - 2500), m.index + 2500)).slice(0, 600), page: paths[k] });
+    }
+    var sre = /https:\/\/www\.showpass\.com\/([a-z0-9][a-z0-9-]*)\/?/gi, s;
+    while ((s = sre.exec(html))) if (s[1].toLowerCase() !== 'o' && s[1].toLowerCase() !== 'api') sp['https://www.showpass.com/' + s[1].toLowerCase() + '/'] = 1;
+  });
+  var spUrls = Object.keys(sp).slice(0, 40), shows = [];
+  if (spUrls.length) {
+    var sres = [];
+    try { sres = UrlFetchApp.fetchAll(spUrls.map(function (u) { return { url: u, muteHttpExceptions: true, followRedirects: true }; })); } catch (err) {}
+    sres.forEach(function (r, k) {
+      if (!r || r.getResponseCode() !== 200) return;
+      var h = r.getContentText(), t = _spMeta(h, 'og:title'), im = _spMeta(h, 'og:image');
+      if (t || im) shows.push({ title: t, img: im, href: spUrls[k] });
+    });
+  }
+  var out = { success: true, items: items.slice(0, 250), showpass: shows, at: Date.now() };
+  try { cache.put(ck, JSON.stringify(out), 21600); } catch (err) {}
+  return response(out);
+}
+function _spDecode(s) { return String(s || '').replace(/&amp;/g, '&').replace(/&#39;|&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>'); }
+function _spAttr(tag, name) { var m = new RegExp('\\s' + name + '\\s*=\\s*("([^"]*)"|\'([^\']*)\')', 'i').exec(tag); return m ? _spDecode(m[2] != null ? m[2] : m[3]) : ''; }
+function _spText(h) { return _spDecode(String(h).replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim(); }
+function _spMeta(h, prop) {
+  var re = /<meta\b[^>]*>/gi, m;
+  while ((m = re.exec(h))) { var t = m[0]; if ((_spAttr(t, 'property') || _spAttr(t, 'name')).toLowerCase() === prop) return _spAttr(t, 'content'); }
+  return '';
+}
+// A Wix picture at a sensible size (16:9, 960 wide) instead of whatever the page used.
+function _spWixImg(src) { var i = src.indexOf('/v1/'); var b = i > 0 ? src.slice(0, i) : src; var f = b.split('/').pop(); return b + '/v1/fill/w_960,h_540,al_c,q_85,enc_auto/' + f; }

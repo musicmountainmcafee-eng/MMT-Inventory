@@ -82,9 +82,20 @@
 - Black and white kept. Sidebar widened 220 -> 248px. Current show sits above the groups (Mac's pick, 10.27 v2 dev).
 - Tests: test_sidebar2.py (+ test_menu, test_links updated).
 
+## On dev (Oct 28): Dashboard 10.27 v7 dev, Cue Sheet 10.27 v4 dev, Apps Script 10.28 v1 (needs pasting + redeploy)
+- Show photos from musicmountaintheatre.org (Wix) + the Showpass ticket pages it links to, matched by show name
+  (getShowPhotos, cached 6 h on the server, 12 h on each device). Home show card, Also going, All Shows cards, show page
+  Photo card (Use another picture / Use the website's / No photo / Refresh; showhub shows.<slug>.photo).
+- Loading pill: "Loading…" near the top whenever a page waits on the Sheet (jsonp and fetch GETs); background checks
+  (who's here, new edits) don't count. Inventory/Drops first-visit spinner now covers fetch loads too.
+- Drops / Set pieces: Copy photo, Download (phone: Save / share), All N photos; per-photo buttons in the photo list.
+- Fixed: Home show card errored on first draw (icons defined too late).
+- Tests: test_photos.py.
+
 ## Next
 - Drops tab (Mac working on it Oct 28).
 - Full audit of the dashboard: what works, what doesn't (after 3 pm Oct 28, when Mac has more usage).
+  Already noticed: Home show card's links are read before the show list loads on first draw (caught, redraws).
 
 ## Ideas
 - Dark look on the script page still uses purple accents; could go black and white too.
