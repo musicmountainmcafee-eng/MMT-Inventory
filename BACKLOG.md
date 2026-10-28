@@ -58,7 +58,7 @@
   the current show's appear under it in the menu and as small buttons on Home's show card.
 - Tests: test_links.py.
 
-## On dev: sidebar redesign (Dashboard 10.27 v1 dev), Mac checking
+## On dev: sidebar redesign (Dashboard 10.27 v2 dev), Mac checking
 - From Mac's picture: real MMT logo at the top (mmt-logo-white.png, made from "MMT Logo.png"); folding groups
   Productions ▾ (current show picker + its pages + links, All Shows, All Scripts, Show Calendar; open by default),
   Warehouse ▾ (Set Piece Catalogue, Drops, Storage Map, Reference Photos), More ▾ (Cleaning Log, To Do 2, Links, Side Job
@@ -66,7 +66,7 @@
 - Quick Add: New to-do, Shopping item (small forms, same saves as To Do / Shopping), Set piece (catalogue's Add form),
   Reference photo (Reference Photos with the camera open, current show filled in). Crew only see what they may.
 - Bottom: Today card (date + weather at the theatre, Open-Meteo, 30 min cache) and Open show timer (full screen).
-- Black and white kept. Sidebar widened 220 -> 248px. Still to decide: current show inside Productions (dev) or above it.
+- Black and white kept. Sidebar widened 220 -> 248px. Current show sits above the groups (Mac's pick, 10.27 v2 dev).
 - Tests: test_sidebar2.py (+ test_menu, test_links updated).
 
 ## Ideas
