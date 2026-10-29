@@ -2086,10 +2086,15 @@ function render(){
   const canAdd = editMode && !cueReadOnly();
   const addGap = after => canAdd ? `<tr class="add-gap"><td colspan="${NC}"><button type="button" class="add-gap-btn" onclick="event.stopPropagation(); openAddCue('${esc(after)}')"><span>+ Add cue</span></button></td></tr>` : '';
   if (canAdd) body += addGap('');
+  // Every scene shows, even one with no cues yet (same as the printed plot);
+  // while filtering or searching, only scenes with something that matches.
+  const filtering = !!(activeType || activeWho || query);
+  let scenesShown = 0;
   groups.forEach(g => {
     const visible = g.items.filter(matches);
     shown += visible.length;
-    if (!visible.length && !(canAdd && g.id)) return;
+    if (!visible.length && !(canAdd && g.id) && (filtering || !g.id)) return;
+    if (!visible.length) scenesShown++;
     if (g.label){
       if (!firstBand && !plot) body += '<tr class="scene-gap"><td colspan="5"></td></tr>';
       body += `<tr class="scene"><td colspan="${NC}">${esc(g.label)}${
@@ -2100,7 +2105,7 @@ function render(){
     visible.forEach(c => { body += (plot ? plRow(c, band, mode) : cueRow(c, band)) + addGap(c.id); band = !band; });
   });
 
-  if (!shown && !canAdd){
+  if (!shown && !canAdd && !scenesShown){
     const what = query ? 'Nothing matches that search.' : 'No ' + esc(typeOf(activeType).name) + ' cues.';
     const how  = query ? 'Try fewer words, or clear the type filter.' : 'Tap the type again for all cues.';
     el.innerHTML = title + `<div class="cs-empty"><b>${what}</b>${how}</div>`;
@@ -7674,6 +7679,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.27 v4 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v1 dev</div>
 </body>
 </html>
