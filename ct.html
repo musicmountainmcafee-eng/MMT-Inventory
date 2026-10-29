@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MMT Car Thing</title>
+<!-- A start page for the Spotify Car Thing's browser (800 x 480): big buttons to
+     the Show Timer and the dashboard, an internet check, and a tester that shows
+     what the knob and buttons send. Read-only: nothing here saves anything. -->
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #0b0b0c; color: #f4f4f5; font-family: Inter, system-ui, -apple-system, sans-serif; overflow: hidden; }
+  .wrap { height: 100%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr 1fr auto; gap: 12px; padding: 14px 16px; }
+  h1 { grid-column: 1 / -1; margin: 0; font-size: 20px; display: flex; align-items: center; gap: 12px; }
+  h1 small { font-size: 14px; color: #8a8a93; font-weight: 500; }
+  #net { margin-left: auto; font-size: 14px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #26262b; color: #a1a1aa; }
+  #net.ok { background: #14532d; color: #bbf7d0; }
+  #net.bad { background: #7f1d1d; color: #fecaca; }
+  a.big { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 14px 18px; border-radius: 16px; background: #1c1c20; color: inherit; text-decoration: none; border: 3px solid transparent; }
+  a.big b { font-size: 28px; }
+  a.big span { font-size: 15px; color: #a1a1aa; }
+  a.big:focus, a.big.sel { border-color: #f4f4f5; outline: none; }
+  a.big:active { background: #2a2a30; }
+  .tester { grid-column: 1 / -1; display: flex; gap: 14px; align-items: center; font-size: 14px; color: #a1a1aa; background: #151518; border-radius: 12px; padding: 8px 12px; min-height: 44px; }
+  .tester b { color: #f4f4f5; font-family: ui-monospace, Menlo, monospace; font-size: 15px; }
+  #build-tag { position: fixed; bottom: 2px; right: 6px; font-size: 10px; color: #55555c; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>MMT <small id="size"></small><span id="net">Checking internet…</span></h1>
+  <a class="big" href="timer.html#v=display"><b>Show Timer</b><span>Display: act, time, up next</span></a>
+  <a class="big" href="timer.html"><b>Timer controls</b><span>GO, hold, calls (stage manager PIN)</span></a>
+  <a class="big" href="app.html"><b>Dashboard</b><span>The live dashboard</span></a>
+  <a class="big" href="app-dev.html"><b>Dashboard (dev)</b><span>The test copy</span></a>
+  <div class="tester">Button test: press the knob, turn it, press the top buttons or the back button →
+    <b id="ev">nothing yet</b></div>
+</div>
+<div id="build-tag">10.29 v1</div>
+<script>
+  document.getElementById('size').textContent = innerWidth + ' × ' + innerHeight + (devicePixelRatio !== 1 ? ' @' + devicePixelRatio + 'x' : '');
+  // Internet: one harmless read from the dashboard's script (it just answers "running").
+  (function () {
+    const net = document.getElementById('net');
+    const cb = 'ctping' + Date.now(), s = document.createElement('script');
+    const t = setTimeout(() => { net.textContent = 'No internet'; net.className = 'bad'; }, 12000);
+    window[cb] = () => { clearTimeout(t); net.textContent = 'Internet OK'; net.className = 'ok'; };
+    s.onerror = () => { clearTimeout(t); net.textContent = 'No internet'; net.className = 'bad'; };
+    s.src = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec?callback=' + cb + '&_=' + Date.now();
+    document.head.appendChild(s);
+  })();
+  // What the hardware sends, so the real app can use it.
+  const ev = document.getElementById('ev');
+  const show = t => { ev.textContent = t; };
+  addEventListener('keydown', e => show('key down: ' + JSON.stringify(e.key) + ' (code ' + e.code + ', ' + e.keyCode + ')'));
+  addEventListener('keyup', e => { if (!/down/.test(ev.textContent) || !ev.textContent.includes(JSON.stringify(e.key))) return; ev.textContent += ' · up'; });
+  addEventListener('wheel', e => show('wheel: deltaX ' + Math.round(e.deltaX) + ', deltaY ' + Math.round(e.deltaY)), { passive: true });
+  ['mousedown', 'pointerdown'].forEach(n => addEventListener(n, e => { if (e.target.closest('a')) return; show(n + ' (button ' + e.button + ')'); }));
+  // Arrow keys / knob move between the four big buttons, if the knob sends arrows.
+  const links = [...document.querySelectorAll('a.big')];
+  let k = -1;
+  addEventListener('keydown', e => {
+    if (['ArrowRight', 'ArrowDown'].includes(e.key)) { k = (k + 1) % links.length; links[k].focus(); }
+    if (['ArrowLeft', 'ArrowUp'].includes(e.key)) { k = (k - 1 + links.length) % links.length; links[k].focus(); }
+  });
+</script>
+</body>
+</html>
