@@ -108,6 +108,16 @@
   empty Add gives a hint; phone version tag over More; page titles match menu names; To Do 2 banner over its menu.
   Kept: To Do 2, Cleaning Log, Side Job Notes. Backstage iMac Firefox is very old: get its version (About Firefox).
 
+## Car Thing (started Oct 28)
+- Spotify Car Thing on bridgething firmware (not flashed yet; Mac flashes it on his Mac with Terbium). Wants it plugged into a
+  computer at the SM desk. Mockup made (800x480): Timer screen (top buttons Back / Hold / -1 / +1, HOLD the knob 0.7 s to GO),
+  Calls (turn to pick, press to send), To-dos (today's, press to tick); back button cycles screens.
+- How it would work: a bridgething webapp (Vite, @bridgething/client). Timer control = the same relay commands the Stream Deck
+  keys use (cmd:go, back, hold, plus, minus, call:...). Display = listen on the relay. To-dos = getTasks / taskOps via
+  client.net.fetch. Can be installed from a catalog hosted on GitHub Pages. Develop against a TEST relay topic, not the real one.
+- Unknowns until flashed: internet over USB from a computer (docs say internet normally comes through the phone app);
+  exact knob/button events on the device.
+
 ## Next
 - Mac at his computer: paste Apps Script 10.28 v1 (copy-sheet-script.html) + New version, then check show photos on dev.
 - Drops tab (Mac working on it Oct 28).
