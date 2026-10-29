@@ -91,6 +91,7 @@ function doGet(e) {
   if (action === &#x27;getShowPhotos&#x27;) return wrap(getShowPhotos(e));
   if (action === &#x27;saveKV&#x27;)        return wrap(saveKV(e.parameter));
   if (action === &#x27;saveTask&#x27;)      return wrap(saveTask(e.parameter));
+  if (action === &#x27;getListsRev&#x27;)   return wrap(getListsRev());
   if (action === &#x27;taskOpsGet&#x27; || action === &#x27;shopOpsGet&#x27;) {
     try {
       const data = JSON.parse(Utilities.newBlob(Utilities.base64Decode(e.parameter.data)).getDataAsString());
@@ -395,6 +396,7 @@ function getTasks(e) {
 }
 
 function saveTasks(data) {
+  _listsBump(&#x27;tasks&#x27;);
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet = ss.getSheetByName(&#x27;Tasks&#x27;);
   if (!sheet) {
@@ -430,6 +432,7 @@ function saveTasks(data) {
 }
 
 function saveTask(data) {
+  _listsBump(&#x27;tasks&#x27;);
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet = ss.getSheetByName(&#x27;Tasks&#x27;);
   if (!sheet) {
@@ -1159,6 +1162,7 @@ function importDropsFromFolder() {
 }
 
 function saveShopping(e, body) {
+  _listsBump(&#x27;shop&#x27;);
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet = ss.getSheetByName(&#x27;Shopping&#x27;);
   if (!sheet) {
@@ -1757,7 +1761,8 @@ function taskOps(data) {
       if (!tasks[r[0]]) { tasks[r[0]] = []; lists.push({ name: r[0], color: colors[(lists.length) % colors.length] }); }
       if (r[1]) tasks[r[0]].push({ id: String(r[4]), text: r[1], done: B(r[2]), due: r[3] || null, notify: B(r[5]) });
     });
-    return response({ success: true, opsVersion: OPS_VERSION, lists: lists, tasks: tasks });
+    var rev = changed ? _listsBump(&#x27;tasks&#x27;) : _listsRev(&#x27;tasks&#x27;);
+    return response({ success: true, opsVersion: OPS_VERSION, lists: lists, tasks: tasks, tasksRev: rev });
   } finally { lock.releaseLock(); }
 }
 
@@ -1797,12 +1802,29 @@ function shopOps(data) {
     var str = JSON.stringify(shop);
     var big = _bigTooBig(str); if (big) return big;
     _bigWriteCol(sheet, 2, 1, str);
-    return response({ success: true, opsVersion: OPS_VERSION, shopping: shop });
+    return response({ success: true, opsVersion: OPS_VERSION, shopping: shop, shopRev: _listsBump(&#x27;shop&#x27;) });
   } finally { lock.releaseLock(); }
+}
+
+
+// ── &quot;Anything new?&quot; for to-dos and shopping ─────────────────────────────────
+// Every save of either list stamps a number; open dashboards ask for the two
+// numbers every ~10 s (a tiny, quick request) and only reload a list when its
+// number has moved, so changes show on other devices within seconds.
+function _listsRev(which) {
+  try { return String(PropertiesService.getScriptProperties().getProperty(&#x27;rev_&#x27; + which) || &#x27;0&#x27;); } catch (err) { return &#x27;0&#x27;; }
+}
+function _listsBump(which) {
+  var v = String(Math.max(Date.now(), Number(_listsRev(which)) + 1));   // always moves, even twice in one millisecond
+  try { PropertiesService.getScriptProperties().setProperty(&#x27;rev_&#x27; + which, v); } catch (err) {}
+  return v;
+}
+function getListsRev() {
+  return response({ success: true, opsVersion: OPS_VERSION, tasksRev: _listsRev(&#x27;tasks&#x27;), shopRev: _listsRev(&#x27;shop&#x27;) });
 }
 </textarea>
 <script>function cp(){const t=document.getElementById('c');t.select();t.setSelectionRange(0,t.value.length);
 const done=()=>{document.getElementById('ok').textContent='Copied ('+t.value.length.toLocaleString()+' characters)';};
 (navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(done,()=>{document.execCommand('copy');done();});}</script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.28 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.28 v3</div>
 </body></html>

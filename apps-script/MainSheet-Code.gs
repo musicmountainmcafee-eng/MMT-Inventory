@@ -83,6 +83,7 @@ function doGet(e) {
   if (action === 'getShowPhotos') return wrap(getShowPhotos(e));
   if (action === 'saveKV')        return wrap(saveKV(e.parameter));
   if (action === 'saveTask')      return wrap(saveTask(e.parameter));
+  if (action === 'getListsRev')   return wrap(getListsRev());
   if (action === 'taskOpsGet' || action === 'shopOpsGet') {
     try {
       const data = JSON.parse(Utilities.newBlob(Utilities.base64Decode(e.parameter.data)).getDataAsString());
@@ -387,6 +388,7 @@ function getTasks(e) {
 }
 
 function saveTasks(data) {
+  _listsBump('tasks');
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet = ss.getSheetByName('Tasks');
   if (!sheet) {
@@ -422,6 +424,7 @@ function saveTasks(data) {
 }
 
 function saveTask(data) {
+  _listsBump('tasks');
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet = ss.getSheetByName('Tasks');
   if (!sheet) {
@@ -1151,6 +1154,7 @@ function importDropsFromFolder() {
 }
 
 function saveShopping(e, body) {
+  _listsBump('shop');
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet = ss.getSheetByName('Shopping');
   if (!sheet) {
@@ -1749,7 +1753,8 @@ function taskOps(data) {
       if (!tasks[r[0]]) { tasks[r[0]] = []; lists.push({ name: r[0], color: colors[(lists.length) % colors.length] }); }
       if (r[1]) tasks[r[0]].push({ id: String(r[4]), text: r[1], done: B(r[2]), due: r[3] || null, notify: B(r[5]) });
     });
-    return response({ success: true, opsVersion: OPS_VERSION, lists: lists, tasks: tasks });
+    var rev = changed ? _listsBump('tasks') : _listsRev('tasks');
+    return response({ success: true, opsVersion: OPS_VERSION, lists: lists, tasks: tasks, tasksRev: rev });
   } finally { lock.releaseLock(); }
 }
 
@@ -1789,6 +1794,23 @@ function shopOps(data) {
     var str = JSON.stringify(shop);
     var big = _bigTooBig(str); if (big) return big;
     _bigWriteCol(sheet, 2, 1, str);
-    return response({ success: true, opsVersion: OPS_VERSION, shopping: shop });
+    return response({ success: true, opsVersion: OPS_VERSION, shopping: shop, shopRev: _listsBump('shop') });
   } finally { lock.releaseLock(); }
+}
+
+
+// ── "Anything new?" for to-dos and shopping ─────────────────────────────────
+// Every save of either list stamps a number; open dashboards ask for the two
+// numbers every ~10 s (a tiny, quick request) and only reload a list when its
+// number has moved, so changes show on other devices within seconds.
+function _listsRev(which) {
+  try { return String(PropertiesService.getScriptProperties().getProperty('rev_' + which) || '0'); } catch (err) { return '0'; }
+}
+function _listsBump(which) {
+  var v = String(Math.max(Date.now(), Number(_listsRev(which)) + 1));   // always moves, even twice in one millisecond
+  try { PropertiesService.getScriptProperties().setProperty('rev_' + which, v); } catch (err) {}
+  return v;
+}
+function getListsRev() {
+  return response({ success: true, opsVersion: OPS_VERSION, tasksRev: _listsRev('tasks'), shopRev: _listsRev('shop') });
 }

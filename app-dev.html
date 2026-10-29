@@ -7368,7 +7368,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.28 v3 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.28 v4 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7447,7 +7447,7 @@ const HS_ICON = {
 // waiting on the Sheet (anything slower than a blink). Background checks that
 // run every few seconds (who's here, new edits) don't count.
 var _ldN = 0, _ldT = null;
-function ldStart(url) { if (/action=(getCueRev|getTeamConfig|getShowPhotos)\b|key=(presence_names|crew_perms)\b/.test(String(url || ''))) return false; _ldN = (_ldN || 0) + 1; ldPaint(); return true; }
+function ldStart(url) { if (/action=(getCueRev|getTeamConfig|getShowPhotos|getListsRev)\b|key=(presence_names|crew_perms)\b/.test(String(url || ''))) return false; _ldN = (_ldN || 0) + 1; ldPaint(); return true; }
 function ldEnd() { _ldN = Math.max(0, (_ldN || 0) - 1); ldPaint(); }
 function ldPaint() {
   let el = document.getElementById('ld-pill');
@@ -12517,8 +12517,8 @@ async function fetchShopData() {
       // A queued local change is newer than anything the server can tell us.
       // Overwriting here would make an item added in the shop vanish off the
       // wall until the outbox drained and the next fetch brought it back.
-      const pendingLocal = (typeof outboxRead === 'function')
-        && outboxRead().some(e => e.key === 'shopping');
+      const pendingLocal = saveShopData.dirty || ((typeof outboxRead === 'function')
+        && outboxRead().some(e => e.key === 'shopping'));
       if (pendingLocal) return;
 
       shopData = data.shopping;
@@ -12544,7 +12544,9 @@ function saveShopData() {
   try { localStorage.setItem('mmt_shopping', JSON.stringify(shopData)); } catch(e) {}
   // Sync to server (debounced)
   clearTimeout(saveShopData._timer);
-  saveShopData._timer = setTimeout(() => syncShopToServer(), 800);
+  // Until it's queued, a refresh from the Sheet must not replace this change.
+  saveShopData.dirty = true;
+  saveShopData._timer = setTimeout(() => { saveShopData.dirty = false; syncShopToServer(); }, 800);
 }
 
 function syncShopToServer() {
@@ -14406,7 +14408,7 @@ function outboxDrain() {
     outboxWrite(rest);
     _outboxDraining = false;
     _outboxBackoff = 3000;
-    if (entry.kind === 'ops' && d && d.opsVersion) { try { opsApply(entry.key, d); } catch (e) {} }
+    if (entry.kind === 'ops' && d && d.opsVersion) { try { if (d.tasksRev) _listsRev.tasks = d.tasksRev; if (d.shopRev) _listsRev.shop = d.shopRev; opsApply(entry.key, d); } catch (e) {} }
     if (rest.length) setTimeout(outboxDrain, OUTBOX_MIN_GAP);
   }).catch(err => {
     if (err && err.unsupported) { opsUnsupported(entry); _outboxDraining = false; setTimeout(outboxDrain, OUTBOX_MIN_GAP); return; }
@@ -14979,6 +14981,7 @@ function opsTyping() {
 // to go (those would be lost) or someone is typing (the redraw would get in the way).
 function opsApply(key, d) {
   if (outboxRead().some(e => e.key === key)) return;
+  if (key === 'shopping' && saveShopData.dirty) return;
   if (opsTyping()) { clearTimeout(_opsApplyWait); _opsApplyWait = setTimeout(() => opsApply(key, d), 1500); return; }
   if (key === 'tasks' && d && d.lists && d.tasks) {
     if (!d.lists.length && lists.length > 1) return;   // never wipe from an empty answer
@@ -15018,6 +15021,28 @@ document.addEventListener('visibilitychange', () => {
   if (_opsHiddenAt && Date.now() - _opsHiddenAt > 15000) setTimeout(opsRefresh, 300);
 });
 setInterval(() => { if (!document.hidden) opsRefresh(); }, 120000);
+// Near-live: every ~10 s ask the Sheet whether either list has changed (a tiny
+// request), and reload only the one that did. Off while the app is in the
+// background, offline, or if the Sheet's script doesn't know the question yet.
+var _listsRev = { tasks: null, shop: null, off: false, busy: false };
+function listsRevCheck() {
+  if (_listsRev.off || _listsRev.busy || document.hidden || typeof jsonp !== 'function') return;
+  try { if (typeof netDown === 'function' && netDown()) return; } catch (e) {}
+  _listsRev.busy = true;
+  jsonp(SCRIPT_URL + '?action=getListsRev&_=' + Date.now(), d => {
+    _listsRev.busy = false;
+    if (!d || !d.opsVersion) { _listsRev.off = true; return; }   // older script: the 2-minute check carries on
+    const tk = _listsRev.tasks !== null && d.tasksRev !== _listsRev.tasks;
+    const sh = _listsRev.shop !== null && d.shopRev !== _listsRev.shop;
+    _listsRev.tasks = d.tasksRev; _listsRev.shop = d.shopRev;
+    if (tk && !outboxRead().some(e => e.key === 'tasks')) {
+      jsonp(SCRIPT_URL + '?action=getTasks&_=' + Date.now(), t => { if (t && t.success && t.lists) opsApply('tasks', t); }, () => {});
+    }
+    if (sh) { try { fetchShopData(); } catch (e) {} }
+  }, () => { _listsRev.busy = false; }, 8000);
+}
+setInterval(listsRevCheck, 10000);
+setTimeout(listsRevCheck, 5000);
 // An Add pressed with nothing typed: say so, and put the cursor in the box.
 function emptyAddHint(input, msg) {
   if (!input) return;

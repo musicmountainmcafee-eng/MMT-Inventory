@@ -103,6 +103,9 @@
     (15 s+) and every 2 min. Old script: falls back to the whole-list save, retries in 6 h. Tests: test_ops.py + node ops_gs_test.js.
   - Escape closes New List / Settings / notes link; Home draws with no errors; empty Add says "Type ... first";
     phone version tag above the bottom bar; page titles = menu names; To Do 2 menu above its banner. Test: test_tidy.py.
+- Near-live lists (Dashboard 10.28 v4 dev, Apps Script 10.28 v3): every save stamps a number (getListsRev); open dashboards
+  ask every ~10 s and reload only a list whose number moved. Off in the background / offline / with the old script.
+  Fixed on the way: a shopping tick waiting its 0.8 s before saving could be wiped by a refresh arriving in between.
 - Was (Mac's answers): to-dos/shopping full fix (refresh on return + save one item at a time; Apps Script paste);
   Escape closes New List / Settings / notes-link pop-ups; Home early-draw errors (_hub, TV_SKIP_LISTS, docZoom);
   empty Add gives a hint; phone version tag over More; page titles match menu names; To Do 2 banner over its menu.
@@ -119,7 +122,7 @@
   exact knob/button events on the device.
 
 ## Next
-- Mac at his computer: paste Apps Script 10.28 v1 (copy-sheet-script.html) + New version, then check show photos on dev.
+- Mac at his computer: paste Apps Script 10.28 v3 (copy-sheet-script.html) + New version; check show photos and lists on dev.
 - Drops tab (Mac working on it Oct 28).
 - Full audit of the dashboard: what works, what doesn't (after 3 pm Oct 28, when Mac has more usage).
   Already noticed: Home show card's links are read before the show list loads on first draw (caught, redraws).
