@@ -7376,7 +7376,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v2 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -19643,10 +19643,43 @@ function drawAnnotation(ctx, a) {
     }
 }
 
+// A cue marker that ended up past the edge of the page (some cues added from
+// the cue sheet guessed the page's size wrong) can't be seen or dragged. Pull
+// it just inside the nearest edge, keep it marked approx., and save the spot.
+function pullMarkersOnPage(anns) {
+  const W = drawCanvas.width, H = drawCanvas.height;
+  if (!(W > 50 && H > 50)) return false;
+  let moved = false;
+  const lctx = drawCanvas.getContext('2d');
+  anns.forEach(a => {
+    if (!a || a.type !== 'cue' || !a.rect) return;
+    const r = a.rect, w = Math.min(r.w || 0, W - 8), h = Math.min(r.h || 0, H - 8);
+    const x = Math.max(4, Math.min(W - w - 4, r.x)), y = Math.max(4, Math.min(H - h - 4, r.y));
+    let lx = a.labelX, ly = a.labelY;
+    lctx.save(); lctx.font = 'bold 14px "DM Sans", sans-serif';
+    const lw = lctx.measureText(a.label || '').width; lctx.restore();
+    if (typeof lx === 'number' && (lx + lw > W - 4 || lx < 0)) lx = Math.max(4, W - lw - 28);
+    if (typeof ly === 'number' && (ly > H - 4 || ly < 14)) ly = y + h;
+    if (x !== r.x || y !== r.y || w !== r.w || h !== r.h || lx !== a.labelX || ly !== a.labelY) {
+      const dy = y - r.y;
+      a.rect = { ...r, x, y, w, h };
+      if (typeof ly === 'number' && ly === a.labelY && dy) ly = Math.max(14, Math.min(H - 4, ly + dy));
+      a.labelX = lx; a.labelY = ly;
+      if (!a.approx && a.cueId) { a.approx = true; a.approxBy = 'moved back onto the page'; a.approxAt = new Date().toISOString(); }
+      moved = true;
+    }
+  });
+  return moved;
+}
 function redrawAnnotations() {
   const ctx = drawCanvas.getContext('2d');
   ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
   const anns = annotations[currentPage] || [];
+  if (pullMarkersOnPage(anns)) {
+    clearTimeout(redrawAnnotations._save);
+    redrawAnnotations._save = setTimeout(() => { try { saveShowData(); } catch (e) {} }, 600);
+    try { toast('A cue marker was off the edge of the page; it\'s back on, marked approx. Drag it into place.'); } catch (e) {}
+  }
   updateApproxUI();
   // Running A: the cards and their lines carry the labels, so the page shows
   // just the boxes (nothing stored changes, this is drawing only).
