@@ -3244,6 +3244,14 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
     #scripts-editor .se-name, #scripts-editor .se-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   }
   @media (min-width: 1280px) { #scripts-editor #sv-switch .sv-both { display: inline-flex; } }
+  /* When the header is too full to keep Script | Cue sheet centered (a long title,
+     the approx. count, people's bubbles), it steps into line instead of sitting on
+     top of the view buttons. Checked by seTopbarFit(). */
+  @media (min-width: 769px) {
+    #scripts-editor .cue-topbar.sv-flow #sv-switch { position: static; transform: none; flex: none; }
+    #scripts-editor .cue-topbar.sv-flow .cue-topbar-left { max-width: none; flex: 1 1 auto; margin-right: 0; }
+  }
+
   /* Side panel moves editor (computer). The cue line, Cue sheet ›, Move and
      Delete are already in the details above, so the drawer's own copies hide. */
   #scripts-editor #mv-drawer.in-panel { position: static !important; height: auto !important; max-height: none !important; min-height: 0 !important; box-shadow: none !important;
@@ -7336,7 +7344,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.28 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v1</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -22554,6 +22562,30 @@ function cueLoadDecision(localRev, syncedRev, serverRev, serverHasData) {
   return { take: 'server', why: 'the Sheet copy is the same or newer' };
 }
 
+// Script page header: keep Script | Cue sheet centered only while it fits.
+function seTopbarFit() {
+  const bar = document.querySelector('#scripts-editor .cue-topbar'), sv = document.getElementById('sv-switch');
+  if (!bar || !sv || innerWidth <= 768) { if (bar) bar.classList.remove('sv-flow'); return; }
+  bar.classList.remove('sv-flow');
+  if (!sv.offsetParent) return;
+  const a = sv.getBoundingClientRect();
+  const hit = [...bar.children].some(el => {
+    if (el === sv || !el.offsetParent) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.left < a.right - 1 && r.right > a.left + 1;
+  });
+  if (hit) bar.classList.add('sv-flow');
+}
+addEventListener('resize', () => { clearTimeout(seTopbarFit._t); seTopbarFit._t = setTimeout(seTopbarFit, 80); });
+(function () {
+  const go = () => { const bar = document.querySelector('#scripts-editor .cue-topbar'); if (!bar || !window.MutationObserver) return;
+    let busy = false;
+    new MutationObserver(() => { if (busy) return; busy = true; requestAnimationFrame(() => { seTopbarFit(); busy = false; }); })
+      .observe(bar, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'style'] });
+    const ed = document.getElementById('scripts-editor');
+    if (ed) new MutationObserver(() => requestAnimationFrame(seTopbarFit)).observe(ed, { attributes: true, attributeFilter: ['class'] }); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+})();
 function goHome() {
   try { if (_sheetMode !== 'script') setSheetMode('script'); } catch (e) {}
   saveShowData();
