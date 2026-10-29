@@ -92,6 +92,11 @@
 - Fixed: Home show card errored on first draw (icons defined too late).
 - Tests: test_photos.py.
 
+## Live Oct 29 (Cue Sheet 10.29 v1)
+- Cue sheet shows every scene, even with no cues yet (hidden only while filtering/searching); scene bars show number and
+  name ("Scene 1 · Painswick Orphanage..."), also in the printed/exported plot. Only this went live; the rest of dev waits.
+  Test: test_emptyscenes.py.
+
 ## Audit (Oct 28) — part 1 done
 - Old pages turned into "This page has moved" signposts (nothing saves from them; code in backup/2026-10-28-before-signposts):
   dashboard, team, tasks, staff, drops, timer-v2.31/3.0/3.1/3.2/3.3-backup. Removed: script-copy, app-1, cues, next-notes.
