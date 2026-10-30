@@ -1,6 +1,6 @@
 # MMT TD Dashboard: to-do list
 
-## Live Oct 30 afternoon (Dashboard 10.30 v2 = 10.30 v3 dev, Cue Sheet 10.30 v2 = 10.30 v1 dev)
+## Live Oct 30 afternoon (Dashboard 10.30 v3 = 10.30 v4 dev: also no bottom box in the side menu; was 10.30 v2 = 10.30 v3 dev, Cue Sheet 10.30 v2 = 10.30 v1 dev)
 - Home redesign (ChatGPT spec, two passes): counts strip; Mainstage + Children's Theatre cards side by side (photos on computer/iPad only); to-dos show 3 with Show more/less, ticked ones stay until you leave Home, + opens Quick Add; shopping one row on the phone; Coming up skips the featured shows; crew see only their cards; couldn't-load states.
 - Before House → Presets: a folding section at the top of the set change plot; renamed in PDF/Excel/dashboard. Crew link still off on live.
 - Known: unfolded foldable (~884 wide) scrolls sideways a little because of the top bar (live and dev alike).
