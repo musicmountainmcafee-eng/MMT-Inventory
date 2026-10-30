@@ -1,5 +1,11 @@
 # MMT TD Dashboard: to-do list
 
+## Live Oct 29 night: sidebar reorganised (Dashboard 10.29 v4 = 10.29 v8 dev)
+- Two show boxes: Mainstage (next Mainstage show) and Children's Theatre (next Children's show), each with its own picker (⇄), Show notes, Script & Cue Sheet, links. Checklists once, under Mainstage. Tap a box to fold it (remembered).
+- Home, To Do, Shopping; Productions (starts closed); Stock & Storage (was Warehouse); Links on its own; Utilities (was More: Cleaning Log, To Do 2, Side Job Notes); Quick Add folds up.
+- Phone menu: no Home/To Do (on the bottom bar), TV/Dark/Settings/Sync at the bottom, one group open at a time, 44px rows.
+- Only the sidebar went live; the other dev items (photos, loading pill, drop photo buttons, one-change saves, tidy-ups) are still dev-only.
+
 ## Live Oct 27: name + initials per login (Dashboard 10.27 v4, Cue Sheet 10.27 v2)
 - Tap your own bubble > change: name and initials for everyone signed in as that login (TD, Kyle...), any device.
   Stored in KV presence_names {login: {name, initials}}; empty = login name. Sent as "KB|Name · Device".
