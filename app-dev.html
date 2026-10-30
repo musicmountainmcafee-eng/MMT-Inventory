@@ -2173,9 +2173,28 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   .sb-qa-item:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
   .sb-qa-item .sl-icon svg { width: 17px; height: 17px; }
   body.crew-no-todo .qa-task, body.crew-no-shopping .qa-shop, body.crew-no-inventory .qa-inv, body.crew-inv-ro .qa-inv, body.crew-no-reference .qa-ref { display: none !important; }
+  /* Quick Add folds up behind its heading (remembered on this device). */
+  button.sb-qa-h { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 10px 6px; margin-top: 2px; cursor: pointer; border-radius: 7px; font-size: 11px !important; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8d8d94 !important; }
+  button.sb-qa-h:hover { background: rgba(255,255,255,0.07); color: #d4d4d8 !important; }
+  button.sb-qa-h:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+  button.sb-qa-h.open .sb-fold-chev { transform: rotate(180deg); }
+  html[data-theme="dark"] button.sb-qa-h { color: var(--text-muted); }
+  /* Children's Theatre block sits right under the Mainstage one. */
+  .sb-kshow { margin-top: 6px; }
+  .sb-kshow .sb-show-pick span { color: #a7f3d0; }
+  body.crew-no-home #sb-kshow-links { display: none !important; }
+  /* Phone menu (the "More" drawer): Home and To Do are already on the bottom
+     bar, and the TV / Dark / Settings / Sync buttons move to the bottom. */
+  @media (max-width: 768px) {
+    #sidebar .sidebar-header { order: 0; } #sidebar .sidebar-nav { order: 1; } #sidebar .sb-tools { order: 2; padding: 6px 10px 2px; } #sidebar .sidebar-footer { order: 3; }
+    #sidebar .sidebar-nav > .sidebar-link[data-tab="home"], #sidebar .sidebar-nav > .sidebar-link[data-tab="todo"] { display: none !important; }
+    #sidebar .sidebar-link, #sidebar .sb-fold-btn, #sidebar .sb-qa-item, #sidebar button.sb-qa-h { min-height: 44px; }
+  }
   .sidebar.collapsed .sb-qa-h span:not(.sb-qa-plus), .sidebar.collapsed .sb-qa-item > span:not(.sl-icon) { display: none; }
   .sidebar.collapsed .sb-qa-h { justify-content: center; font-size: 0 !important; }
   .sidebar.collapsed .sb-qa-item { justify-content: center; padding: 8px 0; }
+  .sidebar.collapsed .sb-qa-body[hidden] { display: block; }
+  .sidebar.collapsed button.sb-qa-h .sb-fold-chev { display: none; }
   .qa-pop { position: fixed; z-index: 2100; width: 300px; background: var(--surface, #fff); color: var(--text, #111); border: 1px solid var(--border, #e5e7eb);
     border-radius: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.25); padding: 14px; }
   .qa-pop.qa-sheet { left: 8px; right: 8px; width: auto; bottom: calc(8px + env(safe-area-inset-bottom)); }
@@ -6203,7 +6222,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
            (it moves on the day after opening night), or the one picked here. -->
       <div class="sb-show" id="sb-show">
         <button type="button" class="sb-show-pick" id="sb-show-pick" onclick="curShowPicker(event)" aria-haspopup="menu" aria-expanded="false" title="Change the current show">
-          <small>Current show</small><b id="sb-show-name">&nbsp;</b><span id="sb-show-when"></span>
+          <small>Mainstage</small><b id="sb-show-name">&nbsp;</b><span id="sb-show-when"></span>
           <svg class="sb-show-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </button>
       <a class="sidebar-link sb-cur" data-sub="show" href="#notes" data-tab="notes" onclick="curShowNotes();closeSidebarMobile();return false;" data-label="Show notes"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1zM9 2.5v3M15 2.5v3M8.5 11h7M8.5 15h5"/></svg></span><span class="sl-label">Show notes</span></a>
@@ -6212,17 +6231,27 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
       <a class="sidebar-link" href="#checklists" data-tab="checklists" onclick="switchTab('checklists');closeSidebarMobile();return false;" data-label="Pre-Show Checklists"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4.5H6a1 1 0 00-1 1V20a1 1 0 001 1h12a1 1 0 001-1V5.5a1 1 0 00-1-1h-1M9 3h6v3H9zM9 13.5l2 2 4-4.5"/></svg></span><span class="sl-label">Pre-Show Checklists</span></a>
         <div class="sb-show-links" id="sb-show-links"></div>
       </div>
+      <!-- The Children's Theatre show being worked on: the next Children's show still to open, or the one picked here. -->
+      <div class="sb-show sb-kshow" id="sb-kshow">
+        <button type="button" class="sb-show-pick" id="sb-kshow-pick" onclick="curShowPicker(event,'kids')" aria-haspopup="menu" aria-expanded="false" title="Change the Children's Theatre show">
+          <small>Children's Theatre</small><b id="sb-kshow-name">&nbsp;</b><span id="sb-kshow-when"></span>
+          <svg class="sb-show-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      <a class="sidebar-link sb-cur" data-sub="kshow" href="#notes" data-tab="notes" onclick="curShowNotes('kids');closeSidebarMobile();return false;" data-label="Show notes"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1zM9 2.5v3M15 2.5v3M8.5 11h7M8.5 15h5"/></svg></span><span class="sl-label">Show notes</span></a>
+      <a class="sidebar-link sb-cur" data-sub="kshow" href="#scripts" data-tab="scripts" onclick="curShowScript('kids');closeSidebarMobile();return false;" data-label="Script &amp; Cue Sheet"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM8 7.5h.01M8 12h.01M8 16.5h.01M11 8h5M11 12h5M11 16h3"/></svg></span><span class="sl-label">Script &amp; Cue Sheet</span></a>
+        <div class="sb-show-links sb-kshow-links" id="sb-kshow-links"></div>
+      </div>
       <div class="sidebar-divider sb-show-div"></div>
       <a class="sidebar-link active" href="#home" data-tab="home" onclick="switchTab('home');closeSidebarMobile();return false;" data-label="Home"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7M5 9.5V20h14V9.5M10 20v-5.5h4V20"/></svg></span><span class="sl-label">Home</span></a>
-      <button type="button" class="sidebar-link sb-fold-btn" id="sb-fold-prod" onclick="sbFold('prod')" aria-expanded="false" aria-controls="sb-fold-prod-body" data-label="Productions" data-open="1"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h16v10a1 1 0 01-1 1H5a1 1 0 01-1-1zM4 9l1.5-4.5 3.5 1M10 5.6l4-1.1M15.5 4.2l4.5-.7L20 9M8 5.2L9 9M14 4.6L15 9"/></svg></span><span class="sl-label">Productions</span><svg class="sb-fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+      <a class="sidebar-link" href="#todo" data-tab="todo" onclick="switchTab('todo');closeSidebarMobile();return false;" data-label="To Do"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5l1.5 1.5L8 5.5M11 7h9M4 12.5l1.5 1.5L8 11.5M11 13h9M4.5 17.5h3v3h-3zM11 19h9"/></svg></span><span class="sl-label">To Do</span><span class="cleaning-badge sb-count" id="sb-todo-count" style="display:none;"></span></a>
+      <a class="sidebar-link parked-daytracker" style="display:none;" href="#daytracker" data-tab="daytracker" onclick="switchTab('daytracker');closeSidebarMobile();return false;" data-label="Day Tracker"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1018 0a9 9 0 10-18 0M12 7v5l3 2"/></svg></span><span class="sl-label">Day Tracker</span></a>
+      <a class="sidebar-link" href="#shopping" data-tab="shopping" onclick="switchTab('shopping');closeSidebarMobile();return false;" data-label="Shopping"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2.2l2.3 11h10.2l2-7.5H6.4M9.2 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0M16 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0"/></svg></span><span class="sl-label">Shopping</span></a>
+      <button type="button" class="sidebar-link sb-fold-btn" id="sb-fold-prod" onclick="sbFold('prod')" aria-expanded="false" aria-controls="sb-fold-prod-body" data-label="Productions" data-open="0"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h16v10a1 1 0 01-1 1H5a1 1 0 01-1-1zM4 9l1.5-4.5 3.5 1M10 5.6l4-1.1M15.5 4.2l4.5-.7L20 9M8 5.2L9 9M14 4.6L15 9"/></svg></span><span class="sl-label">Productions</span><svg class="sb-fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
       <div class="sb-fold" id="sb-fold-prod-body" hidden>
       <a data-sub="list" class="sidebar-link" href="#notes" data-tab="notes" onclick="switchTab('notes');closeSidebarMobile();return false;" data-label="All Shows"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1zM9 2.5v3M15 2.5v3M8.5 11h7M8.5 15h5"/></svg></span><span class="sl-label">All Shows</span></a>
       <a data-sub="list" class="sidebar-link" href="#scripts" data-tab="scripts" onclick="switchTab('scripts');closeSidebarMobile();return false;" data-label="All Scripts"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM8 7.5h.01M8 12h.01M8 16.5h.01M11 8h5M11 12h5M11 16h3"/></svg></span><span class="sl-label">All Scripts</span></a>
       <a class="sidebar-link" href="#calendar" data-tab="calendar" onclick="switchTab('calendar');closeSidebarMobile();return false;" data-label="Show Calendar"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16a1 1 0 011 1V20a1 1 0 01-1 1H4a1 1 0 01-1-1V6.5a1 1 0 011-1zM3 10h18M8 3v4M16 3v4M8 14h2M14 14h2M8 17.5h2"/></svg></span><span class="sl-label">Show Calendar</span></a>
       </div>
-      <a class="sidebar-link" href="#todo" data-tab="todo" onclick="switchTab('todo');closeSidebarMobile();return false;" data-label="To Do"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5l1.5 1.5L8 5.5M11 7h9M4 12.5l1.5 1.5L8 11.5M11 13h9M4.5 17.5h3v3h-3zM11 19h9"/></svg></span><span class="sl-label">To Do</span><span class="cleaning-badge sb-count" id="sb-todo-count" style="display:none;"></span></a>
-      <a class="sidebar-link parked-daytracker" style="display:none;" href="#daytracker" data-tab="daytracker" onclick="switchTab('daytracker');closeSidebarMobile();return false;" data-label="Day Tracker"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1018 0a9 9 0 10-18 0M12 7v5l3 2"/></svg></span><span class="sl-label">Day Tracker</span></a>
-      <a class="sidebar-link" href="#shopping" data-tab="shopping" onclick="switchTab('shopping');closeSidebarMobile();return false;" data-label="Shopping"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2.2l2.3 11h10.2l2-7.5H6.4M9.2 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0M16 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0"/></svg></span><span class="sl-label">Shopping</span></a>
       <button type="button" class="sidebar-link sb-fold-btn" id="sb-fold-ware" onclick="sbFold('ware')" aria-expanded="false" aria-controls="sb-fold-ware-body" data-label="Warehouse" data-open="0"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></span><span class="sl-label">Warehouse</span><svg class="sb-fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
       <div class="sb-fold" id="sb-fold-ware-body" hidden>
       <a class="sidebar-link" href="#inventory" data-tab="inventory" onclick="switchTab('inventory');closeSidebarMobile();return false;" data-label="Set Piece Catalogue"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h10v18H5zM15 8l4.5 13M3 21h18M8 7h4"/></svg></span><span class="sl-label">Set Piece Catalogue</span></a>
@@ -6230,23 +6259,23 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
       <a class="sidebar-link" href="#storagemap" data-tab="storagemap" onclick="switchTab('storagemap');closeSidebarMobile();return false;" data-label="Storage Map"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5zM9 4v13.5M15 6.5V20"/></svg></span><span class="sl-label">Storage Map</span></a>
       <a class="sidebar-link" href="#reference" data-tab="reference" onclick="switchTab('reference');closeSidebarMobile();return false;" data-label="Reference Photos"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.8-2.5h6.4L17 8h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1zM8.5 13.5a3.5 3.5 0 107 0a3.5 3.5 0 10-7 0"/></svg></span><span class="sl-label">Reference Photos</span></a>
       </div>
-      <!-- PARKED: Show Archive sidebar link -->
-      <button type="button" class="sidebar-link sb-fold-btn" id="sb-fold-more" onclick="sbFold('more')" aria-expanded="false" aria-controls="sb-fold-more-body" data-label="More" data-open="0"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg></span><span class="sl-label">More</span><svg class="sb-fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+      <a class="sidebar-link" href="#links" data-tab="links" onclick="switchTab('links');closeSidebarMobile();return false;" data-label="Links"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 005.66 0l3-3a4 4 0 00-5.66-5.66l-1 1M14 10a4 4 0 00-5.66 0l-3 3a4 4 0 005.66 5.66l1-1"/></svg></span><span class="sl-label">Links</span></a>
+      <button type="button" class="sidebar-link sb-fold-btn" id="sb-fold-more" onclick="sbFold('more')" aria-expanded="false" aria-controls="sb-fold-more-body" data-label="Utilities" data-open="0"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg></span><span class="sl-label">Utilities</span><svg class="sb-fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
       <div class="sb-fold" id="sb-fold-more-body" hidden>
       <a class="sidebar-link" href="#cleaning" data-tab="cleaning" onclick="switchTab('cleaning');closeSidebarMobile();return false;" data-label="Cleaning Log"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 21V13l1.5-3h4.5l1 3v8zM10.5 10V7h4v3M14.5 7H18l-1.5 2M20 5.5l1.5-.8M20 8.5l1.5.8M20.5 7h1.5"/></svg></span><span class="sl-label">Cleaning Log</span><span class="cleaning-badge" id="cleaning-badge" style="display:none;"></span></a>
       <a class="sidebar-link" href="#todo2" data-tab="todo2" onclick="switchTab('todo2');closeSidebarMobile();return false;" data-label="To Do 2 (beta)"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1zM7.5 9.5l1.5 1.5 2.5-2.5M14 10h3M7.5 15h4M14 15h3"/></svg></span><span class="sl-label">To Do 2 (beta)</span><span class="cleaning-badge" id="t2-badge" style="display:none;"></span></a>
-      <a class="sidebar-link" href="#links" data-tab="links" onclick="switchTab('links');closeSidebarMobile();return false;" data-label="Links"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 005.66 0l3-3a4 4 0 00-5.66-5.66l-1 1M14 10a4 4 0 00-5.66 0l-3 3a4 4 0 005.66 5.66l1-1"/></svg></span><span class="sl-label">Links</span></a>
       <!-- PARKED: Paint sidebar shortcut -->
       <a class="sidebar-link td-only" href="#sidework" data-tab="sidework" onclick="switchTab('sidework');closeSidebarMobile();return false;" data-label="Side Job Notes"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1zM9 7V5a1 1 0 011-1h4a1 1 0 011 1v2M3 12.5h18"/></svg></span><span class="sl-label">Side Job Notes</span></a>
       </div>
       <div class="sidebar-divider"></div>
-      <!-- Quick Add: the common "add one thing" jobs without going to the page first. -->
       <div class="sb-qa" id="sb-qa">
-        <div class="sidebar-section-label sb-qa-h"><span class="sb-qa-plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>Quick Add</div>
-        <button type="button" class="sb-qa-item qa-task" onclick="qaOpen('task', this)"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5l1.5 1.5L8 5.5M11 7h9M4 12.5l1.5 1.5L8 11.5M11 13h9M4.5 17.5h3v3h-3zM11 19h9"/></svg></span><span>New to-do</span></button>
-        <button type="button" class="sb-qa-item qa-shop" onclick="qaOpen('shop', this)"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2.2l2.3 11h10.2l2-7.5H6.4M9.2 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0M16 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0"/></svg></span><span>Shopping item</span></button>
-        <button type="button" class="sb-qa-item qa-inv" onclick="qaSetPiece()"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></span><span>Set piece</span></button>
-        <button type="button" class="sb-qa-item qa-ref" onclick="qaPhoto()"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.8-2.5h6.4L17 8h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1zM8.5 13.5a3.5 3.5 0 107 0a3.5 3.5 0 10-7 0"/></svg></span><span>Reference photo</span></button>
+        <button type="button" class="sidebar-section-label sb-qa-h" id="sb-qa-toggle" onclick="sbQaToggle()" aria-expanded="false" aria-controls="sb-qa-body"><span class="sb-qa-plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>Quick Add<svg class="sb-fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="sb-qa-body" id="sb-qa-body" hidden>
+          <button type="button" class="sb-qa-item qa-task" onclick="qaOpen('task', this)"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5l1.5 1.5L8 5.5M11 7h9M4 12.5l1.5 1.5L8 11.5M11 13h9M4.5 17.5h3v3h-3zM11 19h9"/></svg></span><span>New to-do</span></button>
+          <button type="button" class="sb-qa-item qa-shop" onclick="qaOpen('shop', this)"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2.2l2.3 11h10.2l2-7.5H6.4M9.2 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0M16 19.2a1.2 1.2 0 102.4 0a1.2 1.2 0 10-2.4 0"/></svg></span><span>Shopping item</span></button>
+          <button type="button" class="sb-qa-item qa-inv" onclick="qaSetPiece()"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></span><span>Set piece</span></button>
+          <button type="button" class="sb-qa-item qa-ref" onclick="qaPhoto()"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.8-2.5h6.4L17 8h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1zM8.5 13.5a3.5 3.5 0 107 0a3.5 3.5 0 10-7 0"/></svg></span><span>Reference photo</span></button>
+        </div>
       </div>
     </nav>
     <div class="sidebar-footer sb-foot">
@@ -7410,7 +7439,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v5 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v6 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -13693,27 +13722,46 @@ function hubLinkDel(slug, i) {
   renderShowHub(); sbShowRender(); try { renderHomeShowCards(); } catch (e) {}
 }
 function sbShowLinksRender() {
-  const el = document.getElementById('sb-show-links'); if (!el) return;
-  const sh = curShow(), ls = sh ? showLinks(showSlug(sh.name)) : [];
-  el.innerHTML = ls.map(l => `<a class="sidebar-link sb-xlink" href="${esc(l.url)}" target="_blank" rel="noopener" onclick="closeSidebarMobile()" data-label="${esc(l.name)}" title="${esc(l.url)}"><span class="sl-icon">${LINK_ICON}</span><span class="sl-label">${esc(l.name || hostOf(l.url))}</span><span class="sb-xlink-ext" aria-hidden="true">↗</span></a>`).join('');
+  ['main', 'kids'].forEach(kind => {
+    const el = document.getElementById(CS_ID[kind] + '-links'); if (!el) return;
+    const sh = curShow(kind), ls = sh ? showLinks(showSlug(sh.name)) : [];
+    el.innerHTML = ls.map(l => `<a class="sidebar-link sb-xlink" href="${esc(l.url)}" target="_blank" rel="noopener" onclick="closeSidebarMobile()" data-label="${esc(l.name)}" title="${esc(l.url)}"><span class="sl-icon">${LINK_ICON}</span><span class="sl-label">${esc(l.name || hostOf(l.url))}</span><span class="sb-xlink-ext" aria-hidden="true">↗</span></a>`).join('');
+  });
 }
 
 // ── CURRENT SHOW (side menu, Home, phone bar) ─────────────────────────────
-// The show being worked on is the next Mainstage show that hasn't opened yet:
-// on the day after opening night it moves on to the next one. Children's
-// shows are reached from the picker. A show picked there stays picked (on
-// this device) until "Automatic" is chosen again.
-function curShowAuto() {
+// Two blocks in the side menu: Mainstage and Children's Theatre. Each one's
+// show is the next show of its kind that hasn't opened yet: on the day after
+// opening night it moves on to the next one. A show picked in a block's
+// picker stays picked (on this device) until "Automatic" is chosen again.
+// Home, the phone bar and everything else that asks for "the current show"
+// use the Mainstage one (kind left out = 'main').
+const CS_KEY = { main: 'mmt_cur_show', kids: 'mmt_cur_kshow' };
+const CS_ID = { main: 'sb-show', kids: 'sb-kshow' };
+function csKind(k) { return k === 'kids' ? 'kids' : 'main'; }
+function csList(kind) { return csKind(kind) === 'kids' ? (typeof CHILDRENS !== 'undefined' ? CHILDRENS : []) : MAINSTAGE; }
+function curShowAuto(kind) {
+  kind = csKind(kind);
   const t = todayISO();
-  const ms = MAINSTAGE.slice().filter(x => x && x.start).sort((a, b) => a.start.localeCompare(b.start));
+  const ms = (csList(kind) || []).slice().filter(x => x && x.start).sort((a, b) => a.start.localeCompare(b.start));
   const s = ms.find(x => x.start >= t) || ms[ms.length - 1] || null;
-  return s ? Object.assign({}, s, { type: 'Mainstage' }) : null;
+  return s ? Object.assign({}, s, { type: kind === 'kids' ? "Children's" : 'Mainstage' }) : null;
 }
-function curShowPick() { try { return localStorage.getItem('mmt_cur_show') || ''; } catch (e) { return ''; } }
-function curShow() {
-  const p = curShowPick();
+// Before there were two blocks, a Children's show picked in the one picker
+// was kept under the Mainstage key: move it to the Children's block.
+(function csMigrate() {
+  try {
+    const p = localStorage.getItem(CS_KEY.main); if (!p) return;
+    const isKids = (typeof CHILDRENS !== 'undefined' ? CHILDRENS : []).some(x => showSlug(x.name) === p);
+    if (isKids) { if (!localStorage.getItem(CS_KEY.kids)) localStorage.setItem(CS_KEY.kids, p); localStorage.removeItem(CS_KEY.main); }
+  } catch (e) {}
+})();
+function curShowPick(kind) { try { return localStorage.getItem(CS_KEY[csKind(kind)]) || ''; } catch (e) { return ''; } }
+function curShow(kind) {
+  kind = csKind(kind);
+  const p = curShowPick(kind);
   if (p) { const s = allShows().find(x => showSlug(x.name) === p); if (s) return Object.assign({}, s, { picked: true }); }
-  return curShowAuto();
+  return curShowAuto(kind);
 }
 function curShowWhen(sh) {
   if (!sh) return '';
@@ -13726,79 +13774,110 @@ function curShowWhen(sh) {
   return 'Closed ' + off;
 }
 function sbShowRender() {
-  const sh = curShow();
-  const n = document.getElementById('sb-show-name'), w = document.getElementById('sb-show-when');
-  if (n) n.textContent = sh ? sh.name : 'No show';
-  const when = sh ? curShowWhen(sh) : '';
-  if (w) w.textContent = sh ? (sh.picked ? 'Picked · ' : (showStatus(sh.start, sh.end) === 'upcoming' ? 'Up next · ' : '')) + (/^Opens/.test(when) && !sh.picked ? 'o' + when.slice(1) : when) : '';
+  ['main', 'kids'].forEach(kind => {
+    const id = CS_ID[kind], sh = curShow(kind);
+    const n = document.getElementById(id + '-name'), w = document.getElementById(id + '-when');
+    if (n) n.textContent = sh ? sh.name : 'No show';
+    const when = sh ? curShowWhen(sh) : '';
+    if (w) w.textContent = sh ? (sh.picked ? 'Picked · ' : (showStatus(sh.start, sh.end) === 'upcoming' ? 'Up next · ' : '')) + (/^Opens/.test(when) && !sh.picked ? 'o' + when.slice(1) : when) : '';
+  });
   try { sbShowLinksRender(); } catch (e) {}
   try { sbSyncActive(); } catch (e) {}
 }
-function curShowNotes() { const sh = curShow(); if (!sh) { switchTab('notes'); return; } openShowHub(showSlug(sh.name)); sbSyncActive(); }
-function curShowScript() { const sh = curShow(); if (!sh) { switchTab('scripts'); return; } openScriptForShow(sh.name); }
-function curShowSet(slug) {
-  try { if (slug) localStorage.setItem('mmt_cur_show', slug); else localStorage.removeItem('mmt_cur_show'); } catch (e) {}
+function curShowNotes(kind) { const sh = curShow(kind); if (!sh) { switchTab('notes'); return; } openShowHub(showSlug(sh.name)); sbSyncActive(); }
+function curShowScript(kind) { const sh = curShow(kind); if (!sh) { switchTab('scripts'); return; } openScriptForShow(sh.name); }
+function curShowSet(slug, kind) {
+  kind = csKind(kind);
+  try { if (slug) localStorage.setItem(CS_KEY[kind], slug); else localStorage.removeItem(CS_KEY[kind]); } catch (e) {}
   curShowPickerClose();
   sbShowRender();
   try { renderWidgets(); } catch (e) {}
 }
-function curShowPicker(ev) {
+function curShowPicker(ev, kind) {
+  kind = csKind(kind);
   if (ev) ev.stopPropagation();
-  if (document.getElementById('sb-show-menu')) { curShowPickerClose(); return; }
-  const btn = document.getElementById('sb-show-pick');
-  const auto = curShowAuto(), pick = curShowPick();
-  const live = allShows().filter(x => showStatus(x.start, x.end) !== 'past');
-  const row = (slug, name, sub, on) => `<button type="button" role="menuitemradio" aria-checked="${on}" class="sbm-row${on ? ' on' : ''}" onclick="curShowSet('${esc(slug)}')"><span><b>${esc(name)}</b><small>${esc(sub)}</small></span>${on ? '<i>✓</i>' : ''}</button>`;
-  const grp = (label, list) => list.length ? `<div class="sbm-h">${label}</div>` + list.map(x => row(showSlug(x.name), x.name, curShowWhen(x), pick === showSlug(x.name))).join('') : '';
+  const open = document.getElementById('sb-show-menu');
+  if (open) { const same = open.dataset.kind === kind; curShowPickerClose(); if (same) return; }
+  const btn = document.getElementById(CS_ID[kind] + '-pick');
+  const auto = curShowAuto(kind), pick = curShowPick(kind);
+  const label = kind === 'kids' ? "Children's" : 'Mainstage';
+  const live = allShows().filter(x => showStatus(x.start, x.end) !== 'past' && (kind === 'kids' ? x.type !== 'Mainstage' : x.type === 'Mainstage'));
+  const row = (slug, name, sub, on) => `<button type="button" role="menuitemradio" aria-checked="${on}" class="sbm-row${on ? ' on' : ''}" onclick="curShowSet('${esc(slug)}','${kind}')"><span><b>${esc(name)}</b><small>${esc(sub)}</small></span>${on ? '<i>✓</i>' : ''}</button>`;
   const m = document.createElement('div');
-  m.id = 'sb-show-menu'; m.className = 'sb-show-menu'; m.setAttribute('role', 'menu');
-  m.innerHTML = row('', 'Automatic', auto ? 'Next Mainstage show to open: ' + auto.name : 'Next Mainstage show to open', !pick)
-    + grp('Mainstage', live.filter(x => x.type === 'Mainstage').slice(0, 6))
-    + grp("Children's", live.filter(x => x.type !== 'Mainstage').slice(0, 6));
+  m.id = 'sb-show-menu'; m.className = 'sb-show-menu'; m.setAttribute('role', 'menu'); m.dataset.kind = kind;
+  m.innerHTML = row('', 'Automatic', auto ? 'Next ' + label + ' show to open: ' + auto.name : 'Next ' + label + ' show to open', !pick)
+    + (live.length ? `<div class="sbm-h">${label}</div>` + live.slice(0, 8).map(x => row(showSlug(x.name), x.name, curShowWhen(x), pick === showSlug(x.name))).join('') : '');
   document.body.appendChild(m);
   const r = btn.getBoundingClientRect();
   m.style.left = Math.max(8, Math.min(r.left, innerWidth - m.offsetWidth - 8)) + 'px';
-  m.style.top = Math.min(r.bottom + 6, innerHeight - m.offsetHeight - 8) + 'px';
+  m.style.top = Math.max(8, Math.min(r.bottom + 6, innerHeight - m.offsetHeight - 8)) + 'px';
   btn.setAttribute('aria-expanded', 'true');
   setTimeout(() => document.addEventListener('click', curShowPickerOutside, true), 0);
 }
-function curShowPickerOutside(e) { const m = document.getElementById('sb-show-menu'); if (m && !m.contains(e.target)) curShowPickerClose(); }
+function curShowPickerOutside(e) { const m = document.getElementById('sb-show-menu'); if (m && !m.contains(e.target) && !e.target.closest('.sb-show-pick')) curShowPickerClose(); }
 function curShowPickerClose() {
   const m = document.getElementById('sb-show-menu'); if (m) m.remove();
   document.removeEventListener('click', curShowPickerOutside, true);
-  const b = document.getElementById('sb-show-pick'); if (b) b.setAttribute('aria-expanded', 'false');
+  document.querySelectorAll('.sb-show-pick').forEach(b => b.setAttribute('aria-expanded', 'false'));
 }
 // Two menu items share a page (Show notes / All Shows; Script & Cue Sheet /
 // All Scripts): light the one that matches what's on screen.
 function sbSyncActive() {
   const tab = typeof currentTab !== 'undefined' ? currentTab : '';
-  const sh = curShow(), slug = sh ? showSlug(sh.name) : '';
+  const slugOf = k => { const sh = curShow(k); return sh ? showSlug(sh.name) : ''; };
+  const slug = slugOf('main'), kslug = slugOf('kids');
   const ed = document.getElementById('scripts-editor');
+  const edOpen = !!(ed && ed.classList.contains('open'));
+  // The open script is the Children's show's when it's the one linked to it.
+  let edKids = false; try { edKids = !!(kslug && kslug !== slug && typeof showId !== 'undefined' && showId && hubRec(kslug).scriptId === showId); } catch (e) {}
   document.querySelectorAll('.sidebar-link[data-sub], .bottom-tab[data-sub]').forEach(a => {
     const t = a.getAttribute('data-tab');
     if (t !== tab) { a.classList.remove('active'); return; }
-    const showSide = t === 'notes' ? (!!_hubSlug && _hubSlug === slug) : !!(ed && ed.classList.contains('open'));
-    if (a.classList.contains('bottom-tab')) { a.classList.toggle('active', showSide); return; }
-    a.classList.toggle('active', a.getAttribute('data-sub') === (showSide ? 'show' : 'list'));
+    // Which block the page belongs to: Children's when it's that block's show.
+    let side = 'list';
+    if (t === 'notes') side = !_hubSlug ? 'list' : _hubSlug === kslug && kslug !== slug ? 'kshow' : _hubSlug === slug ? 'show' : 'list';
+    else if (edOpen) side = edKids ? 'kshow' : 'show';
+    if (a.classList.contains('bottom-tab')) { a.classList.toggle('active', side !== 'list'); return; }
+    a.classList.toggle('active', a.getAttribute('data-sub') === side);
   });
   // The page you're on is never hidden inside a closed group.
   document.querySelectorAll('#sidebar .sb-fold').forEach(b => {
     if (b.hidden && b.querySelector('.sidebar-link.active')) sbFold(b.id.replace(/^sb-fold-|-body$/g, ''), true, true);
   });
 }
-// Folding groups (Productions, Warehouse, More). Each remembers open/closed
-// on this device; Productions starts open, the others closed.
+// Folding groups (Productions, Warehouse, Utilities). Each remembers open/closed
+// on this device; all start closed.
 function sbFold(key, open, quiet) {
   const btn = document.getElementById('sb-fold-' + key), body = document.getElementById('sb-fold-' + key + '-body');
   if (!btn || !body) return;
   const on = typeof open === 'boolean' ? open : body.hidden;
+  if (on && !quiet && sbIsPhone()) sbFoldOthers(key);
   body.hidden = !on;
   btn.setAttribute('aria-expanded', on ? 'true' : 'false');
   btn.classList.toggle('open', on);
   if (!quiet) { try { localStorage.setItem('mmt_sb_fold_' + key, on ? '1' : '0'); } catch (e) {} }
   sbTidy();
 }
-function sbMoreToggle(open) { sbFold('more', open); }   // older name, still used in places
+function sbMoreToggle(open) { sbFold('more', open); }
+function sbIsPhone() { return innerWidth <= 768; }
+function sbQaToggle(open, quiet) {
+  const btn = document.getElementById('sb-qa-toggle'), body = document.getElementById('sb-qa-body');
+  if (!btn || !body) return;
+  const on = typeof open === 'boolean' ? open : body.hidden;
+  if (on && !quiet && sbIsPhone()) sbFoldOthers('qa');
+  body.hidden = !on;
+  btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+  btn.classList.toggle('open', on);
+  if (!quiet) { try { localStorage.setItem('mmt_sb_fold_qa', on ? '1' : '0'); } catch (e) {} }
+}
+// On a phone the groups work one at a time: opening one closes the others.
+function sbFoldOthers(keep) {
+  document.querySelectorAll('#sidebar .sb-fold-btn').forEach(b => {
+    const k = b.id.replace(/^sb-fold-/, '');
+    if (k !== keep && b.classList.contains('open')) sbFold(k, false, true);
+  });
+  if (keep !== 'qa') { const q = document.getElementById('sb-qa-body'); if (q && !q.hidden) sbQaToggle(false, true); }
+}   // older name, still used in places
 // A group with nothing in it for this person (crew) hides its button; a
 // closed group shows a dot when something inside has a count waiting.
 function sbTidy() {
@@ -13813,8 +13892,10 @@ function sbTidy() {
     if (waiting && !dot) { dot = document.createElement('span'); dot.className = 'sb-fold-dot'; btn.insertBefore(dot, btn.querySelector('.sb-fold-chev')); }
     if (!waiting && dot) dot.remove();
   });
-  const show = document.getElementById('sb-show');
-  if (show) show.classList.toggle('sb-show-empty', ![...show.querySelectorAll('.sidebar-link')].some(vis));
+  ['sb-show', 'sb-kshow'].forEach(id => {
+    const show = document.getElementById(id);
+    if (show) show.classList.toggle('sb-show-empty', ![...show.querySelectorAll('.sidebar-link')].some(vis));
+  });
   const qa = document.getElementById('sb-qa');
   if (qa) qa.classList.toggle('sb-hide', ![...qa.querySelectorAll('.sb-qa-item')].some(b => getComputedStyle(b).display !== 'none'));
 }
@@ -13832,6 +13913,7 @@ function sbTodoCount() {
       if (v === null && key === 'more') { try { v = localStorage.getItem('mmt_sb_more'); } catch (e) {} }
       sbFold(key, v === null ? b.getAttribute('data-open') === '1' : v === '1', true);
     });
+    { let v = null; try { v = localStorage.getItem('mmt_sb_fold_qa'); } catch (e) {} sbQaToggle(v === '1', true); }
     sbShowRender(); sbTidy(); sbTodoCount(); sbTodayRender();
     const ed = document.getElementById('scripts-editor');
     if (ed && window.MutationObserver) new MutationObserver(() => { try { sbSyncActive(); } catch (e) {} }).observe(ed, { attributes: true, attributeFilter: ['class'] });
