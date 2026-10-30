@@ -2179,6 +2179,21 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   button.sb-qa-h:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
   button.sb-qa-h.open .sb-fold-chev { transform: rotate(180deg); }
   html[data-theme="dark"] button.sb-qa-h { color: var(--text-muted); }
+  /* Show boxes fold: tap the box to hide/show its pages; ⇄ changes the show. */
+  .sb-show-card { position: relative; }
+  .sb-show-card .sb-show-pick { padding-right: 70px; }
+  .sb-show-swap { all: unset; box-sizing: border-box; position: absolute; top: 8px; right: 34px; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.75); cursor: pointer; }
+  .sb-show-swap:hover, .sb-show-swap[aria-expanded="true"] { background: rgba(255,255,255,0.14); color: #fff; }
+  .sb-show-swap:focus-visible { outline: 2px solid #fff; outline-offset: 0; }
+  #sidebar .sb-show-swap svg { width: 17px !important; height: 17px !important; min-width: 17px; flex: none; display: block; }
+  #sidebar .sb-show-swap { min-height: 0 !important; width: 32px !important; height: 32px !important; padding: 0 !important; }
+  .sb-show-card .sb-show-chev { transition: transform .15s; }
+  .sb-show.sb-show-folded .sb-show-chev { transform: rotate(-90deg); }
+  .sb-show.sb-show-folded .sb-show-pick { margin-bottom: 4px; }
+  #sidebar:not(.collapsed) .sb-show.sb-show-folded > .sidebar-link, #sidebar:not(.collapsed) .sb-show.sb-show-folded > .sb-show-links { display: none !important; }
+  .sidebar.collapsed .sb-show-swap { display: none; }
+  @media (max-width: 768px) { #sidebar .sb-show-swap { width: 40px !important; height: 40px !important; top: 6px; right: 30px; } .sb-show-card .sb-show-pick { padding-right: 76px; } }
   /* Children's Theatre block sits right under the Mainstage one. */
   .sb-kshow { margin-top: 6px; }
   .sb-kshow .sb-show-pick span { color: #a7f3d0; }
@@ -6221,10 +6236,10 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
       <!-- The show being worked on: the next Mainstage show still to open
            (it moves on the day after opening night), or the one picked here. -->
       <div class="sb-show" id="sb-show">
-        <button type="button" class="sb-show-pick" id="sb-show-pick" onclick="curShowPicker(event)" aria-haspopup="menu" aria-expanded="false" title="Change the current show">
+        <div class="sb-show-card"><button type="button" class="sb-show-pick" id="sb-show-pick" onclick="sbShowFold('main')" aria-expanded="true" title="Show or hide this show's pages">
           <small>Mainstage</small><b id="sb-show-name">&nbsp;</b><span id="sb-show-when"></span>
           <svg class="sb-show-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
+        </button><button type="button" class="sb-show-swap" id="sb-show-swap" onclick="curShowPicker(event,'main')" aria-haspopup="menu" aria-expanded="false" title="Change the Mainstage show" aria-label="Change the Mainstage show"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></svg></button></div>
       <a class="sidebar-link sb-cur" data-sub="show" href="#notes" data-tab="notes" onclick="curShowNotes();closeSidebarMobile();return false;" data-label="Show notes"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1zM9 2.5v3M15 2.5v3M8.5 11h7M8.5 15h5"/></svg></span><span class="sl-label">Show notes</span></a>
       <a class="sidebar-link sb-cur" data-sub="show" href="#scripts" data-tab="scripts" onclick="curShowScript();closeSidebarMobile();return false;" data-label="Script &amp; Cue Sheet"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM8 7.5h.01M8 12h.01M8 16.5h.01M11 8h5M11 12h5M11 16h3"/></svg></span><span class="sl-label">Script &amp; Cue Sheet</span></a>
       <a class="sidebar-link sb-cs-solo" href="cue-list.html" data-link="cuesheet" onclick="openCueSheetFromMenu();closeSidebarMobile();return false;" data-label="Cue Sheet"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1zM3 9h18M8.5 9v11M11.5 12.5h6M11.5 16h6"/></svg></span><span class="sl-label">Cue Sheet</span></a>
@@ -6233,10 +6248,10 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
       </div>
       <!-- The Children's Theatre show being worked on: the next Children's show still to open, or the one picked here. -->
       <div class="sb-show sb-kshow" id="sb-kshow">
-        <button type="button" class="sb-show-pick" id="sb-kshow-pick" onclick="curShowPicker(event,'kids')" aria-haspopup="menu" aria-expanded="false" title="Change the Children's Theatre show">
+        <div class="sb-show-card"><button type="button" class="sb-show-pick" id="sb-kshow-pick" onclick="sbShowFold('kids')" aria-expanded="true" title="Show or hide this show's pages">
           <small>Children's Theatre</small><b id="sb-kshow-name">&nbsp;</b><span id="sb-kshow-when"></span>
           <svg class="sb-show-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
+        </button><button type="button" class="sb-show-swap" id="sb-kshow-swap" onclick="curShowPicker(event,'kids')" aria-haspopup="menu" aria-expanded="false" title="Change the Children's Theatre show" aria-label="Change the Children's Theatre show"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></svg></button></div>
       <a class="sidebar-link sb-cur" data-sub="kshow" href="#notes" data-tab="notes" onclick="curShowNotes('kids');closeSidebarMobile();return false;" data-label="Show notes"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1zM9 2.5v3M15 2.5v3M8.5 11h7M8.5 15h5"/></svg></span><span class="sl-label">Show notes</span></a>
       <a class="sidebar-link sb-cur" data-sub="kshow" href="#scripts" data-tab="scripts" onclick="curShowScript('kids');closeSidebarMobile();return false;" data-label="Script &amp; Cue Sheet"><span class="sl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM8 7.5h.01M8 12h.01M8 16.5h.01M11 8h5M11 12h5M11 16h3"/></svg></span><span class="sl-label">Script &amp; Cue Sheet</span></a>
         <div class="sb-show-links sb-kshow-links" id="sb-kshow-links"></div>
@@ -7439,7 +7454,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v6 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v7 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -13798,7 +13813,7 @@ function curShowPicker(ev, kind) {
   if (ev) ev.stopPropagation();
   const open = document.getElementById('sb-show-menu');
   if (open) { const same = open.dataset.kind === kind; curShowPickerClose(); if (same) return; }
-  const btn = document.getElementById(CS_ID[kind] + '-pick');
+  const btn = document.getElementById(CS_ID[kind] + '-swap'), card = btn.closest('.sb-show-card') || btn;
   const auto = curShowAuto(kind), pick = curShowPick(kind);
   const label = kind === 'kids' ? "Children's" : 'Mainstage';
   const live = allShows().filter(x => showStatus(x.start, x.end) !== 'past' && (kind === 'kids' ? x.type !== 'Mainstage' : x.type === 'Mainstage'));
@@ -13808,17 +13823,27 @@ function curShowPicker(ev, kind) {
   m.innerHTML = row('', 'Automatic', auto ? 'Next ' + label + ' show to open: ' + auto.name : 'Next ' + label + ' show to open', !pick)
     + (live.length ? `<div class="sbm-h">${label}</div>` + live.slice(0, 8).map(x => row(showSlug(x.name), x.name, curShowWhen(x), pick === showSlug(x.name))).join('') : '');
   document.body.appendChild(m);
-  const r = btn.getBoundingClientRect();
+  const r = card.getBoundingClientRect();
   m.style.left = Math.max(8, Math.min(r.left, innerWidth - m.offsetWidth - 8)) + 'px';
   m.style.top = Math.max(8, Math.min(r.bottom + 6, innerHeight - m.offsetHeight - 8)) + 'px';
   btn.setAttribute('aria-expanded', 'true');
   setTimeout(() => document.addEventListener('click', curShowPickerOutside, true), 0);
 }
-function curShowPickerOutside(e) { const m = document.getElementById('sb-show-menu'); if (m && !m.contains(e.target) && !e.target.closest('.sb-show-pick')) curShowPickerClose(); }
+function curShowPickerOutside(e) { const m = document.getElementById('sb-show-menu'); if (m && !m.contains(e.target) && !e.target.closest('.sb-show-swap')) curShowPickerClose(); }
+// Each show box folds its pages away (remembered on this device; starts open).
+function sbShowFold(kind, open, quiet) {
+  kind = csKind(kind);
+  const box = document.getElementById(CS_ID[kind]), btn = document.getElementById(CS_ID[kind] + '-pick');
+  if (!box) return;
+  const on = typeof open === 'boolean' ? open : box.classList.contains('sb-show-folded');
+  box.classList.toggle('sb-show-folded', !on);
+  if (btn) btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+  if (!quiet) { try { localStorage.setItem('mmt_sb_fold_' + CS_ID[kind].replace('sb-', ''), on ? '1' : '0'); } catch (e) {} }
+}
 function curShowPickerClose() {
   const m = document.getElementById('sb-show-menu'); if (m) m.remove();
   document.removeEventListener('click', curShowPickerOutside, true);
-  document.querySelectorAll('.sb-show-pick').forEach(b => b.setAttribute('aria-expanded', 'false'));
+  document.querySelectorAll('.sb-show-swap').forEach(b => b.setAttribute('aria-expanded', 'false'));
 }
 // Two menu items share a page (Show notes / All Shows; Script & Cue Sheet /
 // All Scripts): light the one that matches what's on screen.
@@ -13914,6 +13939,7 @@ function sbTodoCount() {
       sbFold(key, v === null ? b.getAttribute('data-open') === '1' : v === '1', true);
     });
     { let v = null; try { v = localStorage.getItem('mmt_sb_fold_qa'); } catch (e) {} sbQaToggle(v === '1', true); }
+    ['main', 'kids'].forEach(k => { let v = null; try { v = localStorage.getItem('mmt_sb_fold_' + CS_ID[k].replace('sb-', '')); } catch (e) {} sbShowFold(k, v !== '0', true); });
     sbShowRender(); sbTidy(); sbTodoCount(); sbTodayRender();
     const ed = document.getElementById('scripts-editor');
     if (ed && window.MutationObserver) new MutationObserver(() => { try { sbSyncActive(); } catch (e) {} }).observe(ed, { attributes: true, attributeFilter: ['class'] });
