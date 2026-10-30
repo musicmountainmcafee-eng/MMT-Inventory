@@ -6105,6 +6105,29 @@ table td { font-size: 14px !important; }
   /* Mac, Oct 30: no Today/weather or timer box at the bottom of the side menu
      (the show timer is still in the top bar). */
   #sidebar .sidebar-footer.sb-foot, .sidebar.collapsed .sidebar-footer.sb-foot { display: none !important; }
+
+  /* ── Cuts (dev mockup) ── */
+  #scripts-editor .cut-btn { width: auto !important; padding: 0 12px !important; font: 600 13px 'DM Sans', system-ui, sans-serif; white-space: nowrap; }
+  #scripts-editor .cut-btn.active { background: #c2410c !important; color: #fff !important; }
+  body.crew-scripts-ro #scripts-editor .cut-only { display: none !important; }
+  #cut-layer { position: absolute; inset: 0; pointer-events: none; }
+  .cut-tag { position: absolute; right: 8px; transform: translateY(-50%); pointer-events: auto; font: 700 12px 'DM Sans', system-ui, sans-serif; letter-spacing: .05em;
+    text-transform: uppercase; background: #c2410c; color: #fff; border: 0; border-radius: 7px; padding: 4px 10px; cursor: pointer; max-width: 60%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 0 !important; }
+  .cut-tag:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+  .cut-banner { display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: #2563eb; color: #fff; font: 600 14px 'DM Sans', system-ui, sans-serif; }
+  .cut-banner[hidden] { display: none; }
+  .cut-banner button { margin-left: auto; background: rgba(255,255,255,.2); color: #fff; border: 0; border-radius: 999px; padding: 6px 14px; font: 600 13px 'DM Sans', system-ui, sans-serif; cursor: pointer; min-height: 0 !important; }
+  .cut-pop { position: fixed; z-index: 3000; width: 280px; max-width: calc(100vw - 16px); background: var(--surface, #fff); color: var(--text, #111); border: 1px solid var(--border, #e5e7eb);
+    border-radius: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.25); padding: 12px; display: flex; flex-direction: column; gap: 8px; font-family: 'DM Sans', system-ui, sans-serif; }
+  .cut-pop b { font-size: 14px; } .cut-pop small { color: var(--text-muted, #6b7280); font-size: 12px; margin-top: -4px; } .cut-pop p { margin: 0; font-size: 14px; }
+  .cut-pop input { font: 14px 'DM Sans', system-ui, sans-serif; padding: 8px 10px; border: 1px solid var(--border, #ddd); border-radius: 9px; background: var(--bg, #f7f7f7); color: var(--text, #111); }
+  .cut-looks { display: flex; gap: 4px; padding: 3px; background: var(--bg, #f4f4f5); border-radius: 10px; }
+  .cut-looks button { flex: 1; border: 0; background: none; color: var(--text, #111); border-radius: 8px; padding: 6px 4px !important; min-height: 0 !important; font: 600 12.5px 'DM Sans', system-ui, sans-serif; cursor: pointer; }
+  .cut-looks button.on { background: var(--surface, #fff); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+  .cut-row { display: flex; gap: 6px; }
+  .cut-row button { flex: 1; font: 600 13px 'DM Sans', system-ui, sans-serif; border: 1px solid var(--border, #ddd); background: var(--surface, #fff); color: var(--text, #111); border-radius: 999px !important; padding: 8px 10px !important; min-height: 0 !important; cursor: pointer; }
+  .cut-row button.pri { background: #111; color: #fff; border-color: #111; }
+  .cut-row button.del { color: #c2410c; border-color: rgba(194,65,12,.4); }
 </style>
   <!-- PERF: pdf.js and jsPDF used to load here as blocking script tags on every
        launch. They're only needed on the Scripts tab and for PDF exports, so they
@@ -7227,6 +7250,8 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
     <button class="tool-btn se-mode-btn" id="se-mode-btn" onclick="setPlaceMode(!sePlaceMode)" title="Mark cues" aria-label="Mark cues"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg><span>Mark</span></button>
     <div class="tool-divider"></div>
     <div id="type-quick"></div>
+    <div class="tool-divider cut-only"></div>
+    <button class="tool-btn cut-btn cut-only" id="cut-btn" onclick="cutStart()" title="Mark a cut: tap the first line, then the last" aria-label="Mark a cut">✂ Cut</button>
     <div class="tool-spacer"></div>
     <button class="tool-btn" onclick="undo()" title="Undo" aria-label="Undo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg></button>
   </div>
@@ -7248,6 +7273,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
           <button onclick="zoomFit()" title="Fit page to window" aria-label="Fit page to window">Fit</button>
         </span>
       </div>
+      <div class="cut-banner" id="cut-banner" hidden><span id="cut-banner-txt"></span><button type="button" onclick="cutCancel()">Cancel</button></div>
       <div class="place-banner" id="place-banner">
         <span id="place-banner-txt"></span>
         <button onclick="setPlaceMode(false)">Done</button>
@@ -7260,6 +7286,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
         <div class="canvas-container" id="canvas-container">
           <canvas id="pdf-canvas"></canvas>
           <canvas id="draw-canvas"></canvas>
+          <div id="cut-layer" aria-live="polite"></div>
           <div id="cue-cursor-label"></div>
         </div>
       </div>
@@ -7542,7 +7569,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.30 v4 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.30 v5 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -20059,9 +20086,216 @@ function redrawAnnotations() {
   // Running A: the cards and their lines carry the labels, so the page shows
   // just the boxes (nothing stored changes, this is drawing only).
   const bare = seRunning() && !runListMode();
+  try { cutDraw(ctx); } catch (e) { console.warn('cuts', e); }
   anns.forEach(a => (bare && a && a.type === 'cue') ? runDrawBox(ctx, a) : drawAnnotation(ctx, a));
+  try { cutFlagCues(ctx, anns); } catch (e) {}
   if (seRunning()) runSync();
 }
+
+// ── CUTS (dev mockup, Oct 30) ───────────────────────────────────────────────
+// Press ✂ Cut, tap where the cut starts, then where it ends (flip pages first
+// if it runs on). A cut is two spots, page + height, kept with the script's
+// annotations on the page it starts: { type:'cut', id, page0, y0, page1, y1,
+// note, by, at }. Nothing in the PDF changes. Three looks to try (this device):
+// greyed with a CUT tag, struck through in red, or folded under a bar.
+let _cut = null;   // { step: 1|2|'s'|'e', page, y, id }
+function cutCanEdit() { return typeof crewCanEdit !== 'function' || crewCanEdit('scripts'); }
+function cutLook() { try { return localStorage.getItem('mmt_cut_look') || 'grey'; } catch (e) { return 'grey'; } }
+function cutAll() {
+  const out = [];
+  Object.keys(annotations || {}).forEach(p => (annotations[p] || []).forEach(a => { if (a && a.type === 'cut') out.push(a); }));
+  return out.sort((a, b) => a.page0 - b.page0 || a.y0 - b.y0);
+}
+function cutOn(c, page) { return page >= c.page0 && page <= c.page1; }
+function cutSpan(c, page, H) { return [page === c.page0 ? c.y0 : 0, page === c.page1 ? c.y1 : H]; }
+// Is this spot (page, y) inside a cut?
+function cutAt(page, y) {
+  return cutAll().find(c => cutOn(c, page) && (page > c.page0 || y >= c.y0) && (page < c.page1 || y <= c.y1)) || null;
+}
+function cutLines(c) {   // a rough count for the label: about 20 lines to a page
+  const H = drawCanvas.height || 1188;
+  const pages = c.page1 - c.page0;
+  const frac = pages === 0 ? (c.y1 - c.y0) / H : (H - c.y0) / H + (pages - 1) + c.y1 / H;
+  return Math.max(1, Math.round(frac * 46));
+}
+function cutDraw(ctx) {
+  const W = drawCanvas.width, H = drawCanvas.height, look = cutLook();
+  cutAll().forEach(c => {
+    if (!cutOn(c, currentPage)) return;
+    const [t, b] = cutSpan(c, currentPage, H), h = Math.max(4, b - t);
+    const peek = _cutPeek === c.id;
+    ctx.save();
+    if (look === 'fold' && !peek) {
+      ctx.fillStyle = 'rgba(255,247,237,0.97)'; ctx.fillRect(0, t, W, h);
+      ctx.strokeStyle = '#c2410c'; ctx.lineWidth = 2; ctx.strokeRect(1, t + 1, W - 2, h - 2);
+      ctx.fillStyle = '#c2410c'; ctx.font = 'bold 22px "DM Sans", sans-serif'; ctx.textBaseline = 'middle';
+      ctx.fillText('✂ CUT' + (c.note ? ' · ' + c.note : ''), 26, t + Math.min(h / 2, 40));
+    } else if (look === 'red') {
+      ctx.fillStyle = '#dc2626'; ctx.fillRect(0, t, 6, h);
+      ctx.strokeStyle = 'rgba(220,38,38,0.85)'; ctx.lineWidth = 2.2;
+      for (let y = t + 12; y < b - 4; y += 21) { ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(W - 40, y); ctx.stroke(); }
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.58)'; ctx.fillRect(0, t, W, h);
+      ctx.beginPath(); ctx.rect(0, t, W, h); ctx.clip();
+      ctx.strokeStyle = 'rgba(20,20,22,0.10)'; ctx.lineWidth = 6;
+      for (let x = -h; x < W + h; x += 22) { ctx.beginPath(); ctx.moveTo(x, t + h); ctx.lineTo(x + h, t); ctx.stroke(); }
+      ctx.restore(); ctx.save();
+      ctx.setLineDash([9, 6]); ctx.strokeStyle = '#c2410c'; ctx.lineWidth = 2.5;
+      ctx.strokeRect(2, t + 1, W - 4, h - 2);
+    }
+    ctx.restore();
+  });
+  // The start spot waiting for its end.
+  if (_cut && _cut.step === 2 && _cut.page === currentPage) {
+    ctx.save(); ctx.fillStyle = 'rgba(37,99,235,0.10)'; ctx.fillRect(0, _cut.y, W, Math.min(60, H - _cut.y));
+    ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, _cut.y); ctx.lineTo(W, _cut.y); ctx.stroke();
+    ctx.fillStyle = '#2563eb'; ctx.font = 'bold 15px "DM Sans", sans-serif'; ctx.fillText('CUT STARTS HERE', 10, _cut.y - 7); ctx.restore();
+  }
+  cutTags();
+}
+// Cues sitting inside a cut get an "in a cut" tag on the page.
+function cutFlagCues(ctx, anns) {
+  anns.forEach(a => {
+    if (!a || a.type !== 'cue') return;
+    const r = a.rect || { x: a.x || 0, y: a.y || 0, w: 0, h: 0 };
+    if (!cutAt(currentPage, r.y + (r.h || 0) / 2)) return;
+    ctx.save(); ctx.font = 'bold 13px "DM Sans", sans-serif';
+    const txt = 'in a cut', w = ctx.measureText(txt).width + 12, x = Math.max(2, r.x), y = Math.max(16, r.y - 6);
+    ctx.fillStyle = '#c2410c'; ctx.fillRect(x, y - 15, w, 18);
+    ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(txt, x + 6, y - 6); ctx.restore();
+  });
+}
+let _cutPeek = null;
+// The tappable CUT tag on each cut showing on this page (HTML over the canvas).
+function cutTags() {
+  const layer = document.getElementById('cut-layer'); if (!layer) return;
+  const W = drawCanvas.width, H = drawCanvas.height;
+  if (!(W > 50 && H > 50)) { layer.innerHTML = ''; return; }
+  const look = cutLook();
+  layer.innerHTML = cutAll().filter(c => cutOn(c, currentPage)).map(c => {
+    const [t, b] = cutSpan(c, currentPage, H);
+    const cont = currentPage !== c.page0 ? ' (cont.)' : c.page1 !== c.page0 ? ' · to pg. ' + c.page1 : '';
+    const lbl = look === 'fold' && _cutPeek !== c.id ? 'Tap to peek' : 'CUT' + cont + (c.note ? ' · ' + c.note : '');
+    return `<button type="button" class="cut-tag" style="top:${(t / H * 100).toFixed(3)}%" onclick="cutTagTap(event,'${esc(c.id)}')" title="Cut${c.by ? ' · marked by ' + esc(c.by) : ''}">${esc(lbl)}</button>`;
+  }).join('');
+}
+function cutTagTap(ev, id) {
+  ev.stopPropagation();
+  const look = cutLook();
+  if (look === 'fold' && _cutPeek !== id) { _cutPeek = id; redrawAnnotations(); return; }
+  cutPop(id, ev.currentTarget);
+}
+function cutFind(id) { return cutAll().find(c => c.id === id) || null; }
+function cutPop(id, anchor) {
+  cutPopClose();
+  const c = cutFind(id); if (!c) return;
+  const can = cutCanEdit(), look = cutLook();
+  const when = c.at ? new Date(c.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+  const m = document.createElement('div');
+  m.id = 'cut-pop'; m.className = 'cut-pop'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-label', 'Cut');
+  m.innerHTML = `<b>Cut · pg. ${c.page0}${c.page1 !== c.page0 ? '–' + c.page1 : ''} · about ${cutLines(c)} lines</b>
+    <small>${c.by ? 'Marked by ' + esc(c.by) : ''}${when ? ' · ' + when : ''}</small>
+    ${can ? `<input id="cut-note" placeholder="Note (optional), e.g. Director, Oct 30" value="${esc(c.note || '')}" aria-label="Note" autocomplete="off">` : (c.note ? `<p>${esc(c.note)}</p>` : '')}
+    <div class="cut-looks" role="group" aria-label="How cuts look (this device, to try)">
+      ${[['grey', 'Greyed'], ['red', 'Red strike'], ['fold', 'Folded']].map(([k, n]) => `<button type="button" class="${look === k ? 'on' : ''}" onclick="cutSetLook('${k}','${esc(id)}')">${n}</button>`).join('')}
+    </div>
+    ${can ? `<div class="cut-row"><button type="button" onclick="cutMove('${esc(id)}','s')">Move start</button><button type="button" onclick="cutMove('${esc(id)}','e')">Move end</button></div>
+    <div class="cut-row"><button type="button" class="pri" onclick="cutSaveNote('${esc(id)}')">Save</button><button type="button" class="del" onclick="cutRestore('${esc(id)}')">Restore lines</button></div>` : `<div class="cut-row"><button type="button" onclick="cutPopClose()">Close</button></div>`}`;
+  document.body.appendChild(m);
+  const r = anchor.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 8)) + 'px';
+  m.style.top = Math.max(8, Math.min(r.bottom + 6, innerHeight - m.offsetHeight - 8)) + 'px';
+  setTimeout(() => document.addEventListener('pointerdown', cutPopOutside, true), 0);
+}
+function cutPopOutside(e) { const m = document.getElementById('cut-pop'); if (m && !m.contains(e.target) && !e.target.closest('.cut-tag')) cutPopClose(); }
+function cutPopClose() { const m = document.getElementById('cut-pop'); if (m) m.remove(); document.removeEventListener('pointerdown', cutPopOutside, true); }
+function cutSetLook(k, id) { try { localStorage.setItem('mmt_cut_look', k); } catch (e) {} _cutPeek = null; redrawAnnotations(); const t = [...document.querySelectorAll('.cut-tag')].find(b => (b.getAttribute('onclick') || '').includes(id)); if (t) cutPop(id, t); else cutPopClose(); }
+function cutSaveNote(id) {
+  const c = cutFind(id), inp = document.getElementById('cut-note');
+  if (c && inp) { c.note = inp.value.trim(); saveShowData(); }
+  cutPopClose(); redrawAnnotations(); toast('Cut saved');
+}
+function cutRestore(id) {
+  const c = cutFind(id); if (!c) return;
+  const arr = annotations[c.page0] || [], i = arr.indexOf(c);
+  if (i >= 0) arr.splice(i, 1);
+  cutPopClose(); _cutPeek = null; redrawAnnotations(); saveShowData(); toast('Lines restored');
+}
+function cutBanner(t) { const b = document.getElementById('cut-banner'); if (!b) return; b.hidden = !t; document.getElementById('cut-banner-txt').textContent = t || ''; document.getElementById('cut-btn')?.classList.toggle('active', !!t); }
+function cutStart() {
+  if (!cutCanEdit()) { try { crewViewOnly('Scripts'); } catch (e) {} return; }
+  if (_cut) { cutCancel(); return; }
+  cutPopClose();
+  try { if (typeof sePlaceMode !== 'undefined' && sePlaceMode) setPlaceMode(false); } catch (e) {}
+  _cut = { step: 1 };
+  cutBanner('Tap the first line of the cut.');
+}
+function cutMove(id, edge) {
+  cutPopClose();
+  _cut = { step: edge, id };
+  cutBanner(edge === 's' ? 'Tap where the cut should start now.' : 'Tap where the cut should end now. Flip pages first if it runs on.');
+}
+function cutCancel() { _cut = null; cutBanner(''); redrawAnnotations(); }
+function cutTapAt(pos) {
+  const H = drawCanvas.height, y = Math.max(0, Math.min(H, pos.y));
+  if (_cut.step === 1) {
+    _cut = { step: 2, page: currentPage, y };
+    cutBanner('Now tap the last line of the cut. Flip to a later page first if it runs on.');
+    redrawAnnotations(); return;
+  }
+  if (_cut.step === 's' || _cut.step === 'e') {
+    const c = cutFind(_cut.id);
+    if (c) {
+      let a = { p: c.page0, y: c.y0 }, b = { p: c.page1, y: c.y1 };
+      if (_cut.step === 's') a = { p: currentPage, y }; else b = { p: currentPage, y };
+      if (b.p < a.p || (b.p === a.p && b.y < a.y)) { const t = a; a = b; b = t; }
+      const old = annotations[c.page0] || [], i = old.indexOf(c); if (i >= 0) old.splice(i, 1);
+      Object.assign(c, { page0: a.p, y0: a.y, page1: b.p, y1: b.y });
+      (annotations[c.page0] = annotations[c.page0] || []).push(c);
+      saveShowData();
+    }
+    cutCancel(); toast('Cut moved'); return;
+  }
+  let a = { p: _cut.page, y: _cut.y }, b = { p: currentPage, y };
+  if (b.p < a.p || (b.p === a.p && b.y < a.y)) { const t = a; a = b; b = t; }
+  if (a.p === b.p && b.y - a.y < 8) { toast('Tap a different line for the end'); return; }
+  const c = { type: 'cut', id: 'cut' + Date.now().toString(36), page0: a.p, y0: Math.round(a.y), page1: b.p, y1: Math.round(b.y),
+    note: '', by: (typeof userName !== 'undefined' && userName) || 'TD', at: Date.now() };
+  (annotations[c.page0] = annotations[c.page0] || []).push(c);
+  _cut = null; cutBanner('');
+  redrawAnnotations(); saveShowData();
+  const inCut = cutCuesIn(c).length;
+  toast('Cut marked' + (inCut ? ' · ' + inCut + ' cue' + (inCut === 1 ? '' : 's') + ' inside it' : ''));
+}
+// Cues whose spot falls inside a cut.
+function cutCuesIn(c) {
+  const out = [];
+  for (let p = c.page0; p <= c.page1; p++) (annotations[p] || []).forEach(a => {
+    if (!a || a.type !== 'cue') return;
+    const r = a.rect || { y: a.y || 0, h: 0 }, y = r.y + (r.h || 0) / 2;
+    if ((p > c.page0 || y >= c.y0) && (p < c.page1 || y <= c.y1)) out.push(a.cueId);
+  });
+  return out;
+}
+// In cut mode a tap on the page marks; a drag still scrolls on a touchscreen.
+(function cutHook() {
+  const cont = document.getElementById('canvas-container'); if (!cont) return;
+  let down = null;
+  cont.addEventListener('pointerdown', e => {
+    if (!_cut || e.target.closest('.cut-tag')) return;
+    e.stopPropagation();
+    down = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId };
+  }, true);
+  cont.addEventListener('pointerup', e => {
+    if (!_cut || !down || e.pointerId !== down.id) return;
+    e.stopPropagation();
+    const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+    down = null;
+    if (moved < 12) cutTapAt(getPos(e));
+  }, true);
+  cont.addEventListener('pointermove', e => { if (_cut && down) e.stopPropagation(); }, true);
+})();
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && (_cut || document.getElementById('cut-pop'))) { cutPopClose(); if (_cut) cutCancel(); } });
 
 // Takes back this device's last stroke on the page, never someone else's.
 function undo() {

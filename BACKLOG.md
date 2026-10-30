@@ -152,6 +152,7 @@
   exact knob/button events on the device.
 
 ## Next
+- **Script cuts (mockup on dev, Oct 30: Dashboard 10.30 v5 dev, Cue Sheet 10.30 v2 dev)**: ✂ Cut, tap start, tap end (pages can be flipped between); saved as an annotation {type:'cut', page0,y0,page1,y1,note,by,at} on the start page; three looks to choose (greyed / red strike / folded, a per-device switch for now); cues inside flagged "in a cut" on the script and cue sheet; Move start/end; Restore lines. Not yet: cuts in the exported script PDF, the editor's cue list panel flag.
 - **Live show timer at the top of the Script / Cue Sheet page** (asked Oct 30): the running act/countdown from the show timer,
   view only, in the page's top bar (both the script view and the cue sheet), the same feed as the dashboard's top-bar timer pill.
 - Fix: unfolded foldable (~884 wide) scrolls sideways a little because of the top bar.

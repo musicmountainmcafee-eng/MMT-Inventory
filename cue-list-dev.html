@@ -1050,6 +1050,8 @@
   .pr-sec .pr-tbl { margin: 0; border: 0; }
   .pr-sec .pr-tbl thead th { position: static; }
   @media print { .pr-sec-h .pr-sec-chev { display: none; } }
+
+  .in-cut { display: inline-block; margin: 0 6px 3px 0; font: 700 11px 'DM Sans', system-ui, sans-serif; color: #c2410c; border: 1px solid #c2410c; border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -2611,9 +2613,11 @@ function plRow(c, band, mode){
     lineCell = `<button class="photo-chip" onclick="event.stopPropagation(); revealPhoto('${esc(c.id)}')">Show line photo</button>`;
   }
 
+  const cutHere = inCut(c);
   // Edit mode: a set change with no typed line asks for one; tapping it opens
   // the sheet with the cursor in the Cue line box.
   if (editMode && isShift && !c.cueLine) lineCell = `<button type="button" class="pl-addline" onclick="event.stopPropagation(); openCueLine('${esc(c.id)}')">+ Add cue line</button>` + (lineCell ? ' ' + lineCell : '');
+  if (cutHere) lineCell = `<span class="in-cut" title="${esc('Cut on the script' + (cutHere.note ? ': ' + cutHere.note : ''))}">✂ in a cut</span>` + lineCell;
   // No number column: the cue line leads. Cue types other than set changes
   // keep their coloured chip and number so they can't be mistaken for one.
   // Set changes lead with their change number, called over headset; other cue
@@ -5801,6 +5805,14 @@ function getAdds(){ try { const a = JSON.parse(lsGet(addsKey(), '[]')); return A
 function setAdds(a){ if (a.length) lsSet(addsKey(), JSON.stringify(a)); else { try { localStorage.removeItem(addsKey()); } catch(e){} } }
 function annOf(c){ return (annotations[c.page] || []).find(x => x && x.type === 'cue' && x.cueId === c.id) || null; }
 function isApprox(c){ const a = annOf(c); return !!(a && a.approx); }
+// Cuts marked on the script (dev mockup): a cue whose spot falls between a
+// cut's two ends is "in a cut". It stays on the sheet, flagged.
+function clCuts(){ const out = []; Object.keys(annotations || {}).forEach(p => (annotations[p] || []).forEach(a => { if (a && a.type === 'cut') out.push(a); })); return out; }
+function inCut(c){
+  const a = annOf(c), p = Number(c.page); if (!a || !p) return null;
+  const r = a.rect || { y: a.y || 0, h: 0 }, y = r.y + (r.h || 0) / 2;
+  return clCuts().find(k => p >= k.page0 && p <= k.page1 && (p > k.page0 || y >= k.y0) && (p < k.page1 || y <= k.y1)) || null;
+}
 
 // The page's width in the Scripts tab's canvas pixels (pages draw at 1.5x).
 // Every label sits 28px in from the right edge, so the cues already placed
@@ -7788,6 +7800,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.30 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.30 v2 dev</div>
 </body>
 </html>
