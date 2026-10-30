@@ -1034,6 +1034,22 @@
   @media (max-width: 760px) {
     table.cs.pl td, table.cs.pl th { padding-left: 5px; padding-right: 5px; }
   }
+
+  /* ── Presets section at the top of the plot ── */
+  .pr-sec { margin: 0 0 14px; border: 1px solid var(--grid); border-radius: 10px; background: var(--paper); overflow: hidden; }
+  .pr-sec-h { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; color: var(--ink, var(--text)); font: 15px 'DM Sans', system-ui, sans-serif; min-height: 46px; }
+  .pr-sec-h b { font-weight: 700; font-size: 1.05em; }
+  .pr-sec-h span { color: var(--ink-meta, var(--text-muted)); font-size: .92em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pr-sec-h em { font-style: normal; color: #b45309; }
+  .pr-sec-h:hover { background: rgba(127,127,127,.07); }
+  .pr-sec-h:focus-visible { outline: 2px solid var(--purple); outline-offset: -2px; }
+  .pr-sec-chev { width: 16px; height: 16px; flex: none; transition: transform .15s; opacity: .7; }
+  .pr-sec.open .pr-sec-chev { transform: rotate(90deg); }
+  .pr-sec.open .pr-sec-h { border-bottom: 1px solid var(--grid); }
+  .pr-sec-body[hidden] { display: none; }
+  .pr-sec .pr-tbl { margin: 0; border: 0; }
+  .pr-sec .pr-tbl thead th { position: static; }
+  @media print { .pr-sec-h .pr-sec-chev { display: none; } }
 </style>
 </head>
 <body>
@@ -1104,7 +1120,7 @@
     <div class="search-row">
       <div class="view-tabs">
         <button class="view-tab on" id="tab-cues"    onclick="setView('cues')">Cues</button>
-        <button class="view-tab"    id="tab-presets" onclick="setView('presets')">Before House</button>
+        <button class="view-tab"    id="tab-presets" onclick="setView('presets')">Presets</button>
       </div>
       <select id="f-type" class="f-sel" onchange="fType(this.value)" aria-label="Show cue type"></select>
       <select id="f-who" class="f-sel" onchange="fWho(this.value)" aria-label="Show who"></select>
@@ -1128,7 +1144,7 @@
     <h3>Export</h3>
     <div class="export-opts">
       <button class="export-opt" onclick="runExport('cues')"><b>Cue sheet</b><span>PDF of every cue, with line photos</span></button>
-      <button class="export-opt" onclick="runExport('plot')"><b>Set change plot</b><span>PDF for the deck: what’s changed since the last one sent, Before House, every change, then a page for each person</span></button>
+      <button class="export-opt" onclick="runExport('plot')"><b>Set change plot</b><span>PDF for the deck: what’s changed since the last one sent, Presets, every change, then a page for each person</span></button>
       <button class="export-opt" onclick="openCrewLink()"><b>Crew link</b><span>A link to the plot with a tab for each person, always up to date. No uploading.</span></button>
       <button class="export-opt" onclick="runExport('xlsx')"><b>Set change plot (Excel)</b><span>The same plot as a spreadsheet, with a tab for each person</span></button>
       <button class="export-opt" onclick="runExport('spikes')"><b>Spike key</b><span>PDF to post backstage: each piece, its tape and spike notes</span></button>
@@ -1180,7 +1196,7 @@
 <div class="overlay" id="history" onclick="if(event.target===this) closeHistory()">
   <div class="modal">
     <h3>History</h3>
-    <p class="note">Copies kept on this device. Restore puts back the set changes; Before House puts back the presets and spikes.</p>
+    <p class="note">Copies kept on this device. Restore puts back the set changes; Presets puts back the presets and spikes.</p>
     <div id="history-body"></div>
     <div class="modal-btns"><button class="top-btn primary" onclick="closeHistory()">Done</button></div>
   </div>
@@ -1537,7 +1553,7 @@ function start(){
     linkView   = q.get('view');
   } catch(e) {}
 
-  const savedView = linkView || lsGet('mmt_cuelist_view','cues');
+  const savedView = linkView || (lsGet('mmt_cuelist_view','cues') === 'presets' ? 'cues' : 'cues');
   let linkEdit = false;
   try { linkEdit = new URLSearchParams(location.search).get('edit') === '1'; } catch(e) {}
   try { const jc = new URLSearchParams(location.search).get('cue'); if (jc) _jumpCue = jc; } catch(e) {}
@@ -1917,7 +1933,7 @@ function prGuardCheck(){
   if (!el) return;
   if (!_prLost.length || editMode){ el.hidden = true; return; }
   el.hidden = false;
-  el.innerHTML = `<span><b>${_prLost.length} Before House piece${_prLost.length === 1 ? ' was' : 's were'} cleared</b> since this page saved ${_prLost.length === 1 ? 'it' : 'them'} (${esc(_prLost.slice(0, 4).map(k => saved[k].piece || k).join(', '))}${_prLost.length > 4 ? '…' : ''}). Something else saved over them.</span>
+  el.innerHTML = `<span><b>${_prLost.length} preset${_prLost.length === 1 ? ' was' : 's were'} cleared</b> since this page saved ${_prLost.length === 1 ? 'it' : 'them'} (${esc(_prLost.slice(0, 4).map(k => saved[k].piece || k).join(', '))}${_prLost.length > 4 ? '…' : ''}). Something else saved over them.</span>
     <button class="top-btn primary" onclick="prGuardRestore()">Put them back</button><button class="top-btn" onclick="prGuardDismiss()">Leave cleared</button>`;
 }
 function prGuardRestore(){
@@ -2034,6 +2050,7 @@ function setWho(who){
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function setView(v){
+  if (v === 'presets') { prShow(); return; }   // Presets is a section of the plot now
   if (view === v) return;
   saveScroll();
   view = v;
@@ -2113,7 +2130,7 @@ function render(){
   if (!shown && !canAdd && !scenesShown){
     const what = query ? 'Nothing matches that search.' : 'No ' + esc(typeOf(activeType).name) + ' cues.';
     const how  = query ? 'Try fewer words, or clear the type filter.' : 'Tap the type again for all cues.';
-    el.innerHTML = title + `<div class="cs-empty"><b>${what}</b>${how}</div>`;
+    el.innerHTML = title + prSectionHTML() + `<div class="cs-empty"><b>${what}</b>${how}</div>`;
   } else if (plot){
     const cols = {
       full:    [['#',7],['Cue',14],['PG',5],['Piece',15],['Action',9],['Wing',9],['Who',11],['Spike',14],['Notes',16]],
@@ -2135,7 +2152,7 @@ function render(){
       // Borrow from Notes first, then Cue, never taking more than half of either.
       [cols.length - 1, 1].forEach(k => { const take = Math.min(extra, Math.floor(cols[k][1] / 2)); cols[k][1] -= take; cols[0][1] += take; extra -= take; });
     }
-    el.innerHTML = title + `<table class="cs pl">
+    el.innerHTML = title + prSectionHTML() + `<table class="cs pl">
       <colgroup>${cols.map(c => `<col style="width:${c[1]}%">`).join('')}</colgroup>
       <thead><tr>${cols.map(c => `<th>${c[0]}</th>`).join('')}</tr></thead>
       <tbody>${body}</tbody>
@@ -2164,6 +2181,57 @@ function render(){
   if (typeof clFlashRows === 'function') clFlashRows();
 }
 
+// ── PRESETS (was "Before house opens") ─────────────────────────────────────
+// A folding section at the top of the set change plot: where every piece
+// starts when the doors open. Folded or open is remembered on this device.
+// It steps aside while a Type or Who filter is on; a search opens it when a
+// piece matches.
+let _prOpen = lsGet('mmt_cuelist_pr_open', '0') === '1';
+function prSectionHTML(){
+  if (activeType || activeWho) return '';
+  const all = allPieces().map(({ key, piece }) => ({ ...(presets[key] || {}), piece, key })).filter(r => editMode || !r.hidden);
+  const rows = all.filter(r => {
+    if (!query) return true;
+    const h = [r.piece, r.location, r.notes].filter(Boolean).join(' ').toLowerCase();
+    return query.split(/\s+/).filter(Boolean).every(tok => h.includes(tok));
+  });
+  if (query && !rows.length) return '';
+  if (!all.length && !editMode) return '';
+  const open = _prOpen || !!query;
+  const gaps = all.filter(r => !r.hidden && !String(r.location || '').trim()).length;
+  const n = all.filter(r => !r.hidden).length;
+  let band = false;
+  return `<section class="pr-sec${open ? ' open' : ''}" id="pr-sec">
+    <button type="button" class="pr-sec-h" onclick="prSecToggle()" aria-expanded="${open}" aria-controls="pr-sec-body">
+      <svg class="pr-sec-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      <b>Presets</b><span>${n} piece${n === 1 ? '' : 's'}${gaps ? ' · <em>' + gaps + ' with no location</em>' : ''}</span>
+    </button>
+    <div class="pr-sec-body" id="pr-sec-body"${open ? '' : ' hidden'}>${rows.length ? `<table class="cs pr-tbl">
+      <colgroup><col style="width:24%"><col style="width:28%"><col style="width:24%"><col style="width:24%"></colgroup>
+      <thead><tr><th>Piece</th><th>Preset location</th><th>Spike</th><th>Notes</th></tr></thead>
+      <tbody>${rows.map(r => presetRowHTML(r, band = !band)).join('')}</tbody></table>`
+      : '<div class="cs-empty"><b>No pieces yet.</b>Pieces appear here once set changes have moves.</div>'}</div>
+  </section>`;
+}
+function prSecToggle(open){
+  _prOpen = typeof open === 'boolean' ? open : !_prOpen;
+  lsSet('mmt_cuelist_pr_open', _prOpen ? '1' : '0');
+  const sec = document.getElementById('pr-sec');
+  if (!sec) { render(); return; }
+  sec.classList.toggle('open', _prOpen);
+  sec.querySelector('.pr-sec-h').setAttribute('aria-expanded', String(_prOpen));
+  document.getElementById('pr-sec-body').hidden = !_prOpen;
+}
+// Old links and buttons that asked for the Before House sheet: open Presets
+// on the plot and bring it into view.
+function prShow(){
+  if (activeType || activeWho) { activeType = null; activeWho = null; }
+  _prOpen = true; lsSet('mmt_cuelist_pr_open', '1');
+  if (view !== 'cues') { view = 'cues'; lsSet('mmt_cuelist_view', 'cues'); }
+  render();
+  setTimeout(() => { const s = document.getElementById('pr-sec'); if (s) s.scrollIntoView({ block: 'start' }); }, 60);
+}
+
 // "Before house opens" — what's onstage or standing by when the doors open.
 // Mirrors the section the set change plot prints: every piece in the show
 // appears unless it's been switched off in the dashboard's Presets dialog, and
@@ -2171,7 +2239,7 @@ function render(){
 function renderPresetSheet(){
   const el = document.getElementById('sheet-body');
   const title = `<div class="sheet-title">
-      <h2>${esc(ssTitle(scriptId, scriptName))} — Before House Opens</h2>
+      <h2>${esc(ssTitle(scriptId, scriptName))} — Presets</h2>
       <div class="upd" id="upd">—</div>
     </div>`;
 
@@ -2199,7 +2267,7 @@ function renderPresetSheet(){
     <colgroup><col style="width:24%"><col style="width:28%"><col style="width:24%"><col style="width:24%"></colgroup>
     <thead><tr><th>Piece</th><th>Preset Location</th><th>Spike</th><th>Notes</th></tr></thead>
     <tbody>
-      <tr class="scene"><td colspan="4">Before house opens</td></tr>
+      <tr class="scene"><td colspan="4">Presets</td></tr>
       ${rows.map(r => presetRowHTML(r, band = !band)).join('')}
     </tbody></table>
     <div class="sheet-foot"><span>Music Mountain Theatre</span>
@@ -2223,7 +2291,7 @@ function presetRowHTML(r, band){
   return `<tr class="${cls.join(' ')} pr-tap" data-key="${esc(r.key)}" onclick="presetTap(event, '${esc(r.key)}')">
     <td><span class="mv-piece">${esc(r.piece)}</span>${r.hidden ? '<span class="pr-offtag">not on plot</span>' : ''}${prPhotosHTML(r.key, r.photos)}</td>
     <td class="cs-action" data-pf="location">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
-    <td class="cs-line" data-pf="spike">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : '<span class="pr-addspike">+ Spike</span>'}</td>
+    <td class="cs-line" data-pf="spike">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : (editMode ? '<span class="pr-addspike">+ Spike</span>' : '')}</td>
     <td class="cs-notes" data-pf="notes">${esc(r.notes || '')}</td>
   </tr>`;
 }
@@ -2329,7 +2397,7 @@ function spkChipsHTML(m, sid){
     ? `<span class="spk-chip" title="${spkEsc(e.label || '')}">${spkSVG(e, 36, 18)}<span>${spkEsc(spkTapeName(e) || spkLabel(e))}</span></span>`
     : `<span class="spk-chip spk-gone">removed spike</span>`).join('');
   const html = chips + (m && m.spike ? `<span class="spk-typed">${spkEsc(m.spike)}</span>` : '');
-  return m && m._inh && html ? `<span class="spk-inh" title="From Before House">${html}</span>` : html;
+  return m && m._inh && html ? `<span class="spk-inh" title="From Presets">${html}</span>` : html;
 }
 // The same in words, for spreadsheets and anything else without pictures.
 function spkMoveText(m, sid){
@@ -2515,7 +2583,7 @@ function plSpikeHTML(m){
         e.label ? `<small>${spkEsc(spkTapeName(e))}</small>` : ''}</span></span>`
     : `<span class="pl-spk spk-gone">removed spike</span>`).join('')
     + (m && m.spike ? `<span class="pl-spk-typed">${spkEsc(m.spike)}</span>` : '');
-  return m && m._inh && html ? `<span class="spk-inh" title="From Before House">${html}</span>` : html;
+  return m && m._inh && html ? `<span class="spk-inh" title="From Presets">${html}</span>` : html;
 }
 
 // mode: 'full' (8 columns, like the PDF), 'merged' (page number under the cue
@@ -2719,8 +2787,8 @@ function openHistory(){
   document.getElementById('history-body').innerHTML = snaps.length
     ? snaps.map((sn, i) => `<div class="hist-row">
         <div><div class="hist-when">${esc(when(sn.at))}</div>
-          <div class="hist-what">${sn.cueCount} cues · ${sn.moveCount} moves · ${snapPresetCount(sn)} Before House set${sn.reason && sn.reason !== 'edit' && sn.reason !== 'auto' ? ' · ' + esc(sn.reason) : ''}</div></div>
-        <div class="hist-btns">${snapPresetCount(sn) ? `<button class="top-btn" onclick="restoreSnapPresets(${snaps.length - 1 - i})">Before House</button>` : ''}
+          <div class="hist-what">${sn.cueCount} cues · ${sn.moveCount} moves · ${snapPresetCount(sn)} preset${sn.reason && sn.reason !== 'edit' && sn.reason !== 'auto' ? ' · ' + esc(sn.reason) : ''}</div></div>
+        <div class="hist-btns">${snapPresetCount(sn) ? `<button class="top-btn" onclick="restoreSnapPresets(${snaps.length - 1 - i})">Presets</button>` : ''}
         <button class="top-btn" onclick="restoreSnap(${snaps.length - 1 - i})">Restore</button></div></div>`).join('')
     : '<div class="note">No snapshots on this device yet. One is kept every few minutes while the dashboard is open, and before every save from this page.</div>';
   document.getElementById('history').classList.add('open');
@@ -2740,10 +2808,10 @@ function restoreSnapPresets(idx){
   const src = (sn && sn.data && sn.data.presets) || {};
   const keys = Object.keys(src).filter(k => { const e = src[k] || {}; return (e.spikeIds && e.spikeIds.length) || e.spike || e.location || e.notes || e.hidden; });
   if (!keys.length){ toast('Nothing set in that copy'); return; }
-  if (!confirm('Put back Before House for ' + keys.length + ' piece' + (keys.length === 1 ? '' : 's') + ' from this copy?\n\nSet changes and other pieces are left as they are. The current version goes into History first.')) return;
+  if (!confirm('Put back the presets for ' + keys.length + ' piece' + (keys.length === 1 ? '' : 's') + ' from this copy?\n\nSet changes and other pieces are left as they are. The current version goes into History first.')) return;
   const wasEditing = editMode;
   if (!editMode) setEditMode(true);
-  saveSnap({ cues, presets, _rev: loadedRev }, 'before putting back Before House');
+  saveSnap({ cues, presets, _rev: loadedRev }, 'before putting back Presets');
   const fixed = normalizePresets(Object.fromEntries(keys.map(k => [k, src[k]])));
   keys.forEach(k => { presets[k] = fixed[k]; editedPresets[k] = true; });
   saveDraft(); markDirty();
@@ -2801,8 +2869,8 @@ function spikeKeyRows(){
     const spikes = new Map(), typed = new Map();
     const use = (id, e, where) => { if (!spikes.has(id)) spikes.set(id, { e, uses: [] }); const u = spikes.get(id).uses; if (!u.includes(where)) u.push(where); };
     const useT = (txt, where) => { const t = String(txt || '').trim(); if (!t) return; const k = t.toLowerCase(); if (!typed.has(k)) typed.set(k, { t, uses: [] }); const u = typed.get(k).uses; if (!u.includes(where)) u.push(where); };
-    (Array.isArray(p.spikeIds) ? p.spikeIds : []).forEach(id => use(id, spkFind(scriptId, id), 'Before House'));
-    useT(p.spike, 'Before House');
+    (Array.isArray(p.spikeIds) ? p.spikeIds : []).forEach(id => use(id, spkFind(scriptId, id), 'Presets'));
+    useT(p.spike, 'Presets');
     changes.forEach(c => (c.moves || []).forEach(m => {
       if (String(m.piece || '').trim().toLowerCase() !== key) return;
       const where = 'Change ' + shortNumber(c, tName);
@@ -3015,13 +3083,13 @@ function plotDiff(oldS, newS){
     const o = oldPre.get(p.key);
     if (!o) { if (!p.hidden && (p.location || p.spike || p.notes)) preItems.push({ k: 'n', lead: p.piece + ':', text: 'now preset ' + [p.location, p.spike].filter(Boolean).join(', ') }); return; }
     const bits = [];
-    if (o.hidden !== p.hidden) bits.push(p.hidden ? 'no longer printed in Before House' : 'now printed in Before House');
+    if (o.hidden !== p.hidden) bits.push(p.hidden ? 'no longer printed in Presets' : 'now printed in Presets');
     [['location','location'],['spike','spike'],['notes','notes']].forEach(([f, lbl]) => {
       if (o[f] !== p[f]) bits.push(p[f] ? lbl + ' now ' + p[f] + ' (was ' + plQ(o[f]) + ')' : lbl + ' cleared (was ' + o[f] + ')');
     });
     if (bits.length) preItems.push({ k: 'c', lead: p.piece + ':', text: bits.join('; ') });
   });
-  if (preItems.length) groups.push({ title: 'Before house opens', items: preItems });
+  if (preItems.length) groups.push({ title: 'Presets', items: preItems });
 
   newS.changes.forEach(c => {
     const o = oldById.get(c.id);
@@ -3369,7 +3437,7 @@ async function exportSetChangePlot(log, offline) {
     };
 
     tagPage('Preset');
-    drawSceneBar('Before house opens');
+    drawSceneBar('Presets');
     drawPresetHead();
 
     doc.setFontSize(FS);
@@ -3397,7 +3465,7 @@ async function exportSetChangePlot(log, offline) {
       // column header or the rows arrive unlabelled.
       if (y + rowH > pageH - MARGIN_BOTTOM) {
         doc.addPage(); tagPage('Preset'); drawTitle();
-        drawSceneBar('Before house opens (cont.)', true);
+        drawSceneBar('Presets (cont.)', true);
         drawPresetHead();
       }
       doc.setFontSize(FS); doc.setTextColor(30,30,30);
@@ -4132,7 +4200,7 @@ async function exportSetChangeXLSX() {
   // the plot's eight.
   const presetRows = presetRowData();
   if (presetRows.length) {
-    const ps = wb.addWorksheet('Before House Opens', {
+    const ps = wb.addWorksheet('Presets', {
       views: [{ state: 'frozen', ySplit: 5 }],
       pageSetup: {
         orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
@@ -4142,7 +4210,7 @@ async function exportSetChangeXLSX() {
     });
     ps.columns = [{ key:'piece', width:30 }, { key:'location', width:38 }, { key:'spike', width:32 }, { key:'notes', width:42 }];
     titleBlock(ps, 'D', showName, 'Set Changes');
-    sceneBar(ps, 4, 'Before house opens', 'D');
+    sceneBar(ps, 4, 'Presets', 'D');
     headerRow(ps, 5, ['PIECE', 'PRESET LOCATION', 'SPIKE', 'NOTES']);
 
     presetRows.forEach((rec, idx) => {
@@ -6571,7 +6639,7 @@ function prDescribe(p){
     return cueName(w[1]) + (m && m.piece ? ' · ' + m.piece : '') + (w[3] ? ' · ' + (PR_FIELD[w[3]] || w[3]) : '');
   }
   if (w[0] === 'cue') return cueName(w[1]) + (w[2] ? ' · ' + (PR_FIELD[w[2]] || w[2]) : '');
-  if (w[0] === 'pre') return 'Before House · ' + ((presets[w[1]] || {}).piece || w[1]);
+  if (w[0] === 'pre') return 'Presets · ' + ((presets[w[1]] || {}).piece || w[1]);
   return p.page === 'cuesheet' ? 'cue sheet' : p.page && /^p\d+$/.test(p.page) ? 'script, page ' + p.page.slice(1) : 'looking';
 }
 function prCanGo(p){ return /^(cue|mv|pre):/.test(p.where || '') || /^p\d+$/.test(p.page || ''); }
@@ -7319,7 +7387,8 @@ function renderFilters(isCues){
   fw.value = activeWho || ''; if (fw.value !== (activeWho || '')) fw.value = '';
   fw.classList.toggle('on', !!activeWho);
   ft.hidden = !isCues; fw.hidden = !isCues || !who.length;
-  if (bh) {
+  if (bh) bh.hidden = true;   // replaced by the Presets section on the plot
+  if (false) {
     if (isCues) {
       const pcs = allPieces(), none = pcs.filter(({ key }) => !String(((presets || {})[key] || {}).location || '').trim()).length;
       bh.innerHTML = `<b>Before House</b><span>${pcs.length} piece${pcs.length === 1 ? '' : 's'}${none ? ' · ' + none + ' with no location' : ''}</span><i aria-hidden="true">›</i>`;
@@ -7719,6 +7788,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v6 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.30 v1 dev</div>
 </body>
 </html>

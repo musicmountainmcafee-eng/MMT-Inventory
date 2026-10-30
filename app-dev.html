@@ -7205,7 +7205,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
         <div class="mi-head">Open</div>
         <button class="top-btn ic ic-list" onclick="flipToCueSheet()">Cue sheet</button>
         <button class="top-btn ic ic-list" onclick="flipToCueSheet('', 'shift')">Set change plot</button>
-        <button class="top-btn ic ic-home" onclick="flipToCueSheet('', 'presets')">Before House presets</button>
+        <button class="top-btn ic ic-home" onclick="flipToCueSheet('', 'presets')">Presets</button>
         <button class="top-btn ic ic-spike" onclick="openSpikeMap()">Spike map<svg class="mi-ext" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg></button>
         <div class="mi-sep"></div>
         <div class="mi-head">This script</div>
@@ -7322,7 +7322,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 <!-- Scripts: cue edit modal -->
 <div class="cue-edit-overlay" id="preset-overlay" onclick="if(event.target===this)closePresets()">
   <div class="cue-edit" style="max-width:760px;">
-    <h3>Before house opens</h3>
+    <h3>Presets</h3>
     <p style="font-size:12px;color:#8b8ba6;margin:-8px 0 14px;">
       Every piece in the show, listed automatically. Say where each one starts.
       Prints at the top of the scene change plot.</p>
@@ -7538,7 +7538,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.30 v2 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.30 v3 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -20554,7 +20554,7 @@ function spkChipsHTML(m, sid){
     ? `<span class="spk-chip" title="${spkEsc(spkTapeName(e))}">${spkSVG(e, 30, 15)}<span>${spkEsc(spkLabel(e))}</span></span>`
     : `<span class="spk-chip spk-gone">removed spike</span>`).join('');
   const html = chips + (m && m.spike ? `<span class="spk-typed">${spkEsc(m.spike)}</span>` : '');
-  return m && m._inh && html ? `<span class="spk-inh" title="From Before House">${html}</span>` : html;
+  return m && m._inh && html ? `<span class="spk-inh" title="From Presets">${html}</span>` : html;
 }
 // The same in words, for spreadsheets and anything else without pictures.
 function spkMoveText(m, sid){
@@ -20973,7 +20973,7 @@ function spkBtnHTML(m){
   const picked = own.length ? own : spkOfMove(m, showId);
   if (!picked.length) return '<span class="spk-plus">+</span>';
   const html = picked.map(e => e ? spkSVG(e, 26, 13) : '<span class="spk-plus">?</span>').join('');
-  return own.length ? html : `<span class="spk-inh" title="From Before House">${html}</span>`;
+  return own.length ? html : `<span class="spk-inh" title="From Presets">${html}</span>`;
 }
 function spkMoveOf(cueId, moveId){
   const c = cues.find(x => x.id === cueId);
@@ -23255,7 +23255,7 @@ function prDescribe(p) {
     return cueName(w[1]) + (m && m.piece ? ' · ' + m.piece : '') + (w[3] ? ' · ' + (PR_FIELD[w[3]] || w[3]) : '');
   }
   if (w[0] === 'cue') return cueName(w[1]) + (w[2] ? ' · ' + (PR_FIELD[w[2]] || w[2]) : '');
-  if (w[0] === 'pre') return 'Before House · ' + ((presets[w[1]] || {}).piece || w[1]);
+  if (w[0] === 'pre') return 'Presets · ' + ((presets[w[1]] || {}).piece || w[1]);
   return p.page === 'cuesheet' ? 'cue sheet' : p.page && /^p\d+$/.test(p.page) ? 'page ' + p.page.slice(1) : 'looking';
 }
 // Go there: their page, and the cue they're on.
@@ -23645,7 +23645,7 @@ async function exportSetChangePlot() {
     };
 
     tagPage('Preset');
-    drawSceneBar('Before house opens');
+    drawSceneBar('Presets');
     drawPresetHead();
 
     doc.setFontSize(FS);
@@ -23673,7 +23673,7 @@ async function exportSetChangePlot() {
       // column header or the rows arrive unlabelled.
       if (y + rowH > pageH - MARGIN_BOTTOM) {
         doc.addPage(); tagPage('Preset'); drawTitle();
-        drawSceneBar('Before house opens (cont.)', true);
+        drawSceneBar('Presets (cont.)', true);
         drawPresetHead();
       }
       doc.setFontSize(FS); doc.setTextColor(30,30,30);
@@ -24765,7 +24765,7 @@ async function exportSetChangeXLSX() {
   // the plot's eight.
   const presetRows = presetRowData();
   if (presetRows.length) {
-    const ps = wb.addWorksheet('Before House Opens', {
+    const ps = wb.addWorksheet('Presets', {
       views: [{ state: 'frozen', ySplit: 5 }],
       pageSetup: {
         orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
@@ -24775,7 +24775,7 @@ async function exportSetChangeXLSX() {
     });
     ps.columns = [{ key:'piece', width:30 }, { key:'location', width:38 }, { key:'spike', width:32 }, { key:'notes', width:42 }];
     titleBlock(ps, 'D', showName, 'Set Changes');
-    sceneBar(ps, 4, 'Before house opens', 'D');
+    sceneBar(ps, 4, 'Presets', 'D');
     headerRow(ps, 5, ['PIECE', 'PRESET LOCATION', 'SPIKE', 'NOTES']);
 
     presetRows.forEach((rec, idx) => {
