@@ -3278,6 +3278,32 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #scripts-editor #mv-drawer.in-panel table.mv-grid td.mv-del-td { position: absolute; top: 6px; right: 6px; }
   #scripts-editor #mv-drawer.in-panel table.mv-grid .mv-del { background: none !important; border: none !important; box-shadow: none !important; color: var(--cue-text-faint) !important; width: 28px; height: 28px; min-width: 28px !important; min-height: 28px !important; padding: 0 !important; font-size: 15px; }
   #scripts-editor #mv-drawer.in-panel table.mv-grid .mv-del:hover { color: var(--cue-red) !important; }
+  /* Phone: the set change's moves as cards (Piece; Action / Wing / To; Who / Spike;
+     Notes), like the computer's side panel. As a table, Wing and To were too
+     narrow to read ("SL 2" showed as "SL"). The title sits on its own line. */
+  @media (max-width: 768px) {
+  #scripts-editor #mv-drawer table.mv-grid { display: block; width: 100% !important; min-width: 0 !important; table-layout: auto; }
+  #scripts-editor #mv-drawer table.mv-grid thead { display: none; }
+  #scripts-editor #mv-drawer table.mv-grid tbody { display: block; }
+  #scripts-editor #mv-drawer table.mv-grid tr { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px 6px; position: relative;
+    padding: 10px; margin-bottom: 8px; border: 1px solid var(--cue-border); border-radius: 10px; background: var(--cue-surface); }
+  #scripts-editor #mv-drawer table.mv-grid td { display: block; width: auto !important; padding: 0 !important; border: none !important; }
+  #scripts-editor #mv-drawer table.mv-grid td::before { content: attr(data-l); display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--cue-text-faint); margin: 0 0 2px 2px; }
+  #scripts-editor #mv-drawer table.mv-grid td { grid-column: span 2; }
+  #scripts-editor #mv-drawer table.mv-grid td[data-k="piece"], #scripts-editor #mv-drawer table.mv-grid td[data-k="notes"] { grid-column: 1 / -1; }
+  #scripts-editor #mv-drawer table.mv-grid td[data-k="who"], #scripts-editor #mv-drawer table.mv-grid td[data-k="spike"] { grid-column: span 3; }
+  #scripts-editor #mv-drawer table.mv-grid .spk-cell { display: flex; gap: 5px; align-items: center; }
+  #scripts-editor #mv-drawer table.mv-grid .spk-cell input { flex: 1 1 auto; width: auto !important; min-width: 0; }
+  #scripts-editor #mv-drawer table.mv-grid .spk-btn { flex: none; min-height: 34px; }
+  #scripts-editor #mv-drawer table.mv-grid td[data-k="piece"] { padding-right: 30px !important; }
+  #scripts-editor #mv-drawer table.mv-grid td[data-k="piece"] input { font-weight: 700; }
+  #scripts-editor #mv-drawer table.mv-grid input { width: 100% !important; box-sizing: border-box; min-height: 34px; margin: 0 !important; }
+  #scripts-editor #mv-drawer table.mv-grid td.mv-del-td { position: absolute; top: 6px; right: 6px; }
+  #scripts-editor #mv-drawer table.mv-grid .mv-del { background: none !important; border: none !important; box-shadow: none !important; color: var(--cue-text-faint) !important; width: 28px; height: 28px; min-width: 28px !important; min-height: 28px !important; padding: 0 !important; font-size: 15px; }
+  #scripts-editor #mv-drawer table.mv-grid .mv-del:hover { color: var(--cue-red) !important; }
+  #mv-drawer .mvd-head { flex-wrap: wrap; gap: 8px; }
+  #mv-drawer .mvd-title { flex: 1 1 100%; }
+  }
   #scripts-editor #mv-drawer.in-panel table.mv-grid td.mv-del-td::before { content: none; }
   #scripts-editor #mv-drawer.in-panel .mv-add { margin: 2px 0 6px; }
   /* A set change gets more of the panel for its moves. */
@@ -5570,6 +5596,9 @@ table td { font-size: 14px !important; }
     box-shadow: 0 16px 40px rgba(20,20,37,0.22) !important;
   }
   #scripts-editor.sv-tools-open .sv-menu { display: flex !important; }
+  /* The menu's items share the header buttons' class, which made them white on the white menu. */
+  #scripts-editor:not(.run-dark) #sv-menu button, #scripts-editor:not(.run-dark) #sv-menu .top-btn { color: #111111 !important; }
+  #scripts-editor:not(.run-dark) #sv-menu button:hover { background: #f4f4f5 !important; }
   #scripts-editor .sv-menu .top-btn {
     width: 100%; justify-content: flex-start; border: none !important; background: none; font-weight: 500; font-size: 15px;
     min-height: 46px; padding: 0 12px; color: #141414 !important;
@@ -7376,7 +7405,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v3 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v4 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────

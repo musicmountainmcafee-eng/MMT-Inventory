@@ -249,9 +249,12 @@
   .bh-row:hover { border-color: var(--purple); }
   .bh-row[hidden] { display: none; }
   @media (max-width: 600px) {
-    .search-row { gap: 6px; padding: 0 10px 7px; }
-    .f-sel { max-width: 96px; padding-left: 9px; font-size: 13px; }
-    #page-jump { max-width: 74px; }
+    .search-row { gap: 6px; padding: 0 10px 7px; flex-wrap: wrap; }
+    /* Phone: the search gets its own line (it was squeezed to one letter);
+       Type, Who and Page share the line under it. */
+    .search-row > .search-wrap { flex: 1 1 100% !important; order: -1; }
+    .f-sel { max-width: none; flex: 1 1 0; min-width: 0; padding-left: 9px; font-size: 13px; }
+    #page-jump { max-width: 96px; }
   }
   .search-row .search-wrap { flex: 1; padding: 0; min-width: 0; }
   .search-wrap input { padding: 6px 28px 6px 10px; font-size: 13px; }
@@ -313,6 +316,8 @@
     display: inline-block; font-size: 0.62em; font-weight: 700; letter-spacing: 0.04em;
     color: #fff; padding: 2px 7px; border-radius: 999px; vertical-align: 2px;
   }
+  /* Never break a type name across lines ("SF / X" in a narrow # column). */
+  .cs-chip, table.cs.pl td.pl-numc .cs-chip { white-space: nowrap; overflow-wrap: normal; word-break: normal; }
   .cs-num { font-weight: 700; color: var(--ink); margin-left: 5px; }
   .cs-pg { display: block; font-size: 0.72em; color: var(--ink-meta); margin-top: 3px; }
   .cs-action { color: var(--ink-2); }
@@ -7711,6 +7716,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v4 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v5 dev</div>
 </body>
 </html>
