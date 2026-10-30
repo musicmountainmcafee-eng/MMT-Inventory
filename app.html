@@ -6009,6 +6009,98 @@ table td { font-size: 14px !important; }
   .cal-bar-ev { font-size:10.5px; padding:2px 4px; min-height:18px; }
   .cal-num { font-size:11px; padding:3px 4px 1px; }
 }
+
+  /* ── HOME (Oct 30): counts strip, two show cards, to-dos + side column ──
+     Grid and flex-wrap only (no container queries) so the backstage iMac's
+     old Firefox lays it out too. Widths follow the space left beside the menu. */
+  .home-redesign { padding: 20px 22px 28px; }
+  .hm { display: flex; flex-direction: column; gap: 14px; max-width: 1240px; margin: 0 auto; width: 100%; min-width: 0; }
+  .hm-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 14px 18px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); }
+  .hm-sum-t { display: flex; align-items: baseline; gap: 10px; }
+  .hm-sum-t b { font-size: 20px; font-weight: 700; color: var(--text); }
+  .hm-sum-t span { font-size: 14px; color: var(--text-muted); }
+  .hm-cts { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+  .hm-ct { display: inline-flex; align-items: baseline; gap: 5px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg);
+    color: var(--text); font-size: 13.5px; text-decoration: none; white-space: nowrap; }
+  .hm-ct b { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .hm-ct:hover { border-color: var(--text-muted); }
+  .hm-ct:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  .hm-ct.od:not(.zero) { color: #b42318; border-color: rgba(180,35,24,.35); background: rgba(180,35,24,.06); }
+  .hm-ct.td:not(.zero) b { color: var(--text); }
+  .hm-ct.zero { color: var(--text-muted); }
+  .hm-ct-load { font-size: 13.5px; color: var(--text-muted); }
+  html[data-theme="dark"] .hm-ct.od:not(.zero) { color: #fca5a5; border-color: rgba(252,165,165,.35); background: rgba(252,165,165,.08); }
+  /* Two show cards, equal; one column when there isn't room for two. */
+  .hm-shows { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: stretch; }
+  .hm-shows .hm-show { display: flex; flex-direction: column; margin: 0; padding: 16px 18px; cursor: default; min-width: 0; }
+  .hm-shows .hm-show:hover { border-color: var(--border); }
+  .hm-show-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .hm-stage { font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--text-muted); }
+  .hm-show .home-show-badge { margin: 0; font-size: 11.5px; padding: 2px 10px; }
+  .hm-show .home-show-name { margin: 6px 0 2px; font-size: 20px; }
+  .hm-show .home-show-dates { margin-bottom: 0; }
+  .hm-show .hs-btns { margin-top: auto; padding-top: 14px; }
+  .hm-show .hs-btns .home-show-btn { min-height: 38px; }
+  .hm-show .hs-links { margin-top: 10px; }
+  .hm-show .hs-links .hm-more-link { display: none; }
+  .hm-show .hs-links.all .hm-more-link { display: inline-block; }
+  .hm-show .hs-links.all .hm-links-more { display: none; }
+  .hm-links-more { cursor: pointer; font-family: inherit; color: var(--text-muted) !important; }
+  .hm-photo:empty { display: none; }
+  .hm-show .hm-photo .shp-hero { aspect-ratio: auto; height: 130px; max-height: none; margin: 0 0 12px; object-fit: cover; }
+  .hm-ph-none { height: 130px; margin: 0 0 12px; border-radius: 12px; background: var(--surface-2, var(--bg)); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+    padding: 0 16px; text-align: center; font-size: 17px; font-weight: 600; color: var(--text-muted); overflow: hidden; }
+  .hm-show-none { justify-content: center; }
+  .hm-none { margin-top: 8px; font-size: 14px; color: var(--text-muted); }
+  /* To-dos (wider) beside shopping + coming up; they wrap under each other when narrow. */
+  .hm-lower { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+  .hm-lower > .hm-tasks { flex: 3 1 440px; min-width: 0; margin: 0 !important; }
+  .hm-side { flex: 2 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+  .hm-side > .home-card { margin: 0 !important; }
+  .hm-side > .home-card[hidden] { display: none !important; }
+  .hm-coming .later-row:first-of-type { border-top: none; }
+  .hm-shop-n { display: none; }
+  .hm-side[hidden], .hm-shows[hidden], .hm-tasks[hidden] { display: none !important; }
+  .hm-bare .hm-sum::after { content: "Use the menu to open the pages you have."; flex-basis: 100%; font-size: 14px; color: var(--text-muted); }
+  #home-today .ht-head .hm-add { padding: 0 !important; min-height: 0 !important; border-radius: 50% !important; }
+  #home-today .hm-more, #hm .hm-retry { min-height: 0 !important; border-radius: 999px !important; padding: 7px 14px !important; }
+  .ht-head .hm-add { all: unset; box-sizing: border-box; width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border); color: var(--text); cursor: pointer; margin-left: 4px; align-self: center; }
+  .ht-head .hm-add:hover { background: var(--bg); } .ht-head .hm-add:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  .ht-head .hm-add svg { width: 16px; height: 16px; }
+  .ht-head { align-items: center; }
+  .hm-tfoot { display: flex; align-items: center; justify-content: space-between; gap: 8px 14px; flex-wrap: wrap; margin-top: 8px; }
+  .hm-tfoot:empty { display: none; }
+  .hm-more, .hm-retry { all: unset; cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--text); padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); }
+  .hm-more:hover, .hm-retry:hover { background: var(--bg); } .hm-more:focus-visible, .hm-retry:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  .hm-tfoot .ht-later { margin: 0; }
+  .hm-caught { padding: 14px 0 6px; font-size: 15px; color: var(--text-muted); }
+  @media (max-width: 768px) { .ht-head .hm-add { width: 40px; height: 40px; } #home-today .hm-more { padding: 11px 16px !important; } }
+  /* Phone: counts + to-dos first, then the shows, shopping as one row, coming up. */
+  @media (max-width: 768px) {
+    .home-redesign { padding: 12px 12px 20px; }
+    .hm { gap: 12px; }
+    .hm-sum { padding: 12px 14px; }
+    .hm-cts { margin-left: 0; width: 100%; }
+    .hm-ct { min-height: 36px; align-items: center; }
+    .hm-lower, .hm-side { display: contents; }
+    .hm-lower > .hm-tasks, .hm-side > .home-card { flex: none !important; }
+    .hm-sum { order: 0; } .hm-tasks { order: 1; } #home-show-grid.hm-shows { order: 2; } .hm-shop { order: 3; } .hm-coming { order: 4; }
+    .hm-shows { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .hm-shows .hm-show { padding: 14px; }
+    .hm-photo { display: none; }
+    .hm-show .hs-btns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .hm-show .hs-btns .home-show-btn { min-height: 44px; justify-content: center; padding: 8px 6px; font-size: 13.5px; }
+    .hm-shop { padding: 0 !important; }
+    .hm-shop .home-card-hdr { margin: 0 !important; padding: 0 14px; min-height: 52px; cursor: pointer; }
+    .hm-shop #home-shop-body { display: none; }
+    .hm-shop-n { display: inline; } .hm-shop-see { display: none; }
+  }
+  /* Unfolded foldables and small tablets beside no menu: two show columns if they fit. */
+  @media (min-width: 640px) and (max-width: 768px) {
+    .hm-shows { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hm-show .hs-btns { grid-template-columns: minmax(0, 1fr); }
+  }
 </style>
   <!-- PERF: pdf.js and jsPDF used to load here as blocking script tags on every
        launch. They're only needed on the Scripts tab and for PDF exports, so they
@@ -6353,33 +6445,25 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
         <div class="htm-hbody" id="htm-hbody"></div></div>
     </div>
 
-    <!-- SECTION: MAIN GRID -->
-    <!-- Today's to-dos lead; the current show and shopping sit beside them
-         (under them on a phone). The show timer lives in the top bar now. -->
-    <div class="home-main-grid home-v2">
-
-      <!-- PARKED: Day Tracker "Today" card. -->
-      <!-- Quick links moved to their own group at the bottom of the sidebar. -->
-
-      <div class="home-card ht-card" id="home-today"><span class="spinner"></span></div>
-
-      <!-- Shows + Shopping -->
-      <div class="home-right-col">
-
-        <!-- Current / upcoming shows -->
-        <div class="home-show-grid" id="home-show-grid">
-          <!-- Rendered by renderHomeShowCards() -->
-        </div>
-
-        <!-- Shopping summary -->
-        <div class="home-card">
-          <div class="home-card-hdr">
-            <span class="home-card-lbl">Shopping</span>
-            <a class="home-card-lnk" href="#" onclick="switchTab('shopping');return false;">See lists →</a>
+    <!-- SECTION: HOME (Oct 30 redesign) -->
+    <!-- Today's counts across the top; the Mainstage and Children's Theatre
+         shows side by side; to-dos with shopping and what's coming up beside
+         them. On a phone: counts + to-dos first, then the shows, shopping, coming up. -->
+    <div class="hm" id="hm">
+      <div class="hm-sum" id="hm-sum" aria-live="polite"></div>
+      <div class="hm-shows" id="home-show-grid"><!-- renderHomeShowCards() --></div>
+      <div class="hm-lower">
+        <div class="home-card ht-card hm-tasks" id="home-today"><span class="spinner"></span></div>
+        <div class="hm-side">
+          <div class="home-card hm-shop" id="hm-shop">
+            <div class="home-card-hdr">
+              <span class="home-card-lbl">Shopping</span>
+              <a class="home-card-lnk hm-shop-lnk" href="#" onclick="switchTab('shopping');return false;">See lists &rarr;</a>
+            </div>
+            <div id="home-shop-body"><span class="spinner"></span></div>
           </div>
-          <div id="home-shop-body"><span class="spinner"></span></div>
+          <div class="home-card hm-coming" id="hm-coming" hidden></div>
         </div>
-
       </div>
     </div>
 
@@ -7121,7 +7205,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
         <div class="mi-head">Open</div>
         <button class="top-btn ic ic-list" onclick="flipToCueSheet()">Cue sheet</button>
         <button class="top-btn ic ic-list" onclick="flipToCueSheet('', 'shift')">Set change plot</button>
-        <button class="top-btn ic ic-home" onclick="flipToCueSheet('', 'presets')">Before House presets</button>
+        <button class="top-btn ic ic-home" onclick="flipToCueSheet('', 'presets')">Presets</button>
         <button class="top-btn ic ic-spike" onclick="openSpikeMap()">Spike map<svg class="mi-ext" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg></button>
         <div class="mi-sep"></div>
         <div class="mi-head">This script</div>
@@ -7238,7 +7322,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 <!-- Scripts: cue edit modal -->
 <div class="cue-edit-overlay" id="preset-overlay" onclick="if(event.target===this)closePresets()">
   <div class="cue-edit" style="max-width:760px;">
-    <h3>Before house opens</h3>
+    <h3>Presets</h3>
     <p style="font-size:12px;color:#8b8ba6;margin:-8px 0 14px;">
       Every piece in the show, listed automatically. Say where each one starts.
       Prints at the top of the scene change plot.</p>
@@ -7454,7 +7538,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.30 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.30 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -8036,6 +8120,7 @@ function applyCrewPerms() {
   });
   try { if (typeof currentTab !== 'undefined' && !crewCanSee(currentTab)) switchTab(crewHomeTab()); } catch (e) {}
   try { sbTidy(); } catch (e) {}
+  try { if (typeof renderWidgets === 'function') renderWidgets(); } catch (e) {}
   // Scripts view only: running views only, never the editor.
   try { if (crew && !crewPerms.edit.scripts && typeof runView !== 'undefined' && runView === 'normal' && document.getElementById('scripts-editor').classList.contains('open')) setRunView('a'); } catch (e) {}
 }
@@ -8308,7 +8393,7 @@ function switchTab(tab) {
   if (!TABS.includes(tab)) tab = 'home';
   if (typeof crewCanSee === 'function' && !crewCanSee(tab)) tab = crewHomeTab();
   if (tab !== 'scripts') window._ssPendingShow = '';   // a show waiting for its script lets go
-  if (tab !== 'home' && typeof _htDone !== 'undefined' && _htDone.size) { _htDone.clear(); try { renderHomeToday(); } catch (e) {} }
+  if (tab !== 'home' && typeof _htDone !== 'undefined') { _htPrev = null; _htSeen = null; _htOpen = false; _htDone.clear(); try { renderHomeToday(); } catch (e) {} }
   currentTab = tab;
   // Leaving Notes must drop the window-filling mode, or every other tab
   // inherits a locked page that can't scroll.
@@ -11316,6 +11401,7 @@ function renderWidgets() {
   try { renderSeasonOverview(); } catch(e) { console.error('renderSeasonOverview:', e); }
   try { renderNotesAccess(); } catch(e) { console.error('renderNotesAccess:', e); }
   try { sbShowRender(); sbTodoCount(); } catch(e) {}
+  try { hmEmptyCheck(); } catch(e) {}
 }
 
 // ── HOME: TODAY CARD (Day Tracker) ──────────────────────────────────────────
@@ -11477,63 +11563,95 @@ function hubPhotoSet(slug, v) {
   hubPatch(slug, { photo: v });
   shPhRepaint(); try { sbShowRender(); } catch (e) {}
 }
-function renderHomeShowCards() {
-  const el = document.getElementById('home-show-grid');
-  if (!el) return;
-  const sh = curShow();
-  if (!sh) { el.innerHTML = '<div class="home-show-card" style="color:var(--text-faint);font-size:13px;">No upcoming shows configured.</div>'; return; }
-  const ref = showRef(sh), slug = showSlug(sh.name), st = showStatus(sh.start, sh.end);
-  const badge = (st === 'current' ? 'Running now' : st === 'tech' ? 'In tech' : st === 'upcoming' ? 'Up next' : 'Closed') + ' · ' + (ref.isKids ? "Children's" : 'Mainstage') + (sh.picked ? ' · picked' : '');
+// Home: the Mainstage and Children's Theatre shows side by side (the same
+// shows as the side menu's two boxes, and the same pickers), then "Coming up"
+// in the right-hand column: other shows running or in tech, else the next two.
+function hmShowCard(kind) {
+  const label = kind === 'kids' ? "Children's Theatre" : 'Mainstage';
+  const sh = curShow(kind);
+  if (!sh) return `<div class="home-show-card hm-show hm-show-none"><div class="hm-stage">${label}</div><div class="hm-none">No ${kind === 'kids' ? "Children's" : 'Mainstage'} show scheduled.</div></div>`;
+  const ref = showRef(sh), slug = showSlug(sh.name), st = showStatus(sh.start, sh.end), k = `'${kind}'`;
+  const badge = (st === 'current' ? 'Running now' : st === 'tech' ? 'In tech' : st === 'upcoming' ? 'Up next' : 'Closed') + (sh.picked ? ' · picked' : '');
   const badgeCls = st === 'current' ? 'now-b' : st === 'tech' ? 'tech-b' : 'next-b';
   let countdown;
   if (st === 'current') { const left = daysUntil(sh.end); countdown = left === 0 ? 'closes tonight' : 'closes in ' + left + ' day' + (left !== 1 ? 's' : ''); }
-  else { const until = daysUntil(sh.start); countdown = until === 0 ? 'opens tonight' : until < 0 ? 'closed' : 'opens in ' + until + ' day' + (until !== 1 ? 's' : ''); }
+  else { const until = daysUntil(sh.start); countdown = until === 0 ? 'opens tonight' : until < 0 ? 'closed' : until === 1 ? 'opens tomorrow' : 'opens in ' + until + ' days'; }
   const docUrl = showNotes[ref.notesKey];
+  // Crew only get the buttons for what they may open (nothing else is drawn).
+  const canN = crewCanSee('notes'), canS = crewCanSee('scripts'), canC = crewCanSee('cuesheet') || canS;
   // No notes doc yet: the first button makes one, as the old Home card did.
-  const notesBtn = docUrl
-    ? `<button class="home-show-btn pri" onclick="curShowNotes()">${HS_ICON.notes}Show notes</button>`
-    : `<button class="home-show-btn pri" onclick="handleNotes('${esc(ref.notesKey)}', ${esc(JSON.stringify(sh.name))}, this)">${HS_ICON.notes}Create notes</button>`;
-  let html = `<div class="home-show-card hs-cur">
-    ${showPhotoHTML(sh.name, 'shp-hero')}
-    <span class="home-show-badge ${badgeCls}">${esc(badge)}</span>
-    <div class="home-show-name home-show-name-link" role="link" tabindex="0" title="Open show page"
+  const notesBtn = !canN ? '' : docUrl
+    ? `<button class="home-show-btn pri" onclick="curShowNotes(${k})">${HS_ICON.notes}Show notes</button>`
+    : (crewOn() ? '' : `<button class="home-show-btn pri" onclick="handleNotes('${esc(ref.notesKey)}', ${esc(JSON.stringify(sh.name))}, this)">${HS_ICON.notes}Create notes</button>`);
+  const links = crewCanSee('home') ? showLinks(slug) : [], MAXL = 3;
+  const linkHTML = links.length ? `<div class="hs-links">${links.map((l, i) => `<a class="hs-link${i >= MAXL ? ' hm-more-link' : ''}" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(l.url)}">${esc(l.name || hostOf(l.url))} ↗</a>`).join('')}${links.length > MAXL ? `<button type="button" class="hs-link hm-links-more" onclick="this.parentNode.classList.add('all')">+${links.length - MAXL} more</button>` : ''}</div>` : '';
+  return `<div class="home-show-card hm-show hs-cur" data-kind="${kind}">
+    <div class="hm-photo">${showPhotoHTML(sh.name, 'shp-hero')}</div>
+    <div class="hm-show-top"><span class="hm-stage">${label}</span><span class="home-show-badge ${badgeCls}">${esc(badge)}</span></div>
+    ${canN ? `<div class="home-show-name home-show-name-link" role="link" tabindex="0" title="Open show page"
          onclick="openShowHub('${esc(slug)}')"
-         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openShowHub('${esc(slug)}');}">${esc(sh.name)}<span class="home-show-name-arrow" aria-hidden="true"> &rarr;</span></div>
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openShowHub('${esc(slug)}');}">${esc(sh.name)}<span class="home-show-name-arrow" aria-hidden="true"> &rarr;</span></div>`
+      : `<div class="home-show-name">${esc(sh.name)}</div>`}
     <div class="home-show-dates">${esc(formatDates(sh.start, sh.end))} · ${esc(countdown)}</div>
     <div class="hs-btns">${notesBtn}
-      <button class="home-show-btn" onclick="curShowScript()">${HS_ICON.script}Script</button>
-      <button class="home-show-btn" onclick="curShowCue()">${HS_ICON.cue}Cue sheet</button>
+      ${canS ? `<button class="home-show-btn" onclick="curShowScript(${k})">${HS_ICON.script}Script</button>` : ''}
+      ${canC ? `<button class="home-show-btn" onclick="curShowCue(${k})">${HS_ICON.cue}Cue sheet</button>` : ''}
     </div>
-    ${showLinks(slug).length ? `<div class="hs-links">${showLinks(slug).map(l => `<a class="hs-link" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(l.url)}">${esc(l.name || hostOf(l.url))} ↗</a>`).join('')}</div>` : ''}
+    ${linkHTML}
   </div>`;
-  // Everything else happening now (running or in tech, either stage); if
-  // nothing is, the next two to open.
-  const others = allShows().filter(x => showSlug(x.name) !== slug);
+}
+function renderHomeShowCards() {
+  const el = document.getElementById('home-show-grid');
+  if (!el) return;
+  // Only for people who can open something about a show.
+  const any = crewCanSee('notes') || crewCanSee('scripts') || crewCanSee('cuesheet');
+  el.innerHTML = any ? hmShowCard('main') + hmShowCard('kids') : '';
+  el.hidden = !any;
+  if (!any) { renderHomeComing(); hmEmptyCheck(); return; }
+  // If only one show has a picture, the other gets a plain panel the same size
+  // so the two cards stay level.
+  const ph = [...el.querySelectorAll('.hm-photo')];
+  if (ph.some(p => p.querySelector('img'))) ph.forEach(p => { if (!p.querySelector('img')) { const card = p.closest('.hm-show'), nm = card && card.querySelector('.home-show-name'); p.innerHTML = '<div class="hm-ph-none">' + esc(nm ? nm.firstChild.textContent : '') + '</div>'; } });
+  renderHomeComing();
+}
+function renderHomeComing() {
+  const el = document.getElementById('hm-coming');
+  if (!el) return;
+  const feat = ['main', 'kids'].map(k => { const s = curShow(k); return s ? showSlug(s.name) : ''; });
+  const others = allShows().filter(x => feat.indexOf(showSlug(x.name)) < 0);
   let going = others.filter(x => { const t = showStatus(x.start, x.end); return t === 'current' || t === 'tech'; });
   const title = going.length ? 'Also going' : 'Coming up';
-  if (!going.length) going = others.filter(x => showStatus(x.start, x.end) === 'upcoming').slice(0, 2);
-  if (going.length) {
-    html += `<div class="home-show-card home-later-card">
-      <div class="home-card-hdr"><span class="home-card-lbl">${title}</span><a class="home-card-lnk" href="#" onclick="switchTab('notes');return false;">All shows &rarr;</a></div>
-      ${going.map(x => {
-        const t = showStatus(x.start, x.end), xs = esc(showSlug(x.name)), kids = x.type !== 'Mainstage';
-        const when = t === 'current' ? 'closes ' + new Date(x.end + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-          : (daysUntil(x.start) <= 6 ? 'opens ' + new Date(x.start + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' }) : 'opens in ' + daysUntil(x.start) + ' days');
-        return `<div class="later-row" role="link" tabindex="0" title="Open show page" onclick="openShowHub('${xs}')"
-             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openShowHub('${xs}');}">
-          <span class="later-tag ${kids ? 'ct' : 'ms'}">${kids ? 'CT' : 'MS'}</span>
-          <span class="later-name">${showPhotoHTML(x.name, 'shp-thumb')}${esc(x.name)}</span>
-          <span class="later-when${t === 'current' || t === 'tech' ? ' is-live' : ''}">${t === 'current' ? 'Running' : t === 'tech' ? 'In tech' : ''}${t === 'current' || t === 'tech' ? ' · ' : ''}${esc(when)}</span>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-  el.innerHTML = html;
+  if (!going.length) going = others.filter(x => showStatus(x.start, x.end) === 'upcoming').sort((a, b) => a.start.localeCompare(b.start)).slice(0, 2);
+  // Coming up opens show pages, so it's for people who can see Notes.
+  if (!going.length || !crewCanSee('notes')) { el.hidden = true; el.innerHTML = ''; hmEmptyCheck(); return; }
+  el.hidden = false;
+  el.innerHTML = `<div class="home-card-hdr"><span class="home-card-lbl">${title}</span><a class="home-card-lnk" href="#" onclick="switchTab('notes');return false;">All shows &rarr;</a></div>
+    ${going.map(x => {
+      const t = showStatus(x.start, x.end), xs = esc(showSlug(x.name)), kids = x.type !== 'Mainstage';
+      const when = t === 'current' ? 'closes ' + new Date(x.end + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : (daysUntil(x.start) <= 6 ? 'opens ' + new Date(x.start + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' }) : 'opens in ' + daysUntil(x.start) + ' days');
+      return `<div class="later-row" role="link" tabindex="0" title="Open show page" onclick="openShowHub('${xs}')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openShowHub('${xs}');}">
+        <span class="later-tag ${kids ? 'ct' : 'ms'}">${kids ? 'CT' : 'MS'}</span>
+        <span class="later-name">${esc(x.name)}</span>
+        <span class="later-when${t === 'current' || t === 'tech' ? ' is-live' : ''}">${t === 'current' ? 'Running' : t === 'tech' ? 'In tech' : ''}${t === 'current' || t === 'tech' ? ' · ' : ''}${esc(when)}</span>
+      </div>`;
+    }).join('')}`;
+  hmEmptyCheck();
+}
+// Hide the side column when nothing in it is for this person, and say so
+// plainly if nothing on Home is.
+function hmEmptyCheck() {
+  const side = document.querySelector('.hm-side');
+  if (side) side.hidden = ![...side.children].some(c => !c.hidden);
+  const parts = ['home-today', 'home-show-grid', 'hm-shop', 'hm-coming'].map(id => document.getElementById(id)).filter(Boolean);
+  const hm = document.getElementById('hm');
+  if (hm) hm.classList.toggle('hm-bare', !parts.some(p => !p.hidden));
 }
 // The current show's cue sheet: on the script page, flipped to Cue sheet.
 // Crew who can see the cue sheet but not scripts get the cue sheet page.
-function curShowCue() {
-  const sh = curShow(); if (!sh) return;
+function curShowCue(kind) {
+  const sh = curShow(kind); if (!sh) return;
   const slug = showSlug(sh.name);
   const go = () => {
     const rec = hubRec(slug);
@@ -11556,40 +11674,86 @@ function curShowCue() {
 // stays on screen, struck through, until you leave Home, so a slip can be undone.
 const _htDone = new Set();
 function htIso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+// Home shows the first three to-dos (overdue, then due today, this week, then
+// later / undated if there's room); "Show more" opens the full grouped list.
+// The three stay put while you're on Home, so a ticked one stays struck
+// through (and can be unticked) instead of being replaced by the next.
+let _htOpen = false, _htPrev = null, _htSeen = null;
 function renderHomeToday() {
   const el = document.getElementById('home-today');
   if (!el) return;
   const now = new Date(), t = htIso(now), wkD = new Date(now); wkD.setDate(wkD.getDate() + 7); const wk = htIso(wkD);
+  // Crew without To Do: nothing about to-dos is drawn at all.
+  if (!crewCanSee('todo')) { el.hidden = true; el.innerHTML = ''; hmSumRender(now, null); return; }
+  el.hidden = false;
   const ls = (lists || []).filter(l => !tvIsShoppingList(l.name));
+  if (!ls.length) {
+    hmSumRender(now, null);
+    el.innerHTML = `<div class="ht-head"><b>To-dos</b></div>` + (window._tkErr
+      ? `<div class="ht-none">Couldn't load the to-dos. <button type="button" class="hm-retry" onclick="hmRetry()">Try again</button></div>`
+      : '<div class="ht-none"><span class="spinner"></span> Loading to-dos…</div>');
+    return;
+  }
   const all = [];
   // A to-do is found again by its list and place (ids in the Sheet can be numbers, text or missing).
-  ls.forEach(l => (tasks[l.name] || []).forEach((x, i) => { if (!x.done || _htDone.has(htKey(l.name, x, i))) all.push({ x, l, i }); }));
+  ls.forEach(l => (tasks[l.name] || []).forEach((x, i) => { if (!x.done || _htDone.has(htKey(l.name, x, i))) all.push({ x, l, i, k: htKey(l.name, x, i) }); }));
   const od = all.filter(a => a.x.due && a.x.due < t), td = all.filter(a => a.x.due === t);
   const week = all.filter(a => a.x.due && a.x.due > t && a.x.due <= wk).sort((a, b) => a.x.due.localeCompare(b.x.due));
-  const later = all.filter(a => !a.x.due || a.x.due > wk).filter(a => !a.x.done).length;
+  const laterAll = all.filter(a => !a.x.due || a.x.due > wk);
+  const later = laterAll.filter(a => !a.x.done).length;
+  const open = a => !a.x.done;
+  hmSumRender(now, { od: od.filter(open).length, td: td.filter(open).length, wk: week.filter(open).length });
   const fmt = (iso, wd) => new Date(iso + 'T00:00:00').toLocaleDateString('en-US', wd ? { weekday: 'short', month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric' });
   const row = a => {
-    const d = a.x.due, cls = d < t ? 'od' : d === t ? 'td' : '';
-    const lbl = d < t ? 'Overdue · ' + fmt(d) : d === t ? 'Today' : fmt(d, true);
+    const d = a.x.due || '', cls = !d ? '' : d < t ? 'od' : d === t ? 'td' : '';
+    const lbl = !d ? 'No date' : d < t ? 'Overdue · ' + fmt(d) : d === t ? 'Today' : fmt(d, true);
     const done = !!a.x.done;
     return `<label class="ht-row${done ? ' done' : ''}"><input type="checkbox"${done ? ' checked' : ''} onchange="htCheck(${esc(JSON.stringify(a.l.name))}, ${a.i}, this.checked)" aria-label="Done: ${esc(a.x.text)}">
       <span class="ht-text">${escHtml(a.x.text)}</span><span class="ht-list"><i style="background:${esc(a.l.color || '#999')}"></i>${esc(a.l.name)}</span><span class="ht-due ${cls}">${esc(lbl)}</span></label>`;
   };
-  const grp = (label, arr, cls) => arr.length ? `<div class="ht-grp ${cls || ''}">${label} <span>${arr.length}</span></div>${arr.map(row).join('')}` : '';
-  const body = grp('Overdue', od, 'od') + grp('Due today', td) + grp('This week', week);
-  let pick = ''; try { pick = localStorage.getItem('mmt_ht_list') || ''; } catch (e) {}
-  if (!ls.some(l => l.name === pick)) pick = ls.length ? ls[0].name : '';
-  el.innerHTML = `<div class="ht-head"><b>Today</b><small>${esc(now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }))}</small>
+  const grp = (label, arr, cls) => arr.length ? `<div class="ht-grp ${cls || ''}">${label} <span>${arr.filter(open).length}</span></div>${arr.map(row).join('')}` : '';
+  // The preview: pick three once, keep them until Home is left or a new to-do turns up.
+  const ordered = od.concat(td, week, laterAll);
+  const keys = new Set(ordered.map(a => a.k));
+  const fresh = ordered.some(a => open(a) && !(_htSeen && _htSeen.has(a.k)));
+  if (!_htPrev || _htPrev.some(k => !keys.has(k)) || fresh) {
+    _htPrev = ordered.filter(open).slice(0, 3).map(a => a.k);
+    _htSeen = keys;
+  }
+  const byKey = {}; ordered.forEach(a => { byKey[a.k] = a; });
+  const prev = _htPrev.map(k => byKey[k]).filter(Boolean);
+  const dated = od.length + td.length + week.length;
+  const more = dated > prev.filter(a => a.x.due && a.x.due <= wk).length;
+  const nOpen = ordered.filter(open).length;
+  let body;
+  if (!nOpen && !_htDone.size) body = `<div class="ht-none hm-caught">You're all caught up.</div>`;
+  else if (_htOpen) body = (grp('Overdue', od, 'od') + grp('Due today', td) + grp('This week', week)) || '<div class="ht-none">Nothing due this week.</div>';
+  else body = prev.map(row).join('') || '<div class="ht-none">Nothing due this week.</div>';
+  const canAdd = true;   // anyone who sees To Do can add to it (as on the To Do page)
+  el.innerHTML = `<div class="ht-head"><b>To-dos</b>
+      ${canAdd ? `<button type="button" class="hm-add" onclick="qaOpen('task', this)" title="New to-do" aria-label="New to-do"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>` : ''}
       <a class="home-card-lnk" href="#" onclick="switchTab('todo');return false;">All to-dos &rarr;</a></div>
-    ${body || '<div class="ht-none">Nothing due this week.</div>'}
-    ${later ? `<a class="ht-later" href="#" onclick="switchTab('todo');return false;">${later} more with no date or later &rarr;</a>` : ''}
-    ${ls.length ? `<form class="ht-add" onsubmit="htAdd(event)">
-      <input id="ht-text" type="text" placeholder="Add a to-do…" autocomplete="off" aria-label="New to-do">
-      <select id="ht-list" aria-label="List">${ls.map(l => `<option${l.name === pick ? ' selected' : ''}>${esc(l.name)}</option>`).join('')}</select>
-      <input id="ht-date" type="date" aria-label="Due date (optional)">
-      <button type="submit" class="ht-addbtn">Add</button>
-    </form>` : ''}`;
+    ${body}
+    <div class="hm-tfoot">
+      ${more || _htOpen ? `<button type="button" class="hm-more" onclick="htToggleOpen()" aria-expanded="${_htOpen}">${_htOpen ? 'Show less' : 'Show more (' + od.concat(td, week).filter(open).length + ' due this week)'}</button>` : ''}
+      ${later && (_htOpen || !prev.some(a => !a.x.due || a.x.due > wk)) ? `<a class="ht-later" href="#" onclick="switchTab('todo');return false;">${later} more with no date or later &rarr;</a>` : ''}
+    </div>`;
 }
+function htToggleOpen() { _htOpen = !_htOpen; renderHomeToday(); const b = document.querySelector('#home-today .hm-more'); if (b) b.focus(); }
+function hmRetry() { window._tkErr = false; try { renderHomeToday(); } catch (e) {} try { loadData(); } catch (e) {} }
+// Home's top strip: the date and how many to-dos are overdue / due today /
+// due this week (the same rules as the list below; done ones don't count).
+// Before the lists have loaded it says so instead of showing zeros.
+function hmSumRender(now, c) {
+  const el = document.getElementById('hm-sum'); if (!el) return;
+  const date = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const todo = crewCanSee('todo');
+  const pill = (n, lbl, cls) => `<a href="#home-today" class="hm-ct${cls ? ' ' + cls : ''}${n ? '' : ' zero'}" onclick="hmToTasks();return false;"><b>${n}</b> ${lbl}</a>`;
+  el.innerHTML = `<div class="hm-sum-t"><b>Today</b><span>${esc(date)}</span></div>`
+    + (!todo ? '' : !c ? (window._tkErr && !(lists || []).length ? '<div class="hm-cts"><span class="hm-ct-load">Couldn\'t load the to-dos</span></div>' : '<div class="hm-cts"><span class="hm-ct-load">Loading to-dos…</span></div>')
+      : `<div class="hm-cts">${pill(c.od, 'overdue', 'od')}${pill(c.td, 'due today', 'td')}${pill(c.wk, 'this week', '')}</div>`);
+}
+function hmToTasks() { const t = document.getElementById('home-today'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 function htKey(listName, t, i) { return t && t.id != null && t.id !== '' ? 'id:' + String(t.id) : listName + '#' + i; }
 function htCheck(listName, i, done) {
   const t = (tasks[listName] || [])[i];
@@ -11680,11 +11844,26 @@ function renderHomeTasksCard() {
 function renderHomeShopSummary() {
   const el = document.getElementById('home-shop-body');
   if (!el) return;
+  const card = document.getElementById('hm-shop');
+  // Crew without Shopping: the card isn't drawn at all.
+  if (card) card.hidden = !crewCanSee('shopping');
+  if (!crewCanSee('shopping')) { el.innerHTML = ''; hmEmptyCheck(); return; }
+  if (!window._shLoaded) {
+    const lnk0 = document.querySelector('#hm-shop .hm-shop-lnk');
+    if (lnk0) lnk0.innerHTML = `<span class="hm-shop-n">${window._shErr ? "Couldn't load" : 'Loading…'}</span><span class="hm-shop-see">See lists</span> &rarr;`;
+    el.innerHTML = window._shErr ? `<div class="home-shop-empty">Couldn't load the shopping lists. <button type="button" class="hm-retry" onclick="window._shErr=false;renderHomeShopSummary();fetchShopData()">Try again</button></div>` : '<div class="home-shop-empty"><span class="spinner"></span> Loading…</div>';
+    return;
+  }
   const stores = Object.entries(shopData || {})
     .map(([name, items]) => ({ name, count: (items || []).filter(i => !i.done).length }))
     .filter(s => s.count > 0)
     .sort((a, b) => b.count - a.count);
 
+  const total = stores.reduce((n, s) => n + s.count, 0);
+  const lnk = document.querySelector('#hm-shop .hm-shop-lnk');
+  if (lnk) lnk.innerHTML = `<span class="hm-shop-n">${total ? total + ' item' + (total !== 1 ? 's' : '') : 'Nothing to buy'}</span><span class="hm-shop-see">See lists</span> &rarr;`;
+  const hdr = document.querySelector('#hm-shop .home-card-hdr');
+  if (hdr && !hdr._hm) { hdr._hm = 1; hdr.addEventListener('click', e => { if (innerWidth <= 768 && !e.target.closest('a')) switchTab('shopping'); }); }
   if (!stores.length) {
     el.innerHTML = '<div class="home-shop-empty">No pending shopping items.</div>';
     return;
@@ -12629,7 +12808,7 @@ function loadShopData() {
   // Instant paint from cache
   try {
     const saved = JSON.parse(localStorage.getItem('mmt_shopping') || 'null');
-    if (saved) shopData = saved;
+    if (saved) { shopData = saved; window._shLoaded = true; }
   } catch(e) {}
   // Ensure defaults exist
   DEFAULT_STORES.forEach(s => { if (!shopData[s]) shopData[s] = []; });
@@ -12653,6 +12832,7 @@ async function fetchShopData() {
       if (pendingLocal) return;
 
       shopData = data.shopping;
+      window._shLoaded = true; window._shErr = false;
       shSetBase(shopData);
       DEFAULT_STORES.forEach(s => { if (!shopData[s]) shopData[s] = []; });
       if (!activeStore || !shopData[activeStore]) activeStore = Object.keys(shopData)[0] || DEFAULT_STORES[0];
@@ -12667,7 +12847,9 @@ async function fetchShopData() {
     }
   } catch(e) {
     console.warn('Shopping fetch:', e.message);
+    window._shErr = true;
   }
+  try { renderHomeShopSummary(); } catch (e) {}
 }
 
 function saveShopData() {
@@ -14305,6 +14487,7 @@ function loadData() {
   renderWidgets();
 
   return fetchAllData().then(d => {
+    window._tkErr = false;
     // SAFETY: only overwrite with server data if it actually has content
     // Never wipe cached data with empty responses
     // Changes still waiting to go out are newer than what the Sheet has.
@@ -14324,6 +14507,7 @@ function loadData() {
     renderWidgets();
   }).catch(err => {
     console.warn('Dashboard load error:', err.message);
+    window._tkErr = true;
     renderWidgets();
   }).finally(() => {
     // Try fetching inventory activity separately (optional endpoint)
@@ -20370,7 +20554,7 @@ function spkChipsHTML(m, sid){
     ? `<span class="spk-chip" title="${spkEsc(spkTapeName(e))}">${spkSVG(e, 30, 15)}<span>${spkEsc(spkLabel(e))}</span></span>`
     : `<span class="spk-chip spk-gone">removed spike</span>`).join('');
   const html = chips + (m && m.spike ? `<span class="spk-typed">${spkEsc(m.spike)}</span>` : '');
-  return m && m._inh && html ? `<span class="spk-inh" title="From Before House">${html}</span>` : html;
+  return m && m._inh && html ? `<span class="spk-inh" title="From Presets">${html}</span>` : html;
 }
 // The same in words, for spreadsheets and anything else without pictures.
 function spkMoveText(m, sid){
@@ -20789,7 +20973,7 @@ function spkBtnHTML(m){
   const picked = own.length ? own : spkOfMove(m, showId);
   if (!picked.length) return '<span class="spk-plus">+</span>';
   const html = picked.map(e => e ? spkSVG(e, 26, 13) : '<span class="spk-plus">?</span>').join('');
-  return own.length ? html : `<span class="spk-inh" title="From Before House">${html}</span>`;
+  return own.length ? html : `<span class="spk-inh" title="From Presets">${html}</span>`;
 }
 function spkMoveOf(cueId, moveId){
   const c = cues.find(x => x.id === cueId);
@@ -23071,7 +23255,7 @@ function prDescribe(p) {
     return cueName(w[1]) + (m && m.piece ? ' · ' + m.piece : '') + (w[3] ? ' · ' + (PR_FIELD[w[3]] || w[3]) : '');
   }
   if (w[0] === 'cue') return cueName(w[1]) + (w[2] ? ' · ' + (PR_FIELD[w[2]] || w[2]) : '');
-  if (w[0] === 'pre') return 'Before House · ' + ((presets[w[1]] || {}).piece || w[1]);
+  if (w[0] === 'pre') return 'Presets · ' + ((presets[w[1]] || {}).piece || w[1]);
   return p.page === 'cuesheet' ? 'cue sheet' : p.page && /^p\d+$/.test(p.page) ? 'page ' + p.page.slice(1) : 'looking';
 }
 // Go there: their page, and the cue they're on.
@@ -23461,7 +23645,7 @@ async function exportSetChangePlot() {
     };
 
     tagPage('Preset');
-    drawSceneBar('Before house opens');
+    drawSceneBar('Presets');
     drawPresetHead();
 
     doc.setFontSize(FS);
@@ -23489,7 +23673,7 @@ async function exportSetChangePlot() {
       // column header or the rows arrive unlabelled.
       if (y + rowH > pageH - MARGIN_BOTTOM) {
         doc.addPage(); tagPage('Preset'); drawTitle();
-        drawSceneBar('Before house opens (cont.)', true);
+        drawSceneBar('Presets (cont.)', true);
         drawPresetHead();
       }
       doc.setFontSize(FS); doc.setTextColor(30,30,30);
@@ -24581,7 +24765,7 @@ async function exportSetChangeXLSX() {
   // the plot's eight.
   const presetRows = presetRowData();
   if (presetRows.length) {
-    const ps = wb.addWorksheet('Before House Opens', {
+    const ps = wb.addWorksheet('Presets', {
       views: [{ state: 'frozen', ySplit: 5 }],
       pageSetup: {
         orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
@@ -24591,7 +24775,7 @@ async function exportSetChangeXLSX() {
     });
     ps.columns = [{ key:'piece', width:30 }, { key:'location', width:38 }, { key:'spike', width:32 }, { key:'notes', width:42 }];
     titleBlock(ps, 'D', showName, 'Set Changes');
-    sceneBar(ps, 4, 'Before house opens', 'D');
+    sceneBar(ps, 4, 'Presets', 'D');
     headerRow(ps, 5, ['PIECE', 'PRESET LOCATION', 'SPIKE', 'NOTES']);
 
     presetRows.forEach((rec, idx) => {
