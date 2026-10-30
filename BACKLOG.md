@@ -1,5 +1,10 @@
 # MMT TD Dashboard: to-do list
 
+## Live Oct 30: everything from dev (Dashboard 10.30 v1, Cue Sheet 10.30 v1); Apps Script 10.28 v3 pasted + deployed by Mac
+- Show photos, loading pill, drop photo copy/download, one-change saves + lists on other devices within ~10 s, tidy-ups, cue sheet Editing-mode jump fix.
+- Cue sheet live still has the crew link off (no Crew link export, PLOT_ID = '').
+- Next: Home screen redesign from ChatGPT's spec, in two passes (1: responsive layout + production cards; 2: task preview + crew/permission states).
+
 ## Live Oct 29 night: sidebar reorganised (Dashboard 10.29 v4 = 10.29 v8 dev)
 - Two show boxes: Mainstage (next Mainstage show) and Children's Theatre (next Children's show), each with its own picker (⇄), Show notes, Script & Cue Sheet, links. Checklists once, under Mainstage. Tap a box to fold it (remembered).
 - Home, To Do, Shopping; Productions (starts closed); Stock & Storage (was Warehouse); Links on its own; Utilities (was More: Cleaning Log, To Do 2, Side Job Notes); Quick Add folds up.

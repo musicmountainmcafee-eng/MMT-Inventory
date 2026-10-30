@@ -4368,6 +4368,38 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
     font-size:14px; color:var(--text-muted); margin:4px 0 0;
   }
 
+
+  #ld-pill { position:fixed; left:50%; top:calc(env(safe-area-inset-top, 0px) + 66px); z-index:9998; transform:translate(-50%,-8px);
+    display:flex; align-items:center; gap:9px; padding:8px 16px 8px 12px; border-radius:999px; background:#111; color:#fff;
+    font:600 13px Inter, system-ui, sans-serif; box-shadow:0 6px 20px rgba(0,0,0,.25); opacity:0; pointer-events:none;
+    transition:opacity .18s, transform .18s; }
+  #ld-pill.on { opacity:1; transform:translate(-50%,0); }
+  #ld-pill i { width:15px; height:15px; border-radius:50%; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; animation:ld-spin .7s linear infinite; }
+  @keyframes ld-spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce) { #ld-pill i { animation-duration:2.4s; } }
+
+  /* show photos */
+  .shp-img { display:block; object-fit:cover; background:var(--bg-alt, #f1f1f3); padding:0; border:0; }
+  .hs-cur .shp-hero { width:100%; aspect-ratio:16/9; max-height:230px; border-radius:12px; margin:0 0 14px; }
+  .later-name .shp-thumb { display:inline-block; width:44px; height:26px; border-radius:5px; vertical-align:middle; margin-right:9px; }
+  .show-card-hero .shp-card, .show-card-next .shp-card { width:136px; aspect-ratio:16/9; border-radius:10px; flex:none; }
+  .show-card-next .shp-card ~ .show-info, .show-card-hero .shp-card ~ .show-info { flex:1; min-width:0; }
+  .show-card-mini .shp-mini { width:56px; height:32px; border-radius:6px; flex:none; margin-right:10px; }
+  @media (max-width:600px) { .show-card-hero .shp-card, .show-card-next .shp-card { width:100%; } }
+  .iv-phbar { display:flex; flex-wrap:wrap; gap:6px; padding:10px 16px 0; }
+  .iv-phbar .iv-btn svg, .iv-gal-b .iv-btn svg { vertical-align:-2px; margin-right:5px; }
+  .iv-gal-b { display:flex; gap:4px; margin-top:4px; }
+  .iv-gal-b .iv-btn { padding:4px 8px; }
+  .iv-gal-b .iv-btn svg { margin:0; }
+
+  .empty-nudge { animation: nudge .35s; border-color: #dc2626 !important; }
+  .empty-nudge::placeholder { color: #dc2626; opacity: 1; }
+  @keyframes nudge { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  @media (prefers-reduced-motion: reduce) { .empty-nudge { animation: none; } }
+  /* Phone: the version tag sat on top of the bottom bar's More button. */
+  @media (max-width: 768px) { #build-tag { bottom: calc(env(safe-area-inset-bottom, 0px) + 66px) !important; right: 6px !important; opacity: .8; } }
+  .t2-menu { z-index: 40; }
+  .t2-menu[open] { z-index: 60; }
   /* ── LOADING ───────────────────────────────────────────────────────────── */
   /* Every remote call goes through jsonp(), so one counter there drives both
      the top bar and the first-visit panel spinner. */
@@ -6385,7 +6417,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
   <div class="tab-panel" id="tab-notes" data-tab="notes">
     <div class="tabs">
       <div class="tab-title-row" style="display:flex;align-items:center;gap:12px;padding:0 14px;">
-        <span style="font-size:18px;font-weight:700;">Notes</span>
+        <span style="font-size:18px;font-weight:700;">All Shows</span>
         <button class="edit-links-btn td-only" id="lists-edit-btn" style="display:none;margin-left:auto;" onclick="toggleListsEdit()">Edit</button>
       </div>
     </div>
@@ -6455,7 +6487,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
   <div class="tab-panel" id="tab-scripts" data-tab="scripts">
     <div class="sp-wrap">
       <div class="sp-head">
-        <h2>Scripts</h2>
+        <h2>All Scripts</h2>
         <input id="sp-find" class="sp-input" type="search" placeholder="Find a show or script…" oninput="renderScriptsHome()" autocomplete="off">
       </div>
       <div id="sp-shows"><div class="sp-empty">Loading shows…</div></div>
@@ -7422,7 +7454,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.30 v1</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -7485,6 +7517,46 @@ let CHILDRENS = [
   { name: 'James and the Giant Peach', start: '2026-10-31', end: '2026-11-14' },
   { name: 'Frosty & Rudolph',       start: '2026-11-28', end: '2026-12-19' },
 ];
+
+// Declared here, near the top: Home draws once before the rest of the page has
+// been read, and these were read too early (harmless, but it errored every load).
+var TV_SKIP_LISTS = /\b(shop|shopping|buy|to ?buy|purchase|purchases|store|pick ?ups?|supplies)\b/i;
+var docZoom = 0.75;
+var _hub = null;
+// Home show card icons (here, near the top: the card can be drawn before the rest of the page is read).
+const HS_ICON = {
+  notes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1zM9 2.5v3M15 2.5v3M8.5 11h7M8.5 15h5"/></svg>',
+  script: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM8 7.5h.01M8 12h.01M8 16.5h.01M11 8h5M11 12h5M11 16h3"/></svg>',
+  cue: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1zM3 9h18M8.5 9v11M11.5 12.5h6M11.5 16h6"/></svg>'
+};
+// ── LOADING PILL ── a clear "Loading…" near the top whenever this page is
+// waiting on the Sheet (anything slower than a blink). Background checks that
+// run every few seconds (who's here, new edits) don't count.
+var _ldN = 0, _ldT = null;
+function ldStart(url) { if (/action=(getCueRev|getTeamConfig|getShowPhotos|getListsRev)\b|key=(presence_names|crew_perms)\b/.test(String(url || ''))) return false; _ldN = (_ldN || 0) + 1; ldPaint(); return true; }
+function ldEnd() { _ldN = Math.max(0, (_ldN || 0) - 1); ldPaint(); }
+function ldPaint() {
+  let el = document.getElementById('ld-pill');
+  if (!el && document.body) { el = document.createElement('div'); el.id = 'ld-pill'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); el.innerHTML = '<i></i><span>Loading…</span>'; document.body.appendChild(el); }
+  if (!el) return;
+  if (_ldN > 0) { if (!_ldT && !el.classList.contains('on')) _ldT = setTimeout(() => { _ldT = null; if (_ldN > 0) el.classList.add('on'); }, 350); }
+  else { clearTimeout(_ldT); _ldT = null; el.classList.remove('on'); }
+}
+// Page loads that use fetch (the catalogue, drops...) count too; saves (POST) don't.
+(function () {
+  if (!window.fetch || window.fetch._ld) return;
+  const f0 = window.fetch;
+  const f = function (input, init) {
+    const url = typeof input === 'string' ? input : (input && input.url) || '';
+    const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+    const watch = method === 'GET' && /script\.google(usercontent)?\.com/.test(url) && ldStart(url);
+    const net = watch && typeof _netBusy === 'number';
+    if (net) netStart();
+    const done = () => { if (watch) ldEnd(); if (net) netEnd(); };
+    return f0.apply(this, arguments).then(r => { done(); return r; }, e => { done(); throw e; });
+  };
+  f._ld = true; window.fetch = f;
+})();
 
 // ── STATE ────────────────────────────────────────────────────────────────────
 let tasks = {};      // { listName: [ {id, text, done, due} ] }
@@ -7841,6 +7913,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { const c = 
 function htmStart() { htmPaint(); htmPillPaintOff(); htmBuild(); try { new ResizeObserver(htmScale).observe(document.getElementById('htm-box')); } catch (e) {} }
 
 function initApp() {
+  setTimeout(() => { try { shPhLoad(); } catch (e) {} }, 2500);
   setTimeout(() => { try { htmStart(); } catch (e) { console.warn('timer card', e); } }, 0);   // after the whole script has loaded
   applyRoleVisibility();
   loadCustomLinks();
@@ -9558,7 +9631,7 @@ const TV_MAX_TASKS   = 10;
 
 // Shopping does not belong on the build list — it has its own panel, and it
 // gets ticked off at the store rather than here.
-const TV_SKIP_LISTS = /\b(shop|shopping|buy|to ?buy|purchase|purchases|store|pick ?ups?|supplies)\b/i;
+// (declared near the top of the page: Home can draw before this point)
 
 function tvIsShoppingList(name) { return TV_SKIP_LISTS.test(String(name || '')); }
 
@@ -11325,6 +11398,85 @@ function homeDayToggle(id, done) {
 
 // ── HOME REDESIGN RENDER FUNCTIONS ──────────────────────────────────────────
 
+// ── SHOW PHOTOS ──────────────────────────────────────────────────────────────
+// Each show's picture comes from the theatre's website (musicmountaintheatre.org
+// and the Showpass ticket pages it links to), matched by show name. A show page
+// can pin a different picture (any image link) or none: KV showhub › shows › <slug> › photo
+// ("" = website, "none" = no photo, otherwise the image address).
+var _shPh = null;   // var: the show cards can be drawn before this line runs
+try { _shPh = JSON.parse(localStorage.getItem('mmt_show_photos') || 'null'); } catch (e) {}
+function shPhLoad(force) {
+  if (!force && _shPh && Date.now() - (_shPh.at || 0) < 12 * 3600e3) return;
+  jsonp(SCRIPT_URL + '?action=getShowPhotos' + (force ? '&refresh=1' : '') + '&_=' + Date.now(), d => {
+    if (!d || !d.success) { if (force) toast("Couldn't reach the website just now"); return; }
+    _shPh = { at: Date.now(), items: d.items || [], showpass: d.showpass || [] };
+    try { localStorage.setItem('mmt_show_photos', JSON.stringify(_shPh)); } catch (e) {}
+    shPhRepaint();
+    if (force) toast('Photos refreshed from the website');
+  }, () => { if (force) toast("Couldn't reach the website just now"); }, 40000);
+}
+function shPhRepaint() {
+  try { renderHomeShowCards(); } catch (e) {}
+  try { if (currentTab === 'notes') renderNotesTab(); } catch (e) {}
+  try { if (_hubSlug) renderShowHub(); } catch (e) {}
+}
+const SHPH_STOP = new Set(['the', 'a', 'an', 'of', 'and', 'musical', 'jr', 'kids', 'tya', 'mmt', 'presents', 'music', 'mountain', 'theatre', 'theater', 'tickets', 'showpass', 'on', 'in', 'at']);
+function shPhTok(s) {
+  return String(s || '').toLowerCase().replace(/&/g, ' and ').replace(/['’]/g, '').replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(w => w && !SHPH_STOP.has(w));
+}
+function shPhScore(name, hay) {
+  const want = [...new Set(shPhTok(name))]; if (!want.length) return 0;
+  const have = new Set(shPhTok(hay));
+  return want.filter(w => have.has(w)).length / want.length;
+}
+// The website's picture for a show, or ''.
+function shPhAuto(name) {
+  if (!_shPh) return '';
+  const sp = (_shPh.showpass || []).map(s => ({ s, sc: shPhScore(name, s.title + ' ' + s.href.split('/').slice(-2, -1)[0]) })).filter(x => x.sc >= 1).sort((a, b) => b.sc - a.sc)[0];
+  const items = _shPh.items || [];
+  if (sp) {
+    // The site's own artwork for that ticket link reads best; else Showpass's.
+    const onSite = items.find(i => i.href && i.href.replace(/\/?$/, '/').toLowerCase() === sp.s.href);
+    return (onSite && onSite.img) || sp.s.img || '';
+  }
+  const byLink = items.map(i => ({ i, sc: shPhScore(name, (i.href || '').split('/').filter(Boolean).pop() + ' ' + i.alt) })).filter(x => x.sc >= 1)[0];
+  if (byLink) return byLink.i.img;
+  const byText = items.map(i => ({ i, sc: shPhScore(name, i.near) })).filter(x => x.sc >= 1 && shPhTok(name).length >= 2)[0];
+  return byText ? byText.i.img : '';
+}
+function showPhoto(name) {
+  let p = '';
+  try { p = (hubRec(showSlug(name)) || {}).photo || ''; } catch (e) {}   // the show list can be drawn before it has loaded
+  if (p === 'none') return '';
+  return p || shPhAuto(name);
+}
+function showPhotoHTML(name, cls) {
+  const u = showPhoto(name);
+  return u ? `<img class="shp-img ${cls || ''}" src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : '';
+}
+function hubPhotoCard(slug, name) {
+  const p = hubRec(slug).photo || '', u = showPhoto(name), auto = shPhAuto(name);
+  return `<div class="hub-card hub-photo-card">
+    <div class="hub-card-head"><span class="hub-card-t">Photo</span></div>
+    ${u ? `<img class="hub-photo" src="${esc(u)}" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'hub-photo-none',textContent:'This picture didn\\'t load.'}))">` : `<div class="hub-photo-none">${p === 'none' ? 'No photo for this show.' : 'No picture for this show on the website yet.'}</div>`}
+    <div class="hub-photo-src">${p === 'none' ? 'Turned off' : p ? 'Picked by hand' : auto ? 'From the website' : ''}</div>
+    <div class="hub-photo-btns">
+      <button class="hub-btn sm" onclick="hubPhotoSet('${esc(slug)}','paste')">Use another picture…</button>
+      ${p ? `<button class="hub-btn sm" onclick="hubPhotoSet('${esc(slug)}','')">Use the website's</button>` : ''}
+      ${p !== 'none' ? `<button class="hub-btn sm" onclick="hubPhotoSet('${esc(slug)}','none')">No photo</button>` : ''}
+      <button class="hub-btn sm" onclick="shPhLoad(true)" title="Look at the website again now">Refresh</button>
+    </div></div>`;
+}
+function hubPhotoSet(slug, v) {
+  if (v === 'paste') {
+    const u = prompt('Paste the picture\'s address.\nOn the website: right-click (or press and hold) the picture › Copy image address.');
+    if (u === null) return;
+    v = u.trim(); if (!v) return;
+    if (!/^https?:\/\//i.test(v)) { toast('That isn\'t a picture address (it should start with https://)'); return; }
+  }
+  hubPatch(slug, { photo: v });
+  shPhRepaint(); try { sbShowRender(); } catch (e) {}
+}
 function renderHomeShowCards() {
   const el = document.getElementById('home-show-grid');
   if (!el) return;
@@ -11342,6 +11494,7 @@ function renderHomeShowCards() {
     ? `<button class="home-show-btn pri" onclick="curShowNotes()">${HS_ICON.notes}Show notes</button>`
     : `<button class="home-show-btn pri" onclick="handleNotes('${esc(ref.notesKey)}', ${esc(JSON.stringify(sh.name))}, this)">${HS_ICON.notes}Create notes</button>`;
   let html = `<div class="home-show-card hs-cur">
+    ${showPhotoHTML(sh.name, 'shp-hero')}
     <span class="home-show-badge ${badgeCls}">${esc(badge)}</span>
     <div class="home-show-name home-show-name-link" role="link" tabindex="0" title="Open show page"
          onclick="openShowHub('${esc(slug)}')"
@@ -11369,7 +11522,7 @@ function renderHomeShowCards() {
         return `<div class="later-row" role="link" tabindex="0" title="Open show page" onclick="openShowHub('${xs}')"
              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openShowHub('${xs}');}">
           <span class="later-tag ${kids ? 'ct' : 'ms'}">${kids ? 'CT' : 'MS'}</span>
-          <span class="later-name">${esc(x.name)}</span>
+          <span class="later-name">${showPhotoHTML(x.name, 'shp-thumb')}${esc(x.name)}</span>
           <span class="later-when${t === 'current' || t === 'tech' ? ' is-live' : ''}">${t === 'current' ? 'Running' : t === 'tech' ? 'In tech' : ''}${t === 'current' || t === 'tech' ? ' · ' : ''}${esc(when)}</span>
         </div>`;
       }).join('')}
@@ -11377,11 +11530,6 @@ function renderHomeShowCards() {
   }
   el.innerHTML = html;
 }
-const HS_ICON = {
-  notes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1zM9 2.5v3M15 2.5v3M8.5 11h7M8.5 15h5"/></svg>',
-  script: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM8 7.5h.01M8 12h.01M8 16.5h.01M11 8h5M11 12h5M11 16h3"/></svg>',
-  cue: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1zM3 9h18M8.5 9v11M11.5 12.5h6M11.5 16h6"/></svg>'
-};
 // The current show's cue sheet: on the script page, flipped to Cue sheet.
 // Crew who can see the cue sheet but not scripts get the cue sheet page.
 function curShowCue() {
@@ -11459,7 +11607,7 @@ function htAdd(ev) {
   const text = (document.getElementById('ht-text').value || '').trim();
   const list = document.getElementById('ht-list').value;
   const due = document.getElementById('ht-date').value || null;
-  if (!text || !list) { document.getElementById('ht-text').focus(); return; }
+  if (!text || !list) { emptyAddHint(document.getElementById('ht-text'), 'Type the to-do first'); return; }
   if (!tasks[list]) tasks[list] = [];
   tasks[list].unshift({ id: Date.now().toString(), text, done: false, due });
   try { localStorage.setItem('mmt_ht_list', list); } catch (e) {}
@@ -11830,7 +11978,7 @@ function selectShowTab(idx) {
 // notes. Stored under KV key 'showhub', same path the checklists use.
 //   _hub = { shows: { <slug>: { tech, strike, scriptId, scriptName, notes } } }
 
-let _hub = null;
+// (declared near the top of the page: Home can draw before this point)
 let _hubLoaded = false;
 let _hubSlug = '';          // '' = normal Notes view, otherwise the open show
 let _hubSaveTimer = null;
@@ -12217,6 +12365,7 @@ function renderShowHub() {
           </div>
         </div>
 
+        ${hubPhotoCard(ref.slug, sh.name)}
         ${hubLinksCard(ref.slug)}
 
         ${hubRebuildCard(sh)}
@@ -12499,11 +12648,12 @@ async function fetchShopData() {
       // A queued local change is newer than anything the server can tell us.
       // Overwriting here would make an item added in the shop vanish off the
       // wall until the outbox drained and the next fetch brought it back.
-      const pendingLocal = (typeof outboxRead === 'function')
-        && outboxRead().some(e => e.key === 'shopping');
+      const pendingLocal = saveShopData.dirty || ((typeof outboxRead === 'function')
+        && outboxRead().some(e => e.key === 'shopping'));
       if (pendingLocal) return;
 
       shopData = data.shopping;
+      shSetBase(shopData);
       DEFAULT_STORES.forEach(s => { if (!shopData[s]) shopData[s] = []; });
       if (!activeStore || !shopData[activeStore]) activeStore = Object.keys(shopData)[0] || DEFAULT_STORES[0];
       try { localStorage.setItem('mmt_shopping', JSON.stringify(shopData)); } catch(e) {}
@@ -12525,13 +12675,16 @@ function saveShopData() {
   try { localStorage.setItem('mmt_shopping', JSON.stringify(shopData)); } catch(e) {}
   // Sync to server (debounced)
   clearTimeout(saveShopData._timer);
-  saveShopData._timer = setTimeout(() => syncShopToServer(), 800);
+  // Until it's queued, a refresh from the Sheet must not replace this change.
+  saveShopData.dirty = true;
+  saveShopData._timer = setTimeout(() => { saveShopData.dirty = false; syncShopToServer(); }, 800);
 }
 
 function syncShopToServer() {
   // Queued. The old version tried a POST, fell back to a JSONP GET, and gave
   // up silently — so a shopping item added in the shop on bad wifi could sit
   // on that one device forever.
+  if (shQueueOps()) return;
   let getUrl = null;
   try {
     getUrl = SCRIPT_URL + '?action=saveShopping&shopping='
@@ -12585,7 +12738,7 @@ function switchStore(name) {
 function addShopItem() {
   const input = document.getElementById('shop-input');
   const text = input.value.trim();
-  if (!text) return;
+  if (!text) { emptyAddHint(input, 'Type the item first'); return; }
   const itemText = userRole === 'crew' ? text + ' [' + userName + ']' : text;
   if (!shopData[activeStore]) shopData[activeStore] = [];
   shopData[activeStore].push({ text: itemText, done: false });
@@ -12865,7 +13018,7 @@ function initScratchpad() {
 }
 
 // ── DOC ZOOM ────────────────────────────────────────────────────────────────
-let docZoom = 0.75;
+// (declared near the top of the page: Home can draw before this point)
 
 function applyZoom() {
   const iframe = document.getElementById('notes-iframe');
@@ -13549,7 +13702,10 @@ loadStoredShows();
 // Kept with the show in the Show Hub record (KV showhub: shows.<slug>.links =
 // [{ name, url }]). Edited on the show's page; the current show's also show
 // under it in the menu and on Home's show card.
-function showLinks(slug) { const r = hubRec(slug); return Array.isArray(r.links) ? r.links.filter(l => l && l.url) : []; }
+function showLinks(slug) {
+  let r = {}; try { r = hubRec(slug); } catch (e) {}   // Home's first draw can come before the show list has loaded
+  return Array.isArray(r.links) ? r.links.filter(l => l && l.url) : [];
+}
 function hubLinksCard(slug) {
   const ls = showLinks(slug), can = !crewOn();
   return `<div class="hub-card hub-links-card">
@@ -14151,8 +14307,13 @@ function loadData() {
   return fetchAllData().then(d => {
     // SAFETY: only overwrite with server data if it actually has content
     // Never wipe cached data with empty responses
-    if (d.lists && d.lists.length) lists = d.lists;
-    if (d.tasks && Object.keys(d.tasks).length) tasks = d.tasks;
+    // Changes still waiting to go out are newer than what the Sheet has.
+    const pendingTasks = typeof outboxRead === 'function' && outboxRead().some(e => e.key === 'tasks');
+    if (!pendingTasks) {
+      if (d.lists && d.lists.length) lists = d.lists;
+      if (d.tasks && Object.keys(d.tasks).length) tasks = d.tasks;
+      if (d.lists && d.lists.length) tkSetBase(lists, tasks);
+    }
     if (d.showNotes && Object.keys(d.showNotes).length) showNotes = d.showNotes;
     if (d.activity) activity = d.activity;
     // Only update cache if we have real data
@@ -14223,17 +14384,21 @@ function tabSpinner(tab) {
   }, 140);
 }
 
+
+
 function jsonp(url, onSuccess, onError, timeoutMs) {
   const cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
   const script = document.createElement('script');
   let done = false;
   netStart();
+  const ld = ldStart(url);
   const timeout = setTimeout(() => { cleanup(); onError && onError('Timeout'); }, timeoutMs || 15000);
   window[cbName] = function(data) { cleanup(); onSuccess(data); };
   function cleanup() {
     if (done) return;                       // a script can error after calling back
     done = true;
     netEnd();
+    if (ld) ldEnd();
     clearTimeout(timeout);
     delete window[cbName];
     if (script.parentNode) script.parentNode.removeChild(script);
@@ -14383,7 +14548,8 @@ function apiPost(body, opts) {
   next.push({
     id: 'w' + Date.now() + Math.random().toString(36).slice(2, 7),
     at: Date.now(),
-    key: o.replaceKey || null,
+    key: o.replaceKey || o.key || null,
+    kind: o.kind || null,
     label: o.label || 'change',
     body: typeof body === 'string' ? body : JSON.stringify(body),
     getUrl: o.getUrl || null,     // phones sometimes have POST intercepted
@@ -14404,14 +14570,20 @@ function outboxSendOne(entry) {
     // The Sheet's own answer: "busy" or an error means it didn't save; keep it
     // in the outbox and try again.
     let d = null; try { d = JSON.parse(t); } catch (e) {}
+    if (d && d.success === false && entry.kind === 'ops' && /unknown action/i.test(d.error || '')) { const e = new Error('old script'); e.refused = true; e.unsupported = true; throw e; }
     if (d && d.success === false) { const e = new Error(d.error || 'Not saved'); e.refused = true; throw e; }
-    return true;
+    if (entry.kind === 'ops' && !(d && d.opsVersion)) { const e = new Error('old script'); e.refused = true; e.unsupported = true; throw e; }
+    return d || true;
   }).catch(err => {
     if (err && err.refused) throw err;
     if (!entry.getUrl) throw err;
     // Google's account redirect can eat a POST on mobile; the GET form works.
     return new Promise((resolve, reject) => {
-      try { jsonp(entry.getUrl, d => (d && d.success === false) ? reject(err) : resolve(true), () => reject(err)); }
+      try { jsonp(entry.getUrl, d => {
+        if (d && d.success === false) reject(err);
+        else if (entry.kind === 'ops' && !(d && d.opsVersion)) { const e = new Error('old script'); e.refused = true; e.unsupported = true; reject(e); }
+        else resolve(d || true);
+      }, () => reject(err)); }
       catch(e) { reject(err); }
     });
   });
@@ -14426,13 +14598,15 @@ function outboxDrain() {
   _outboxDraining = true;
   const entry = list[0];
 
-  outboxSendOne(entry).then(() => {
+  outboxSendOne(entry).then(d => {
     const rest = outboxRead().filter(e => e.id !== entry.id);
     outboxWrite(rest);
     _outboxDraining = false;
     _outboxBackoff = 3000;
+    if (entry.kind === 'ops' && d && d.opsVersion) { try { if (d.tasksRev) _listsRev.tasks = d.tasksRev; if (d.shopRev) _listsRev.shop = d.shopRev; opsApply(entry.key, d); } catch (e) {} }
     if (rest.length) setTimeout(outboxDrain, OUTBOX_MIN_GAP);
-  }).catch(() => {
+  }).catch(err => {
+    if (err && err.unsupported) { opsUnsupported(entry); _outboxDraining = false; setTimeout(outboxDrain, OUTBOX_MIN_GAP); return; }
     // Keep it. Count the attempt so a permanently bad write can be spotted
     // rather than blocking everything behind it forever.
     const cur = outboxRead();
@@ -14623,6 +14797,7 @@ function renderShows() {
     <div class="show-section">
       <div class="section-label">Now Playing — Mainstage</div>
       <div class="show-card-hero">
+        ${showPhotoHTML(currentMain.name, 'shp-card')}
         <div class="show-info">
           <div class="show-name show-name-link" onclick="openShowHub('${showSlug(currentMain.name)}')" title="Open show page">${currentMain.name}</div>
           <div class="show-dates">${formatDates(currentMain.start, currentMain.end)}</div>
@@ -14650,6 +14825,7 @@ function renderShows() {
     <div class="show-section">
       <div class="section-label">Up Next — Mainstage</div>
       <div class="show-card-next">
+        ${showPhotoHTML(nextMain.name, 'shp-card')}
         <div class="show-info">
           <div class="show-name show-name-link" onclick="openShowHub('${showSlug(nextMain.name)}')" title="Open show page">${nextMain.name}</div>
           <div class="show-dates">${formatDates(nextMain.start, nextMain.end)}</div>
@@ -14683,6 +14859,7 @@ function renderShows() {
           const badge = status === 'current' ? '🟢' : status === 'upcoming' ? '🔵' : '⚫';
           return `
           <div class="show-card-mini">
+            ${showPhotoHTML(show.name, 'shp-mini')}
             <div class="show-info">
               <div class="show-name show-name-link" onclick="openShowHub('${showSlug(show.name)}')" title="Open show page">${badge} ${show.name}</div>
               <div class="show-dates">${formatDates(show.start, show.end)}</div>
@@ -14709,6 +14886,7 @@ function renderShows() {
     <div class="show-section">
       <div class="section-label">Now Playing — Children's Theatre</div>
       <div class="show-card-hero" style="border-color: var(--accent2);">
+        ${showPhotoHTML(currentKids.name, 'shp-card')}
         <div class="show-info">
           <div class="show-name show-name-link" onclick="openShowHub('${showSlug(currentKids.name)}')" title="Open show page">${currentKids.name}</div>
           <div class="show-dates">${formatDates(currentKids.start, currentKids.end)}</div>
@@ -14735,6 +14913,7 @@ function renderShows() {
       <div class="show-section">
         <div class="section-label">Up Next — Children's Theatre</div>
         <div class="show-card-next">
+          ${showPhotoHTML(nextKids.name, 'shp-card')}
           <div class="show-info">
             <div class="show-name show-name-link" onclick="openShowHub('${showSlug(nextKids.name)}')" title="Open show page">${nextKids.name}</div>
             <div class="show-dates">${formatDates(nextKids.start, nextKids.end)}</div>
@@ -14877,6 +15056,205 @@ function ensureDefaultLists() {
   });
 }
 
+// ── ONE CHANGE AT A TIME (to-dos and shopping) ──────────────────────────────
+// Each device remembers the copy it last had from the Sheet (the "base"). A
+// save works out what changed since then (added, ticked, edited, moved,
+// deleted) and sends only that; the Sheet applies it to its own current copy
+// and answers with the up-to-date lists. An older copy on one device can no
+// longer undo what another device did. Lists also refresh when the app comes
+// back to the front and every couple of minutes. If the Sheet's script is older
+// and doesn't know this yet, it falls back to the old whole-list save.
+// (var: these can be reached before this part of the page has run.)
+var _tkBase = null, _shBase = null, _opsApplyWait = null;
+try { _tkBase = JSON.parse(localStorage.getItem('mmt_tk_base') || 'null'); } catch (e) {}
+try { _shBase = JSON.parse(localStorage.getItem('mmt_sh_base') || 'null'); } catch (e) {}
+function opsClone(x) { return JSON.parse(JSON.stringify(x)); }
+function opsOn() { try { return Date.now() - Number(localStorage.getItem('mmt_ops_off') || 0) > 6 * 3600e3; } catch (e) { return true; } }
+function tkSetBase(l, t) { _tkBase = opsClone({ lists: l, tasks: t }); try { localStorage.setItem('mmt_tk_base', JSON.stringify(_tkBase)); } catch (e) {} }
+function shSetBase(s) { _shBase = opsClone(s); try { localStorage.setItem('mmt_sh_base', JSON.stringify(_shBase)); } catch (e) {} }
+function opsNewId(p) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function opsB64(o) { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))); }
+
+function tkDiff(base, curLists, curTasks) {
+  const ops = [], norm = v => (v == null ? '' : String(v));
+  const bl = new Set((base.lists || []).map(l => l.name)), cl = new Set((curLists || []).map(l => l.name));
+  const index = (ls, ts) => { const m = {}; Object.keys(ts || {}).forEach(list => (ts[list] || []).forEach((t, i) => { if (t && t.id) m[t.id] = { list, t, i, n: ts[list].length }; })); return m; };
+  const B = index(base.lists, base.tasks), C = index(curLists, curTasks);
+  cl.forEach(name => { if (!bl.has(name)) ops.push({ op: 'addList', list: name }); });
+  Object.keys(C).forEach(id => {
+    const c = C[id], b = B[id];
+    if (!b) { ops.push({ op: 'add', list: c.list, id, text: c.t.text || '', done: !!c.t.done, due: c.t.due || '', notify: !!c.t.notify, top: c.i === 0 && c.n > 1 }); return; }
+    const f = {};
+    if (norm(c.t.text) !== norm(b.t.text)) f.text = c.t.text || '';
+    if (!!c.t.done !== !!b.t.done) f.done = !!c.t.done;
+    if (norm(c.t.due) !== norm(b.t.due)) f.due = c.t.due || '';
+    if (!!c.t.notify !== !!b.t.notify) f.notify = !!c.t.notify;
+    if (c.list !== b.list) f.list = c.list;
+    if (Object.keys(f).length) ops.push({ op: 'set', id, was: { list: b.list, text: b.t.text }, f, top: !!f.list && c.i === 0 });
+  });
+  Object.keys(B).forEach(id => { if (!C[id]) ops.push({ op: 'del', id, was: { list: B[id].list, text: B[id].t.text } }); });
+  bl.forEach(name => { if (!cl.has(name)) ops.push({ op: 'delList', list: name }); });
+  return ops;
+}
+function shKeyed(items) {
+  const m = {}, seen = {};
+  (items || []).forEach((it, i) => {
+    if (!it) return;
+    let k;
+    if (it.id) k = 'i:' + it.id;
+    else { const n = seen[it.text] || 0; seen[it.text] = n + 1; k = 't:' + it.text + '#' + n; }
+    m[k] = { it, i };
+  });
+  return m;
+}
+function shDiff(base, cur) {
+  const ops = [];
+  Object.keys(cur).forEach(store => {
+    if (!(store in base)) ops.push({ op: 'addStore', store });
+    const bk = shKeyed(base[store]);
+    // New items get an ID, so they can be told apart from now on.
+    const seen = {};
+    (cur[store] || []).forEach(it => {
+      if (!it || it.id) return;
+      const n = seen[it.text] || 0; seen[it.text] = n + 1;
+      if (!bk['t:' + it.text + '#' + n]) it.id = opsNewId('s');
+    });
+    const ck = shKeyed(cur[store]), list = cur[store] || [];
+    Object.keys(ck).forEach(k => {
+      const c = ck[k], b = bk[k];
+      const key = c.it.id ? { id: c.it.id, text: c.it.text } : { text: c.it.text, n: Number(k.split('#').pop()) };
+      if (!b) { ops.push({ op: 'add', store, item: opsClone(c.it), top: c.i === 0 && list.length > 1 }); return; }
+      const f = {};
+      Object.keys(c.it).forEach(p => { if (p !== 'id' && JSON.stringify(c.it[p]) !== JSON.stringify(b.it[p])) f[p] = c.it[p]; });
+      if (Object.keys(f).length) ops.push({ op: 'set', store, key, f });
+    });
+    Object.keys(bk).forEach(k => {
+      if (ck[k]) return;
+      const b = bk[k];
+      ops.push({ op: 'del', store, key: b.it.id ? { id: b.it.id, text: b.it.text } : { text: b.it.text, n: Number(k.split('#').pop()) } });
+    });
+  });
+  Object.keys(base).forEach(store => { if (!(store in cur)) ops.push({ op: 'delStore', store }); });
+  return ops;
+}
+// Called by saveData() / syncShopToServer(). Returns false when the old
+// whole-list save should be used instead.
+function tkQueueOps() {
+  if (!opsOn() || !_tkBase) return false;
+  Object.keys(tasks).forEach(l => (tasks[l] || []).forEach(t => { if (t && !t.id) t.id = opsNewId('t'); }));
+  const ops = tkDiff(_tkBase, lists, tasks);
+  if (!ops.length) return true;
+  apiPost({ action: 'taskOps', ops }, { key: 'tasks', append: true, kind: 'ops', label: 'to-do lists',
+    getUrl: SCRIPT_URL + '?action=taskOpsGet&data=' + encodeURIComponent(opsB64({ ops })) + '&_=' + Date.now() });
+  tkSetBase(lists, tasks);
+  return true;
+}
+function shQueueOps() {
+  if (!opsOn() || !_shBase) return false;
+  const ops = shDiff(_shBase, shopData);
+  try { localStorage.setItem('mmt_shopping', JSON.stringify(shopData)); } catch (e) {}
+  if (!ops.length) return true;
+  apiPost({ action: 'shopOps', ops }, { key: 'shopping', append: true, kind: 'ops', label: 'shopping list',
+    getUrl: SCRIPT_URL + '?action=shopOpsGet&data=' + encodeURIComponent(opsB64({ ops })) + '&_=' + Date.now() });
+  shSetBase(shopData);
+  return true;
+}
+// The Sheet's script doesn't know one-change saves yet: send the whole list
+// the old way, as before, and don't ask again for a while.
+function opsUnsupported(entry) {
+  try { localStorage.setItem('mmt_ops_off', String(Date.now())); } catch (e) {}
+  const body = entry.key === 'tasks' ? { action: 'saveTasks', lists, tasks } : { action: 'saveShopping', shopping: shopData };
+  const rest = outboxRead().filter(e => e.key !== entry.key);
+  rest.unshift({ id: entry.id, at: Date.now(), key: entry.key, label: entry.label, body: JSON.stringify(body), getUrl: null, tries: 0 });
+  outboxWrite(rest);
+}
+function opsTyping() {
+  const a = document.activeElement;
+  return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.closest('#tab-todo, #home-today, #qa-pop, #tab-shopping, .modal-overlay'));
+}
+// The Sheet's up-to-date lists, unless this device still has changes waiting
+// to go (those would be lost) or someone is typing (the redraw would get in the way).
+function opsApply(key, d) {
+  if (outboxRead().some(e => e.key === key)) return;
+  if (key === 'shopping' && saveShopData.dirty) return;
+  if (opsTyping()) { clearTimeout(_opsApplyWait); _opsApplyWait = setTimeout(() => opsApply(key, d), 1500); return; }
+  if (key === 'tasks' && d && d.lists && d.tasks) {
+    if (!d.lists.length && lists.length > 1) return;   // never wipe from an empty answer
+    const same = JSON.stringify({ l: d.lists.map(l => l.name), t: d.tasks }) === JSON.stringify({ l: lists.map(l => l.name), t: tasks });
+    // Keep this device's list colours.
+    const colors = {}; lists.forEach(l => { colors[l.name] = l.color; });
+    lists = d.lists.map(l => ({ ...l, color: colors[l.name] || l.color }));
+    tasks = d.tasks;
+    tkSetBase(lists, tasks);
+    try { localStorage.setItem('mmt_data', JSON.stringify({ lists, tasks, showNotes })); } catch (e) {}
+    if (!same) { try { renderWidgets(); } catch (e) {} try { if (currentTab === 'todo') renderTasksTab(); } catch (e) {} try { renderHomeTasksCard(); } catch (e) {} }
+  }
+  if (key === 'shopping' && d && d.shopping) {
+    const same = JSON.stringify(d.shopping) === JSON.stringify(shopData);
+    shopData = d.shopping;
+    shSetBase(shopData);
+    try { localStorage.setItem('mmt_shopping', JSON.stringify(shopData)); } catch (e) {}
+    if (!same) { if (!activeStore || !shopData[activeStore]) activeStore = Object.keys(shopData)[0] || activeStore; try { renderShop(); } catch (e) {} try { renderHomeShopSummary(); } catch (e) {} }
+  }
+}
+// Fresh lists when the app comes back to the front (after 15 s away) and every 2 minutes.
+var _opsHiddenAt = 0;
+function opsRefresh() {
+  if (document.hidden || typeof jsonp !== 'function') return;
+  if (!outboxRead().some(e => e.key === 'tasks')) {
+    jsonp(SCRIPT_URL + '?action=getTasks&_=' + Date.now(), d => {
+      if (d && d.success && d.lists) {
+        if (d.showNotes && Object.keys(d.showNotes).length) showNotes = d.showNotes;
+        opsApply('tasks', d);
+      }
+    }, () => {});
+  }
+  try { fetchShopData(); } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { _opsHiddenAt = Date.now(); return; }
+  if (_opsHiddenAt && Date.now() - _opsHiddenAt > 15000) setTimeout(opsRefresh, 300);
+});
+setInterval(() => { if (!document.hidden) opsRefresh(); }, 120000);
+// Near-live: every ~10 s ask the Sheet whether either list has changed (a tiny
+// request), and reload only the one that did. Off while the app is in the
+// background, offline, or if the Sheet's script doesn't know the question yet.
+var _listsRev = { tasks: null, shop: null, off: false, busy: false };
+function listsRevCheck() {
+  if (_listsRev.off || _listsRev.busy || document.hidden || typeof jsonp !== 'function') return;
+  try { if (typeof netDown === 'function' && netDown()) return; } catch (e) {}
+  _listsRev.busy = true;
+  jsonp(SCRIPT_URL + '?action=getListsRev&_=' + Date.now(), d => {
+    _listsRev.busy = false;
+    if (!d || !d.opsVersion) { _listsRev.off = true; return; }   // older script: the 2-minute check carries on
+    const tk = _listsRev.tasks !== null && d.tasksRev !== _listsRev.tasks;
+    const sh = _listsRev.shop !== null && d.shopRev !== _listsRev.shop;
+    _listsRev.tasks = d.tasksRev; _listsRev.shop = d.shopRev;
+    if (tk && !outboxRead().some(e => e.key === 'tasks')) {
+      jsonp(SCRIPT_URL + '?action=getTasks&_=' + Date.now(), t => { if (t && t.success && t.lists) opsApply('tasks', t); }, () => {});
+    }
+    if (sh) { try { fetchShopData(); } catch (e) {} }
+  }, () => { _listsRev.busy = false; }, 8000);
+}
+setInterval(listsRevCheck, 10000);
+setTimeout(listsRevCheck, 5000);
+// An Add pressed with nothing typed: say so, and put the cursor in the box.
+function emptyAddHint(input, msg) {
+  if (!input) return;
+  input.focus();
+  input.classList.remove('empty-nudge'); void input.offsetWidth; input.classList.add('empty-nudge');
+  const ph = input.getAttribute('data-ph') || input.placeholder;
+  input.setAttribute('data-ph', ph); input.placeholder = msg;
+  clearTimeout(input._nudgeT); input._nudgeT = setTimeout(() => { input.placeholder = ph; input.classList.remove('empty-nudge'); }, 2500);
+}
+// Escape closes the pop-ups that didn't listen to it: New List, Settings, notes link.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const lm = document.getElementById('list-modal');
+  if (lm && lm.style.display !== 'none' && getComputedStyle(lm).display !== 'none') { try { closeListModal(); } catch (err) { lm.style.display = 'none'; } return; }
+  if (document.querySelector('#ne-overlay.open')) { try { closeNotesEditModal(); } catch (err) {} return; }
+  if (document.querySelector('#settings-overlay.open')) { try { closeSettings(); } catch (err) {} }
+});
 async function saveData() {
   // Update local cache immediately
   try {
@@ -14886,6 +15264,7 @@ async function saveData() {
   // Queued rather than fired and forgotten. This used to try a POST, then a
   // JSONP GET, and give up quietly if both failed — so an edit made on bad
   // wifi never reached the Sheet and nothing said so.
+  if (tkQueueOps()) return;
   let getUrl = null;
   try {
     const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify({ lists, tasks })))));
@@ -14990,7 +15369,7 @@ function addTask(listName) {
   const input = document.getElementById('input-' + key);
   const dateEl = document.getElementById('date-' + key);
   const text = input.value.trim();
-  if (!text) return;
+  if (!text) { emptyAddHint(input, 'Type the to-do first'); return; }
   const task = {
     id: Date.now().toString(),
     text,
@@ -15475,7 +15854,7 @@ function ivRender() {
   const cats = ivCategories().filter(c => ivAll().some(i => ivGroupOf(i) === c));
   const top = `
     <div class="iv-top">
-      <div class="iv-title"><b>${ivDrops() ? 'Drops' : 'Inventory'}</b><small>${ivE(sub)}</small></div>
+      <div class="iv-title"><b>${ivDrops() ? 'Drops' : 'Set Piece Catalogue'}</b><small>${ivE(sub)}</small></div>
       ${ivDrops() ? '' : `<button class="iv-btn iv-desk-only" onclick="ivOpen({v:'outnow'})">Out now <span class="iv-badge${late.length ? ' late' : ''}">${out.length}${late.length ? ' · ' + late.length + ' late' : ''}</span></button>`}
       <button class="iv-btn iv-desk-only" onclick="ivOpenScan()">Scan</button>
       ${ivDrops() ? `<button class="iv-btn iv-desk-only" onclick="ivOpenRack()">Map</button>` : ''}
@@ -15605,12 +15984,86 @@ function ivOpenItem(id) {
   ivOpen({ v: 'item', id: it.assetId });
 }
 
+// ── Copy / download a piece's photos (Drops and Set Pieces) ──────────────────
+// Drive photos come through the dashboard's own script (getDriveImage), so they
+// can be copied and saved like any picture. On a phone, Save opens the share
+// sheet (Save Image, Messages, Mail...).
+function ivPhList(i) { const ph = (i.photos || []).map(p => p.url).filter(Boolean); return ph.length ? ph : (i.photoRaw ? [i.photoRaw] : []); }
+function ivPhBlob(raw) {
+  return new Promise((resolve, reject) => {
+    const id = (String(raw).match(/[?&]id=([\w-]+)/) || String(raw).match(/\/d\/([\w-]+)/) || [])[1];
+    if (!id) { fetch(String(raw).includes('cloudinary.com') ? raw.replace('/upload/', '/upload/w_2000,c_limit/') : raw).then(r => r.ok ? r.blob() : Promise.reject(new Error('Not found'))).then(resolve, reject); return; }
+    jsonp(SCRIPT_URL + '?action=getDriveImage&fileId=' + id + '&_=' + Date.now(), d => {
+      if (!d || !d.success || !d.base64) { reject(new Error((d && d.error) || 'No photo')); return; }
+      const bin = atob(d.base64), u = new Uint8Array(bin.length);
+      for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k);
+      resolve(new Blob([u], { type: d.mimeType || 'image/jpeg' }));
+    }, e => reject(new Error(e || 'No photo')), 60000);
+  });
+}
+function ivPhPng(blob) {
+  if (blob.type === 'image/png') return Promise.resolve(blob);
+  return new Promise((resolve, reject) => {
+    const img = new Image(), url = URL.createObjectURL(blob);
+    img.onload = () => { const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext('2d').drawImage(img, 0, 0); URL.revokeObjectURL(url); c.toBlob(b => b ? resolve(b) : reject(new Error('png')), 'image/png'); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img')); };
+    img.src = url;
+  });
+}
+function ivPhName(i, n, total, type) {
+  const base = (i.drop ? (i.dropNo ? 'Drop ' + i.dropNo + ' - ' : '') : (i.tagId || i.assetId) + ' - ') + (i.name || 'photo');
+  const ext = /png/.test(type || '') ? 'png' : /webp/.test(type || '') ? 'webp' : 'jpg';
+  return base.replace(/[\\/:*?"<>|]+/g, '').trim().slice(0, 80) + (total > 1 ? ' (' + (n + 1) + ')' : '') + '.' + ext;
+}
+function ivPhTouch() { return matchMedia('(pointer:coarse)').matches; }
+function ivPhCopy(id, n) {
+  const i = ivItem(id), raw = i && ivPhList(i)[n || 0];
+  if (!raw) return;
+  if (!navigator.clipboard || !window.ClipboardItem) { toast("This browser can't copy pictures. Use Download."); return; }
+  toast('Copying…');
+  // The ClipboardItem has to be made right away (Safari), with the picture to follow.
+  navigator.clipboard.write([new ClipboardItem({ 'image/png': ivPhBlob(raw).then(ivPhPng) })])
+    .then(() => toast('Photo copied: paste it into a message or email'), () => toast("Couldn't copy it here. Use Download instead."));
+}
+async function ivPhSave(id, n) {
+  const i = ivItem(id); if (!i) return;
+  const list = ivPhList(i), picks = n == null ? list.map((_, k) => k) : [n];
+  if (!picks.length) return;
+  toast(picks.length > 1 ? 'Getting ' + picks.length + ' photos…' : 'Getting the photo…');
+  let files;
+  try { files = await Promise.all(picks.map(async k => { const b = await ivPhBlob(list[k]); return new File([b], ivPhName(i, k, list.length, b.type), { type: b.type || 'image/jpeg' }); })); }
+  catch (e) { toast("Couldn't get the photo" + (picks.length > 1 ? 's' : '') + ' just now'); return; }
+  if (ivPhTouch() && navigator.canShare && navigator.canShare({ files })) {
+    try { await navigator.share({ files, title: i.name || 'Photo' }); } catch (e) {}
+    return;
+  }
+  files.forEach((f, k) => setTimeout(() => {
+    const a = document.createElement('a'), u = URL.createObjectURL(f);
+    a.href = u; a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 4000);
+  }, k * 400));
+  toast(files.length > 1 ? files.length + ' photos downloaded' : 'Photo downloaded');
+}
+function ivPhBar(i) {
+  const n = ivPhList(i).length; if (!n) return '';
+  const id = ivJ(i.assetId), save = ivPhTouch() ? 'Save / share' : 'Download';
+  return `<div class="iv-phbar">
+    <button class="iv-btn sm" onclick="ivPhCopy(${id},0)">${IV_PH_ICON.copy}Copy photo</button>
+    <button class="iv-btn sm" onclick="ivPhSave(${id},0)">${IV_PH_ICON.dl}${save}</button>
+    ${n > 1 ? `<button class="iv-btn sm" onclick="ivPhSave(${id})">${IV_PH_ICON.dl}All ${n} photos</button>` : ''}
+  </div>`;
+}
+const IV_PH_ICON = {
+  copy: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 01-1-1V4a1 1 0 011-1h10a1 1 0 011 1v1"/></svg>',
+  dl: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>'
+};
 function ivGalleryHTML(i) {
   const ph = i.photos || [];
   if (ph.length < 2 && !ph.some(p => p.note)) return '';
   return `<div style="margin-top:14px"><div class="iv-k">PHOTOS · ${ph.length}</div><div class="iv-gal">${ph.map((p, n) => `<div>
     <a href="${ivE(ivBig(p.url))}" target="_blank" rel="noopener" aria-label="Open photo ${n + 1}"><img src="${ivE(driveThumb(p.url))}" alt="" loading="lazy" referrerpolicy="no-referrer"></a>
-    ${p.note ? `<div class="n">${ivE(p.note)}</div>` : ''}</div>`).join('')}</div></div>`;
+    ${p.note ? `<div class="n">${ivE(p.note)}</div>` : ''}
+    <div class="iv-gal-b"><button class="iv-btn sm" onclick="ivPhCopy(${ivJ(i.assetId)},${n})" aria-label="Copy photo ${n + 1}">${IV_PH_ICON.copy}</button><button class="iv-btn sm" onclick="ivPhSave(${ivJ(i.assetId)},${n})" aria-label="Download photo ${n + 1}">${IV_PH_ICON.dl}</button></div></div>`).join('')}</div></div>`;
 }
 
 function ivItemHTML(i, inPane) {
@@ -15628,6 +16081,7 @@ function ivItemHTML(i, inPane) {
     <div class="iv-hero">${big ? `<img src="${ivE(big)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px">${IV_ICON.photo}No photo yet</div>`}
       ${inPane ? '' : `<button class="iv-ib l" aria-label="Back to inventory" onclick="ivClose()">${IV_ICON.back}</button>`}
       <button class="iv-ib r" aria-label="Edit item" onclick="ivOpenEdit(${ivJ(i.assetId)})">${IV_ICON.edit}</button></div>
+    ${ivPhBar(i)}
     <div class="iv-info">
       <div style="display:flex;align-items:flex-start;gap:10px">
         <div style="flex:1;min-width:0"><h2 class="iv-h1">${ivE(i.name || '(no name)')}</h2><div class="iv-mono">${ivE((i.drop ? [i.dropNo ? 'Drop #' + i.dropNo : i.assetId, i.size, i.kind] : [i.tagId || i.assetId, i.category, i.subcategory]).filter(Boolean).join(' · '))}</div>${i.drop && i.cats ? `<div class="iv-wrap" style="margin-top:6px">${ivCatList(i).map(c => `<span class="iv-pill" style="background:var(--iv-out-bg);color:var(--iv-out)">${ivE(c)}</span>`).join('')}</div>` : ''}</div>
@@ -15683,7 +16137,7 @@ const IV_VIEWS = {
   item: null,   // set below
   menu() {
     const out = ivAll().filter(ivIsOut).length;
-    return { sheet: true, w: 420, label: 'More', html: `${ivHead(ivDrops() ? 'Drops' : 'Inventory', '', { sheet: true })}<div class="iv-obody iv-menu">
+    return { sheet: true, w: 420, label: 'More', html: `${ivHead(ivDrops() ? 'Drops' : 'Set Piece Catalogue', '', { sheet: true })}<div class="iv-obody iv-menu">
       ${ivDrops() ? '' : `<button onclick="ivClose();ivOpen({v:'outnow'})">Out now <span class="iv-badge" style="margin-left:auto">${out}</span></button>`}
       <button onclick="ivClose();ivOpenScan()">Scan labels</button>
       ${ivDrops() ? `<button onclick="ivClose();ivOpenRack()">Storage map</button>` : ''}

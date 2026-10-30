@@ -840,6 +840,15 @@
     .pv-mv i { font-style: normal; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; padding-top: 2px; }
     .pv-head h1 { font-size: 20px; }
   }
+  #ld-pill { position:fixed; left:50%; top:calc(var(--safe-t, 0px) + 104px); z-index:9998; transform:translate(-50%,-8px);
+    display:flex; align-items:center; gap:9px; padding:8px 16px 8px 12px; border-radius:999px; background:#111; color:#fff;
+    font:600 13px Inter, system-ui, sans-serif; box-shadow:0 6px 20px rgba(0,0,0,.25); opacity:0; pointer-events:none;
+    transition:opacity .18s, transform .18s; }
+  #ld-pill.on { opacity:1; transform:translate(-50%,0); }
+  #ld-pill i { width:15px; height:15px; border-radius:50%; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; animation:ld-spin .7s linear infinite; }
+  @keyframes ld-spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce) { #ld-pill i { animation-duration:2.4s; } }
+  html.cl-embed #ld-pill { top:8px; }
   #toast { position: fixed; left: 50%; bottom: calc(24px + var(--safe-b)); transform: translateX(-50%) translateY(20px); opacity: 0;
     background: #1e1e32; color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 14px; z-index: 9000; pointer-events: none;
     transition: opacity .2s, transform .2s; }
@@ -1375,15 +1384,45 @@ const isScene = c => c && c.type === SCENE_TYPE_ID;
 function lsGet(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } }
 function lsSet(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
 
+
+// ── LOADING PILL ── a clear "Loading…" near the top whenever this page is
+// waiting on the Sheet (anything slower than a blink). Background checks that
+// run every few seconds (who's here, new edits) don't count.
+var _ldN = 0, _ldT = null;
+function ldStart(url) { if (/action=(getCueRev|getTeamConfig|getShowPhotos)\b|key=(presence_names|crew_perms)\b/.test(String(url || ''))) return false; _ldN = (_ldN || 0) + 1; ldPaint(); return true; }
+function ldEnd() { _ldN = Math.max(0, (_ldN || 0) - 1); ldPaint(); }
+function ldPaint() {
+  let el = document.getElementById('ld-pill');
+  if (!el && document.body) { el = document.createElement('div'); el.id = 'ld-pill'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); el.innerHTML = '<i></i><span>Loading…</span>'; document.body.appendChild(el); }
+  if (!el) return;
+  if (_ldN > 0) { if (!_ldT && !el.classList.contains('on')) _ldT = setTimeout(() => { _ldT = null; if (_ldN > 0) el.classList.add('on'); }, 350); }
+  else { clearTimeout(_ldT); _ldT = null; el.classList.remove('on'); }
+}
+// Page loads that use fetch (the catalogue, drops...) count too; saves (POST) don't.
+(function () {
+  if (!window.fetch || window.fetch._ld) return;
+  const f0 = window.fetch;
+  const f = function (input, init) {
+    const url = typeof input === 'string' ? input : (input && input.url) || '';
+    const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+    const watch = method === 'GET' && /script\.google(usercontent)?\.com/.test(url) && ldStart(url);
+    const done = () => { if (watch) ldEnd(); };
+    return f0.apply(this, arguments).then(r => { done(); return r; }, e => { done(); throw e; });
+  };
+  f._ld = true; window.fetch = f;
+})();
+
 function jsonp(url, onSuccess, onError, timeoutMs){
   const cb = 'cb_' + Date.now() + '_' + Math.floor(Math.random()*1e6);
   const script = document.createElement('script');
   let done = false;
+  const ld = ldStart(url);
   const timeout = setTimeout(() => { cleanup(); onError && onError('Timeout'); }, timeoutMs || 15000);
   window[cb] = data => { cleanup(); onSuccess(data); };
   function cleanup(){
     if (done) return;
     done = true;
+    if (ld) ldEnd();
     clearTimeout(timeout);
     delete window[cb];
     if (script.parentNode) script.parentNode.removeChild(script);
@@ -4894,6 +4933,7 @@ function clAdopt(data){
   lastHash = JSON.stringify([data.cues, data.cueTypes, data.presets]);
   try { lsSet('mmt_cuelist_cache_' + scriptId, JSON.stringify(data)); } catch(e){}
   render();
+  if (_jumpCue && cues.some(c => String(c.id) === String(_jumpCue))) setTimeout(() => clRevealCue(_jumpCue), 120);   // a jump waiting for this cue
 }
 let _clAdoptLater = null, _clRetryT = null, _clRetryN = 0;
 function clRetrySave(){
@@ -5640,7 +5680,9 @@ window.mmtJump = function (m){
 function clJumpRetry(){
   clearTimeout(clJumpRetry._t);
   if (!_jumpCue || Date.now() > _jumpWaitUntil) return;
-  try { fetchCues(); } catch (e) {}
+  // In Editing mode the sheet takes in new cues through its regular check
+  // (which keeps what's being edited); outside it, a plain refresh.
+  try { if (editMode) clCheck(); else fetchCues(); } catch (e) {}
   clJumpRetry._t = setTimeout(clJumpRetry, 1500);
 }
 // Bring a cue's row into view and light it up.
@@ -7677,6 +7719,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.30 v1</div>
 </body>
 </html>
