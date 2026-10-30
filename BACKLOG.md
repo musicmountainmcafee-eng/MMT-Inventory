@@ -152,7 +152,9 @@
   exact knob/button events on the device.
 
 ## Next
-- Mac at his computer: paste Apps Script 10.28 v3 (copy-sheet-script.html) + New version; check show photos and lists on dev.
+- **Live show timer at the top of the Script / Cue Sheet page** (asked Oct 30): the running act/countdown from the show timer,
+  view only, in the page's top bar (both the script view and the cue sheet), the same feed as the dashboard's top-bar timer pill.
+- Fix: unfolded foldable (~884 wide) scrolls sideways a little because of the top bar.
 - Drops tab (Mac working on it Oct 28).
 - Full audit of the dashboard: what works, what doesn't (after 3 pm Oct 28, when Mac has more usage).
   Already noticed: Home show card's links are read before the show list loads on first draw (caught, redraws).
@@ -175,9 +177,8 @@
 
 ## Later
 - Script page numbers for the odd script whose printed numbers differ from the PDF (per-script setting).
-- Photos on every show card.
 - Script revisions: carry cues over to a new version (rare).
-- Loading spinner
+
 - Back buttons in the installed app
 - Day Tracker
 - Renter accounts and portal
