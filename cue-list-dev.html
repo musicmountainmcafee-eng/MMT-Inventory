@@ -4934,6 +4934,7 @@ function clAdopt(data){
   lastHash = JSON.stringify([data.cues, data.cueTypes, data.presets]);
   try { lsSet('mmt_cuelist_cache_' + scriptId, JSON.stringify(data)); } catch(e){}
   render();
+  if (_jumpCue && cues.some(c => String(c.id) === String(_jumpCue))) setTimeout(() => clRevealCue(_jumpCue), 120);   // a jump waiting for this cue
 }
 let _clAdoptLater = null, _clRetryT = null, _clRetryN = 0;
 function clRetrySave(){
@@ -5680,7 +5681,9 @@ window.mmtJump = function (m){
 function clJumpRetry(){
   clearTimeout(clJumpRetry._t);
   if (!_jumpCue || Date.now() > _jumpWaitUntil) return;
-  try { fetchCues(); } catch (e) {}
+  // In Editing mode the sheet takes in new cues through its regular check
+  // (which keeps what's being edited); outside it, a plain refresh.
+  try { if (editMode) clCheck(); else fetchCues(); } catch (e) {}
   clJumpRetry._t = setTimeout(clJumpRetry, 1500);
 }
 // Bring a cue's row into view and light it up.
@@ -7716,6 +7719,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v5 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v6 dev</div>
 </body>
 </html>
