@@ -92,6 +92,15 @@
 - Fixed: Home show card errored on first draw (icons defined too late).
 - Tests: test_photos.py.
 
+## Live Oct 29 evening (Dashboard 10.29 v3, Cue Sheet 10.29 v3)
+- Script | Cue sheet toggle returns to where you were on each side; a new cue's "Cue sheet ›" waits for it and lands on it;
+  script ⋯ menu labels readable (were white on white); phone set change moves as cards; cue sheet badges never split,
+  phone search on its own line; set change editor no longer blank on an unfolded foldable. Also live today: off-page
+  markers pulled back (10.29 v2), header overlap fix (10.29 v1). Tests: test_flipmem.py, test_offpage.py.
+- Not yet covered: a new cue while the cue sheet is left in Editing mode (it doesn't refresh then).
+- Open ideas from the script/cue sheet audit: floating cue editor on ~1000px laptops; "+ Add cue" only on the tapped row;
+  Find results showing the cue line.
+
 ## Live Oct 29 (Cue Sheet 10.29 v1)
 - Cue sheet shows every scene, even with no cues yet (hidden only while filtering/searching); scene bars show number and
   name ("Scene 1 · Painswick Orphanage..."), also in the printed/exported plot. Only this went live; the rest of dev waits.
