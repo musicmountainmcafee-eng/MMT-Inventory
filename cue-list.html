@@ -5687,7 +5687,14 @@ function labelSpot(label, rect, W){
 }
 // Where on `page` a cue between `prev` and `next` (in script order) goes.
 function approxRect(page, prev, next){
-  const W = pageWidthGuess(), H = Math.round(W * 11 / 8.5);
+  const W = pageWidthGuess();
+  // The page's height: a US letter page unless the markers already placed show
+  // the pages are shorter (smaller scripts, landscape pages).
+  let low = 0, n = 0;
+  Object.keys(annotations || {}).forEach(p => (annotations[p] || []).forEach(m => {
+    if (m && m.type === 'cue' && m.rect && !m.approx) { low = Math.max(low, m.rect.y + m.rect.h); n++; }
+  }));
+  const H = Math.round(n >= 5 ? Math.min(W * 11 / 8.5, low + 30) : W * 11 / 8.5);
   const pa = prev && String(prev.page) === String(page) ? annOf(prev) : null;
   const na = next && String(next.page) === String(page) ? annOf(next) : null;
   const P = pa && pa.rect, N = na && na.rect;
@@ -7647,6 +7654,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v2</div>
 </body>
 </html>
