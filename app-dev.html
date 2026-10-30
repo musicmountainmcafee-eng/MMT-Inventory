@@ -7376,7 +7376,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v2 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v3 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -8015,14 +8015,54 @@ function csSheetUrl(cueId, view) {
   return CUE_PAGE + '?embed=1&script=' + encodeURIComponent(showId) + (cueId ? '&cue=' + encodeURIComponent(cueId) : '') + (name ? '&name=' + encodeURIComponent(name) : '')
     + (view === 'shift' ? '&type=shift' : view === 'presets' ? '&view=presets&edit=1' : '');
 }
+// Where you were on each side, so the Script | Cue sheet toggle brings you back
+// to the same spot instead of the top. (The cue sheet sits hidden inside this
+// page while you're on the script, and a hidden page loses its scroll.) A cue's
+// own "Cue sheet" / "Script" button still goes to that cue.
+const _svMem = { script: null, sheet: null, sid: '' };
+function svSave(which) {
+  try {
+    if (_svMem.sid !== String(showId)) { _svMem.script = null; _svMem.sheet = null; _svMem.sid = String(showId); }
+    if (which === 'script') {
+      const wrap = document.getElementById('canvas-wrap');
+      const panel = [...document.querySelectorAll('#cue-panel, #cue-panel *')].filter(e => e.scrollHeight > e.clientHeight + 4).map(e => e.scrollTop);
+      _svMem.script = { page: currentPage, top: wrap ? wrap.scrollTop : 0, left: wrap ? wrap.scrollLeft : 0, panel };
+    } else {
+      const w = csFrameWin(); if (w) _svMem.sheet = { y: w.scrollY, view: (typeof w.view === 'string' ? w.view : null) };
+    }
+  } catch (e) {}
+}
+function svRestoreScript() {
+  const m = _svMem.script; if (!m || _svMem.sid !== String(showId)) return;
+  const put = () => {
+    const wrap = document.getElementById('canvas-wrap');
+    if (wrap) { wrap.scrollTop = m.top; wrap.scrollLeft = m.left; }
+    const els = [...document.querySelectorAll('#cue-panel, #cue-panel *')].filter(e => e.scrollHeight > e.clientHeight + 4);
+    els.forEach((e, i) => { if (m.panel[i] != null) e.scrollTop = m.panel[i]; });
+  };
+  if (m.page && m.page !== currentPage) { try { goToPage(m.page); } catch (e) {} setTimeout(put, 450); }
+  else { put(); setTimeout(put, 200); }
+}
+function svRestoreSheet() {
+  const m = _svMem.sheet; if (!m || _svMem.sid !== String(showId)) return false;
+  const w = csFrameWin(); if (!w) return false;
+  const put = () => { try { w.scrollTo(0, m.y); } catch (e) {} };
+  requestAnimationFrame(() => { put(); setTimeout(put, 150); setTimeout(put, 600); });
+  return true;
+}
 async function setSheetMode(mode, cueId, view) {
   if (typeof showId === 'undefined' || !showId) return;
   const ed = document.getElementById('scripts-editor'); if (!ed) return;
   if (mode !== 'script' && typeof crewCanSee === 'function' && !crewCanSee('cuesheet')) { toast('The cue sheet is turned off for crew. Ask Mac.'); return; }
   if (mode === 'both' && !window.matchMedia('(min-width: 1280px)').matches) mode = 'sheet';
+  // Leaving one side: remember where you were on it.
+  if (_sheetMode === 'script' && mode !== 'script') svSave('script');
+  if (_sheetMode === 'sheet' && mode !== 'sheet') svSave('sheet');
+  const toggled = !cueId && !view;   // the Script | Cue sheet switch itself, not a cue's own button
+  const backToSheet = toggled && mode === 'sheet' && _svMem.sheet && _svMem.sid === String(showId);
   if (mode !== 'script') {
     try {
-      if (!cueId && !view) cueId = (typeof selectedCueId !== 'undefined' && selectedCueId) || '';
+      if (!cueId && !view && !backToSheet) cueId = (typeof selectedCueId !== 'undefined' && selectedCueId) || '';
       if (!cueId && !view) { const pg = cuesInScriptOrder().filter(c => c.page === currentPage && c.type !== SCENE_TYPE_ID); if (pg.length) cueId = pg[0].id; }
     } catch (e) {}
     try { if (typeof runView !== 'undefined' && runView !== 'normal') setRunView('normal', true); } catch (e) {}
@@ -8060,7 +8100,12 @@ async function setSheetMode(mode, cueId, view) {
   });
   clearInterval(_bothPoll);
   if (mode === 'both') _bothPoll = setInterval(() => { try { csPoll(); } catch (e) {} }, 5000);
-  if (mode !== 'sheet' && was !== mode) setTimeout(() => { try { renderPage(); } catch (e) {} if (mode === 'script' && cueId) { try { jumpToCue(cueId); } catch (e) {} } }, 80);
+  if (mode !== 'sheet' && was !== mode) setTimeout(async () => {
+    try { await renderPage(); } catch (e) {}
+    if (mode === 'script' && cueId) { try { jumpToCue(cueId); } catch (e) {} }
+    else if (mode === 'script' && toggled) svRestoreScript();
+  }, 80);
+  if (mode === 'sheet' && backToSheet) svRestoreSheet();
 }
 // From the cue sheet's "Script ›": show the script at that cue (in Both, just follow).
 window.csEmbedToScript = function (cueId) {

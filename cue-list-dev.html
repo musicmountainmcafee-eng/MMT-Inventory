@@ -5659,11 +5659,25 @@ async function flipToScript(cueId){
   } finally { setTimeout(() => { _flipping = false; }, 1500); }
 }
 let _jumpCue = '';
+let _jumpWaitUntil = 0;
 window.mmtJump = function (m){
   if (!m || m.type !== 'cue' || !m.cueId) return;
   if (m.scriptId && String(m.scriptId) !== String(scriptId)) { _jumpCue = String(m.cueId); pickScript(m.scriptId, m.name || '', true); return; }
+  // A cue just added on the script may not have reached this sheet yet: wait
+  // for it (a few seconds, checking again) instead of saying it isn't here.
+  if (!cues.some(c => String(c.id) === String(m.cueId))) {
+    _jumpCue = String(m.cueId); _jumpWaitUntil = Date.now() + 12000;
+    clJumpRetry();
+    return;
+  }
   clRevealCue(m.cueId);
 };
+function clJumpRetry(){
+  clearTimeout(clJumpRetry._t);
+  if (!_jumpCue || Date.now() > _jumpWaitUntil) return;
+  try { fetchCues(); } catch (e) {}
+  clJumpRetry._t = setTimeout(clJumpRetry, 1500);
+}
 // Bring a cue's row into view and light it up.
 function clRevealCue(cueId){
   _jumpCue = '';
@@ -5671,7 +5685,11 @@ function clRevealCue(cueId){
   if (view !== 'cues') setView('cues');
   let row = document.querySelector('#sheet-body tr[data-cue="' + CSS.escape(String(cueId)) + '"]');
   if (!row && (activeType || query || activeWho)) { activeType = null; activeWho = null; query = ''; const s = document.getElementById('search'); if (s) s.value = ''; render(); row = document.querySelector('#sheet-body tr[data-cue="' + CSS.escape(String(cueId)) + '"]'); }
-  if (!row) { toast("That cue isn't on this cue sheet"); return; }
+  if (!row) {
+    if (Date.now() < _jumpWaitUntil && !cues.some(c => String(c.id) === String(cueId))) { _jumpCue = String(cueId); return; }   // still on its way
+    toast("That cue isn't on this cue sheet"); return;
+  }
+  _jumpWaitUntil = 0;
   const hdr = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0;
   window.scrollTo({ top: Math.max(0, row.getBoundingClientRect().top + window.scrollY - hdr - 40), behavior: 'smooth' });
   _flash = { id: String(cueId), until: Date.now() + 2600 };
@@ -7693,6 +7711,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v3 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.29 v4 dev</div>
 </body>
 </html>
