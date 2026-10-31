@@ -1064,6 +1064,20 @@
   .pr-map-btn:hover { border-color: var(--purple); }
   .map-btn { margin-left: 4px; }
   @media print { .pr-map-btn, .map-btn { display: none !important; } }
+
+  .pr-chk-btn.on { background: var(--ink, #111); color: var(--paper, #fff); border-color: var(--ink, #111); }
+  .pr-chk-btn.all:not(.on) { color: #15803d; border-color: rgba(21,128,61,.45); }
+  .pr-chk-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--grid); font: 14px 'DM Sans', system-ui, sans-serif; }
+  .pr-chk-meter { width: 120px; height: 8px; border-radius: 999px; background: var(--grid); overflow: hidden; flex: none; }
+  .pr-chk-meter i { display: block; height: 100%; background: #15803d; }
+  .pr-chk-clear { margin-left: auto; border: 1px solid var(--grid); background: var(--paper); color: var(--ink-meta, #666); border-radius: 999px; padding: 4px 12px; font: 600 12.5px 'DM Sans', system-ui, sans-serif; cursor: pointer; }
+  tr.pr-chk { cursor: pointer; }
+  .pr-box { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-right: 10px; border: 2px solid var(--ink-meta, #888); border-radius: 6px; vertical-align: -5px; font-weight: 800; font-size: 14px; color: #fff; }
+  tr.pr-done .pr-box { background: #15803d; border-color: #15803d; }
+  tr.pr-done td { color: var(--ink-meta, #777); }
+  tr.pr-done .mv-piece { text-decoration: line-through; text-decoration-color: rgba(21,128,61,.6); }
+  .pr-by { display: block; margin: 3px 0 0 32px; font-size: 11.5px; color: #15803d; font-weight: 600; }
+  @media (max-width: 600px) { .pr-chk-meter { width: 70px; } tr.pr-chk td { padding-top: 12px; padding-bottom: 12px; } }
 </style>
 </head>
 <body>
@@ -2195,6 +2209,80 @@ function render(){
   if (typeof clFlashRows === 'function') clFlashRows();
 }
 
+
+// ── NIGHTLY PRESET CHECK ─────────────────────────────────────────────────────
+// Before a show, someone walks the presets and ticks each piece. One shared
+// list per script per day (KV 'presetcheck_<scriptId>': { day, ticks: { key:
+// { by, at } } }); anyone signed in here can tick, and the next day starts
+// clean on its own. Ticks save one at a time onto the Sheet's copy, so two
+// people walking opposite wings both keep theirs. "Check" on the Presets bar
+// turns it on for this device.
+let _prChk = lsGet('mmt_cuelist_prchk', '0') === '1';
+let _prChkData = { day: '', ticks: {} }, _prChkOps = [], _prChkSaving = false, _prChkSid = '';
+function prChkDay(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function prChkKey(){ return 'presetcheck_' + scriptId; }
+function prChkTicks(){ return (_prChkData && _prChkData.day === prChkDay() && _prChkData.ticks) || {}; }
+function prChkTick(key){ return prChkTicks()[key] || null; }
+function prChkTime(at){ try { return at ? new Date(at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''; } catch (e) { return ''; } }
+function prChkBtnHTML(rows){
+  const n = rows.length, done = rows.filter(r => prChkTick(r.key)).length;
+  return `<button type="button" class="pr-map-btn pr-chk-btn${_prChk ? ' on' : ''}${n && done === n ? ' all' : ''}" onclick="prChkMode()" aria-pressed="${_prChk}" title="Tonight's preset check">${_prChk ? 'Done checking' : 'Check'}${done ? ` · ${done}/${n}` : ''}</button>`;
+}
+function prChkBarHTML(rows){
+  const n = rows.length, done = rows.filter(r => prChkTick(r.key)).length;
+  const pct = n ? Math.round(done / n * 100) : 0;
+  return `<div class="pr-chk-bar"><div class="pr-chk-meter"><i style="width:${pct}%"></i></div>
+    <span>${done === n && n ? '<b>All set.</b> Every piece is in its preset spot.' : `<b>${done} of ${n}</b> checked for ${new Date().toLocaleDateString('en-US', { weekday: 'long' })}. Tap a piece once it's in place.`}</span>
+    ${done ? `<button type="button" class="pr-chk-clear" onclick="prChkClear(this)">Untick all</button>` : ''}</div>`;
+}
+function prChkMode(){
+  _prChk = !_prChk; lsSet('mmt_cuelist_prchk', _prChk ? '1' : '0');
+  if (_prChk) { try { closeBox(); } catch (e) {} prChkFetch(); }
+  render();
+}
+function prChkApply(v, op){
+  if (!v || v.day !== op.day) { v.day = op.day; v.ticks = {}; }
+  if (op.clear) v.ticks = {};
+  else if (op.v) v.ticks[op.key] = op.v; else delete v.ticks[op.key];
+}
+function prChkToggle(key){
+  const day = prChkDay(), was = prChkTick(key);
+  const op = { day, key, v: was ? null : { by: clName || (clRole === 'td' ? 'TD' : ''), at: new Date().toISOString() } };
+  if (_prChkData.day !== day) _prChkData = { day, ticks: {} };
+  prChkApply(_prChkData, op); _prChkOps.push(op); prChkSave(); render();
+}
+function prChkClear(btn){
+  if (btn && !btn.dataset.sure) { btn.dataset.sure = '1'; btn.textContent = 'Tap again to untick all'; setTimeout(() => { if (btn.isConnected) { delete btn.dataset.sure; btn.textContent = 'Untick all'; } }, 3000); return; }
+  const op = { day: prChkDay(), clear: true }; prChkApply(_prChkData, op); _prChkOps.push(op); prChkSave(); render();
+}
+function prChkSave(){
+  if (_prChkSaving || !_prChkOps.length || !scriptId) return;
+  _prChkSaving = true;
+  const ops = _prChkOps.slice(), key = prChkKey();
+  jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent(key) + '&_=' + Date.now(), d => {
+    const fresh = (d && d.value && typeof d.value === 'object') ? d.value : { day: '', ticks: {} };
+    ops.forEach(o => prChkApply(fresh, o));
+    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveKV', key, value: fresh }) })
+      .then(r => r.text()).then(t => { let x = null; try { x = JSON.parse(t); } catch (e) {} if (x && x.success === false) throw new Error('not saved'); })
+      .then(() => { _prChkSaving = false; _prChkOps = _prChkOps.slice(ops.length); _prChkData = fresh; _prChkOps.forEach(o => prChkApply(_prChkData, o)); if (_prChkOps.length) prChkSave(); else render(); },
+            () => { _prChkSaving = false; toast("A tick didn't save. It's kept here; trying again."); setTimeout(prChkSave, 10000); });
+  }, () => { _prChkSaving = false; setTimeout(prChkSave, 10000); });
+}
+function prChkFetch(){
+  if (!scriptId || _prChkSaving || _prChkOps.length) return;
+  const sid = scriptId;
+  jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent(prChkKey()) + '&_=' + Date.now(), d => {
+    if (sid !== scriptId || _prChkSaving || _prChkOps.length) return;
+    const v = (d && d.value && typeof d.value === 'object') ? d.value : { day: '', ticks: {} };
+    const changed = JSON.stringify(v) !== JSON.stringify(_prChkData) || _prChkSid !== sid;
+    _prChkData = v; _prChkSid = sid;
+    if (changed) render();
+  });
+}
+// Others' ticks show up within ~10 s while checking; the count on the bar
+// loads once when the sheet opens.
+setInterval(() => { if (_prChk && !document.hidden) prChkFetch(); }, 10000);
+
 // ── PRESETS (was "Before house opens") ─────────────────────────────────────
 // A folding section at the top of the set change plot: where every piece
 // starts when the doors open. Folded or open is remembered on this device.
@@ -2216,8 +2304,9 @@ function closeStageMap(){ const o = document.getElementById('sm-ov'); if (o) o.r
 window.addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.mmt === 'stagemap-close') closeStageMap(); });
 
 function prSectionHTML(){
+  if (scriptId && _prChkSid !== scriptId && !prChkFetch._busy) { prChkFetch._busy = true; setTimeout(() => { prChkFetch._busy = false; prChkFetch(); }, 0); }
   if (activeType || activeWho) return '';
-  const all = allPieces().map(({ key, piece }) => ({ ...(presets[key] || {}), piece, key })).filter(r => editMode || !r.hidden);
+  const all = allPieces().map(({ key, piece }) => ({ ...(presets[key] || {}), piece, key })).filter(r => (editMode && !_prChk) || !r.hidden);
   const rows = all.filter(r => {
     if (!query) return true;
     const h = [r.piece, r.location, r.notes].filter(Boolean).join(' ').toLowerCase();
@@ -2225,7 +2314,7 @@ function prSectionHTML(){
   });
   if (query && !rows.length) return '';
   if (!all.length && !editMode) return '';
-  const open = _prOpen || !!query;
+  const open = _prOpen || !!query || _prChk;
   const gaps = all.filter(r => !r.hidden && !String(r.location || '').trim()).length;
   const n = all.filter(r => !r.hidden).length;
   let band = false;
@@ -2233,7 +2322,8 @@ function prSectionHTML(){
     <button type="button" class="pr-sec-h" onclick="prSecToggle()" aria-expanded="${open}" aria-controls="pr-sec-body">
       <svg class="pr-sec-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
       <b>Presets</b><span>${n} piece${n === 1 ? '' : 's'}${gaps ? ' · <em>' + gaps + ' with no location</em>' : ''}</span>
-    </button><button type="button" class="pr-map-btn" onclick="openStageMap('presets')" aria-label="Stage map of the presets">Map</button></div>
+    </button>${prChkBtnHTML(all.filter(r => !r.hidden))}<button type="button" class="pr-map-btn" onclick="openStageMap('presets')" aria-label="Stage map of the presets">Map</button></div>
+    ${_prChk ? prChkBarHTML(all.filter(r => !r.hidden)) : ''}
     <div class="pr-sec-body" id="pr-sec-body"${open ? '' : ' hidden'}>${rows.length ? `<table class="cs pr-tbl">
       <colgroup><col style="width:24%"><col style="width:28%"><col style="width:24%"><col style="width:24%"></colgroup>
       <thead><tr><th>Piece</th><th>Preset location</th><th>Spike</th><th>Notes</th></tr></thead>
@@ -2316,6 +2406,16 @@ function presetRowHTML(r, band){
   if (presetSheet && presetSheet.key === r.key) cls.push('mv-sel');
   const loc = String(r.location || '').trim();
   const hasSpike = (r.spikeIds || []).length || r.spike;
+  if (_prChk) {
+    const t = prChkTick(r.key);
+    cls.push('pr-chk'); if (t) cls.push('pr-done');
+    return `<tr class="${cls.join(' ')}" data-key="${esc(r.key)}" onclick="prChkToggle('${esc(r.key)}')" role="checkbox" aria-checked="${!!t}" tabindex="0" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();prChkToggle('${esc(r.key)}')}">
+    <td><span class="pr-box" aria-hidden="true">${t ? '✓' : ''}</span><span class="mv-piece">${esc(r.piece)}</span>${t ? `<span class="pr-by">${esc(t.by || '')} ${esc(prChkTime(t.at))}</span>` : ''}</td>
+    <td class="cs-action">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
+    <td class="cs-line">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : ''}</td>
+    <td class="cs-notes">${esc(r.notes || '')}</td>
+  </tr>`;
+  }
   return `<tr class="${cls.join(' ')} pr-tap" data-key="${esc(r.key)}" onclick="presetTap(event, '${esc(r.key)}')">
     <td><span class="mv-piece">${esc(r.piece)}</span>${r.hidden ? '<span class="pr-offtag">not on plot</span>' : ''}${prPhotosHTML(r.key, r.photos)}</td>
     <td class="cs-action" data-pf="location">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>

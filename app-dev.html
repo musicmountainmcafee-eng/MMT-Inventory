@@ -6135,6 +6135,52 @@ table td { font-size: 14px !important; }
 
   #cfa-map { display: none; }
   #scripts-editor.sel-shift #cfa-map { display: inline-flex; }
+
+  /* Unfolded foldables, small tablets beside the menu (769-1100 wide): the top
+     bar's buttons used to run off the right edge. The timer pill drops its
+     words (dot + time stay; tap for the menu), the gaps tighten, and the
+     buttons wrap rather than spill. */
+  @media (min-width: 769px) and (max-width: 1100px) {
+    .content-topbar { flex-wrap: wrap; row-gap: 8px; }
+    .content-topbar-left { min-width: 0; flex: 1 1 160px; }
+    .content-topbar-right { flex-wrap: wrap; justify-content: flex-end; gap: 6px !important; min-width: 0; max-width: 100%; }
+    .content-topbar-right #htm-pill-label { display: none; }
+    .content-topbar-right button.htm-pill { max-width: 140px; }
+  }
+
+  /* Show timer pill on the script page's top bar */
+  #scripts-editor .se-htm { display: inline-flex; align-items: center; gap: 6px; max-width: 220px; min-width: 0; padding: 0 12px !important; height: 34px; min-height: 0 !important;
+    border-radius: 999px !important; border: 1px solid rgba(255,255,255,.18) !important; background: rgba(255,255,255,.10) !important; color: #fff !important;
+    font: 600 12.5px 'DM Sans', system-ui, sans-serif; white-space: nowrap; cursor: pointer; }
+  #scripts-editor .se-htm span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  #scripts-editor .se-htm b { font-variant-numeric: tabular-nums; font-size: 13.5px; }
+  #scripts-editor .se-htm i { width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; flex: none; }
+  #scripts-editor:not(.run-dark) .se-htm { }
+  body.crew-no-home #se-htm { display: none !important; }
+  @media (max-width: 1200px) { #scripts-editor .se-htm span { display: none; } }
+  @media (max-width: 768px) { #scripts-editor .se-htm { height: 30px; padding: 0 9px !important; } }
+
+  .hm-flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .hm-flag { all: unset; box-sizing: border-box; cursor: pointer; font: 600 12.5px 'DM Sans', system-ui, sans-serif; color: #b45309; background: rgba(245,158,11,.10);
+    border: 1px solid rgba(180,83,9,.35); border-radius: 999px !important; padding: 4px 11px !important; min-height: 0 !important; }
+  .hm-flag:hover { background: rgba(245,158,11,.18); } .hm-flag:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  html[data-theme="dark"] .hm-flag { color: #fbbf24; border-color: rgba(251,191,36,.4); background: rgba(251,191,36,.08); }
+  @media (max-width: 768px) { .hm-flag { padding: 9px 12px !important; } }
+
+  .hub-strike-btn { margin-left: auto; }
+  .strike-ov { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .strike-card { background: var(--surface, #fff); color: var(--text, #111); border-radius: 16px; padding: 18px; width: 420px; max-width: 100%; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 20px 50px rgba(0,0,0,.3); }
+  .strike-card > b { font-size: 17px; }
+  .strike-note { margin: 0; font-size: 14px; color: var(--text-muted, #666); }
+  .strike-list { display: flex; flex-direction: column; gap: 2px; max-height: 40vh; overflow-y: auto; border: 1px solid var(--border, #e5e7eb); border-radius: 10px; padding: 6px 10px; }
+  .strike-list label { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 15px; cursor: pointer; }
+  .strike-list input { width: 18px; height: 18px; }
+  .strike-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .strike-row label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted, #666); flex: 1 1 140px; }
+  .strike-row select, .strike-row input { font: 15px inherit; padding: 8px 10px; border: 1px solid var(--border, #ddd); border-radius: 9px; background: var(--bg, #f7f7f7); color: var(--text, #111); }
+  .strike-btns { display: flex; justify-content: flex-end; gap: 8px; }
+  .strike-btns button { font: 600 14px 'DM Sans', system-ui, sans-serif; padding: 9px 16px !important; min-height: 0 !important; border-radius: 999px !important; border: 1px solid var(--border, #ddd); background: var(--surface, #fff); color: var(--text, #111); cursor: pointer; }
+  .strike-btns .pri { background: #111; color: #fff; border-color: #111; }
 </style>
   <!-- PERF: pdf.js and jsPDF used to load here as blocking script tags on every
        launch. They're only needed on the Scripts tab and for PDF exports, so they
@@ -7221,6 +7267,8 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
     </div>
     <div class="cue-topbar-actions">
       <div class="pr-faces" id="pr-faces" hidden aria-label="Who else is here"></div>
+      <!-- The show timer, small: act + running time / countdown. Same feed as the dashboard's pill. -->
+      <button type="button" class="se-htm" id="se-htm" onclick="htmPillMenu(event)" aria-haspopup="menu" aria-expanded="false" title="Show timer"><i id="se-htm-dot"></i><span id="se-htm-label">Show timer</span><b id="se-htm-num"></b></button>
       <button type="button" class="top-btn se-find" onclick="openFindCue()" title="Find a cue (/)" aria-label="Find a cue"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a7 7 0 1014 0a7 7 0 10-14 0M20.5 20.5l-4.5-4.5"/></svg><span>Find</span></button>
       <button type="button" class="top-btn se-approx" id="se-approx" hidden onclick="nextApproxCue()" title="Cues added from the cue sheet, still on approximate spots. Tap to go to the next one."></button>
       <!-- Pages that have their own home open there; this menu keeps what
@@ -7657,7 +7705,7 @@ const HS_ICON = {
 // waiting on the Sheet (anything slower than a blink). Background checks that
 // run every few seconds (who's here, new edits) don't count.
 var _ldN = 0, _ldT = null;
-function ldStart(url) { if (/action=(getCueRev|getTeamConfig|getShowPhotos|getListsRev)\b|key=(presence_names|crew_perms)\b/.test(String(url || ''))) return false; _ldN = (_ldN || 0) + 1; ldPaint(); return true; }
+function ldStart(url) { if (/action=(getCueRev|getTeamConfig|getShowPhotos|getListsRev)\b|key=(presence_names|crew_perms)\b|[?&]quiet=1\b/.test(String(url || ''))) return false; _ldN = (_ldN || 0) + 1; ldPaint(); return true; }
 function ldEnd() { _ldN = Math.max(0, (_ldN || 0) - 1); ldPaint(); }
 function ldPaint() {
   let el = document.getElementById('ld-pill');
@@ -7931,8 +7979,10 @@ function htmPillPaint(label, big, color) {
   const set = (id, v) => { const el = document.getElementById(id); if (el && el.textContent !== v) el.textContent = v; };
   const short = /^no show running$/i.test(label) ? 'No show' : label;
   set('htm-pill-label', label); set('htm-pill-num', big);
+  set('se-htm-label', short); set('se-htm-num', big);
+  const se = document.getElementById('se-htm'); if (se) se.title = 'Show timer: ' + label + (big ? ' · ' + big : '');
   set('htm-pill-sm-text', short + (big ? ' · ' + big : ''));
-  ['htm-pill-dot', 'htm-pill-sm-dot'].forEach(id => { const d = document.getElementById(id); if (d) d.style.background = color || ''; });
+  ['htm-pill-dot', 'htm-pill-sm-dot', 'se-htm-dot'].forEach(id => { const d = document.getElementById(id); if (d) d.style.background = color || ''; });
 }
 function htmPillMenu(ev) {
   if (ev) ev.stopPropagation();
@@ -7955,7 +8005,7 @@ function htmPillMenuOutside(e) { const m = document.getElementById('htm-pill-men
 function htmPillMenuClose() {
   const m = document.getElementById('htm-pill-menu'); if (m) m.remove();
   document.removeEventListener('click', htmPillMenuOutside, true);
-  ['htm-pill', 'htm-pill-sm'].forEach(id => { const b = document.getElementById(id); if (b) b.setAttribute('aria-expanded', 'false'); });
+  ['htm-pill', 'htm-pill-sm', 'se-htm'].forEach(id => { const b = document.getElementById(id); if (b) b.setAttribute('aria-expanded', 'false'); });
 }
 function htmPillPaintOff() { if (!htmOn()) htmPillPaint('Timer off', '', ''); }
 setInterval(() => { if (document.visibilityState === 'visible' && _htm.frame && htmOn()) htmRead(); }, 500);
@@ -11633,6 +11683,7 @@ function hmShowCard(kind) {
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openShowHub('${esc(slug)}');}">${esc(sh.name)}<span class="home-show-name-arrow" aria-hidden="true"> &rarr;</span></div>`
       : `<div class="home-show-name">${esc(sh.name)}</div>`}
     <div class="home-show-dates">${esc(formatDates(sh.start, sh.end))} · ${esc(countdown)}</div>
+    ${(canS || canC) ? hmFlagsHTML(kind, slug) : ''}
     <div class="hs-btns">${notesBtn}
       ${canS ? `<button class="home-show-btn" onclick="curShowScript(${k})">${HS_ICON.script}Script</button>` : ''}
       ${canC ? `<button class="home-show-btn" onclick="curShowCue(${k})">${HS_ICON.cue}Cue sheet</button>` : ''}
@@ -11688,6 +11739,108 @@ function hmEmptyCheck() {
   const hm = document.getElementById('hm');
   if (hm) hm.classList.toggle('hm-bare', !parts.some(p => !p.hidden));
 }
+
+
+// ── PLAN STRIKE (on request, from a show's page) ─────────────────────────────
+// Every piece named in the show's set changes becomes a "Strike <piece>" to-do
+// on the list picked, due the day after closing (or a date picked). Pieces
+// already on that list as a strike to-do are left out, so running it twice
+// doesn't double up.
+function strikeOpen(slug) {
+  const sh = allShows().find(x => showSlug(x.name) === slug); if (!sh) return;
+  const sid = hubRec(slug).scriptId;
+  if (!sid) { toast('Link a script to ' + sh.name + ' first (Script on the show page)'); return; }
+  strikeClose();
+  const m = document.createElement('div'); m.id = 'strike-pop'; m.className = 'strike-ov';
+  m.innerHTML = `<div class="strike-card" role="dialog" aria-label="Plan strike"><b>Plan strike: ${esc(sh.name)}</b><div class="strike-body"><p class="strike-note">Reading the set changes…</p></div></div>`;
+  m.addEventListener('click', e => { if (e.target === m) strikeClose(); });
+  document.body.appendChild(m);
+  jsonp(SCRIPT_URL + '?action=getCueData&quiet=1&scriptId=' + encodeURIComponent(sid) + '&_=' + Date.now(), d => {
+    const cd = (d && (d.cueData || d.data)) || {}, seen = new Map();
+    (cd.cues || []).filter(c => c.type === 'shift').sort((a, b) => (a.page - b.page)).forEach(c => (c.moves || []).forEach(mv => {
+      const v = String(mv.piece || '').trim(); if (v && !seen.has(v.toLowerCase())) seen.set(v.toLowerCase(), v);
+    }));
+    strikePaint(sh, [...seen.values()]);
+  }, () => { const b = document.querySelector('#strike-pop .strike-body'); if (b) b.innerHTML = '<p class="strike-note">The set changes didn\'t load. Check the signal and try again.</p>'; });
+}
+function strikePaint(sh, pieces) {
+  const body = document.querySelector('#strike-pop .strike-body'); if (!body) return;
+  const ls = (lists || []).filter(l => !tvIsShoppingList(l.name));
+  let pick = ''; try { pick = localStorage.getItem('mmt_strike_list') || ''; } catch (e) {}
+  if (!ls.some(l => l.name === pick)) pick = (ls.find(l => /build/i.test(l.name)) || ls[0] || {}).name || '';
+  const d = new Date(sh.end + 'T00:00:00'); d.setDate(d.getDate() + 1);
+  const due = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  if (!pieces.length) { body.innerHTML = '<p class="strike-note">No pieces in this show\'s set changes yet.</p><div class="strike-btns"><button type="button" onclick="strikeClose()">Close</button></div>'; return; }
+  body.innerHTML = `<p class="strike-note">${pieces.length} piece${pieces.length === 1 ? '' : 's'} from the set changes. Untick any that don't need their own to-do.</p>
+    <div class="strike-list">${pieces.map((p, i) => `<label><input type="checkbox" checked data-p="${esc(p)}"> Strike ${esc(p)}</label>`).join('')}</div>
+    <div class="strike-row"><label>List<select id="strike-l">${ls.map(l => `<option${l.name === pick ? ' selected' : ''}>${esc(l.name)}</option>`).join('')}</select></label>
+      <label>Due<input type="date" id="strike-d" value="${due}"></label></div>
+    <div class="strike-btns"><button type="button" onclick="strikeClose()">Cancel</button><button type="button" class="pri" onclick="strikeAdd()">Add to-dos</button></div>`;
+}
+function strikeAdd() {
+  const list = document.getElementById('strike-l').value, due = document.getElementById('strike-d').value || null;
+  if (!list) return;
+  const have = new Set((tasks[list] || []).filter(t => !t.done).map(t => String(t.text || '').trim().toLowerCase()));
+  const picked = [...document.querySelectorAll('#strike-pop .strike-list input:checked')].map(i => 'Strike ' + i.dataset.p).filter(t => !have.has(t.toLowerCase()));
+  if (!tasks[list]) tasks[list] = [];
+  picked.slice().reverse().forEach((text, i) => tasks[list].unshift({ id: (Date.now() + i).toString(), text, done: false, due }));
+  try { localStorage.setItem('mmt_strike_list', list); } catch (e) {}
+  if (picked.length) { renderTasks(); saveData(); try { renderHomeToday(); sbTodoCount(); } catch (e) {} }
+  strikeClose();
+  toast(picked.length ? picked.length + ' strike to-do' + (picked.length === 1 ? '' : 's') + ' added to ' + list : 'Those are already on ' + list);
+}
+function strikeClose() { const m = document.getElementById('strike-pop'); if (m) m.remove(); }
+
+// ── HOME FLAGS ───────────────────────────────────────────────────────────────
+// On each show card: cues still on approximate spots on the script (added from
+// the cue sheet, not yet dragged into place) and set change moves with nobody
+// in Who. Read from that show's linked script's cue data (read only), at most
+// every 5 minutes while Home is showing.
+const _hmFlags = {};   // scriptId -> { at, approx, nocrew, err }
+function hmFlagCount(cd) {
+  const cues = Array.isArray(cd.cues) ? cd.cues : [], ann = cd.annotations || {}, ids = new Set(cues.map(c => String(c.id)));
+  let approx = 0, nocrew = 0;
+  Object.keys(ann).forEach(p => (ann[p] || []).forEach(a => { if (a && a.type === 'cue' && a.approx && ids.has(String(a.cueId))) approx++; }));
+  cues.forEach(c => { if (c.type === 'shift') (c.moves || []).forEach(m => { if (String(m.piece || '').trim() && !String(m.who || '').trim()) nocrew++; }); });
+  return { approx, nocrew };
+}
+function hmFlagsHTML(kind, slug) {
+  let sid = ''; try { sid = (_hubLoaded && hubRec(slug).scriptId) || ''; } catch (e) {}
+  if (!sid) return '';
+  const f = _hmFlags[sid];
+  if (!f || Date.now() - f.at > 5 * 60000) hmFlagsLoad(sid);
+  if (!f || f.err || (!f.approx && !f.nocrew)) return '';
+  const bits = [];
+  if (f.approx && crewCanSee('scripts')) bits.push(`<button type="button" class="hm-flag" onclick="hmFlagGo('${kind}','approx')" title="Cues added from the cue sheet, still on approximate spots on the script">${f.approx} cue${f.approx === 1 ? '' : 's'} on approx. spots</button>`);
+  if (f.nocrew) bits.push(`<button type="button" class="hm-flag" onclick="hmFlagGo('${kind}','crew')" title="Set change moves with nobody in Who">${f.nocrew} move${f.nocrew === 1 ? '' : 's'} with no crew</button>`);
+  return bits.length ? `<div class="hm-flags">${bits.join('')}</div>` : '';
+}
+function hmFlagsLoad(sid) {
+  if (hmFlagsLoad._busy && hmFlagsLoad._busy[sid]) return;
+  (hmFlagsLoad._busy = hmFlagsLoad._busy || {})[sid] = true;
+  const prev = _hmFlags[sid];
+  jsonp(SCRIPT_URL + '?action=getCueData&quiet=1&scriptId=' + encodeURIComponent(sid) + '&_=' + Date.now(), d => {
+    hmFlagsLoad._busy[sid] = false;
+    const cd = d && (d.cueData || d.data);
+    _hmFlags[sid] = cd ? Object.assign({ at: Date.now() }, hmFlagCount(cd)) : { at: Date.now(), err: true };
+    const n = _hmFlags[sid];
+    if (!prev || prev.approx !== n.approx || prev.nocrew !== n.nocrew || !!prev.err !== !!n.err) { try { if (currentTab === 'home') renderHomeShowCards(); } catch (e) {} }
+  }, () => { hmFlagsLoad._busy[sid] = false; _hmFlags[sid] = { at: Date.now(), err: true }; });
+}
+// Approx: open the script at the first cue still to place. No crew: the cue sheet.
+function hmFlagGo(kind, what) {
+  if (what === 'crew') { curShowCue(kind); return; }
+  const sh = curShow(kind); if (!sh) return;
+  const sid = hubRec(showSlug(sh.name)).scriptId;
+  curShowScript(kind);
+  let n = 0;
+  const t = setInterval(() => {
+    n++;
+    const ready = typeof showId !== 'undefined' && showId === sid && typeof pdfDoc !== 'undefined' && pdfDoc;
+    if (ready || n > 100) { clearInterval(t); if (ready) setTimeout(() => { try { nextApproxCue(); } catch (e) {} }, 400); }
+  }, 150);
+}
+
 // The current show's cue sheet: on the script page, flipped to Cue sheet.
 // Crew who can see the cue sheet but not scripts get the cue sheet page.
 function curShowCue(kind) {
@@ -12542,6 +12695,7 @@ function renderShowHub() {
       <span class="hub-chip ${ref.isKids ? 'kids' : 'main'}">${esc(ref.type)}</span>
       <span class="hub-chip st-${st}">${esc(stLabel)}</span>
       <span class="hub-chip plain">${esc(formatDates(sh.start, sh.end))}</span>
+      ${crewCanSee('todo') && !crewOn() ? `<button class="hub-btn sm hub-strike-btn" onclick="strikeOpen('${esc(showSlug(sh.name))}')">Plan strike</button>` : ''}
     </div>
 
     <div class="hub-layout">
