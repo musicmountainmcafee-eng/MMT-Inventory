@@ -6209,6 +6209,7 @@ table td { font-size: 14px !important; }
   .pt-when { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .pt-n { width: 64px; }
   .pt-del { margin-left: auto; color: #b42318 !important; }
+  .pt-eg { font-size: 12.5px; color: var(--text-muted, #666); flex-basis: 100%; }
 </style>
   <!-- PERF: pdf.js and jsPDF used to load here as blocking script tags on every
        launch. They're only needed on the Scripts tab and for PDF exports, so they
@@ -7655,7 +7656,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.31 v3 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.31 v4 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -11952,9 +11953,10 @@ function ptPaint() {
     <p class="strike-note">These land on the to-do list a week before they're due, once for each ${_ptStage === 'kids' ? "Children's" : 'Mainstage'} show, with the show's name added.</p>
     <div class="pt-rows">${items.map((it, i) => `<div class="pt-row" data-i="${i}">
       <input class="pt-text" value="${esc(it.text)}" placeholder="e.g. Spike the deck" aria-label="To-do">
-      <div class="pt-when"><input class="pt-n" type="number" min="0" value="${Math.abs(parseInt(it.offset, 10) || 0)}" aria-label="Days">
-        <select class="pt-dir" aria-label="Before or after">${opt('-', (parseInt(it.offset, 10) || 0) < 0 ? '-' : '+', 'days before')}${opt('+', (parseInt(it.offset, 10) || 0) < 0 ? '-' : '+', 'days after')}</select>
-        <select class="pt-anchor" aria-label="Of">${opt('tech', it.anchor, 'tech starts')}${opt('open', it.anchor, 'opening')}${opt('close', it.anchor, 'closing')}</select></div>
+      <div class="pt-when"><input class="pt-n" type="number" min="0" onchange="ptRead();ptPaint()" value="${Math.abs(parseInt(it.offset, 10) || 0)}" aria-label="Days">
+        <select class="pt-dir" aria-label="Before or after" onchange="ptRead();ptPaint()">${opt('-', (parseInt(it.offset, 10) || 0) < 0 ? '-' : '+', 'days before')}${opt('+', (parseInt(it.offset, 10) || 0) < 0 ? '-' : '+', 'days after')}</select>
+        <select class="pt-anchor" aria-label="Of" onchange="ptRead();ptPaint()">${opt('open', it.anchor, 'opening night')}${opt('tech', it.anchor, 'tech starts')}${opt('close', it.anchor, 'closing')}</select>
+        <span class="pt-eg">${esc(ptExample(it))}</span></div>
       <div class="pt-when"><select class="pt-list" aria-label="List">${ls.map(l => opt(esc(l.name), it.list, esc(l.name))).join('')}</select>
         <button type="button" class="pt-del" onclick="ptDel(${i})" aria-label="Remove">Remove</button></div></div>`).join('') || '<p class="strike-note">None yet.</p>'}</div>
     <div class="strike-btns"><button type="button" onclick="ptAddRow()">+ Add a to-do</button><span style="flex:1"></span><button type="button" onclick="ptClose()">Cancel</button><button type="button" class="pri" onclick="ptSave()">Save</button></div>`;
@@ -11967,8 +11969,16 @@ function ptRead() {
     return { id: old.id || ('p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)), text: r.querySelector('.pt-text').value.trim(), list: r.querySelector('.pt-list').value, anchor: r.querySelector('.pt-anchor').value, offset: dir === '-' ? -n : n };
   });
 }
+// "e.g. A Christmas Carol: Mon Nov 16", using the next show on this stage, so
+// "4 days before opening night" can be checked against the calendar.
+function ptExample(it) {
+  const t = rpIso(new Date()), shows = (_ptStage === 'kids' ? CHILDRENS : MAINSTAGE).filter(x => x && x.start && x.end >= t).sort((a, b) => a.start.localeCompare(b.start));
+  const sh = shows.find(x => x.start >= t) || shows[0]; if (!sh) return '';
+  const d = ptAnchorDate(sh, it);
+  return 'e.g. ' + sh.name + ': ' + new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
 function ptTab(st) { ptRead(); _ptStage = st; ptPaint(); }
-function ptAddRow() { ptRead(); (_pt[_ptStage] = _pt[_ptStage] || []).push({ text: '', list: '', anchor: 'tech', offset: 0 }); ptPaint(); const r = document.querySelectorAll('#pt-pop .pt-text'); if (r.length) r[r.length - 1].focus(); }
+function ptAddRow() { ptRead(); (_pt[_ptStage] = _pt[_ptStage] || []).push({ text: '', list: '', anchor: 'open', offset: 0 }); ptPaint(); const r = document.querySelectorAll('#pt-pop .pt-text'); if (r.length) r[r.length - 1].focus(); }
 function ptDel(i) { ptRead(); _pt[_ptStage].splice(i, 1); ptPaint(); }
 function ptSave() {
   ptRead();
