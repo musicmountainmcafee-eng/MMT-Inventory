@@ -153,7 +153,7 @@
 
 ## Next
 - **Stage map (on dev Oct 31: stage-map.html 10.31 v1, Cue Sheet 10.31 v1 dev, Dashboard 10.31 v1 dev)**: top-down map on the uploaded MMT ground plan (both wings + backstage), scale set by tapping two points + a distance; one map for Presets then one per set change (pieces carry over, "MOVES" marks the change's pieces); stock platforms/stairs, flats/doors, furniture, catalogue, custom sizes; drag, rotate, off-the-map-from-here; a show can use its own plan. Opens from Presets "Map", each set change's "Map", and the script page's set change (Stage map). Saved in KV 'stageplan' + 'stagemap_<scriptId>'. Not yet: spike colours on pieces, printing the map in the plot PDF.
-- Asked Oct 31, still to build in this order: nightly preset check (shared list, anyone ticks), repeating to-dos (weekly on set days, every performance day, per-production sets per stage with each item's own timing), timer pill on the Script/Cue Sheet page, Home flags (cues approx., set changes with no crew), strike list (on request, pieces from the cue sheet), foldable sideways-scroll fix.
+- **Built overnight Oct 31 on dev (Dashboard 10.31 v2 dev, Cue Sheet 10.31 v2 dev), Mac to check:** foldable top bar, timer pill on the script page, nightly preset check, Home flags, Plan strike, repeating + every-production to-dos. Choices made are listed under "Overnight choices" at the bottom.
 - **Script cuts (mockup on dev, Oct 30: Dashboard 10.30 v5 dev, Cue Sheet 10.30 v2 dev)**: ✂ Cut, tap start, tap end (pages can be flipped between); saved as an annotation {type:'cut', page0,y0,page1,y1,note,by,at} on the start page; three looks to choose (greyed / red strike / folded, a per-device switch for now); cues inside flagged "in a cut" on the script and cue sheet; Move start/end; Restore lines. Not yet: cuts in the exported script PDF, the editor's cue list panel flag.
 - **Live show timer at the top of the Script / Cue Sheet page** (asked Oct 30): the running act/countdown from the show timer,
   view only, in the page's top bar (both the script view and the cue sheet), the same feed as the dashboard's top-bar timer pill.
@@ -188,3 +188,56 @@
 - Damage log
 - Bulk label printing
 - Paint overhaul
+
+## Overnight choices (Oct 31)
+
+## Foldable sideways scroll
+- Between 769 and 1100 px wide (unfolded foldable, small tablet beside the menu) the top bar's buttons now wrap onto a second row instead of running off the edge.
+- In that range the timer pill drops its words ("No show running") and keeps the dot + time. Tap still opens the timer menu.
+
+## Timer pill on the Script / Cue Sheet page
+- Sits in the script page's top bar, left of Find. Same feed as the dashboard's pill (act + running time / countdown, or the clock when no show).
+- Under 1200 px wide it shows just the dot + time (no words) to keep the bar from crowding.
+- Tapping it opens the same menu as the dashboard's (Full screen, History, turn off).
+- Hidden for crew who can't see Home (same rule as the dashboard's pill).
+- It's on the script page's bar, so it also shows while the cue sheet is open inside the script page. The stand-alone cue sheet page (cue-list.html opened by itself) doesn't have it.
+
+## Nightly preset check (cue sheet, Presets)
+- A **Check** button on the Presets bar (beside Map) turns on checking for that device. Presets opens and every row becomes a tick box. The button shows the count, e.g. "Check · 3/12", even when checking is off.
+- One shared list per script per day. Whoever ticks, everyone sees it within about 10 s. Each tick shows who and when ("Kyle 7:12 PM").
+- Anyone signed into the cue sheet can tick, including crew whose scripts are view only (you chose "anyone").
+- It resets on its own at midnight: yesterday's ticks don't count. I picked midnight rather than "after the show" because the show timer doesn't say when a performance is over. A matinee and evening on the same day share one list. Use "Untick all" (two taps, so it can't happen by accident) to start over between them.
+- Pieces marked "not on plot" in Presets are left off the checklist.
+- A progress bar and "All set" message when everything's ticked.
+- Saved in the Sheet's KV store (presetcheck_<script>), not in the cue data, so it can't clash with cue sheet edits.
+- Not done: no reminder or Home flag if the check isn't finished (you didn't pick that flag).
+
+## Home flags
+- They sit on each show card (Mainstage and Children's), under the dates, as small amber tags: "3 cues on approx. spots" and "2 moves with no crew". Nothing shows when both are zero.
+- Counted from the script linked to that show (Show page › script). A show with no script linked gets no flags.
+- "Moves with no crew" counts each move that has a piece but an empty Who. A set change with no moves at all doesn't count.
+- Tapping "approx. spots" opens that script and jumps to the first cue still on an approximate spot. Tapping "no crew" opens that show's cue sheet. I couldn't add a "nobody in Who" filter there without more work, so you'll still need to scroll for them.
+- Checked again at most every 5 minutes while Home is open, quietly, without flashing the Loading pill.
+- Only shown to people who can open the script or the cue sheet. The "approx." flag only shows to people who can open the script.
+
+## Strike list (on request)
+- A **Plan strike** button on each show's page (next to the show's dates). Only you (TD) see it, not crew.
+- It reads the show's linked script and lists every piece named in its set changes as "Strike <piece>", all ticked. Untick any you don't want.
+- You pick the to-do list (it remembers your last pick, and starts on a list with "Build" in its name if there is one). The due date defaults to the day after closing, and you can change it.
+- Running it again doesn't double up: a "Strike <piece>" already open on that list is skipped.
+- It doesn't make a new list. It adds to an existing one, because making lists from here could clash with list colours and order on the To Do page.
+
+## Repeating to-dos
+- Each to-do on the To Do page has a small ↻ button. It offers four choices: Doesn't repeat, Weekly on set days, Every Mainstage show day, or Every Children's show day, with day-of-week buttons.
+- "Show days" means every day between a show's opening and closing, on the days you leave ticked, so untick your dark days (e.g. Mon, Tue). I don't have the real performance schedule, only opening and closing dates, so this was the closest match. After one run closes, it jumps to that stage's next run.
+- When you tick a repeating to-do off (on To Do, Home or the wall TV), the next one is added straight away, due on the next matching day, with the same text and list. It repeats too. Unticking straight away takes that next one back off, so a slip doesn't leave a duplicate.
+- A repeating to-do with no date gets its first date when you set the repeat.
+- Repeat settings are saved in the Sheet's KV store (todo_repeats), not on the To-Do tab, because that tab only has List / Task / Done / Due / ID columns. In the Google Sheet itself, a repeating to-do looks like any other row.
+- Not done: setting a repeat from Quick Add or Home. It's only on the To Do page for now.
+
+## Every-production to-dos
+- An **Every production…** button on the To Do page (only you see it). It has a Mainstage tab and a Children's Theatre tab. Each to-do has its text, a list, and timing like "2 days before tech starts", "0 days after opening" or "1 day after closing".
+- "Tech starts" uses the same tech date the dashboard already uses: the Monday of the week 4 days before opening.
+- Each one lands on its list **a week before it's due** (or right away if it's sooner), once per show. The show name is added to the end, e.g. "Fill hazers · James and the Giant Peach". A week ahead was my pick; tell me if you'd rather it appear on the day, or further out.
+- Anything whose date passed more than a day ago is never added, so turning this on doesn't flood you with old ones.
+- Only your (TD) devices add them, and they check the Sheet first, so two devices don't add the same one twice.

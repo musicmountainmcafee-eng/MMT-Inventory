@@ -6181,6 +6181,34 @@ table td { font-size: 14px !important; }
   .strike-btns { display: flex; justify-content: flex-end; gap: 8px; }
   .strike-btns button { font: 600 14px 'DM Sans', system-ui, sans-serif; padding: 9px 16px !important; min-height: 0 !important; border-radius: 999px !important; border: 1px solid var(--border, #ddd); background: var(--surface, #fff); color: var(--text, #111); cursor: pointer; }
   .strike-btns .pri { background: #111; color: #fff; border-color: #111; }
+
+  .task-repeat { flex: none; background: none; border: 0; color: var(--text-faint, #aaa); font-size: 16px; cursor: pointer; padding: 2px 6px !important; min-height: 0 !important; opacity: .55; }
+  .task-repeat.on { color: var(--text, #111); opacity: 1; }
+  .task-item:hover .task-repeat { opacity: 1; }
+  .task-rp { font-size: 11.5px; color: var(--text-muted, #666); margin-top: 2px; }
+  .rp-pop { position: fixed; z-index: 3000; width: 290px; max-width: calc(100vw - 16px); background: var(--surface, #fff); color: var(--text, #111); border: 1px solid var(--border, #e5e7eb);
+    border-radius: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.25); padding: 14px; display: flex; flex-direction: column; gap: 7px; font-size: 14px; }
+  .rp-pop label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .rp-pop small { color: var(--text-muted, #666); font-size: 12px; }
+  .rp-days { display: flex; gap: 4px; flex-wrap: wrap; }
+  .rp-days label { gap: 0; }
+  .rp-days input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .rp-days span { display: inline-block; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border, #ddd); font-size: 12.5px; font-weight: 600; }
+  .rp-days input:checked + span { background: var(--text, #111); color: var(--surface, #fff); border-color: var(--text, #111); }
+  .rp-days input:focus-visible + span { outline: 2px solid #2563eb; }
+  .rp-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+  .rp-btns button, .pt-tabs button, .pt-del, .pt-open { font: 600 13.5px 'DM Sans', system-ui, sans-serif; padding: 8px 14px !important; min-height: 0 !important; border-radius: 999px !important; border: 1px solid var(--border, #ddd); background: var(--surface, #fff); color: var(--text, #111); cursor: pointer; }
+  .rp-btns .pri { background: #111; color: #fff; border-color: #111; }
+  .pt-open { margin-left: auto; }
+  .pt-card { width: 560px; }
+  .pt-tabs { display: flex; gap: 6px; }
+  .pt-tabs button.on { background: var(--text, #111); color: var(--surface, #fff); border-color: var(--text, #111); }
+  .pt-rows { display: flex; flex-direction: column; gap: 10px; }
+  .pt-row { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--border, #e5e7eb); border-radius: 12px; }
+  .pt-row input, .pt-row select { font: 14px 'DM Sans', system-ui, sans-serif; padding: 7px 9px; border: 1px solid var(--border, #ddd); border-radius: 8px; background: var(--bg, #f7f7f7); color: var(--text, #111); min-width: 0; }
+  .pt-when { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .pt-n { width: 64px; }
+  .pt-del { margin-left: auto; color: #b42318 !important; }
 </style>
   <!-- PERF: pdf.js and jsPDF used to load here as blocking script tags on every
        launch. They're only needed on the Scripts tab and for PDF exports, so they
@@ -6615,6 +6643,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
     <div class="tabs">
       <div class="tab-title-row" style="padding:0 14px;">
         <span style="font-size:18px;font-weight:700;">To Do</span>
+        <button type="button" class="pt-open td-only" onclick="ptOpen()" title="To-dos that come back for every production">Every production…</button>
       </div>
     </div>
     <div id="lists-sub-tasks" class="tab-content active">
@@ -7626,7 +7655,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.31 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.31 v2 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -9929,6 +9958,7 @@ function tvCheck(listName, id, text) {
   // impossible to undo. Give it an id on the way through and repair the data.
   if (task.id == null || task.id === '') task.id = Date.now().toString();
   task.done = true;
+  try { rpDone(listName, task, true); } catch (e) {}
   try { saveData(); } catch(e) {}
   try { if (typeof renderTasks === 'function' && document.getElementById('lists-grid')) renderTasks(); } catch(e) {}
 
@@ -11741,6 +11771,215 @@ function hmEmptyCheck() {
 }
 
 
+
+// ── REPEATING TO-DOS ─────────────────────────────────────────────────────────
+// The Sheet's To-Do tab only has List / Task / Done / Due / ID, so how a to-do
+// repeats is kept beside it in KV 'todo_repeats': { <task id>: rule }.
+//   { kind:'week', days:[0-6] }                  weekly on set days
+//   { kind:'perf', stage:'main'|'kids', days }   every performance day: each
+//        day of that stage's runs (opening to closing) on the days ticked, so
+//        dark days can be left out
+// Ticking a repeating to-do done adds the next one (same text, list and rule)
+// due on the next matching day. Unticking it again takes that one back off.
+let _rp = null;   // { rules:{}, next:{ oldId: newId } }
+const RP_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function rpData() {
+  if (_rp) return _rp;
+  try { _rp = JSON.parse(localStorage.getItem('mmt_todo_repeats') || 'null'); } catch (e) {}
+  return (_rp = Object.assign({ rules: {}, next: {} }, _rp || {}));
+}
+function rpLoad() {
+  jsonp(SCRIPT_URL + '?action=getKV&key=todo_repeats&quiet=1&_=' + Date.now(), d => {
+    if (d && d.value && typeof d.value === 'object' && !rpSave._ops.length) { _rp = Object.assign({ rules: {}, next: {} }, d.value); try { localStorage.setItem('mmt_todo_repeats', JSON.stringify(_rp)); } catch (e) {} try { renderTasks(); } catch (e) {} }
+  });
+}
+// Small changes replayed onto the Sheet's copy, so two devices both keep theirs.
+function rpSave(op) {
+  const apply = (v, o) => { v.rules = v.rules || {}; v.next = v.next || {};
+    if ('rule' in o) { if (o.rule) v.rules[o.id] = o.rule; else delete v.rules[o.id]; }
+    if ('next' in o) { if (o.next) v.next[o.id] = o.next; else delete v.next[o.id]; } };
+  apply(rpData(), op); rpSave._ops.push(op);
+  try { localStorage.setItem('mmt_todo_repeats', JSON.stringify(_rp)); } catch (e) {}
+  clearTimeout(rpSave._t);
+  rpSave._t = setTimeout(() => {
+    const ops = rpSave._ops.slice();
+    jsonp(SCRIPT_URL + '?action=getKV&key=todo_repeats&quiet=1&_=' + Date.now(), d => {
+      const fresh = Object.assign({ rules: {}, next: {} }, (d && d.value) || {});
+      ops.forEach(o => apply(fresh, o));
+      fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveKV', key: 'todo_repeats', value: fresh }) })
+        .then(r => r.text()).then(() => { rpSave._ops = rpSave._ops.slice(ops.length); _rp = fresh; rpSave._ops.forEach(o => apply(_rp, o)); }, () => {});
+    }, () => {});
+  }, 400);
+}
+rpSave._ops = [];
+function rpRule(t) { return t && t.id != null ? rpData().rules[String(t.id)] || null : null; }
+function rpIso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function rpNextDate(rule, after) {
+  const d = new Date(after + 'T00:00:00');
+  const runs = rule.kind === 'perf' ? (rule.stage === 'kids' ? CHILDRENS : MAINSTAGE).filter(x => x && x.start && x.end) : null;
+  const days = Array.isArray(rule.days) && rule.days.length ? rule.days : [0, 1, 2, 3, 4, 5, 6];
+  for (let i = 1; i <= 400; i++) {
+    d.setDate(d.getDate() + 1);
+    if (!days.includes(d.getDay())) continue;
+    const iso = rpIso(d);
+    if (runs && !runs.some(x => iso >= x.start && iso <= x.end)) continue;
+    return iso;
+  }
+  return null;
+}
+function rpDesc(rule) {
+  if (!rule) return '';
+  const days = Array.isArray(rule.days) && rule.days.length && rule.days.length < 7 ? rule.days.map(i => RP_DAYS[i]).join(', ') : '';
+  if (rule.kind === 'week') return 'Every ' + (days || 'day');
+  return (rule.stage === 'kids' ? "Children's" : 'Mainstage') + ' show days' + (days ? ' (' + days + ')' : '');
+}
+function rpBadge(t) { const r = rpRule(t); return r ? `<div class="task-rp">↻ ${esc(rpDesc(r))}</div>` : ''; }
+function rpDone(listName, t, done) {
+  const r = rpRule(t); if (!r) return;
+  const id = String(t.id), d = rpData();
+  if (done) {
+    if (d.next[id]) return;                       // already made its next one
+    const today = rpIso(new Date());
+    const nd = rpNextDate(r, t.due && t.due > today ? t.due : today);
+    if (!nd) { toast('No more ' + rpDesc(r).toLowerCase() + ' coming up, so this one stops repeating'); return; }
+    const nt = { id: Date.now().toString(), text: t.text, done: false, due: nd };
+    (tasks[listName] = tasks[listName] || []).push(nt);
+    rpSave({ id: nt.id, rule: r }); rpSave({ id, next: nt.id });
+    toast('Next one: ' + new Date(nd + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
+  } else if (d.next[id]) {
+    // Unticked: take back the next one if nobody has touched it.
+    const nid = d.next[id], arr = tasks[listName] || [], i = arr.findIndex(x => String(x.id) === nid && !x.done);
+    if (i >= 0) arr.splice(i, 1);
+    rpSave({ id: nid, rule: null }); rpSave({ id, next: null });
+  }
+}
+function rpOpen(ev, listName, id) {
+  ev.stopPropagation(); rpClose();
+  const t = (tasks[listName] || []).find(x => String(x.id) === String(id)); if (!t) return;
+  const r = rpRule(t) || { kind: '', days: [] }, days = new Set(r.days && r.days.length ? r.days : (r.kind === 'perf' ? [0, 1, 2, 3, 4, 5, 6] : []));
+  const m = document.createElement('div'); m.id = 'rp-pop'; m.className = 'rp-pop'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-label', 'Repeat');
+  m.innerHTML = `<b>Repeat “${esc(t.text)}”</b>
+    <label><input type="radio" name="rpk" value=""${!r.kind ? ' checked' : ''}> Doesn't repeat</label>
+    <label><input type="radio" name="rpk" value="week"${r.kind === 'week' ? ' checked' : ''}> Weekly on…</label>
+    <label><input type="radio" name="rpk" value="main"${r.kind === 'perf' && r.stage !== 'kids' ? ' checked' : ''}> Every Mainstage show day</label>
+    <label><input type="radio" name="rpk" value="kids"${r.kind === 'perf' && r.stage === 'kids' ? ' checked' : ''}> Every Children's show day</label>
+    <div class="rp-days" aria-label="Days">${RP_DAYS.map((n, i) => `<label><input type="checkbox" value="${i}"${days.has(i) ? ' checked' : ''}><span>${n}</span></label>`).join('')}</div>
+    <small>For show days, untick dark days. The next one is added when you tick this off.</small>
+    <div class="rp-btns"><button type="button" onclick="rpClose()">Cancel</button><button type="button" class="pri" onclick="rpSet('${esc(listName)}','${esc(String(id))}')">Save</button></div>`;
+  document.body.appendChild(m);
+  const b = ev.currentTarget.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(b.right - m.offsetWidth, innerWidth - m.offsetWidth - 8)) + 'px';
+  m.style.top = Math.max(8, Math.min(b.bottom + 6, innerHeight - m.offsetHeight - 8)) + 'px';
+  setTimeout(() => document.addEventListener('pointerdown', rpOutside, true), 0);
+}
+function rpOutside(e) { const m = document.getElementById('rp-pop'); if (m && !m.contains(e.target)) rpClose(); }
+function rpClose() { const m = document.getElementById('rp-pop'); if (m) m.remove(); document.removeEventListener('pointerdown', rpOutside, true); }
+function rpSet(listName, id) {
+  const m = document.getElementById('rp-pop'); if (!m) return;
+  const k = (m.querySelector('input[name=rpk]:checked') || {}).value || '';
+  const days = [...m.querySelectorAll('.rp-days input:checked')].map(i => +i.value);
+  if (k === 'week' && !days.length) { toast('Pick at least one day'); return; }
+  const rule = !k ? null : k === 'week' ? { kind: 'week', days } : { kind: 'perf', stage: k, days: days.length ? days : [0, 1, 2, 3, 4, 5, 6] };
+  rpSave({ id: String(id), rule });
+  // A repeating to-do with no date gets its first one.
+  const t = (tasks[listName] || []).find(x => String(x.id) === String(id));
+  if (rule && t && !t.due) { const nd = rpNextDate(rule, rpIso(new Date(Date.now() - 864e5))); if (nd) { t.due = nd; saveData(); } }
+  rpClose(); renderTasks(); try { renderHomeToday(); } catch (e) {}
+  toast(rule ? 'Repeats: ' + rpDesc(rule) : 'No longer repeats');
+}
+
+// ── EVERY-PRODUCTION TO-DOS ──────────────────────────────────────────────────
+// A set of to-dos for each stage that comes back for every production, each
+// timed off that show's tech, opening or closing ("2 days before tech").
+// KV 'prodtodos': { main:[item], kids:[item], made:{ '<show slug>|<item id>': taskId } }
+//   item = { id, text, list, anchor:'tech'|'open'|'close', offset (days, - = before) }
+// A to-do lands on its list a week before it's due (or straight away if it's
+// sooner), once per show. Only the TD's devices add them.
+let _pt = null;
+function ptAnchorDate(sh, item) {
+  const base = item.anchor === 'close' ? new Date(sh.end + 'T00:00:00') : item.anchor === 'tech' ? techStartDate(sh.start) : new Date(sh.start + 'T00:00:00');
+  const d = new Date(base); d.setDate(d.getDate() + (parseInt(item.offset, 10) || 0)); return rpIso(d);
+}
+function ptLoad(cb) {
+  jsonp(SCRIPT_URL + '?action=getKV&key=prodtodos&quiet=1&_=' + Date.now(), d => {
+    _pt = Object.assign({ main: [], kids: [], made: {} }, (d && d.value && typeof d.value === 'object') ? d.value : {});
+    if (cb) cb(_pt);
+  }, () => { if (cb) cb(null); });
+}
+function ptPost(v) { return fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveKV', key: 'prodtodos', value: v }) }); }
+// Add any production to-dos now due to show up. Reads the Sheet's copy first
+// so two devices don't both add the same one.
+function ptRun() {
+  if (crewOn() || !(lists || []).length) return;
+  ptLoad(v => {
+    if (!v) return;
+    const today = rpIso(new Date()), wk = rpIso(new Date(Date.now() + 7 * 864e5)), yest = rpIso(new Date(Date.now() - 864e5));
+    const add = [];
+    [['main', MAINSTAGE], ['kids', CHILDRENS]].forEach(([stage, shows]) => (v[stage] || []).forEach(item => {
+      if (!item || !item.text) return;
+      (shows || []).forEach(sh => {
+        if (!sh || !sh.start || !sh.end) return;
+        const due = ptAnchorDate(sh, item), key = showSlug(sh.name) + '|' + item.id;
+        if (v.made[key] || due > wk || due < yest) return;
+        add.push({ key, list: (lists.some(l => l.name === item.list) ? item.list : lists.filter(l => !tvIsShoppingList(l.name))[0].name), t: { id: (Date.now() + add.length).toString(), text: item.text + ' · ' + sh.name, done: false, due } });
+      });
+    }));
+    if (!add.length) return;
+    add.forEach(a => { v.made[a.key] = a.t.id; });
+    ptPost(v).then(() => {
+      add.forEach(a => (tasks[a.list] = tasks[a.list] || []).push(a.t));
+      renderTasks(); saveData(); try { renderHomeToday(); sbTodoCount(); } catch (e) {}
+      toast(add.length + ' production to-do' + (add.length === 1 ? '' : 's') + ' added');
+    }, () => {});
+  });
+}
+let _ptStage = 'main';
+function ptOpen() {
+  ptClose();
+  const m = document.createElement('div'); m.id = 'pt-pop'; m.className = 'strike-ov';
+  m.innerHTML = '<div class="strike-card pt-card" role="dialog" aria-label="Every-production to-dos"><b>Every production</b><div class="pt-body"><p class="strike-note">Loading…</p></div></div>';
+  m.addEventListener('click', e => { if (e.target === m) ptClose(); });
+  document.body.appendChild(m);
+  ptLoad(v => { if (!v) { m.querySelector('.pt-body').innerHTML = '<p class="strike-note">Couldn\'t load them. Check the signal and try again.</p>'; return; } ptPaint(); });
+}
+function ptPaint() {
+  const body = document.querySelector('#pt-pop .pt-body'); if (!body || !_pt) return;
+  const ls = (lists || []).filter(l => !tvIsShoppingList(l.name)), items = _pt[_ptStage] || [];
+  const opt = (v, cur, label) => `<option value="${v}"${String(cur) === String(v) ? ' selected' : ''}>${label}</option>`;
+  body.innerHTML = `<div class="pt-tabs"><button type="button" class="${_ptStage === 'main' ? 'on' : ''}" onclick="ptTab('main')">Mainstage</button><button type="button" class="${_ptStage === 'kids' ? 'on' : ''}" onclick="ptTab('kids')">Children's Theatre</button></div>
+    <p class="strike-note">These land on the to-do list a week before they're due, once for each ${_ptStage === 'kids' ? "Children's" : 'Mainstage'} show, with the show's name added.</p>
+    <div class="pt-rows">${items.map((it, i) => `<div class="pt-row" data-i="${i}">
+      <input class="pt-text" value="${esc(it.text)}" placeholder="e.g. Spike the deck" aria-label="To-do">
+      <div class="pt-when"><input class="pt-n" type="number" min="0" value="${Math.abs(parseInt(it.offset, 10) || 0)}" aria-label="Days">
+        <select class="pt-dir" aria-label="Before or after">${opt('-', (parseInt(it.offset, 10) || 0) < 0 ? '-' : '+', 'days before')}${opt('+', (parseInt(it.offset, 10) || 0) < 0 ? '-' : '+', 'days after')}</select>
+        <select class="pt-anchor" aria-label="Of">${opt('tech', it.anchor, 'tech starts')}${opt('open', it.anchor, 'opening')}${opt('close', it.anchor, 'closing')}</select></div>
+      <div class="pt-when"><select class="pt-list" aria-label="List">${ls.map(l => opt(esc(l.name), it.list, esc(l.name))).join('')}</select>
+        <button type="button" class="pt-del" onclick="ptDel(${i})" aria-label="Remove">Remove</button></div></div>`).join('') || '<p class="strike-note">None yet.</p>'}</div>
+    <div class="strike-btns"><button type="button" onclick="ptAddRow()">+ Add a to-do</button><span style="flex:1"></span><button type="button" onclick="ptClose()">Cancel</button><button type="button" class="pri" onclick="ptSave()">Save</button></div>`;
+}
+function ptRead() {
+  if (!_pt) return;
+  _pt[_ptStage] = [...document.querySelectorAll('#pt-pop .pt-row')].map(r => {
+    const old = (_pt[_ptStage] || [])[+r.dataset.i] || {};
+    const n = parseInt(r.querySelector('.pt-n').value, 10) || 0, dir = r.querySelector('.pt-dir').value;
+    return { id: old.id || ('p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)), text: r.querySelector('.pt-text').value.trim(), list: r.querySelector('.pt-list').value, anchor: r.querySelector('.pt-anchor').value, offset: dir === '-' ? -n : n };
+  });
+}
+function ptTab(st) { ptRead(); _ptStage = st; ptPaint(); }
+function ptAddRow() { ptRead(); (_pt[_ptStage] = _pt[_ptStage] || []).push({ text: '', list: '', anchor: 'tech', offset: 0 }); ptPaint(); const r = document.querySelectorAll('#pt-pop .pt-text'); if (r.length) r[r.length - 1].focus(); }
+function ptDel(i) { ptRead(); _pt[_ptStage].splice(i, 1); ptPaint(); }
+function ptSave() {
+  ptRead();
+  ['main', 'kids'].forEach(k => { _pt[k] = (_pt[k] || []).filter(x => x.text); });
+  // Keep what other devices have marked made since this opened.
+  jsonp(SCRIPT_URL + '?action=getKV&key=prodtodos&quiet=1&_=' + Date.now(), d => {
+    const fresh = (d && d.value && d.value.made) || {};
+    const v = { main: _pt.main, kids: _pt.kids, made: Object.assign({}, _pt.made, fresh) };
+    ptPost(v).then(() => { _pt = v; ptClose(); toast('Saved'); ptRun(); }, () => toast("Didn't save. Check the signal and try again."));
+  }, () => toast("Didn't save. Check the signal and try again."));
+}
+function ptClose() { const m = document.getElementById('pt-pop'); if (m) m.remove(); }
+
 // ── PLAN STRIKE (on request, from a show's page) ─────────────────────────────
 // Every piece named in the show's set changes becomes a "Strike <piece>" to-do
 // on the list picked, due the day after closing (or a date picked). Pieces
@@ -11954,6 +12193,7 @@ function htCheck(listName, i, done) {
   const k = htKey(listName, t, i);
   if (done) _htDone.add(k); else _htDone.delete(k);
   t.done = done;
+  try { rpDone(listName, t, done); } catch (e) {}
   renderTasks();
   saveData();
   renderHomeToday();
@@ -14699,6 +14939,8 @@ function loadData() {
     }
     if (d.activity) { try { localStorage.setItem('mmt_activity', JSON.stringify(activity)); } catch(e) {} }
     renderWidgets();
+    try { rpLoad(); } catch (e) {}
+    try { if (!loadData._pt) { loadData._pt = true; setTimeout(ptRun, 1500); } } catch (e) {}
   }).catch(err => {
     console.warn('Dashboard load error:', err.message);
     window._tkErr = true;
@@ -15720,8 +15962,9 @@ function renderTaskItem(listName, task) {
         onchange="toggleTask('${listName}', '${task.id}', this.checked)" />
       <div class="task-body">
         <div class="task-text ${task.done ? 'done' : ''}">${escHtml(task.text)}</div>
-        ${dueStr}
+        ${dueStr}${rpBadge(task)}
       </div>
+      <button class="task-repeat${rpRule(task) ? ' on' : ''}" onclick="rpOpen(event, '${listName}', '${task.id}')" title="Repeat" aria-label="Repeat">↻</button>
       <button class="task-delete" onclick="deleteTask('${listName}', '${task.id}')">×</button>
     </div>`;
 }
@@ -15764,7 +16007,7 @@ function addTask(listName) {
 
 function toggleTask(listName, id, done) {
   const task = (tasks[listName] || []).find(t => t.id != null && t.id !== '' && String(t.id) === String(id));
-  if (task) { task.done = done; renderTasks(); saveData(); }
+  if (task) { task.done = done; try { rpDone(listName, task, done); } catch (e) {} renderTasks(); saveData(); }
 }
 
 function deleteTask(listName, id) {
