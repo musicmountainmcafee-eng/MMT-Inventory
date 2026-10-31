@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stage Map — MMT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--
+  STAGE MAP — a top-down map of the stage (both wings and backstage) with the
+  show's pieces placed where they sit: one map for Presets, then one for each
+  set change (a change only needs the pieces that move; the rest carry on from
+  the map before it).
+
+  Opened over the cue sheet (Presets "Map", a set change's "Map") and the
+  script page (a SHIFT cue's set change panel), or on its own:
+    stage-map.html?script=<driveId>&step=presets|<cueId>
+
+  Saved in the Sheet's KVStore, never in the cue data:
+    'stageplan'            the theatre's ground plan: { img:{id,url,w,h}, ppf }
+                           (ppf = image pixels per foot, set by tapping two
+                           points a known distance apart)
+    'stagemap_<scriptId>'  { plan?, pieces:{ key:{name,w,d,shape} },
+                             maps:{ presets|<cueId>: { key:{x,y,r} | null } } }
+                           x, y in feet from the plan's top-left; r in degrees.
+                           null = taken off the map from that step on.
+  Saving replays small operations onto a fresh copy of the server's value (as
+  spike-map.html does), so two people working at once both keep their changes.
+-->
+<script>
+try {
+  var _own = localStorage.getItem('mmt_cuelist_theme');
+  var _t = (_own === 'light' || _own === 'dark' || _own === 'red') ? _own : (localStorage.getItem('mmt_theme') === 'dark' ? 'dark' : 'light');
+  if (_t !== 'light') document.documentElement.setAttribute('data-theme', 'dark');
+} catch (e) {}
+</script>
+<style>
+  :root {
+    --bg: #f4f4f5; --surface: #ffffff; --surface-2: #f8f8f9; --border: #e3e3e7; --border-2: #d1d1d7;
+    --text: #141416; --text-muted: #6b6b75; --accent: #141416; --accent-ink: #ffffff;
+    --sel: #2563eb; --sel-soft: rgba(37,99,235,.14); --move: #c2410c; --plan-bg: #e9e9ec;
+    --piece: rgba(255,255,255,.92); --piece-ink: #141416; --piece-line: #141416;
+    --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  [data-theme="dark"] {
+    --bg: #0f0f11; --surface: #1b1b1f; --surface-2: #232328; --border: #2e2e34; --border-2: #3a3a42;
+    --text: #ececef; --text-muted: #9a9aa3; --accent: #ececef; --accent-ink: #111113;
+    --sel: #60a5fa; --sel-soft: rgba(96,165,250,.18); --move: #fb923c; --plan-bg: #26262b;
+    --piece: rgba(30,30,34,.92); --piece-ink: #f1f1f3; --piece-line: #f1f1f3;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; background: var(--bg); color: var(--text); -webkit-tap-highlight-color: transparent; overflow: hidden; }
+  button, input, select { font-family: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .app { height: 100%; display: grid; grid-template-rows: auto 1fr; }
+  header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: calc(8px + var(--safe-t)) 12px 8px; background: #111113; color: #f4f4f5; }
+  header h1 { font-size: 16px; margin: 0 6px 0 0; white-space: nowrap; }
+  header .show { font-size: 13px; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 30vw; }
+  .hb { background: rgba(255,255,255,.12); color: #f4f4f5; border: 0; border-radius: 999px; padding: 8px 14px; font-weight: 600; font-size: 14px; min-height: 38px; }
+  .hb:hover { background: rgba(255,255,255,.2); }
+  .hb:focus-visible, .tb:focus-visible, .chip:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+  .hb[disabled] { opacity: .35; cursor: default; }
+  .step { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+  .step select { background: rgba(255,255,255,.12); color: #f4f4f5; border: 0; border-radius: 999px; padding: 8px 12px; font-weight: 600; font-size: 14px; max-width: 46vw; min-height: 38px; }
+  .step select option { color: #111; }
+  .save { font-size: 12.5px; color: #a1a1aa; min-width: 60px; text-align: right; }
+  .save.err { color: #fca5a5; }
+  .main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; min-height: 0; }
+  .stage { position: relative; min-width: 0; min-height: 0; background: var(--plan-bg); overflow: hidden; touch-action: none; }
+  .stage svg { width: 100%; height: 100%; display: block; user-select: none; -webkit-user-select: none; }
+  .zoom { position: absolute; right: 12px; bottom: calc(12px + var(--safe-b)); display: flex; gap: 6px; }
+  .zoom button { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border-2); background: var(--surface); font-size: 18px; font-weight: 700; }
+  .banner { position: absolute; left: 12px; right: 12px; top: 12px; background: var(--sel); color: #fff; border-radius: 12px; padding: 10px 14px; font-weight: 600; font-size: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; z-index: 5; }
+  .banner[hidden] { display: none; }
+  .banner input { width: 64px; padding: 6px 8px; border-radius: 8px; border: 0; color: #111; font-weight: 600; }
+  .banner button { background: rgba(255,255,255,.22); color: #fff; border: 0; border-radius: 999px; padding: 6px 14px; font-weight: 600; }
+  .banner button.pri { background: #fff; color: var(--sel); }
+  .side { background: var(--surface); border-left: 1px solid var(--border); overflow-y: auto; padding: 12px 12px calc(16px + var(--safe-b)); display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+  .side h2 { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 6px; }
+  .side section { display: flex; flex-direction: column; gap: 6px; }
+  .note { font-size: 13px; color: var(--text-muted); margin: 0; }
+  .plist { display: flex; flex-direction: column; gap: 4px; }
+  .prow { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); text-align: left; width: 100%; font-size: 14px; min-height: 42px; }
+  .prow:hover { border-color: var(--border-2); }
+  .prow.on { border-color: var(--sel); background: var(--sel-soft); }
+  .prow b { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .prow small { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+  .prow .mv { color: var(--move); font-weight: 700; font-size: 11px; }
+  .prow .off { color: var(--text-muted); font-style: italic; }
+  .tb { border: 1px solid var(--border-2); background: var(--surface); border-radius: 999px; padding: 7px 12px; font-weight: 600; font-size: 13px; min-height: 36px; }
+  .tb.pri { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .tb.warn { color: #b42318; border-color: rgba(180,35,24,.35); }
+  .tb[disabled] { opacity: .4; cursor: default; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--text-muted); }
+  .field input, .field select { font-size: 15px; padding: 8px 10px; border: 1px solid var(--border-2); border-radius: 9px; background: var(--surface-2); color: var(--text); min-width: 0; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid var(--border-2); background: var(--surface-2); border-radius: 999px; padding: 6px 11px; font-size: 13px; font-weight: 600; }
+  .chip small { font-weight: 500; color: var(--text-muted); margin-left: 4px; }
+  details > summary { cursor: pointer; font-weight: 600; font-size: 14px; padding: 6px 0; }
+  .empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .empty-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
+  .empty-card h2 { margin: 0; font-size: 18px; }
+  .empty-card p { margin: 0; color: var(--text-muted); font-size: 14px; line-height: 1.45; }
+  .upl { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 10px 16px; font-weight: 600; cursor: pointer; }
+  .toast { position: fixed; left: 50%; bottom: calc(18px + var(--safe-b)); transform: translateX(-50%); background: #111113; color: #fff; padding: 9px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; z-index: 50; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.on { opacity: 1; }
+  .gate { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; text-align: center; }
+  /* pieces */
+  .pc rect.body, .pc ellipse.body { fill: var(--piece); stroke: var(--piece-line); }
+  .pc text { fill: var(--piece-ink); font-family: 'DM Sans', sans-serif; font-weight: 700; pointer-events: none; }
+  .pc.moved rect.body, .pc.moved ellipse.body { stroke: var(--move); }
+  .pc.inherit { opacity: .62; }
+  .pc.sel rect.body, .pc.sel ellipse.body { stroke: var(--sel); }
+  .pc { cursor: grab; }
+  .ro .pc { cursor: default; }
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--text-muted); }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--piece-line); margin-right: 4px; vertical-align: -2px; }
+  .legend i.mv { border-color: var(--move); } .legend i.inh { opacity: .55; }
+  @media (max-width: 760px) {
+    .main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 42%); }
+    .side { border-left: 0; border-top: 1px solid var(--border); }
+    header .show { display: none; }
+    .step { margin-left: 0; width: 100%; }
+    .step select { flex: 1; max-width: none; }
+  }
+  #build-tag { position: fixed; bottom: 4px; right: 8px; font-size: 11px; color: #999; z-index: 999; pointer-events: none; background: white; padding: 2px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="gate" id="gate" hidden><div class="empty-card"><h2>Open this from the cue sheet</h2><p>Sign in on the dashboard or the cue sheet first, then open the stage map from Presets or a set change.</p></div></div>
+<div class="app" id="app" hidden>
+  <header>
+    <button class="hb" id="close-btn" onclick="closeMap()" aria-label="Close the stage map">‹ Back</button>
+    <h1>Stage map</h1><span class="show" id="show-name"></span>
+    <div class="step">
+      <button class="hb" id="prev-btn" onclick="stepBy(-1)" aria-label="Previous map">‹</button>
+      <select id="step-sel" onchange="goStep(this.value)" aria-label="Which map"></select>
+      <button class="hb" id="next-btn" onclick="stepBy(1)" aria-label="Next map">›</button>
+    </div>
+    <span class="save" id="save-state" aria-live="polite"></span>
+  </header>
+  <div class="main">
+    <div class="stage" id="stage">
+      <svg id="svg" aria-label="Stage map"></svg>
+      <div class="banner" id="banner" hidden></div>
+      <div class="empty" id="empty" hidden></div>
+      <div class="zoom"><button onclick="zoomBy(1.25)" aria-label="Zoom in">+</button><button onclick="zoomBy(0.8)" aria-label="Zoom out">−</button><button onclick="fit()" aria-label="Fit the plan" style="font-size:13px">Fit</button></div>
+    </div>
+    <aside class="side" id="side"></aside>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<div id="build-tag">10.31 v1</div>
+
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+const PLAN_KEY = 'stageplan';
+const POLL_MS = 30000;
+// Stock pieces: [name, width ft, depth ft, shape]. Width runs left-right as placed.
+const STOCK = {
+  'Platforms & stairs': [['4×8 platform', 8, 4], ['4×4 platform', 4, 4], ['2×8 platform', 8, 2], ['2×4 platform', 4, 2], ['Stair unit, 3 wide', 3, 4], ['Stair unit, 4 wide', 4, 4]],
+  'Flats & doors': [['Flat, 2 ft', 2, 0.25], ['Flat, 4 ft', 4, 0.25], ['Flat, 8 ft', 8, 0.25], ['Door unit', 4, 1], ['Window unit', 4, 1]],
+  'Furniture': [['Table', 5, 3], ['Round table', 4, 4, 'round'], ['Chair', 1.5, 1.5], ['Armchair', 3, 3], ['Sofa', 7, 3], ['Bed, full', 4.5, 6.5], ['Desk', 5, 2.5], ['Bench', 6, 1.5]],
+};
+
+const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+function lsGet(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+const clone = o => JSON.parse(JSON.stringify(o));
+const uid = () => 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+function toast(t) { const el = document.getElementById('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('on'), 2400); }
+function jsonp(url, ok, fail, ms) {
+  const cb = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6), s = document.createElement('script');
+  let done = false;
+  const t = setTimeout(() => { end(); fail && fail('timeout'); }, ms || 15000);
+  window[cb] = d => { end(); ok(d); };
+  function end() { if (done) return; done = true; clearTimeout(t); delete window[cb]; if (s.parentNode) s.parentNode.removeChild(s); }
+  s.onerror = () => { end(); fail && fail('error'); };
+  s.src = url + (url.indexOf('?') === -1 ? '?' : '&') + 'callback=' + cb;
+  document.head.appendChild(s);
+}
+
+// ── Who's here ─────────────────────────────────────────────────────────────
+// Signed in on the cue sheet or the dashboard (same device storage). Crew
+// whose scripts are view only see the map but can't change it.
+let role = '', who = '';
+(function gate() {
+  const cl = lsGet('mmt_cuelist_ok', '') === '1';
+  const t = parseInt(lsGet('mmt_unlock_time', '0'), 10) || 0;
+  const dash = t && Date.now() - t < 30 * 864e5 && lsGet('mmt_user_role', '');
+  if (!cl && !dash) { document.getElementById('gate').hidden = false; return; }
+  role = cl ? lsGet('mmt_cuelist_role', 'td') : lsGet('mmt_user_role', 'td');
+  who = cl ? lsGet('mmt_cuelist_name', '') : lsGet('mmt_user_name', '');
+  document.getElementById('app').hidden = false;
+})();
+function canEdit() {
+  if (role !== 'crew') return true;
+  try { const p = JSON.parse(lsGet('mmt_crew_perms', 'null')); return !(p && p.edit && p.edit.scripts === false); } catch (e) { return true; }
+}
+
+// ── State ──────────────────────────────────────────────────────────────────
+const Q = new URLSearchParams(location.search);
+const EMBED = window.parent !== window || Q.get('embed') === '1';
+let scriptId = Q.get('script') || lsGet('mmt_cur_script_id', '') || (() => { try { return JSON.parse(lsGet('mmt_cur_script', 'null')).id; } catch (e) { return ''; } })();
+let showName = Q.get('name') || '';
+let cues = [], annotations = {}, presets = {};
+let plan = null;              // theatre plan { img, ppf }
+let sm = { pieces: {}, maps: {} };
+let steps = [{ id: 'presets', label: 'Presets', moves: [] }];
+let stepIdx = 0, sel = null, mode = null, scaleA = null;
+let pending = { plan: [], map: [] }, saving = false;
+const kvKey = () => 'stagemap_' + scriptId;
+
+function load() {
+  if (!scriptId) { renderAll(); return; }
+  try { const c = JSON.parse(lsGet('mmt_stagemap_cache_' + scriptId, 'null')); if (c) sm = c; } catch (e) {}
+  try { const c = JSON.parse(lsGet('mmt_stageplan_cache', 'null')); if (c) plan = c; } catch (e) {}
+  let left = 3;
+  const done = () => { if (--left === 0) { buildSteps(); const want = Q.get('step'); if (want) { const i = steps.findIndex(s => s.id === want); if (i >= 0) stepIdx = i; } renderAll(); fit(); } };
+  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), d => {
+    const cd = (d && (d.cueData || d.data)) || {};
+    cues = Array.isArray(cd.cues) ? cd.cues : []; annotations = cd.annotations || {}; presets = cd.presets || {};
+    done();
+  }, done);
+  jsonp(SCRIPT_URL + '?action=getKV&key=' + PLAN_KEY + '&_=' + Date.now(), d => { if (d && d.value && d.value.img) { plan = d.value; lsSet('mmt_stageplan_cache', JSON.stringify(plan)); } done(); }, done);
+  jsonp(SCRIPT_URL + '?action=getKV&key=' + kvKey() + '&_=' + Date.now(), d => { if (d && d.value && typeof d.value === 'object') { sm = norm(d.value); lsSet('mmt_stagemap_cache_' + scriptId, JSON.stringify(sm)); } done(); }, done);
+  if (!showName) { const sid = scriptId; jsonp(SCRIPT_URL + '?action=listScripts&_=' + Date.now(), d => { const s = (d && d.scripts || []).find(x => x.id === sid); if (s) { showName = String(s.name || '').replace(/\.pdf$/i, ''); document.getElementById('show-name').textContent = showName; } }); }
+}
+function norm(v) { v = v || {}; return { plan: v.plan || null, pieces: v.pieces || {}, maps: v.maps || {} }; }
+// Presets, then each set change in script order.
+function annY(c) { const a = (annotations[c.page] || []).find(x => x && x.type === 'cue' && x.cueId === c.id); return a ? (a.rect ? a.rect.y : a.y || 0) : 0; }
+function buildSteps() {
+  const sh = cues.filter(c => c.type === 'shift').sort((a, b) => (a.page - b.page) || (annY(a) - annY(b)) || String(a.number || '').localeCompare(String(b.number || ''), undefined, { numeric: true }));
+  steps = [{ id: 'presets', label: 'Presets', moves: [] }].concat(sh.map(c => {
+    const n = (String(c.number || '').match(/(\d+(?:\.\d+)?[A-Za-z]*)\s*$/) || [])[1] || c.number || '';
+    return { id: c.id, label: '#' + n + (c.cueLine ? ' · ' + c.cueLine : '') + (c.page ? ' (pg. ' + c.page + ')' : ''), moves: (c.moves || []).map(m => String(m.piece || '').trim().toLowerCase()).filter(Boolean) };
+  }));
+}
+// Every piece named in a set change, plus pieces added here.
+function pieceList() {
+  const seen = new Map();
+  cues.filter(c => c.type === 'shift').forEach(c => (c.moves || []).forEach(m => { const v = String(m.piece || '').trim(); if (v && !seen.has(v.toLowerCase())) seen.set(v.toLowerCase(), v); }));
+  const out = [...seen].map(([key, name]) => ({ key, name, fromSheet: true, def: sm.pieces[key] || null }));
+  Object.keys(sm.pieces).forEach(k => { if (!seen.has(k) && sm.pieces[k] && !sm.pieces[k].gone) out.push({ key: k, name: sm.pieces[k].name, fromSheet: false, def: sm.pieces[k] }); });
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+function activePlan() { return (sm.plan && sm.plan.img) ? sm.plan : plan; }
+// Where a piece sits at a step: the latest map at or before it that places it.
+function posAt(key, i) {
+  for (let k = i; k >= 0; k--) { const m = sm.maps[steps[k].id]; if (m && key in m) return m[key] ? { ...m[key], own: k === i } : null; }
+  return null;
+}
+
+// ── Saving: small operations replayed onto the server's copy ───────────────
+function applyMapOp(v, op) {
+  v.pieces = v.pieces || {}; v.maps = v.maps || {};
+  if (op.t === 'piece') { if (op.v) v.pieces[op.key] = op.v; else delete v.pieces[op.key]; }
+  if (op.t === 'pos') { v.maps[op.step] = v.maps[op.step] || {}; if (op.v === undefined) delete v.maps[op.step][op.key]; else v.maps[op.step][op.key] = op.v; }
+  if (op.t === 'showplan') v.plan = op.v;
+  if (op.t === 'drop') Object.keys(v.maps).forEach(s => { if (v.maps[s]) delete v.maps[s][op.key]; });
+}
+function op(o) { if (!canEdit()) return; applyMapOp(sm, o); pending.map.push(o); lsSet('mmt_stagemap_cache_' + scriptId, JSON.stringify(sm)); queueSave(); }
+function planOp(v) { plan = v; pending.plan.push(v); lsSet('mmt_stageplan_cache', JSON.stringify(plan)); queueSave(); }
+function setSave(t, err) { const el = document.getElementById('save-state'); el.textContent = t; el.className = 'save' + (err ? ' err' : ''); }
+function queueSave() { setSave('Saving…'); clearTimeout(queueSave._t); queueSave._t = setTimeout(flush, 500); }
+function post(key, value) {
+  return fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveKV', key, value }) })
+    .then(r => r.text()).then(t => { let d = null; try { d = JSON.parse(t); } catch (e) {} if (d && d.success === false) throw new Error(d.error || 'Not saved'); });
+}
+function flush() {
+  if (saving) return;
+  if (!pending.map.length && !pending.plan.length) { setSave(''); return; }
+  saving = true;
+  const mapOps = pending.map.slice(), planV = pending.plan.length ? pending.plan[pending.plan.length - 1] : null, planN = pending.plan.length;
+  const jobs = [];
+  if (planV) jobs.push(post(PLAN_KEY, planV));
+  if (mapOps.length) jobs.push(new Promise((res, rej) => jsonp(SCRIPT_URL + '?action=getKV&key=' + kvKey() + '&_=' + Date.now(), d => {
+    const fresh = norm(d && d.value && typeof d.value === 'object' ? d.value : {});
+    mapOps.forEach(o => applyMapOp(fresh, o));
+    fresh._savedAt = new Date().toISOString();
+    post(kvKey(), fresh).then(() => { sm = fresh; pending.map.slice(mapOps.length).forEach(o => applyMapOp(sm, o)); res(); }, rej);
+  }, rej)));
+  Promise.all(jobs).then(() => {
+    saving = false; pending.map = pending.map.slice(mapOps.length); pending.plan = pending.plan.slice(planN);
+    lsSet('mmt_stagemap_cache_' + scriptId, JSON.stringify(sm));
+    setSave('Saved'); setTimeout(() => { if (document.getElementById('save-state').textContent === 'Saved') setSave(''); }, 1800);
+    if (pending.map.length || pending.plan.length) flush(); else draw();
+  }, () => { saving = false; setSave('Not saved, kept here; retrying', true); clearTimeout(flush._r); flush._r = setTimeout(flush, 15000); });
+}
+
+// ── Drawing ────────────────────────────────────────────────────────────────
+let vb = { x: 0, y: 0, w: 1000, h: 700 };
+const svg = document.getElementById('svg');
+function ppf() { const p = activePlan(); return (p && p.ppf) || 20; }
+function planSize() { const p = activePlan(); return p && p.img ? { w: p.img.w, h: p.img.h } : { w: 1200, h: 800 }; }
+function setVB() { svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`); }
+function fit() {
+  const s = planSize(), r = svg.getBoundingClientRect(), ar = (r.width || 1) / (r.height || 1);
+  let w = s.w * 1.04, h = s.h * 1.04;
+  if (w / h > ar) h = w / ar; else w = h * ar;
+  vb = { x: (s.w - w) / 2, y: (s.h - h) / 2, w, h }; setVB();
+}
+function zoomBy(k, cx, cy) {
+  const nx = cx == null ? vb.x + vb.w / 2 : cx, ny = cy == null ? vb.y + vb.h / 2 : cy;
+  const w = Math.max(80, Math.min(planSize().w * 6, vb.w / k)), h = w * vb.h / vb.w;
+  vb = { x: nx - (nx - vb.x) * (w / vb.w), y: ny - (ny - vb.y) * (h / vb.h), w, h }; setVB();
+}
+function pt(e) { const r = svg.getBoundingClientRect(); return { x: vb.x + (e.clientX - r.left) / r.width * vb.w, y: vb.y + (e.clientY - r.top) / r.height * vb.h }; }
+function imgUrl(img) { return img.id && !/^data:/.test(img.url || '') ? 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(img.id) + '&sz=w2400' : img.url; }
+function draw() {
+  const p = activePlan(), s = planSize(), k = ppf();
+  let h = '';
+  if (p && p.img) h += `<image href="${esc(imgUrl(p.img))}" x="0" y="0" width="${s.w}" height="${s.h}" preserveAspectRatio="none"/>`;
+  // a one-foot grid, faint, every 5 ft stronger
+  if (p && p.ppf && lsGet('mmt_stagemap_grid', '1') === '1') {
+    for (let x = 0; x <= s.w; x += k) h += `<line x1="${x}" y1="0" x2="${x}" y2="${s.h}" stroke="rgba(37,99,235,${Math.round(x / k) % 5 ? .08 : .2})" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+    for (let y = 0; y <= s.h; y += k) h += `<line x1="0" y1="${y}" x2="${s.w}" y2="${y}" stroke="rgba(37,99,235,${Math.round(y / k) % 5 ? .08 : .2})" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+  }
+  const st = steps[stepIdx] || steps[0], moving = new Set(st.moves);
+  pieceList().forEach(pc => {
+    const at = posAt(pc.key, stepIdx); if (!at) return;
+    const d = pc.def || { w: 4, d: 2 }, w = d.w * k, dd = d.d * k, fs = Math.max(9, Math.min(w / Math.max(4, pc.name.length) * 1.5, dd * 0.55, 1.1 * k));
+    const cls = ['pc', moving.has(pc.key) ? 'moved' : '', at.own || stepIdx === 0 ? '' : 'inherit', sel === pc.key ? 'sel' : ''].join(' ');
+    const sw = sel === pc.key ? 4 : moving.has(pc.key) ? 3.5 : 2;
+    const body = d.shape === 'round' ? `<ellipse class="body" cx="0" cy="0" rx="${w / 2}" ry="${dd / 2}" stroke-width="${sw}" vector-effect="non-scaling-stroke"/>`
+      : `<rect class="body" x="${-w / 2}" y="${-dd / 2}" width="${w}" height="${dd}" rx="${Math.min(4, dd / 4)}" stroke-width="${sw}" vector-effect="non-scaling-stroke"/>`;
+    h += `<g class="${cls}" data-key="${esc(pc.key)}" transform="translate(${at.x * k} ${at.y * k}) rotate(${at.r || 0})">${body}
+      <text x="0" y="0" text-anchor="middle" dominant-baseline="central" font-size="${fs.toFixed(1)}"${dd < fs * 1.2 ? ` transform="translate(0 ${-(dd / 2 + fs * .8)})"` : ''}>${esc(pc.name)}</text></g>`;
+  });
+  if (mode === 'scale2' && scaleA) h += `<circle cx="${scaleA.x}" cy="${scaleA.y}" r="8" fill="#2563eb" vector-effect="non-scaling-stroke"/>`;
+  if (mode === 'scaleN' && scaleA && scaleA.b) h += `<line x1="${scaleA.x}" y1="${scaleA.y}" x2="${scaleA.b.x}" y2="${scaleA.b.y}" stroke="#2563eb" stroke-width="4" vector-effect="non-scaling-stroke"/><circle cx="${scaleA.x}" cy="${scaleA.y}" r="7" fill="#2563eb"/><circle cx="${scaleA.b.x}" cy="${scaleA.b.y}" r="7" fill="#2563eb"/>`;
+  svg.innerHTML = h;
+  svg.classList.toggle('ro', !canEdit());
+}
+
+// ── Side panel ─────────────────────────────────────────────────────────────
+function fmtFt(v) { const ft = Math.floor(v + 1e-6), inch = Math.round((v - ft) * 12); return inch ? (inch === 12 ? (ft + 1) + "'" : ft + "'" + inch + '"') : ft + "'"; }
+function parseFt(s) {
+  s = String(s || '').trim().toLowerCase(); if (!s) return NaN;
+  let m = s.match(/^(\d+(?:\.\d+)?)\s*(?:'|ft|feet)?\s*(?:-?\s*(\d+(?:\.\d+)?)\s*(?:"|in|inch(?:es)?)?)?$/);
+  if (m) return parseFloat(m[1]) + (m[2] ? parseFloat(m[2]) / 12 : 0);
+  m = s.match(/^(\d+(?:\.\d+)?)\s*(?:"|in|inch(?:es)?)$/); if (m) return parseFloat(m[1]) / 12;
+  return NaN;
+}
+function renderSide() {
+  const side = document.getElementById('side'), ed = canEdit(), st = steps[stepIdx];
+  const p = activePlan();
+  if (!p || !p.img) { side.innerHTML = `<section><h2>Pieces</h2><p class="note">Add the ground plan first.</p></section>`; return; }
+  const list = pieceList();
+  let h = '';
+  if (sel) {
+    const pc = list.find(x => x.key === sel);
+    if (pc) {
+      const d = pc.def || {}, at = posAt(pc.key, stepIdx);
+      h += `<section><h2>Selected</h2>
+        <div class="field">Name<input id="f-name" value="${esc(pc.name)}" ${pc.fromSheet || !ed ? 'disabled' : ''} onchange="setName(this.value)" title="${pc.fromSheet ? 'Named on the cue sheet' : ''}"></div>
+        <div class="two"><div class="field">Width (left–right)<input id="f-w" value="${d.w ? fmtFt(d.w) : ''}" placeholder="e.g. 8'" ${ed ? '' : 'disabled'} onchange="setSize('w', this.value)"></div>
+        <div class="field">Depth (up–down)<input id="f-d" value="${d.d ? fmtFt(d.d) : ''}" placeholder="e.g. 4'" ${ed ? '' : 'disabled'} onchange="setSize('d', this.value)"></div></div>
+        ${ed ? `<div class="row"><button class="tb" onclick="rot(-15)" aria-label="Turn left 15 degrees">↺ 15°</button><button class="tb" onclick="rot(15)" aria-label="Turn right 15 degrees">↻ 15°</button><button class="tb" onclick="rot(90)">↻ 90°</button>
+          <button class="tb" onclick="setShape('${d.shape === 'round' ? 'rect' : 'round'}')">${d.shape === 'round' ? 'Make square' : 'Make round'}</button></div>
+        <div class="row">${at ? `<button class="tb warn" onclick="takeOff()">Off the map from here</button>` : `<button class="tb pri" onclick="placeHere('${esc(pc.key)}')">Put on this map</button>`}
+          ${!pc.fromSheet ? `<button class="tb warn" onclick="delPiece()">Delete piece</button>` : ''}</div>` : ''}
+        <p class="note">${at ? (at.own || stepIdx === 0 ? 'Placed on this map.' : 'Where it was left on an earlier map. Drag it to move it here.') : 'Not on this map.'}</p>
+      </section>`;
+    }
+  }
+  h += `<section><h2>${stepIdx === 0 ? 'Pieces' : 'Pieces · ' + esc(st.label)}</h2><div class="legend"><span><i></i>placed here</span><span><i class="mv"></i>moves in this change</span><span><i class="inh"></i>from an earlier map</span></div><div class="plist">` +
+    (list.length ? list.map(pc => {
+      const at = posAt(pc.key, stepIdx), mv = st.moves.includes(pc.key);
+      return `<button class="prow${sel === pc.key ? ' on' : ''}" onclick="pick('${esc(pc.key)}')"><b>${esc(pc.name)}</b>${mv ? '<span class="mv">MOVES</span>' : ''}<small>${pc.def && pc.def.w ? fmtFt(pc.def.w) + ' × ' + fmtFt(pc.def.d) : 'no size'}</small>${at ? '' : '<small class="off">not on map</small>'}</button>`;
+    }).join('') : '<p class="note">No pieces yet. Set changes on the cue sheet add them, or add one below.</p>') + `</div></section>`;
+  if (ed) {
+    h += `<section><h2>Add a piece</h2>`;
+    Object.keys(STOCK).forEach(g => { h += `<details><summary>${g}</summary><div class="chips">${STOCK[g].map((s, i) => `<button class="chip" onclick="addStock('${g}', ${i})">${esc(s[0])}<small>${fmtFt(s[1])}×${fmtFt(s[2])}</small></button>`).join('')}</div></details>`; });
+    h += `<details id="cat-det" ontoggle="if(this.open)loadCatalogue()"><summary>From the catalogue</summary><div id="cat-box"><p class="note">Loading…</p></div></details>
+      <details><summary>Custom size</summary><div class="field">What is it<input id="c-name" placeholder="e.g. Scrooge's bed"></div>
+      <div class="two"><div class="field">Width<input id="c-w" placeholder="e.g. 6'6&quot;"></div><div class="field">Depth<input id="c-d" placeholder="e.g. 4'"></div></div>
+      <div class="row" style="margin-top:6px"><button class="tb pri" onclick="addCustom()">Add to the map</button></div></details></section>`;
+  }
+  h += `<section><h2>Ground plan</h2><label class="row note" style="gap:6px"><input type="checkbox" id="grid-on"${lsGet('mmt_stagemap_grid', '1') === '1' ? ' checked' : ''} onchange="lsSet('mmt_stagemap_grid', this.checked ? '1' : '0'); draw()"> 1-foot grid</label>
+    <p class="note">${sm.plan && sm.plan.img ? "This show's own plan." : 'The MMT stage plan (every show).'} Scale: 1 ft = ${Math.round(ppf())} px.</p>
+    ${ed ? `<div class="row"><button class="tb" onclick="startScale()">Re-set the scale</button>
+      <label class="tb" style="display:inline-flex;align-items:center">Replace…<input type="file" accept="image/*,application/pdf" hidden onchange="uploadPlan(this.files[0], 'theatre'); this.value=''"></label></div>
+      <div class="row">${sm.plan && sm.plan.img ? `<button class="tb" onclick="op({t:'showplan', v:null}); fit(); renderAll()">Use the MMT plan again</button>` : `<label class="tb" style="display:inline-flex;align-items:center">Use a plan just for this show…<input type="file" accept="image/*,application/pdf" hidden onchange="uploadPlan(this.files[0], 'show'); this.value=''"></label>`}</div>` : ''}</section>`;
+  side.innerHTML = h;
+}
+function renderAll() {
+  document.getElementById('show-name').textContent = showName;
+  const s = document.getElementById('step-sel');
+  s.innerHTML = steps.map((x, i) => `<option value="${esc(x.id)}"${i === stepIdx ? ' selected' : ''}>${esc(x.label)}</option>`).join('');
+  document.getElementById('prev-btn').disabled = stepIdx <= 0;
+  document.getElementById('next-btn').disabled = stepIdx >= steps.length - 1;
+  const p = activePlan(), empty = document.getElementById('empty');
+  empty.hidden = !!(p && p.img);
+  if (!scriptId) { empty.hidden = false; empty.innerHTML = `<div class="empty-card"><h2>No script picked</h2><p>Open the stage map from a script's cue sheet.</p></div>`; }
+  else if (!(p && p.img)) empty.innerHTML = `<div class="empty-card"><h2>Add the stage ground plan</h2>
+    <p>Upload a ground plan of the MMT stage that shows both wings and backstage (a PDF or a picture). It's used for every show; a show can use its own later.</p>
+    ${canEdit() ? `<label class="upl">Upload ground plan<input type="file" accept="image/*,application/pdf" hidden onchange="uploadPlan(this.files[0], 'theatre'); this.value=''"></label>` : '<p>Ask Mac to add it.</p>'}
+    <p>Next you'll tap two points a known distance apart (say, the two sides of the proscenium) so pieces draw at real size.</p></div>`;
+  if (p && p.img && !p.ppf && canEdit() && mode !== 'scale1' && mode !== 'scale2' && mode !== 'scaleN') startScale();
+  draw(); renderSide(); banner();
+}
+function goStep(id) { const i = steps.findIndex(s => s.id === id); if (i >= 0) { stepIdx = i; renderAll(); } }
+function stepBy(d) { stepIdx = Math.max(0, Math.min(steps.length - 1, stepIdx + d)); renderAll(); }
+function pick(key) {
+  sel = sel === key ? null : key;
+  if (sel && canEdit() && !posAt(sel, stepIdx)) placeHere(sel);
+  draw(); renderSide();
+}
+// Where a new piece lands: the middle of the view, nudged so it doesn't sit
+// exactly on top of the last one dropped there.
+let _drop = 0;
+function centre() { const n = (_drop++ % 6); return { x: (vb.x + vb.w / 2) / ppf() + n * 1.5, y: (vb.y + vb.h / 2) / ppf() + n * 1.5 }; }
+function placeHere(key) {
+  const def = sm.pieces[key];
+  if (!def || !def.w) { const pc = pieceList().find(x => x.key === key); op({ t: 'piece', key, v: { name: pc ? pc.name : key, w: 4, d: 2, guess: true } }); }
+  const c = centre(); op({ t: 'pos', step: steps[stepIdx].id, key, v: { x: +c.x.toFixed(2), y: +c.y.toFixed(2), r: 0 } });
+  sel = key; draw(); renderSide();
+}
+function curPos() { return posAt(sel, stepIdx) || { ...centre(), r: 0 }; }
+function setPos(v) { op({ t: 'pos', step: steps[stepIdx].id, key: sel, v: { x: +v.x.toFixed(2), y: +v.y.toFixed(2), r: ((Math.round(v.r || 0) % 360) + 360) % 360 } }); }
+function rot(d) { if (!sel) return; const p = curPos(); setPos({ ...p, r: (p.r || 0) + d }); draw(); }
+function setSize(dim, v) {
+  const n = parseFt(v); if (!(n > 0)) { toast("Type a size like 8' or 6'6\""); renderSide(); return; }
+  const pc = pieceList().find(x => x.key === sel); const d = Object.assign({ name: pc.name, w: 4, d: 2 }, sm.pieces[sel] || {}); d[dim] = +n.toFixed(3); delete d.guess;
+  op({ t: 'piece', key: sel, v: d }); draw(); renderSide();
+}
+function setShape(sh) { const d = Object.assign({}, sm.pieces[sel] || { name: sel, w: 4, d: 2 }); d.shape = sh; op({ t: 'piece', key: sel, v: d }); draw(); renderSide(); }
+function setName(v) { v = String(v || '').trim(); if (!v) return; const d = Object.assign({}, sm.pieces[sel]); d.name = v; op({ t: 'piece', key: sel, v: d }); draw(); renderSide(); }
+function takeOff() { op({ t: 'pos', step: steps[stepIdx].id, key: sel, v: null }); draw(); renderSide(); toast('Off the map from here on'); }
+function delPiece() { const k = sel; sel = null; op({ t: 'drop', key: k }); op({ t: 'piece', key: k, v: null }); draw(); renderSide(); }
+function addPiece(name, w, d, shape) {
+  const key = uid();
+  op({ t: 'piece', key, v: { name, w, d, shape: shape || 'rect' } });
+  const c = centre(); op({ t: 'pos', step: steps[stepIdx].id, key, v: { x: +c.x.toFixed(2), y: +c.y.toFixed(2), r: 0 } });
+  sel = key; draw(); renderSide(); toast(name + ' added. Drag it into place.');
+}
+function addStock(g, i) { const s = STOCK[g][i]; addPiece(s[0], s[1], s[2], s[3]); }
+function addCustom() {
+  const n = (document.getElementById('c-name').value || '').trim(), w = parseFt(document.getElementById('c-w').value), d = parseFt(document.getElementById('c-d').value);
+  if (!n) { toast('Say what the piece is'); document.getElementById('c-name').focus(); return; }
+  if (!(w > 0) || !(d > 0)) { toast("Type the width and depth, like 6'6\" and 4'"); return; }
+  addPiece(n, +w.toFixed(3), +d.toFixed(3));
+}
+// Set pieces from the Set Piece Catalogue, with their Size read as W × D.
+let _cat = null;
+function loadCatalogue() {
+  const box = document.getElementById('cat-box'); if (!box) return;
+  const paint = () => {
+    const q = (document.getElementById('cat-q') || {}).value || '';
+    const items = (_cat || []).filter(x => !q || (x.name || '').toLowerCase().includes(q.toLowerCase())).slice(0, 30);
+    box.innerHTML = `<div class="field"><input id="cat-q" placeholder="Search the catalogue" value="${esc(q)}" oninput="loadCatalogue()"></div><div class="chips" style="margin-top:6px">${items.map((x, i) => `<button class="chip" onclick="addCat(${_cat.indexOf(x)})">${esc(x.name)}<small>${esc(x.size || 'no size')}</small></button>`).join('') || '<p class="note">Nothing matches.</p>'}</div>`;
+    const qi = document.getElementById('cat-q'); if (qi && q) { qi.focus(); qi.setSelectionRange(q.length, q.length); }
+  };
+  if (_cat) { paint(); return; }
+  const url = lsGet('mmt_inv_url', '') || 'https://script.google.com/macros/s/AKfycbwtpTZGYMn_5JdVuBC37xfW5A6Dlu7hXvihbZfuB0U3AY4VPHf-EV1TCnVgz1rSKtijsA/exec';
+  jsonp(url + '?action=all&_=' + Date.now(), d => {
+    const items = (d && (d.items || d.inventory || d.data)) || [];
+    _cat = items.map(x => ({ name: x.name || x.Name || '', size: x.size || x.Size || x.dims || '' })).filter(x => x.name);
+    paint();
+  }, () => { box.innerHTML = '<p class="note">The catalogue didn\'t load. Use a stock or custom size.</p>'; }, 20000);
+}
+function sizeOf(s) { const m = String(s || '').replace(/[×xX]/g, 'x').match(/([\d.]+\s*(?:'|ft)?\s*(?:[\d.]+\s*(?:"|in))?)\s*x\s*([\d.]+\s*(?:'|ft)?\s*(?:[\d.]+\s*(?:"|in))?)/); return m ? [parseFt(m[1]), parseFt(m[2])] : null; }
+function addCat(i) {
+  const x = _cat[i]; const s = sizeOf(x.size);
+  if (s && s[0] > 0 && s[1] > 0) addPiece(x.name, s[0], s[1]);
+  else { addPiece(x.name, 4, 2); toast('No size in the catalogue for this one; type its size in Selected.'); }
+}
+
+// ── Ground plan: upload + scale ────────────────────────────────────────────
+function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
+async function fileToJpeg(file) {
+  let canvas;
+  if (/pdf/i.test(file.type) || /\.pdf$/i.test(file.name)) {
+    if (typeof pdfjsLib === 'undefined') { await loadScript(PDFJS + 'pdf.min.js'); pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; }
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    const page = await pdf.getPage(1), v0 = page.getViewport({ scale: 1 }), k = 2400 / Math.max(v0.width, v0.height), v = page.getViewport({ scale: k });
+    canvas = document.createElement('canvas'); canvas.width = Math.round(v.width); canvas.height = Math.round(v.height);
+    const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport: v }).promise;
+  } else {
+    const url = URL.createObjectURL(file);
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const k = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight));
+    canvas = document.createElement('canvas'); canvas.width = Math.round(img.naturalWidth * k); canvas.height = Math.round(img.naturalHeight * k);
+    const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(url);
+  }
+  return { b64: canvas.toDataURL('image/jpeg', 0.88).split(',')[1], w: canvas.width, h: canvas.height, local: canvas.toDataURL('image/jpeg', 0.6) };
+}
+async function uploadPlan(file, which) {
+  if (!file) return;
+  setSave('Uploading the plan…');
+  try {
+    const j = await fileToJpeg(file);
+    const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'uploadRefPhoto', base64: j.b64, mimeType: 'image/jpeg', fileName: 'ground plan - ' + (which === 'show' ? (showName || 'show') : 'MMT stage') + ' - ' + new Date().toISOString().slice(0, 10) + '.jpg' }) }).then(r => r.json());
+    if (!res || !res.success || !res.fileId) throw new Error((res && res.error) || 'upload failed');
+    const old = which === 'show' ? sm.plan : plan;
+    // Same size picture as before: keep its scale.
+    const keep = old && old.img && old.ppf && Math.abs(old.img.w - j.w) < 2 && Math.abs(old.img.h - j.h) < 2 ? old.ppf : 0;
+    const v = { img: { id: String(res.fileId), url: res.url || '', w: j.w, h: j.h }, ppf: keep, by: who, at: new Date().toISOString() };
+    if (which === 'show') op({ t: 'showplan', v }); else planOp(v);
+    setSave('');
+    fit(); renderAll();
+    if (!keep) startScale();
+  } catch (e) { setSave("The plan didn't upload. Check the signal and try again.", true); }
+}
+function banner() {
+  const b = document.getElementById('banner');
+  if (mode === 'scale1') b.innerHTML = `<span>Set the scale: tap one end of something you know the length of (the proscenium opening, a wall).</span><button onclick="cancelScale()">Cancel</button>`;
+  else if (mode === 'scale2') b.innerHTML = `<span>Now tap the other end.</span><button onclick="cancelScale()">Cancel</button>`;
+  else if (mode === 'scaleN') b.innerHTML = `<span>How far apart are they?</span><input id="sc-ft" inputmode="decimal" placeholder="ft" aria-label="Feet"> ft <input id="sc-in" inputmode="decimal" placeholder="in" aria-label="Inches"> in <button class="pri" onclick="finishScale()">Set scale</button><button onclick="cancelScale()">Cancel</button>`;
+  b.hidden = !mode;
+  if (mode === 'scaleN') setTimeout(() => { const i = document.getElementById('sc-ft'); if (i) i.focus(); }, 30);
+}
+function startScale() { if (!canEdit()) return; mode = 'scale1'; scaleA = null; sel = null; banner(); draw(); }
+function cancelScale() { mode = null; scaleA = null; banner(); draw(); }
+function finishScale() {
+  const ft = parseFloat(document.getElementById('sc-ft').value) || 0, inch = parseFloat(document.getElementById('sc-in').value) || 0, d = ft + inch / 12;
+  if (!(d > 0)) { toast('Type the distance in feet (and inches)'); return; }
+  const px = Math.hypot(scaleA.b.x - scaleA.x, scaleA.b.y - scaleA.y);
+  if (px < 10) { toast('Those two taps are too close together; try again'); startScale(); return; }
+  const v = Object.assign({}, activePlan(), { ppf: +(px / d).toFixed(4) });
+  if (sm.plan && sm.plan.img) op({ t: 'showplan', v }); else planOp(v);
+  mode = null; scaleA = null; renderAll(); toast('Scale set: 1 ft = ' + Math.round(px / d) + ' px');
+}
+
+// ── Pointer: drag pieces, pan, pinch / wheel zoom, scale taps ──────────────
+const ptrs = new Map(); let drag = null, pinch = null;
+svg.addEventListener('pointerdown', e => {
+  svg.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), vb: { ...vb } }; drag = null; return; }
+  const p = pt(e);
+  if (mode === 'scale1' || mode === 'scale2') { drag = { tap: true, sx: e.clientX, sy: e.clientY, p }; return; }
+  const g = e.target.closest && e.target.closest('.pc');
+  if (g && canEdit()) {
+    const key = g.getAttribute('data-key'), at = posAt(key, stepIdx) || { x: 0, y: 0, r: 0 };
+    sel = key; drag = { key, ox: p.x - at.x * ppf(), oy: p.y - at.y * ppf(), r: at.r || 0, moved: false, sx: e.clientX, sy: e.clientY };
+    draw(); renderSide(); return;
+  }
+  if (g) { sel = g.getAttribute('data-key'); draw(); renderSide(); return; }
+  drag = { pan: true, sx: e.clientX, sy: e.clientY, vb: { ...vb }, moved: false };
+});
+svg.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y), r = svg.getBoundingClientRect();
+    const cx = pinch.vb.x + ((a.x + b.x) / 2 - r.left) / r.width * pinch.vb.w, cy = pinch.vb.y + ((a.y + b.y) / 2 - r.top) / r.height * pinch.vb.h;
+    vb = { ...pinch.vb }; zoomBy(d / pinch.d, cx, cy); return;
+  }
+  if (!drag) return;
+  if (drag.pan) { const r = svg.getBoundingClientRect(); vb.x = drag.vb.x - (e.clientX - drag.sx) / r.width * vb.w; vb.y = drag.vb.y - (e.clientY - drag.sy) / r.height * vb.h; setVB(); drag.moved = true; return; }
+  if (drag.key) {
+    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
+    drag.moved = true;
+    const p = pt(e), k = ppf(), g = svg.querySelector(`.pc[data-key="${CSS.escape(drag.key)}"]`);
+    drag.nx = (p.x - drag.ox) / k; drag.ny = (p.y - drag.oy) / k;
+    if (e.shiftKey || lsGet('mmt_stagemap_snap', '1') === '1') { drag.nx = Math.round(drag.nx * 4) / 4; drag.ny = Math.round(drag.ny * 4) / 4; }   // snap to 3"
+    if (g) g.setAttribute('transform', `translate(${drag.nx * k} ${drag.ny * k}) rotate(${drag.r})`);
+  }
+});
+function endPtr(e) {
+  ptrs.delete(e.pointerId);
+  if (ptrs.size < 2) pinch = null;
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.tap && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 10) {
+    if (mode === 'scale1') { scaleA = d.p; mode = 'scale2'; banner(); draw(); }
+    else if (mode === 'scale2') { scaleA.b = d.p; mode = 'scaleN'; banner(); draw(); }
+    return;
+  }
+  if (d.key && d.moved && d.nx != null) { setPos({ x: d.nx, y: d.ny, r: d.r }); draw(); renderSide(); }
+  if (d.pan && !d.moved && sel) { sel = null; draw(); renderSide(); }
+}
+svg.addEventListener('pointerup', endPtr);
+svg.addEventListener('pointercancel', endPtr);
+svg.addEventListener('wheel', e => { e.preventDefault(); const p = pt(e); zoomBy(e.deltaY < 0 ? 1.15 : 0.87, p.x, p.y); }, { passive: false });
+document.addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('input, select, textarea')) { if (e.key === 'Enter' && mode === 'scaleN') finishScale(); return; }
+  if (e.key === 'Escape') { if (mode) cancelScale(); else if (sel) { sel = null; draw(); renderSide(); } else closeMap(); }
+  if (!sel || !canEdit()) return;
+  const step = e.shiftKey ? 1 : 0.25, p = posAt(sel, stepIdx);
+  const mv = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+  if (mv && p) { e.preventDefault(); setPos({ x: p.x + mv[0], y: p.y + mv[1], r: p.r || 0 }); draw(); }
+  if ((e.key === 'r' || e.key === 'R') && p) rot(e.shiftKey ? -15 : 15);
+});
+window.addEventListener('resize', () => { const c = { x: vb.x + vb.w / 2, y: vb.y + vb.h / 2 }, r = svg.getBoundingClientRect(); vb.h = vb.w * r.height / (r.width || 1); vb.x = c.x - vb.w / 2; vb.y = c.y - vb.h / 2; setVB(); });
+
+function closeMap() {
+  if (EMBED) { try { window.parent.postMessage({ mmt: 'stagemap-close' }, location.origin); } catch (e) {} return; }
+  if (history.length > 1) history.back(); else location.href = 'cue-list.html';
+}
+// Someone else's changes, while nobody is mid-drag here.
+setInterval(() => {
+  if (!scriptId || saving || pending.map.length || drag || document.hidden) return;
+  jsonp(SCRIPT_URL + '?action=getKV&key=' + kvKey() + '&_=' + Date.now(), d => {
+    if (saving || pending.map.length || drag) return;
+    if (d && d.value && typeof d.value === 'object') { const n = norm(d.value); if (JSON.stringify(n) !== JSON.stringify(sm)) { sm = n; lsSet('mmt_stagemap_cache_' + scriptId, JSON.stringify(sm)); draw(); renderSide(); } }
+  });
+}, POLL_MS);
+if (!document.getElementById('app').hidden) load();
+</script>
+</body>
+</html>

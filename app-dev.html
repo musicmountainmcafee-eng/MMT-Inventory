@@ -6128,6 +6128,13 @@ table td { font-size: 14px !important; }
   .cut-row button { flex: 1; font: 600 13px 'DM Sans', system-ui, sans-serif; border: 1px solid var(--border, #ddd); background: var(--surface, #fff); color: var(--text, #111); border-radius: 999px !important; padding: 8px 10px !important; min-height: 0 !important; cursor: pointer; }
   .cut-row button.pri { background: #111; color: #fff; border-color: #111; }
   .cut-row button.del { color: #c2410c; border-color: rgba(194,65,12,.4); }
+
+  #sm-ov { position: fixed; inset: 0; z-index: 5000; background: #111113; }
+  #sm-ov iframe { width: 100%; height: 100%; border: 0; display: block; }
+  html.sm-open, html.sm-open body { overflow: hidden; }
+
+  #cfa-map { display: none; }
+  #scripts-editor.sel-shift #cfa-map { display: inline-flex; }
 </style>
   <!-- PERF: pdf.js and jsPDF used to load here as blocking script tags on every
        launch. They're only needed on the Scripts tab and for PDF exports, so they
@@ -7297,6 +7304,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
           <div class="mvd-title" id="mvd-title">Set Change</div>
           <span class="mvd-acts">
             <button type="button" class="mvd-act" onclick="openCueSheetAt(mvDrawerCueId)" title="Show this set change on the cue sheet">Cue sheet ›</button>
+            <button type="button" class="mvd-act" onclick="openStageMap(mvDrawerCueId)" title="Top-down stage map after this set change">Stage map</button>
             <button type="button" class="mvd-act" onclick="openMoveCue(mvDrawerCueId)" title="Move this set change to another page">Move to page</button>
             <button type="button" class="mvd-act mvd-act-del" onclick="deleteCue(mvDrawerCueId)" title="Delete this set change and its moves">Delete</button>
             <button class="mvd-close" onclick="closeMoveDrawer()" title="Close (Esc)" aria-label="Close (Esc)">✕</button>
@@ -7330,6 +7338,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
         <input type="text" id="cue-desc" placeholder="Notes (optional)" oninput="onCueFormInput()" disabled />
         <div id="cue-form-acts">
           <button type="button" class="top-btn" onclick="openCueSheetAt(selectedCueId)">Cue sheet ›</button>
+          <button type="button" class="top-btn" id="cfa-map" onclick="openStageMap(selectedCueId)" title="Top-down stage map after this set change">Stage map</button>
           <button type="button" class="top-btn" onclick="openMoveCue(selectedCueId)">Move to page</button>
           <button type="button" class="top-btn cfa-del" onclick="deleteCue(selectedCueId)">Delete cue</button>
         </div>
@@ -7358,7 +7367,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
       Every piece in the show, listed automatically. Say where each one starts.
       Prints at the top of the scene change plot.</p>
     <div id="preset-body"></div>
-    <div class="cue-edit-btns"><button class="ce-btn" onclick="closePresets()">Done</button></div>
+    <div class="cue-edit-btns"><button class="ce-btn" onclick="closePresets();openStageMap('presets')">Stage map</button><button class="ce-btn" onclick="closePresets()">Done</button></div>
   </div>
 </div>
 
@@ -7569,7 +7578,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.30 v5 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.31 v1 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -20091,6 +20100,20 @@ function redrawAnnotations() {
   try { cutFlagCues(ctx, anns); } catch (e) {}
   if (seRunning()) runSync();
 }
+
+
+// ── STAGE MAP (dev) ── stage-map.html over this page: the top-down map of the
+// stage for Presets ('presets') or a set change (its cue id).
+function openStageMap(step, sid, name){
+  sid = sid || (typeof showId !== 'undefined' ? showId : ''); if (!sid) { try { toast('Open a script first'); } catch (e) {} return; }
+  closeStageMap();
+  const ov = document.createElement('div'); ov.id = 'sm-ov';
+  ov.innerHTML = '<iframe title="Stage map" src="stage-map.html?embed=1&script=' + encodeURIComponent(sid) + '&step=' + encodeURIComponent(step || 'presets') + ((name = name || (document.getElementById('show-name') || {}).textContent) ? '&name=' + encodeURIComponent(name) : '') + '"></iframe>';
+  document.body.appendChild(ov);
+  document.documentElement.classList.add('sm-open');
+}
+function closeStageMap(){ const o = document.getElementById('sm-ov'); if (o) o.remove(); document.documentElement.classList.remove('sm-open'); }
+window.addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.mmt === 'stagemap-close') closeStageMap(); });
 
 // ── CUTS (dev mockup, Oct 30) ───────────────────────────────────────────────
 // Press ✂ Cut, tap where the cut starts, then where it ends (flip pages first
