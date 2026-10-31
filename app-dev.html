@@ -7655,7 +7655,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.31 v2 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.31 v3 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -11897,7 +11897,9 @@ function rpSet(listName, id) {
 // sooner), once per show. Only the TD's devices add them.
 let _pt = null;
 function ptAnchorDate(sh, item) {
-  const base = item.anchor === 'close' ? new Date(sh.end + 'T00:00:00') : item.anchor === 'tech' ? techStartDate(sh.start) : new Date(sh.start + 'T00:00:00');
+  // Tech: the show page's Tech date when it's set, else the usual estimate.
+  let tech = null; try { const t = hubRec(showSlug(sh.name)).tech; if (/^\d{4}-\d{2}-\d{2}$/.test(t || '')) tech = new Date(t + 'T00:00:00'); } catch (e) {}
+  const base = item.anchor === 'close' ? new Date(sh.end + 'T00:00:00') : item.anchor === 'tech' ? (tech || techStartDate(sh.start)) : new Date(sh.start + 'T00:00:00');
   const d = new Date(base); d.setDate(d.getDate() + (parseInt(item.offset, 10) || 0)); return rpIso(d);
 }
 function ptLoad(cb) {
@@ -12007,8 +12009,10 @@ function strikePaint(sh, pieces) {
   const ls = (lists || []).filter(l => !tvIsShoppingList(l.name));
   let pick = ''; try { pick = localStorage.getItem('mmt_strike_list') || ''; } catch (e) {}
   if (!ls.some(l => l.name === pick)) pick = (ls.find(l => /build/i.test(l.name)) || ls[0] || {}).name || '';
+  // The show page's Strike date when it's set; otherwise the day after closing.
   const d = new Date(sh.end + 'T00:00:00'); d.setDate(d.getDate() + 1);
-  const due = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  let due = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  try { const st = hubRec(showSlug(sh.name)).strike; if (/^\d{4}-\d{2}-\d{2}$/.test(st || '')) due = st; } catch (e) {}
   if (!pieces.length) { body.innerHTML = '<p class="strike-note">No pieces in this show\'s set changes yet.</p><div class="strike-btns"><button type="button" onclick="strikeClose()">Close</button></div>'; return; }
   body.innerHTML = `<p class="strike-note">${pieces.length} piece${pieces.length === 1 ? '' : 's'} from the set changes. Untick any that don't need their own to-do.</p>
     <div class="strike-list">${pieces.map((p, i) => `<label><input type="checkbox" checked data-p="${esc(p)}"> Strike ${esc(p)}</label>`).join('')}</div>
