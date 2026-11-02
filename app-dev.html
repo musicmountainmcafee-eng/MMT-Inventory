@@ -7656,7 +7656,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.31 v4 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.02 v1 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -19646,6 +19646,18 @@ drawCanvas.addEventListener('pointerdown', e => {
   // In cue mode we still allow dragging, decided on pointermove/up.
   const anns = annotations[currentPage] || [];
 
+  // First of all: a corner handle of the selected cue's box resizes it.
+  { const h = cueHandleAt(pos, e.pointerType === 'touch');
+    if (h) {
+      draggingCue = h.i; dragMode = 'resize'; dragMoved = false;
+      dragStartPos = { x: pos.x, y: pos.y };
+      const r = anns[h.i].rect;
+      // The corner opposite the one grabbed stays put.
+      dragOffset = { ax: h.cx ? r.x : r.x + r.w, ay: h.cy ? r.y : r.y + r.h };
+      drawCanvas.setPointerCapture(e.pointerId);
+      return;
+    } }
+
   // First: did we grab a LABEL?
   for (let i = anns.length - 1; i >= 0; i--) {
     const a = anns[i];
@@ -19748,6 +19760,12 @@ drawCanvas.addEventListener('pointermove', e => {
       if (dragMode === 'label') {
         a.labelX = pos.x - dragOffset.x;
         a.labelY = pos.y - dragOffset.y;
+      } else if (dragMode === 'resize' && a.rect) {
+        // The box between the fixed corner and the finger, never smaller than a line.
+        const x1 = Math.min(dragOffset.ax, pos.x), x2 = Math.max(dragOffset.ax, pos.x);
+        const y1 = Math.min(dragOffset.ay, pos.y), y2 = Math.max(dragOffset.ay, pos.y);
+        a.rect.x = Math.round(x1); a.rect.y = Math.round(y1); a.rect.w = Math.round(Math.max(16, x2 - x1)); a.rect.h = Math.round(Math.max(10, y2 - y1));
+        if (!a.spot && a.labelY !== undefined) a.labelY = a.rect.y + a.rect.h;   // the label line follows the box's bottom edge
       } else if (dragMode === 'marker') {
         // Move the marker shape; label stays put so the line restretches to follow.
         if (a.rect) { a.rect.x = pos.x - dragOffset.x; a.rect.y = pos.y - dragOffset.y; }
@@ -19834,7 +19852,7 @@ drawCanvas.addEventListener('pointerup', e => {
       // It was a click, not a drag → select it (for the Delete key)
       selectCue(a.cueId);
     }
-    const wasMoved = dragMoved && dragMode === 'marker';
+    const wasMoved = dragMoved && (dragMode === 'marker' || dragMode === 'resize');
     // An approximate cue (added from the cue sheet) is placed once it's moved.
     if (wasMoved && a && a.approx) placeApprox(a, true);
     draggingCue = null;
@@ -20509,6 +20527,7 @@ function redrawAnnotations() {
   try { cutDraw(ctx); } catch (e) { console.warn('cuts', e); }
   anns.forEach(a => (bare && a && a.type === 'cue') ? runDrawBox(ctx, a) : drawAnnotation(ctx, a));
   try { cutFlagCues(ctx, anns); } catch (e) {}
+  try { if (!seRunning()) cueHandlesDraw(ctx, anns); } catch (e) {}
   if (seRunning()) runSync();
 }
 
@@ -20730,6 +20749,34 @@ function cutCuesIn(c) {
   cont.addEventListener('pointermove', e => { if (_cut && down) e.stopPropagation(); }, true);
 })();
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && (_cut || document.getElementById('cut-pop'))) { cutPopClose(); if (_cut) cutCancel(); } });
+
+
+// ── RESIZING A CUE'S BOX ── the selected cue shows a handle on each corner;
+// drag one to make the box bigger or smaller (the opposite corner stays put).
+// On a touchscreen that's in Mark mode, like moving a cue.
+function cueSelAnn() {
+  if (!selectedCueId) return -1;
+  return (annotations[currentPage] || []).findIndex(a => a && a.type === 'cue' && a.cueId === selectedCueId && a.rect);
+}
+function cueHandlesDraw(ctx, anns) {
+  const i = cueSelAnn(); if (i < 0) return;
+  const r = anns[i].rect, R = seIsTouch() ? 8 : 6;
+  ctx.save();
+  [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.h], [r.x + r.w, r.y + r.h]].forEach(([x, y]) => {
+    ctx.beginPath(); ctx.rect(x - R, y - R, R * 2, R * 2);
+    ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#2563eb'; ctx.stroke();
+  });
+  ctx.restore();
+}
+function cueHandleAt(pos, touch) {
+  const i = cueSelAnn(); if (i < 0) return null;
+  const r = (annotations[currentPage] || [])[i].rect, T = touch ? 26 : 12;
+  for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+    const x = r.x + r.w * cx, y = r.y + r.h * cy;
+    if (Math.abs(pos.x - x) <= T && Math.abs(pos.y - y) <= T) return { i, cx, cy };
+  }
+  return null;
+}
 
 // Takes back this device's last stroke on the page, never someone else's.
 function undo() {
