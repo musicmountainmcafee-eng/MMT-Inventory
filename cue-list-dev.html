@@ -1065,6 +1065,15 @@
   .pr-map-btn { flex: none; margin: 8px 10px 8px 0; border: 1px solid var(--grid); background: var(--paper); color: var(--ink, var(--text)); border-radius: 999px; padding: 0 14px; font: 600 13px 'DM Sans', system-ui, sans-serif; cursor: pointer; min-height: 32px; }
   .pr-map-btn:hover { border-color: var(--purple); }
   .map-btn { margin-left: 4px; }
+  /* Small stage map at the right of a set change's first row. */
+  .sm-thumb { float: right; display: block; width: 150px; margin: 0 0 6px 10px; padding: 0; border: 1px solid var(--grid); border-radius: 8px; background: #fff; overflow: hidden; cursor: pointer; line-height: 0; }
+  .sm-thumb:hover { border-color: var(--purple); }
+  .sm-thumb svg { display: block; width: 100%; height: auto; max-height: 110px; }
+  .sm-thumb .smt-stage { fill: #f4f4f5; stroke: #d4d4d8; stroke-width: 2; vector-effect: non-scaling-stroke; }
+  .sm-thumb .smt-pc > * { fill: #fff; stroke: #a1a1aa; stroke-width: 1; vector-effect: non-scaling-stroke; opacity: .7; }
+  .sm-thumb .smt-mv > * { fill: #18181b; stroke: #18181b; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  @media (max-width: 700px) { .sm-thumb { width: 96px; } }
+  @media print { .sm-thumb { width: 1.5in; break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   @media print { .pr-map-btn, .map-btn { display: none !important; } }
 
   .pr-chk-btn.on { background: var(--ink, #111); color: var(--paper, #fff); border-color: var(--ink, #111); }
@@ -2311,12 +2320,67 @@ function openStageMap(step, sid, name){
   document.querySelectorAll('#vw-switch button').forEach(b => { const on = b.classList.contains('vw-map'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
 }
 function closeStageMap(quiet){
-  const o = document.getElementById('sm-ov'); if (o) o.remove();
+  const o = document.getElementById('sm-ov'); if (o) { o.remove(); _smSid = null; }
   document.documentElement.classList.remove('sm-open');
   if (!quiet) { document.querySelectorAll('#vw-switch button').forEach(b => { const on = b.classList.contains('ic-list'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); }
 }
 window.addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.mmt === 'stagemap-close') closeStageMap(); });
 addEventListener('resize', () => { const o = document.getElementById('sm-ov'), bar = (typeof CL_EMBED !== 'undefined' && CL_EMBED ? null : document.querySelector('header')); if (o && bar && o.classList.contains('in-bar')) o.style.top = Math.round(bar.getBoundingClientRect().bottom) + 'px'; });
+
+// ── Small stage maps on the sheet ── each set change's first row carries a
+// little picture of the stage after that change (from stage-map.html's saved
+// map): the pieces it moves dark, everything else faint, the ground plan
+// faintly behind. Tap it for the full map at that change. It prints too.
+let _sm = null, _smPlan = null, _smSid = null, _smBusy = false;
+function smFetch(){
+  if (!scriptId || _smBusy) return;
+  const sid = scriptId; _smBusy = true; _smSid = sid;
+  let left = 2; const done = () => { if (--left) return; _smBusy = false; if (sid === scriptId) render(); };
+  jsonp(SCRIPT_URL + '?action=getKV&key=stageplan&_=' + Date.now(), d => { if (d && d.value && d.value.img) _smPlan = d.value; done(); }, done);
+  jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent('stagemap_' + sid) + '&_=' + Date.now(), d => {
+    const v = d && d.value && typeof d.value === 'object' ? d.value : null;
+    _sm = v ? { plan: v.plan || null, pieces: v.pieces || {}, maps: v.maps || {} } : null; done();
+  }, done);
+}
+function smThumbHTML(c){
+  if (scriptId && _smSid !== scriptId) setTimeout(smFetch, 0);
+  if (!_sm || !c || c.type !== 'shift') return '';
+  const order = ['presets'].concat(cuesInScriptOrder().filter(x => x.type === 'shift').map(x => x.id));
+  const i = order.indexOf(c.id); if (i < 0) return '';
+  const plan = (_sm.plan && _sm.plan.img) ? _sm.plan : _smPlan, k = (plan && plan.ppf) || 20;
+  const keys = new Set();
+  cues.forEach(x => { if (x.type === 'shift') (x.moves || []).forEach(m => { const v = String(m.piece || '').trim().toLowerCase(); if (v) keys.add(v); }); });
+  Object.keys(_sm.pieces).forEach(key => { if (_sm.pieces[key] && !_sm.pieces[key].gone) keys.add(key); });
+  const moving = new Set((c.moves || []).map(m => String(m.piece || '').trim().toLowerCase()).filter(Boolean));
+  const posAt = key => { for (let j = i; j >= 0; j--) { const m = _sm.maps[order[j]]; if (m && key in m) return m[key] || null; } return null; };
+  let faint = '', dark = '', x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  keys.forEach(key => {
+    const def = _sm.pieces[key] || {}; if (def.hidden) return;
+    const at = posAt(key); if (!at) return;
+    const parts = Array.isArray(def.parts) && def.parts.length ? def.parts : [{ dx: 0, dy: 0, w: def.w || 4, d: def.d || 2, shape: def.shape || 'rect' }];
+    const mv = moving.has(key);
+    let body = '';
+    parts.forEach(pt => {
+      const w = pt.w * k, dd = pt.d * k, cx = (pt.dx || 0) * k, cy = (pt.dy || 0) * k;
+      body += pt.shape === 'round' ? `<ellipse cx="${cx}" cy="${cy}" rx="${w / 2}" ry="${dd / 2}"/>` : `<rect x="${cx - w / 2}" y="${cy - dd / 2}" width="${w}" height="${dd}"/>`;
+      const R = Math.hypot(Math.abs(cx) + w / 2, Math.abs(cy) + dd / 2);
+      x0 = Math.min(x0, at.x * k - R); x1 = Math.max(x1, at.x * k + R); y0 = Math.min(y0, at.y * k - R); y1 = Math.max(y1, at.y * k + R);
+    });
+    const g = `<g class="${mv ? 'smt-mv' : 'smt-pc'}" transform="translate(${(at.x * k).toFixed(1)} ${(at.y * k).toFixed(1)}) rotate(${at.r || 0})"><title>${esc(def.name || key)}</title>${body}</g>`;
+    if (mv) dark += g; else faint += g;
+  });
+  if (!faint && !dark) return '';
+  let vb, bg = '';
+  if (plan && plan.img) {
+    vb = `0 0 ${plan.img.w} ${plan.img.h}`;
+    const url = plan.img.id && !/^data:/.test(plan.img.url || '') ? 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(plan.img.id) + '&sz=w800' : plan.img.url;
+    bg = `<image href="${esc(url)}" x="0" y="0" width="${plan.img.w}" height="${plan.img.h}" preserveAspectRatio="none" opacity=".35"/>`;
+  } else {
+    const pad = 3 * k; vb = `${(x0 - pad).toFixed(0)} ${(y0 - pad).toFixed(0)} ${(x1 - x0 + 2 * pad).toFixed(0)} ${(y1 - y0 + 2 * pad).toFixed(0)}`;
+    bg = `<rect x="${(x0 - pad).toFixed(0)}" y="${(y0 - pad).toFixed(0)}" width="${(x1 - x0 + 2 * pad).toFixed(0)}" height="${(y1 - y0 + 2 * pad).toFixed(0)}" class="smt-stage"/>`;
+  }
+  return `<button type="button" class="sm-thumb" onclick="event.stopPropagation(); openStageMap('${esc(c.id)}')" title="Stage map after this change" aria-label="Stage map after this change"><svg viewBox="${vb}" preserveAspectRatio="xMidYMid meet">${bg}${faint}${dark}</svg></button>`;
+}
 
 function prSectionHTML(){
   if (scriptId && _prChkSid !== scriptId && !prChkFetch._busy) { prChkFetch._busy = true; setTimeout(() => { prChkFetch._busy = false; prChkFetch(); }, 0); }
@@ -2765,6 +2829,7 @@ function plRow(c, band, mode){
   // types keep their coloured chip and number so they can't be mistaken for one.
   const approx = isApprox(c) ? `<span class="approx-tag" title="Placed from the cue sheet. Drag its marker onto the line in the Scripts tab.">approx.</span>` : '';
   const jumpBtn = `<button type="button" class="jump-btn" aria-label="Show in script" title="Show in script" onclick="event.stopPropagation(); jumpToScript('${esc(c.id)}')"><span class="jb-l">Script </span>›</button>`;
+  const thumb = isShift ? smThumbHTML(c) : '';
   const mapBtn = isShift ? `<button type="button" class="jump-btn map-btn" aria-label="Stage map after this change" title="Stage map after this change" onclick="event.stopPropagation(); openStageMap('${esc(c.id)}')">Map</button>` : '';
   const chip = (isShift ? `<span class="pl-num">#${esc(changeShortNum(shortNumber(c, t.name)))}</span>` : `<span class="pl-num"><span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>${esc(shortNumber(c, t.name))}</span>`) + approx;
   // Every move row repeats the change's number, cue line and page, so each
@@ -2790,7 +2855,7 @@ function plRow(c, band, mode){
       <td class="cs-line" data-f="cueLine">${r.cue}</td>
       <td data-f="piece">${r.piece}${(r.action || r.wing) ? `<span class="pl-actsub" data-f="action">${[r.action, r.wing].filter(Boolean).join(' · ')}</span>` : ''}</td>
       <td class="pl-who" data-f="who">${r.who}</td>
-      <td class="pl-notes" data-f="notes">${r.spike ? `<span data-f="spike">${r.spike}</span>` : ''}${r.notes}</td>`;
+      <td class="pl-notes" data-f="notes">${r.thumb || ''}${r.spike ? `<span data-f="spike">${r.spike}</span>` : ''}${r.notes}</td>`;
     return `
       <td class="pl-numc">${r.num || ''}</td>
       <td class="cs-line" data-f="cueLine">${r.cue}</td>
@@ -2799,19 +2864,19 @@ function plRow(c, band, mode){
                : `<td data-f="piece">${r.piece}</td><td class="pl-act" data-f="action">${r.action}</td><td class="pl-wing" data-f="wing">${r.wing || ''}</td>`}
       <td class="pl-who" data-f="who">${r.who}</td>
       <td data-f="spike">${r.spike}</td>
-      <td class="pl-notes" data-f="notes">${r.notes}</td>`;
+      <td class="pl-notes" data-f="notes">${r.thumb || ''}${r.notes}</td>`;
   };
   const pg = c.page ? 'pg. ' + esc(c.page) : '';
 
   // Not a set change, or one with nothing entered yet: a single row.
   if (!moves.length){
-    return tr('pl-top') + cells({ num: chip + jumpBtn + mapBtn, cue: cueCell, pg, span: true,
+    return tr('pl-top') + cells({ num: chip + jumpBtn + mapBtn, thumb, cue: cueCell, pg, span: true,
       piece: esc(c.action || ''), action: '', who: '', spike: '', notes: esc(notes) }) + '</tr>';
   }
 
   const tap = ` onclick="toggle('${esc(c.id)}')"`;
   if (!open){
-    return tr('pl-top pl-tap', tap) + cells({ num: chip + jumpBtn + mapBtn, cue: cueCell, pg, span: true,
+    return tr('pl-top pl-tap', tap) + cells({ num: chip + jumpBtn + mapBtn, thumb, cue: cueCell, pg, span: true,
       piece: `<span class="pl-piece">${esc(c.action || 'Set change')}</span><br><span class="pl-moves">${moves.length} move${moves.length !== 1 ? 's' : ''} ▾</span>`,
       action: '', who: '', spike: '', notes: esc(notes) }) + '</tr>';
   }
@@ -2825,7 +2890,7 @@ function plRow(c, band, mode){
       if (moveSheet && moveSheet.cueId === String(c.id) && moveSheet.idx === i) cls.push('mv-sel');
       const blank = !m.piece && !m.action && !m.who && !m.spike && !(m.spikeIds || []).length && !m.notes;
       return tr(cls.filter(Boolean).join(' '), ` data-mv="${esc(m.id || '')}" onclick="openMoveAt(event, '${esc(c.id)}', ${i})"`) + cells({
-        num: (first ? chip + jumpBtn + mapBtn : chip) + `<button type="button" class="row-more" aria-label="More for this move" onclick="openRowMenu(event, '${esc(c.id)}', ${i})">⋯</button>`, cue: first ? cueCell : cueRest, pg,
+        thumb: first ? thumb : '', num: (first ? chip + jumpBtn + mapBtn : chip) + `<button type="button" class="row-more" aria-label="More for this move" onclick="openRowMenu(event, '${esc(c.id)}', ${i})">⋯</button>`, cue: first ? cueCell : cueRest, pg,
         piece: blank ? '<span class="mv-empty">Tap to add a move</span>'
           : `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
         action: esc(m.action || ''), wing: esc(wingText(m)), who: esc(m.who || ''), spike: plSpikeHTML(m),
@@ -2841,7 +2906,7 @@ function plRow(c, band, mode){
     const cls = [first ? 'pl-top' : '', 'pl-tap'];
     if (activeWho && !onMove(m, activeWho)) cls.push('pl-dim');
     return tr(cls.filter(Boolean).join(' '), tap + ` data-mv="${esc(m.id || '')}"`) + cells({
-      num: first ? chip + jumpBtn + mapBtn : chip, cue: first ? cueCell : cueRest, pg,
+      thumb: first ? thumb : '', num: first ? chip + jumpBtn + mapBtn : chip, cue: first ? cueCell : cueRest, pg,
       piece: `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
       action: esc(m.action || ''), wing: esc(wingText(m)), who: esc(m.who || ''), spike: plSpikeHTML(m),
       notes: (first && notes ? `<span class="pl-cuenote">${esc(notes)}</span>` : '') + esc(m.notes || '')
@@ -7942,6 +8007,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.03 v2 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.03 v3 dev</div>
 </body>
 </html>
