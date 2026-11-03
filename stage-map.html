@@ -97,7 +97,9 @@ try {
   .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--text-muted); }
   .field input, .field select { font-size: 15px; padding: 8px 10px; border: 1px solid var(--border-2); border-radius: 9px; background: var(--surface-2); color: var(--text); min-width: 0; }
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
+  .two > * { min-width: 0; }
+  .field input { width: 100%; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip { border: 1px solid var(--border-2); background: var(--surface-2); border-radius: 999px; padding: 6px 11px; font-size: 13px; font-weight: 600; }
   .chip small { font-weight: 500; color: var(--text-muted); margin-left: 4px; }
@@ -128,6 +130,16 @@ try {
     .step { margin-left: 0; width: 100%; }
     .step select { flex: 1; max-width: none; }
   }
+  .prow-wrap { display: flex; align-items: stretch; gap: 6px; }
+  .prow-wrap .prow { flex: 1; min-width: 0; }
+  .prow[disabled] { opacity: .6; cursor: default; }
+  .vis { display: flex; align-items: center; justify-content: center; width: 40px; flex: none; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+  .vis input { width: 18px; height: 18px; cursor: pointer; }
+  .hid-grp summary { color: var(--text-muted); font-size: 13px; }
+  .part-row { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; border-top: 1px solid var(--border); }
+  .part-n { font-size: 12px; font-weight: 700; color: var(--text-muted); }
+  .part-del { align-self: flex-start; padding: 4px 10px; min-height: 30px; font-size: 12px; }
+  .pc.parts [data-part] { cursor: move; stroke-dasharray: 6 4; }
   #build-tag { position: fixed; bottom: 4px; right: 8px; font-size: 11px; color: #999; z-index: 999; pointer-events: none; background: white; padding: 2px 6px; border-radius: 4px; }
 </style>
 </head>
@@ -155,7 +167,7 @@ try {
   </div>
 </div>
 <div class="toast" id="toast"></div>
-<div id="build-tag">10.31 v1</div>
+<div id="build-tag">11.03 v1</div>
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
@@ -250,6 +262,15 @@ function pieceList() {
   Object.keys(sm.pieces).forEach(k => { if (!seen.has(k) && sm.pieces[k] && !sm.pieces[k].gone) out.push({ key: k, name: sm.pieces[k].name, fromSheet: false, def: sm.pieces[k] }); });
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
+// A piece can be several shapes with one name (a unit that's two platforms
+// and a step): def.parts = [{ dx, dy, w, d, shape }], dx/dy in feet from the
+// piece's middle. One-part pieces keep the older w / d / shape.
+function partsOf(def) {
+  def = def || {};
+  if (Array.isArray(def.parts) && def.parts.length) return def.parts;
+  return [{ dx: 0, dy: 0, w: def.w || 4, d: def.d || 2, shape: def.shape || 'rect' }];
+}
+function isHidden(pc) { return !!(pc.def && pc.def.hidden); }
 function activePlan() { return (sm.plan && sm.plan.img) ? sm.plan : plan; }
 // Where a piece sits at a step: the latest map at or before it that places it.
 function posAt(key, i) {
@@ -324,14 +345,20 @@ function draw() {
   }
   const st = steps[stepIdx] || steps[0], moving = new Set(st.moves);
   pieceList().forEach(pc => {
+    if (isHidden(pc)) return;
     const at = posAt(pc.key, stepIdx); if (!at) return;
-    const d = pc.def || { w: 4, d: 2 }, w = d.w * k, dd = d.d * k, fs = Math.max(9, Math.min(w / Math.max(4, pc.name.length) * 1.5, dd * 0.55, 1.1 * k));
-    const cls = ['pc', moving.has(pc.key) ? 'moved' : '', at.own || stepIdx === 0 ? '' : 'inherit', sel === pc.key ? 'sel' : ''].join(' ');
+    const cls = ['pc', moving.has(pc.key) ? 'moved' : '', at.own || stepIdx === 0 ? '' : 'inherit', sel === pc.key ? 'sel' : '', sel === pc.key && _partEdit ? 'parts' : ''].join(' ');
     const sw = sel === pc.key ? 4 : moving.has(pc.key) ? 3.5 : 2;
-    const body = d.shape === 'round' ? `<ellipse class="body" cx="0" cy="0" rx="${w / 2}" ry="${dd / 2}" stroke-width="${sw}" vector-effect="non-scaling-stroke"/>`
-      : `<rect class="body" x="${-w / 2}" y="${-dd / 2}" width="${w}" height="${dd}" rx="${Math.min(4, dd / 4)}" stroke-width="${sw}" vector-effect="non-scaling-stroke"/>`;
-    h += `<g class="${cls}" data-key="${esc(pc.key)}" transform="translate(${at.x * k} ${at.y * k}) rotate(${at.r || 0})">${body}
-      <text x="0" y="0" text-anchor="middle" dominant-baseline="central" font-size="${fs.toFixed(1)}"${dd < fs * 1.2 ? ` transform="translate(0 ${-(dd / 2 + fs * .8)})"` : ''}>${esc(pc.name)}</text></g>`;
+    const parts = partsOf(pc.def);
+    let body = '';
+    parts.forEach((pt, i) => {
+      const w = pt.w * k, dd = pt.d * k, cx = (pt.dx || 0) * k, cy = (pt.dy || 0) * k;
+      const fs = Math.max(9, Math.min(w / Math.max(4, pc.name.length) * 1.5, dd * 0.55, 1.1 * k));
+      body += (pt.shape === 'round' ? `<ellipse class="body" data-part="${i}" cx="${cx}" cy="${cy}" rx="${w / 2}" ry="${dd / 2}" stroke-width="${sw}" vector-effect="non-scaling-stroke"/>`
+        : `<rect class="body" data-part="${i}" x="${cx - w / 2}" y="${cy - dd / 2}" width="${w}" height="${dd}" rx="${Math.min(4, dd / 4)}" stroke-width="${sw}" vector-effect="non-scaling-stroke"/>`)
+        + `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-size="${fs.toFixed(1)}"${dd < fs * 1.2 ? ` transform="translate(0 ${-(dd / 2 + fs * .8)})"` : ''}>${esc(pc.name)}${parts.length > 1 && sel === pc.key && _partEdit ? ' ' + (i + 1) : ''}</text>`;
+    });
+    h += `<g class="${cls}" data-key="${esc(pc.key)}" transform="translate(${at.x * k} ${at.y * k}) rotate(${at.r || 0})">${body}</g>`;
   });
   if (mode === 'scale2' && scaleA) h += `<circle cx="${scaleA.x}" cy="${scaleA.y}" r="8" fill="#2563eb" vector-effect="non-scaling-stroke"/>`;
   if (mode === 'scaleN' && scaleA && scaleA.b) h += `<line x1="${scaleA.x}" y1="${scaleA.y}" x2="${scaleA.b.x}" y2="${scaleA.b.y}" stroke="#2563eb" stroke-width="4" vector-effect="non-scaling-stroke"/><circle cx="${scaleA.x}" cy="${scaleA.y}" r="7" fill="#2563eb"/><circle cx="${scaleA.b.x}" cy="${scaleA.b.y}" r="7" fill="#2563eb"/>`;
@@ -360,8 +387,12 @@ function renderSide() {
       const d = pc.def || {}, at = posAt(pc.key, stepIdx);
       h += `<section><h2>Selected</h2>
         <div class="field">Name<input id="f-name" value="${esc(pc.name)}" ${pc.fromSheet || !ed ? 'disabled' : ''} onchange="setName(this.value)" title="${pc.fromSheet ? 'Named on the cue sheet' : ''}"></div>
-        <div class="two"><div class="field">Width (left–right)<input id="f-w" value="${d.w ? fmtFt(d.w) : ''}" placeholder="e.g. 8'" ${ed ? '' : 'disabled'} onchange="setSize('w', this.value)"></div>
-        <div class="field">Depth (up–down)<input id="f-d" value="${d.d ? fmtFt(d.d) : ''}" placeholder="e.g. 4'" ${ed ? '' : 'disabled'} onchange="setSize('d', this.value)"></div></div>
+        ${partsOf(d).map((pt, i, all) => `<div class="part-row">${all.length > 1 ? `<span class="part-n">Part ${i + 1}</span>` : ''}
+          <div class="two"><div class="field">Width (left–right)<input id="f-w${i ? i : ''}" value="${(i || d.w || d.parts) ? fmtFt(pt.w) : ''}" placeholder="e.g. 8'" ${ed ? '' : 'disabled'} onchange="setPart(${i}, 'w', this.value)"></div>
+          <div class="field">Depth (up–down)<input id="f-d${i ? i : ''}" value="${(i || d.d || d.parts) ? fmtFt(pt.d) : ''}" placeholder="e.g. 4'" ${ed ? '' : 'disabled'} onchange="setPart(${i}, 'd', this.value)"></div></div>
+          ${ed && all.length > 1 ? `<button class="tb warn part-del" onclick="delPart(${i})" aria-label="Remove part ${i + 1}">Remove part</button>` : ''}</div>`).join('')}
+        ${ed ? `<div class="row"><button class="tb" onclick="addPart()">+ Add a part</button>${partsOf(d).length > 1 ? `<button class="tb${_partEdit ? ' pri' : ''}" onclick="togglePartEdit()" aria-pressed="${_partEdit}">${_partEdit ? 'Done arranging' : 'Arrange parts'}</button>` : ''}</div>
+          ${_partEdit ? '<p class="note">Drag a part to move just that part. Done arranging to move the whole piece again.</p>' : ''}` : ''}
         ${ed ? `<div class="row"><button class="tb" onclick="rot(-15)" aria-label="Turn left 15 degrees">↺ 15°</button><button class="tb" onclick="rot(15)" aria-label="Turn right 15 degrees">↻ 15°</button><button class="tb" onclick="rot(90)">↻ 90°</button>
           <button class="tb" onclick="setShape('${d.shape === 'round' ? 'rect' : 'round'}')">${d.shape === 'round' ? 'Make square' : 'Make round'}</button></div>
         <div class="row">${at ? `<button class="tb warn" onclick="takeOff()">Off the map from here</button>` : `<button class="tb pri" onclick="placeHere('${esc(pc.key)}')">Put on this map</button>`}
@@ -371,10 +402,10 @@ function renderSide() {
     }
   }
   h += `<section><h2>${stepIdx === 0 ? 'Pieces' : 'Pieces · ' + esc(st.label)}</h2><div class="legend"><span><i></i>placed here</span><span><i class="mv"></i>moves in this change</span><span><i class="inh"></i>from an earlier map</span></div><div class="plist">` +
-    (list.length ? list.map(pc => {
-      const at = posAt(pc.key, stepIdx), mv = st.moves.includes(pc.key);
-      return `<button class="prow${sel === pc.key ? ' on' : ''}" onclick="pick('${esc(pc.key)}')"><b>${esc(pc.name)}</b>${mv ? '<span class="mv">MOVES</span>' : ''}<small>${pc.def && pc.def.w ? fmtFt(pc.def.w) + ' × ' + fmtFt(pc.def.d) : 'no size'}</small>${at ? '' : '<small class="off">not on map</small>'}</button>`;
-    }).join('') : '<p class="note">No pieces yet. Set changes on the cue sheet add them, or add one below.</p>') + `</div></section>`;
+    (list.filter(pc => !isHidden(pc)).length ? list.filter(pc => !isHidden(pc)).map(pc => prowHTML(pc, st, ed)).join('') : '<p class="note">No pieces yet. Set changes on the cue sheet add them, or add one below.</p>') + `</div>`;
+  const hid = list.filter(isHidden);
+  if (hid.length) h += `<details class="hid-grp"${lsGet('mmt_stagemap_hidopen', '0') === '1' ? ' open' : ''} ontoggle="lsSet('mmt_stagemap_hidopen', this.open ? '1' : '0')"><summary>Hidden (${hid.length})</summary><p class="note">Not drawn on any map for this show. Tick one to bring it back.</p><div class="plist">${hid.map(pc => prowHTML(pc, st, ed)).join('')}</div></details>`;
+  h += `</section>`;
   if (ed) {
     h += `<section><h2>Add a piece</h2>`;
     Object.keys(STOCK).forEach(g => { h += `<details><summary>${g}</summary><div class="chips">${STOCK[g].map((s, i) => `<button class="chip" onclick="addStock('${g}', ${i})">${esc(s[0])}<small>${fmtFt(s[1])}×${fmtFt(s[2])}</small></button>`).join('')}</div></details>`; });
@@ -389,6 +420,44 @@ function renderSide() {
       <label class="tb" style="display:inline-flex;align-items:center">Replace…<input type="file" accept="image/*,application/pdf" hidden onchange="uploadPlan(this.files[0], 'theatre'); this.value=''"></label></div>
       <div class="row">${sm.plan && sm.plan.img ? `<button class="tb" onclick="op({t:'showplan', v:null}); fit(); renderAll()">Use the MMT plan again</button>` : `<label class="tb" style="display:inline-flex;align-items:center">Use a plan just for this show…<input type="file" accept="image/*,application/pdf" hidden onchange="uploadPlan(this.files[0], 'show'); this.value=''"></label>`}</div>` : ''}</section>`;
   side.innerHTML = h;
+}
+function prowHTML(pc, st, ed) {
+  const at = posAt(pc.key, stepIdx), mv = st.moves.includes(pc.key), hidden = isHidden(pc), parts = partsOf(pc.def);
+  const size = pc.def && (pc.def.w || pc.def.parts) ? (parts.length > 1 ? parts.length + ' parts' : fmtFt(parts[0].w) + ' × ' + fmtFt(parts[0].d)) : 'no size';
+  return `<div class="prow-wrap${sel === pc.key ? ' on' : ''}">${ed ? `<label class="vis" title="${hidden ? 'Show on the map' : 'Hide from the map'}"><input type="checkbox"${hidden ? '' : ' checked'} onchange="setHidden('${esc(pc.key)}', !this.checked)" aria-label="${hidden ? 'Show' : 'Hide'} ${esc(pc.name)}"></label>` : ''}
+    <button class="prow${sel === pc.key ? ' on' : ''}" onclick="pick('${esc(pc.key)}')"${hidden ? ' disabled' : ''}><b>${esc(pc.name)}</b>${mv ? '<span class="mv">MOVES</span>' : ''}<small>${size}</small>${at || hidden ? '' : '<small class="off">not on map</small>'}</button></div>`;
+}
+function defOf(key) { const pc = pieceList().find(x => x.key === key); return Object.assign({ name: pc ? pc.name : key }, sm.pieces[key] || {}); }
+function setHidden(key, hide) {
+  const d = defOf(key); if (hide) d.hidden = true; else delete d.hidden;
+  if (hide && sel === key) { sel = null; _partEdit = false; }
+  op({ t: 'piece', key, v: d }); draw(); renderSide();
+  toast(hide ? d.name + ' hidden. It\'s under Hidden at the bottom.' : d.name + ' is back on the map');
+}
+let _partEdit = false;
+function togglePartEdit() { _partEdit = !_partEdit; draw(); renderSide(); }
+function savePartsDef(d, parts) {
+  d.parts = parts; d.w = parts[0].w; d.d = parts[0].d; d.shape = parts[0].shape || 'rect'; delete d.guess;
+  op({ t: 'piece', key: sel, v: d }); draw(); renderSide();
+}
+function setPart(i, dim, v) {
+  const n = parseFt(v); if (!(n > 0)) { toast("Type a size like 8' or 6'6\""); renderSide(); return; }
+  const d = defOf(sel), parts = clone(partsOf(d)); parts[i][dim] = +n.toFixed(3);
+  if (parts.length === 1) { d[dim] = parts[0][dim]; delete d.guess; if (!d.parts) { op({ t: 'piece', key: sel, v: d }); draw(); renderSide(); return; } }
+  savePartsDef(d, parts);
+}
+// A new part goes beside the last one; drag it into place with Arrange parts.
+function addPart() {
+  const d = defOf(sel), parts = clone(partsOf(d)), last = parts[parts.length - 1];
+  parts.push({ dx: +((last.dx || 0) + last.w / 2 + 2).toFixed(2), dy: last.dy || 0, w: 4, d: 4, shape: 'rect' });
+  _partEdit = true; savePartsDef(d, parts);
+  toast('Part added. Drag it into place, then set its size.');
+}
+function delPart(i) {
+  const d = defOf(sel), parts = clone(partsOf(d)); if (parts.length < 2) return;
+  parts.splice(i, 1);
+  if (parts.length === 1) { _partEdit = false; const p0 = parts[0]; delete d.parts; d.w = p0.w; d.d = p0.d; d.shape = p0.shape || 'rect'; op({ t: 'piece', key: sel, v: d }); draw(); renderSide(); return; }
+  savePartsDef(d, parts);
 }
 function renderAll() {
   document.getElementById('show-name').textContent = showName;
@@ -409,7 +478,7 @@ function renderAll() {
 function goStep(id) { const i = steps.findIndex(s => s.id === id); if (i >= 0) { stepIdx = i; renderAll(); } }
 function stepBy(d) { stepIdx = Math.max(0, Math.min(steps.length - 1, stepIdx + d)); renderAll(); }
 function pick(key) {
-  sel = sel === key ? null : key;
+  sel = sel === key ? null : key; _partEdit = false;
   if (sel && canEdit() && !posAt(sel, stepIdx)) placeHere(sel);
   draw(); renderSide();
 }
@@ -431,7 +500,7 @@ function setSize(dim, v) {
   const pc = pieceList().find(x => x.key === sel); const d = Object.assign({ name: pc.name, w: 4, d: 2 }, sm.pieces[sel] || {}); d[dim] = +n.toFixed(3); delete d.guess;
   op({ t: 'piece', key: sel, v: d }); draw(); renderSide();
 }
-function setShape(sh) { const d = Object.assign({}, sm.pieces[sel] || { name: sel, w: 4, d: 2 }); d.shape = sh; op({ t: 'piece', key: sel, v: d }); draw(); renderSide(); }
+function setShape(sh) { const d = Object.assign({}, sm.pieces[sel] || { name: sel, w: 4, d: 2 }); d.shape = sh; if (Array.isArray(d.parts) && d.parts.length) { d.parts = clone(d.parts); d.parts.forEach(p => { p.shape = sh; }); } op({ t: 'piece', key: sel, v: d }); draw(); renderSide(); }
 function setName(v) { v = String(v || '').trim(); if (!v) return; const d = Object.assign({}, sm.pieces[sel]); d.name = v; op({ t: 'piece', key: sel, v: d }); draw(); renderSide(); }
 function takeOff() { op({ t: 'pos', step: steps[stepIdx].id, key: sel, v: null }); draw(); renderSide(); toast('Off the map from here on'); }
 function delPiece() { const k = sel; sel = null; op({ t: 'drop', key: k }); op({ t: 'piece', key: k, v: null }); draw(); renderSide(); }
@@ -540,8 +609,16 @@ svg.addEventListener('pointerdown', e => {
   const p = pt(e);
   if (mode === 'scale1' || mode === 'scale2') { drag = { tap: true, sx: e.clientX, sy: e.clientY, p }; return; }
   const g = e.target.closest && e.target.closest('.pc');
+  const partEl = e.target.closest && e.target.closest('[data-part]');
+  if (g && canEdit() && _partEdit && sel === g.getAttribute('data-key') && partEl) {
+    const key = sel, at = posAt(key, stepIdx) || { x: 0, y: 0, r: 0 }, i = +partEl.getAttribute('data-part'), pt0 = partsOf(sm.pieces[key])[i];
+    const L = toLocal(p, at);
+    drag = { part: i, key, at, ox: L.x - (pt0.dx || 0), oy: L.y - (pt0.dy || 0), moved: false, sx: e.clientX, sy: e.clientY };
+    return;
+  }
   if (g && canEdit()) {
     const key = g.getAttribute('data-key'), at = posAt(key, stepIdx) || { x: 0, y: 0, r: 0 };
+    if (key !== sel) _partEdit = false;
     sel = key; drag = { key, ox: p.x - at.x * ppf(), oy: p.y - at.y * ppf(), r: at.r || 0, moved: false, sx: e.clientX, sy: e.clientY };
     draw(); renderSide(); return;
   }
@@ -558,6 +635,16 @@ svg.addEventListener('pointermove', e => {
   }
   if (!drag) return;
   if (drag.pan) { const r = svg.getBoundingClientRect(); vb.x = drag.vb.x - (e.clientX - drag.sx) / r.width * vb.w; vb.y = drag.vb.y - (e.clientY - drag.sy) / r.height * vb.h; setVB(); drag.moved = true; return; }
+  if (drag.part != null) {
+    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
+    drag.moved = true;
+    const L = toLocal(pt(e), drag.at), snap = v => Math.round(v * 4) / 4;
+    drag.ndx = snap(L.x - drag.ox); drag.ndy = snap(L.y - drag.oy);
+    const k = ppf(), el = svg.querySelector(`.pc[data-key="${CSS.escape(drag.key)}"] [data-part="${drag.part}"]`), pt0 = partsOf(sm.pieces[drag.key])[drag.part];
+    if (el && el.tagName === 'rect') { el.setAttribute('x', drag.ndx * k - pt0.w * k / 2); el.setAttribute('y', drag.ndy * k - pt0.d * k / 2); }
+    if (el && el.tagName === 'ellipse') { el.setAttribute('cx', drag.ndx * k); el.setAttribute('cy', drag.ndy * k); }
+    return;
+  }
   if (drag.key) {
     if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
     drag.moved = true;
@@ -577,6 +664,7 @@ function endPtr(e) {
     else if (mode === 'scale2') { scaleA.b = d.p; mode = 'scaleN'; banner(); draw(); }
     return;
   }
+  if (d.part != null) { if (d.moved && d.ndx != null) { const def = defOf(d.key), parts = clone(partsOf(def)); parts[d.part].dx = d.ndx; parts[d.part].dy = d.ndy; savePartsDef(def, parts); } return; }
   if (d.key && d.moved && d.nx != null) { setPos({ x: d.nx, y: d.ny, r: d.r }); draw(); renderSide(); }
   if (d.pan && !d.moved && sel) { sel = null; draw(); renderSide(); }
 }
@@ -594,6 +682,11 @@ document.addEventListener('keydown', e => {
 });
 window.addEventListener('resize', () => { const c = { x: vb.x + vb.w / 2, y: vb.y + vb.h / 2 }, r = svg.getBoundingClientRect(); vb.h = vb.w * r.height / (r.width || 1); vb.x = c.x - vb.w / 2; vb.y = c.y - vb.h / 2; setVB(); });
 
+// A point on the plan (svg px) in a piece's own feet, undoing its spot and turn.
+function toLocal(p, at) {
+  const k = ppf(), dx = p.x / k - at.x, dy = p.y / k - at.y, a = -(at.r || 0) * Math.PI / 180;
+  return { x: dx * Math.cos(a) - dy * Math.sin(a), y: dx * Math.sin(a) + dy * Math.cos(a) };
+}
 function closeMap() {
   if (EMBED) { try { window.parent.postMessage({ mmt: 'stagemap-close' }, location.origin); } catch (e) {} return; }
   if (history.length > 1) history.back(); else location.href = 'cue-list.html';
