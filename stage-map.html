@@ -156,9 +156,13 @@ try {
   .pgrp-t { display: inline-flex; gap: 6px; align-items: center; } .pgrp-t i { font-style: normal; width: 10px; }
   .pop { position: absolute; top: 12px; right: 12px; z-index: 7; width: 300px; max-width: calc(100% - 24px); max-height: calc(100% - 24px); overflow-y: auto; background: var(--surface); color: var(--text);
     border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.25); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-  .pop-h { display: flex; align-items: center; gap: 8px; } .pop-h b { flex: 1; min-width: 0; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pop-h { display: flex; align-items: center; gap: 8px; cursor: move; touch-action: none; user-select: none; -webkit-user-select: none; margin: -4px -4px 0; padding: 4px; border-radius: 10px; }
+  .pop-h:hover { background: var(--sel-soft); }
+  .pop-grip { color: var(--text-muted); font-size: 16px; line-height: 1; letter-spacing: -2px; }
+  .pop.moved { right: auto; }
+  .pop.dragging { box-shadow: 0 18px 44px rgba(0,0,0,.28); opacity: .96; } .pop-h b { flex: 1; min-width: 0; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pop .part-row { padding: 6px 0; } .pop .part-n { display: flex; align-items: center; justify-content: space-between; }
-  @media (max-width: 760px) { .pop { left: 12px; right: 12px; width: auto; } }
+  @media (max-width: 760px) { .pop:not(.moved) { left: 12px; right: 12px; width: auto; } }
   html.inbar header { background: #1c1c20; padding-top: 6px; padding-bottom: 6px; }
   html.inbar #close-btn, html.inbar header h1, html.inbar header .show { display: none; }
   html.inbar .step { margin-left: 0; }
@@ -190,7 +194,7 @@ try {
   </div>
 </div>
 <div class="toast" id="toast"></div>
-<div id="build-tag">11.03 v8</div>
+<div id="build-tag">11.03 v9</div>
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
@@ -470,7 +474,7 @@ function renderPop() {
   if (!el) { el = document.createElement('div'); el.id = 'pop'; el.className = 'pop'; el.setAttribute('role', 'dialog'); document.getElementById('stage').appendChild(el); }
   el.setAttribute('aria-label', 'Edit ' + pc.name);
   const sized = !!(d.w || d.parts) && !d.guess;
-  el.innerHTML = `<div class="pop-h"><b>${esc(pc.name)}</b><button class="tb" onclick="closePop(true)" aria-label="Close">Done</button></div>
+  el.innerHTML = `<div class="pop-h" title="Drag to move this box"><span class="pop-grip" aria-hidden="true">⠿</span><b>${esc(pc.name)}</b><button class="tb" onclick="closePop(true)" aria-label="Close">Done</button></div>
     ${!pc.fromSheet && ed ? `<div class="field">Name<input id="pop-name" value="${esc(pc.name)}"></div>` : ''}
     ${parts.map((pt, i) => `<div class="part-row">${multi ? `<span class="part-n">Part ${i + 1}${ed ? ` <button class="tb warn part-del" onclick="popCommit();delPart(${i})">Remove</button>` : ''}</span>` : ''}
       <div class="two"><div class="field">Width (left–right)<input id="pop-w${i}" class="pop-in" inputmode="decimal" value="${sized || i ? fmtFt(pt.w) : ''}" placeholder="e.g. 8'" ${ed ? '' : 'disabled'}></div>
@@ -481,9 +485,40 @@ function renderPop() {
       <div class="row">${at ? `<button class="tb warn" onclick="takeOff()">Off the map from here</button>` : `<button class="tb pri" onclick="placeHere('${esc(pc.key)}')">Put on this map</button>`}
         <button class="tb" onclick="setHidden('${esc(pc.key)}', true)">Hide</button>${!pc.fromSheet ? `<button class="tb warn" onclick="delPiece()">Delete</button>` : ''}</div>` : ''}
     <p class="note">${_partEdit ? 'Drag a part to move just that part.' : at ? (at.own || stepIdx === 0 ? 'Placed on this map. Drag it on the map to move it.' : 'Where it was left on an earlier map. Drag it to move it here.') : 'Not on this map.'} ${ed ? 'Enter saves and closes.' : ''}</p>`;
+  popPlace(el); popDragHook(el);
   el.querySelectorAll('input').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); closePop(true); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closePop(false); } }));
   if (!el.contains(document.activeElement)) { const w = document.getElementById('pop-w0'); if (w && !w.disabled) setTimeout(() => { w.focus(); w.select(); }, 0); }
 }
+// The pop-up floats: drag it by its title bar to anywhere on the map. Where
+// you leave it is remembered on this device, so it opens there next time.
+function popPlace(el) {
+  let v = null; try { v = JSON.parse(lsGet('mmt_stagemap_poppos', 'null')); } catch (e) {}
+  if (!v) { el.classList.remove('moved'); el.style.left = el.style.top = ''; return; }
+  const st = document.getElementById('stage'), W = st.clientWidth, H = st.clientHeight;
+  const w = el.offsetWidth || 300, h = Math.min(el.offsetHeight || 200, H);
+  el.classList.add('moved');
+  el.style.left = Math.max(0, Math.min(W - w, v.x)) + 'px'; el.style.top = Math.max(0, Math.min(H - Math.min(h, 60), v.y)) + 'px';
+}
+function popDragHook(el) {
+  const h = el.querySelector('.pop-h'); if (!h || h._hooked) return; h._hooked = true;
+  h.addEventListener('pointerdown', e => {
+    if (e.target.closest('button, input')) return;
+    e.preventDefault(); h.setPointerCapture(e.pointerId);
+    const st = document.getElementById('stage').getBoundingClientRect(), r = el.getBoundingClientRect();
+    const ox = e.clientX - r.left, oy = e.clientY - r.top;
+    el.classList.add('moved', 'dragging');
+    const move = ev => {
+      const x = Math.max(0, Math.min(st.width - r.width, ev.clientX - st.left - ox)), y = Math.max(0, Math.min(st.height - 60, ev.clientY - st.top - oy));
+      el.style.left = x + 'px'; el.style.top = y + 'px';
+    };
+    const up = () => { h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up); el.classList.remove('dragging');
+      lsSet('mmt_stagemap_poppos', JSON.stringify({ x: parseFloat(el.style.left) || 0, y: parseFloat(el.style.top) || 0 })); };
+    h.addEventListener('pointermove', move); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
+  });
+  // a double-tap on the title bar puts it back in the corner
+  h.addEventListener('dblclick', e => { if (e.target.closest('button, input')) return; try { localStorage.removeItem('mmt_stagemap_poppos'); } catch (x) {} popPlace(el); });
+}
+addEventListener('resize', () => { const el = document.getElementById('pop'); if (el) popPlace(el); });
 // Reads the pop-up's boxes and saves what changed (nothing is re-drawn under
 // the cursor while typing, so Tab moves cleanly from Width to Depth).
 function popCommit() {
