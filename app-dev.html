@@ -7656,7 +7656,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.02 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.03 v1 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -12061,7 +12061,12 @@ function hmFlagsHTML(kind, slug) {
   let sid = ''; try { sid = (_hubLoaded && hubRec(slug).scriptId) || ''; } catch (e) {}
   if (!sid) return '';
   const f = _hmFlags[sid];
-  if (!f || Date.now() - f.at > 5 * 60000) hmFlagsLoad(sid);
+  // Wait until the page's own loads are done: a big script's cue data is a
+  // heavy read and slowed everything else down on first open.
+  if (!f || Date.now() - f.at > 5 * 60000) {
+    if (performance.now() < 10000) { clearTimeout(hmFlagsHTML._t); hmFlagsHTML._t = setTimeout(() => { try { if (currentTab === 'home') renderHomeShowCards(); } catch (e) {} }, 10500 - performance.now()); }
+    else hmFlagsLoad(sid);
+  }
   if (!f || f.err || (!f.approx && !f.nocrew)) return '';
   const bits = [];
   if (f.approx && crewCanSee('scripts')) bits.push(`<button type="button" class="hm-flag" onclick="hmFlagGo('${kind}','approx')" title="Cues added from the cue sheet, still on approximate spots on the script">${f.approx} cue${f.approx === 1 ? '' : 's'} on approx. spots</button>`);
@@ -14953,8 +14958,9 @@ function loadData() {
     }
     if (d.activity) { try { localStorage.setItem('mmt_activity', JSON.stringify(activity)); } catch(e) {} }
     renderWidgets();
-    try { rpLoad(); } catch (e) {}
-    try { if (!loadData._pt) { loadData._pt = true; setTimeout(ptRun, 1500); } } catch (e) {}
+    // Background reads wait a few seconds so they don't hold up the first load.
+    try { setTimeout(rpLoad, 4000); } catch (e) {}
+    try { if (!loadData._pt) { loadData._pt = true; setTimeout(ptRun, 8000); } } catch (e) {}
   }).catch(err => {
     console.warn('Dashboard load error:', err.message);
     window._tkErr = true;
