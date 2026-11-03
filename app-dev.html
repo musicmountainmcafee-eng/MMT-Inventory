@@ -6214,10 +6214,22 @@ table td { font-size: 14px !important; }
   .pt-eg { font-size: 12.5px; color: var(--text-muted, #666); flex-basis: 100%; }
 
   /* Script | Cue sheet | Both | Stage map stays in the same place whichever is
-     showing: on a computer the cue sheet keeps the script's top-bar buttons'
-     space (just not shown) instead of letting the switch slide over. */
+     showing. On a computer the script page's top bar is three fixed columns:
+     the show's name (a set width, cut short with … if long), the switch, then
+     everything else on the right. What the right side shows can change from
+     view to view without pushing the switch around. */
+  @media (min-width: 1101px) {
+    #scripts-editor .cue-topbar { display: grid !important; grid-template-columns: 250px auto minmax(0, 1fr); align-items: center; column-gap: 12px; }
+    #scripts-editor .cue-topbar-left { min-width: 0; overflow: hidden; }
+    #scripts-editor .cue-topbar-left .se-title { min-width: 0; overflow: hidden; }
+    #scripts-editor .cue-topbar-left .se-name, #scripts-editor .cue-topbar-left .se-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #scripts-editor .cue-topbar #sv-switch, #scripts-editor .cue-topbar.sv-flow #sv-switch { position: static !important; transform: none !important; left: auto !important; top: auto !important; grid-column: 2; margin: 0 !important; }
+    #scripts-editor .cue-topbar .cue-topbar-actions { grid-column: 3; justify-self: end; display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; min-width: 0; }
+  }
+  /* Buttons the cue sheet doesn't use keep their space (just invisible), so the
+     bar and the switch look the same in every view. */
   @media (min-width: 769px) {
-    body #scripts-editor.cs-mode .cue-topbar .se-find, body #scripts-editor.cs-mode .cue-topbar .sv-more, body #scripts-editor.cs-mode #run-switch { display: inline-flex !important; visibility: hidden !important; pointer-events: none !important; }
+    body #scripts-editor.cs-mode .cue-topbar .se-find, body #scripts-editor.cs-mode .cue-topbar .sv-more, body #scripts-editor.cs-mode #run-switch { display: inline-flex !important; visibility: hidden; pointer-events: none; }
   }
 </style>
   <!-- PERF: pdf.js and jsPDF used to load here as blocking script tags on every
@@ -7666,7 +7678,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.03 v3 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.03 v4 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -24191,6 +24203,13 @@ addEventListener('resize', () => { clearTimeout(seTopbarFit._t); seTopbarFit._t 
       .observe(bar, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'style'] });
     const ed = document.getElementById('scripts-editor');
     if (ed) new MutationObserver(() => requestAnimationFrame(seTopbarFit)).observe(ed, { attributes: true, attributeFilter: ['class'] }); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+})();
+
+// The run views (Normal / A · Cards / B · Step) live with the other buttons on
+// the right of the script page's top bar, so the bar is three columns.
+(function seBarCols() {
+  const go = () => { const rs = document.getElementById('run-switch'), act = document.querySelector('#scripts-editor .cue-topbar-actions'); if (rs && act && rs.parentNode !== act) act.insertBefore(rs, act.firstChild); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
 })();
 function goHome() {

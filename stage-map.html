@@ -188,7 +188,7 @@ try {
   </div>
 </div>
 <div class="toast" id="toast"></div>
-<div id="build-tag">11.03 v6</div>
+<div id="build-tag">11.03 v7</div>
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
@@ -746,7 +746,19 @@ function endPtr(e) {
 }
 svg.addEventListener('pointerup', endPtr);
 svg.addEventListener('pointercancel', endPtr);
-svg.addEventListener('wheel', e => { e.preventDefault(); const p = pt(e); zoomBy(e.deltaY < 0 ? 1.15 : 0.87, p.x, p.y); }, { passive: false });
+// Scroll zooms by how far the fingers move (a trackpad sends many small
+// scrolls, so a fixed step per scroll was far too fast). Pinch zooms a bit
+// quicker. Shift + two fingers slides the map instead: left, right, up, down.
+svg.addEventListener('wheel', e => {
+  e.preventDefault();
+  const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1, dx = e.deltaX * unit, dy = e.deltaY * unit;
+  if (e.shiftKey && !e.ctrlKey) {
+    const r = svg.getBoundingClientRect();
+    vb = { ...vb, x: vb.x + dx / r.width * vb.w, y: vb.y + dy / r.height * vb.h }; setVB(); return;
+  }
+  const d = Math.max(-100, Math.min(100, dy)), p = pt(e);
+  zoomBy(Math.exp(-d * (e.ctrlKey ? 0.01 : 0.0025)), p.x, p.y);
+}, { passive: false });
 document.addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('input, select, textarea')) { if (e.key === 'Enter' && mode === 'scaleN') finishScale(); return; }
   if (e.key === 'Escape') { if (mode) cancelScale(); else if (_pop) closePop(true); else if (sel) { sel = null; draw(); renderSide(); } else closeMap(); }
