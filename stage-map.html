@@ -88,7 +88,9 @@ try {
   .prow.on { border-color: var(--sel); background: var(--sel-soft); }
   .prow b { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .prow small { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
-  .prow .mv { color: var(--move); font-weight: 700; font-size: 11px; }
+  .prow .pnm { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .prow .pnm b { flex: none; }
+  .prow .mv { color: var(--move); font-weight: 600; font-size: 12px; line-height: 1.3; }
   .prow .off { color: var(--text-muted); font-style: italic; }
   .tb { border: 1px solid var(--border-2); background: var(--surface); border-radius: 999px; padding: 7px 12px; font-weight: 600; font-size: 13px; min-height: 36px; }
   .tb.pri { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
@@ -188,7 +190,7 @@ try {
   </div>
 </div>
 <div class="toast" id="toast"></div>
-<div id="build-tag">11.03 v7</div>
+<div id="build-tag">11.03 v8</div>
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
@@ -275,7 +277,14 @@ function buildSteps() {
   const sh = cues.filter(c => c.type === 'shift').sort((a, b) => (a.page - b.page) || (annY(a) - annY(b)) || String(a.number || '').localeCompare(String(b.number || ''), undefined, { numeric: true }));
   steps = [{ id: 'presets', label: 'Presets', moves: [] }].concat(sh.map(c => {
     const n = (String(c.number || '').match(/(\d+(?:\.\d+)?[A-Za-z]*)\s*$/) || [])[1] || c.number || '';
-    return { id: c.id, label: '#' + n + (c.cueLine ? ' · ' + c.cueLine : '') + (c.page ? ' (pg. ' + c.page + ')' : ''), moves: (c.moves || []).map(m => String(m.piece || '').trim().toLowerCase()).filter(Boolean) };
+    // what each move says on the cue sheet: action, wing (from → to), who
+    const info = {};
+    (c.moves || []).forEach(m => { const k = String(m.piece || '').trim().toLowerCase(); if (!k) return;
+      const wing = [m.wing, m.wingTo].map(v => String(v || '').trim()).filter(Boolean).join(' → ');
+      const t = [String(m.action || '').trim(), wing].filter(Boolean).join(' · ');
+      const who = String(m.who || '').trim();
+      info[k] = (info[k] ? info[k] + '; ' : '') + (t || 'moves') + (who ? ' (' + who + ')' : ''); });
+    return { id: c.id, label: '#' + n + (c.cueLine ? ' · ' + c.cueLine : '') + (c.page ? ' (pg. ' + c.page + ')' : ''), moves: (c.moves || []).map(m => String(m.piece || '').trim().toLowerCase()).filter(Boolean), info };
   }));
 }
 // Every piece named in a set change, plus pieces added here.
@@ -498,7 +507,7 @@ function prowHTML(pc, st, ed) {
   const at = posAt(pc.key, stepIdx), mv = st.moves.includes(pc.key), hidden = isHidden(pc), parts = partsOf(pc.def);
   const size = pc.def && (pc.def.w || pc.def.parts) ? (parts.length > 1 ? parts.length + ' parts' : fmtFt(parts[0].w) + ' × ' + fmtFt(parts[0].d)) : 'no size';
   return `<div class="prow-wrap${sel === pc.key ? ' on' : ''}">${ed ? `<label class="vis" title="${hidden ? 'Show on the map' : 'Hide from the map'}"><input type="checkbox"${hidden ? '' : ' checked'} onchange="setHidden('${esc(pc.key)}', !this.checked)" aria-label="${hidden ? 'Show' : 'Hide'} ${esc(pc.name)}"></label>` : ''}
-    <button class="prow${sel === pc.key ? ' on' : ''}" onclick="pick('${esc(pc.key)}')"${hidden ? ' disabled' : ''}><b>${esc(pc.name)}</b>${mv ? '<span class="mv">MOVES</span>' : ''}<small>${size}</small>${at || hidden ? '' : '<small class="off">not on map</small>'}</button></div>`;
+    <button class="prow${sel === pc.key ? ' on' : ''}" onclick="pick('${esc(pc.key)}')"${hidden ? ' disabled' : ''}><span class="pnm"><b>${esc(pc.name)}</b>${mv ? `<span class="mv">${esc((st.info && st.info[pc.key]) || 'moves')}</span>` : ''}</span><small>${size}</small>${at || hidden ? '' : '<small class="off">not on map</small>'}</button></div>`;
 }
 function defOf(key) { const pc = pieceList().find(x => x.key === key); return Object.assign({ name: pc ? pc.name : key }, sm.pieces[key] || {}); }
 function setHidden(key, hide) {
