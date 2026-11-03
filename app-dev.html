@@ -6213,24 +6213,43 @@ table td { font-size: 14px !important; }
   .pt-del { margin-left: auto; color: #b42318 !important; }
   .pt-eg { font-size: 12.5px; color: var(--text-muted, #666); flex-basis: 100%; }
 
-  /* Script | Cue sheet | Both | Stage map stays in the same place whichever is
-     showing. On a computer the script page's top bar is three fixed columns:
-     the show's name (a set width, cut short with … if long), the switch, then
-     everything else on the right. What the right side shows can change from
-     view to view without pushing the switch around. */
-  @media (min-width: 1101px) {
-    #scripts-editor .cue-topbar { display: grid !important; grid-template-columns: 250px auto minmax(0, 1fr); align-items: center; column-gap: 12px; }
-    #scripts-editor .cue-topbar-left { min-width: 0; overflow: hidden; }
-    #scripts-editor .cue-topbar-left .se-title { min-width: 0; overflow: hidden; }
-    #scripts-editor .cue-topbar-left .se-name, #scripts-editor .cue-topbar-left .se-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #scripts-editor .cue-topbar #sv-switch, #scripts-editor .cue-topbar.sv-flow #sv-switch { position: static !important; transform: none !important; left: auto !important; top: auto !important; grid-column: 2; margin: 0 !important; }
-    #scripts-editor .cue-topbar .cue-topbar-actions { grid-column: 3; justify-self: end; display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; min-width: 0; }
+  /* Script page top bar, on a tablet or computer: two rows that are the same
+     in every view (Script, Cue sheet, Both, Stage map), so nothing in them moves.
+       Row 1: back, the script's title, then who's here and the show timer.
+       Row 2: the Script | Cue sheet | Both | Stage map switch, centred.
+     Buttons only the script uses (Normal / Cards / Step, Find, approx., ⋯)
+     sit at the right of the script's own tool row instead (seBar2 moves them). */
+  body #scripts-editor.se-bar2 .cue-topbar {
+    display: grid !important; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title right" "sw sw";
+    align-items: center; column-gap: 12px; row-gap: 6px; height: auto !important; min-height: 0 !important;
+    padding: 8px 16px 10px !important; flex-wrap: nowrap !important;
   }
-  /* Buttons the cue sheet doesn't use keep their space (just invisible), so the
-     bar and the switch look the same in every view. */
-  @media (min-width: 769px) {
-    body #scripts-editor.cs-mode .cue-topbar .se-find, body #scripts-editor.cs-mode .cue-topbar .sv-more, body #scripts-editor.cs-mode #run-switch { display: inline-flex !important; visibility: hidden; pointer-events: none; }
-  }
+  body #scripts-editor.se-bar2 .cue-topbar-left { grid-area: title; display: flex !important; align-items: center; gap: 8px; width: auto !important; max-width: none !important; min-width: 0 !important; flex: none !important; overflow: hidden; }
+  body #scripts-editor.se-bar2 .cue-topbar-left .se-back { display: inline-flex !important; flex-shrink: 0; }
+  body #scripts-editor.se-bar2 .cue-topbar-left .se-title { display: block !important; min-width: 0; overflow: hidden; }
+  body #scripts-editor.se-bar2 .cue-topbar-left .se-name, body #scripts-editor.se-bar2 .cue-topbar-left .se-sub { display: block !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body #scripts-editor.se-bar2 .cue-topbar #sv-switch { grid-area: sw; justify-self: center; display: inline-flex !important; position: static !important; transform: none !important; left: auto !important; top: auto !important; margin: 0 !important; order: 0 !important; }
+  body #scripts-editor.se-bar2 .cue-topbar .cue-topbar-actions { grid-area: right; justify-self: end; display: flex !important; align-items: center; flex-wrap: nowrap !important; gap: 8px; min-width: 0; }
+  /* The script's own buttons, at the right of its tool row. */
+  #se-viewtools { display: none; }
+  body #scripts-editor.se-bar2 #se-viewtools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+  body #scripts-editor.se-bar2 .tool-sidebar { flex-wrap: wrap !important; overflow: visible !important; row-gap: 8px !important; }
+  body #scripts-editor.se-bar2 .tool-sidebar .tool-spacer { display: none !important; }
+  body #scripts-editor.se-bar2 #se-viewtools .top-btn { display: inline-flex !important; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border: 1px solid var(--se-line, #dcdbe4) !important; border-radius: 999px !important; background: #fff !important; color: #282828 !important; font: 600 14px 'DM Sans', system-ui, sans-serif; }
+  body #scripts-editor.se-bar2 #se-viewtools .se-approx { border-style: dashed !important; border-color: #c2691c !important; color: #b5651d !important; }
+  body #scripts-editor.se-bar2 #se-viewtools .se-approx[hidden] { display: none !important; }
+  body #scripts-editor.se-bar2 #se-viewtools .sv-more { width: 40px; padding: 0; justify-content: center; font-size: 20px; }
+  body #scripts-editor.se-bar2 #se-viewtools #run-switch { display: inline-flex !important; background: #f1f1f3 !important; border: none !important; border-radius: 999px !important; padding: 3px; gap: 2px; }
+  body #scripts-editor.se-bar2 #se-viewtools #run-switch button { background: transparent !important; color: #3c3c44 !important; min-height: 34px; padding: 0 12px; border-radius: 999px !important; }
+  body #scripts-editor.se-bar2 #se-viewtools #run-switch button.on { background: #111 !important; color: #fff !important; }
+  /* Running (Cards / Step) hides the tool row; keep just these buttons so
+     there's a way back to Normal. */
+  body #scripts-editor.se-bar2.running .tool-sidebar { display: flex !important; }
+  body #scripts-editor.se-bar2.running .tool-sidebar > :not(#se-viewtools) { display: none !important; }
+  body #scripts-editor.se-bar2.run-dark #se-viewtools .top-btn { background: #1d1d24 !important; color: #e4e4ea !important; border-color: #33333d !important; }
+  body #scripts-editor.se-bar2.run-dark #se-viewtools #run-switch { background: #1d1d24 !important; }
+  body #scripts-editor.se-bar2.run-dark #se-viewtools #run-switch button { color: #b9b9c6 !important; }
+  body #scripts-editor.se-bar2.run-dark #se-viewtools #run-switch button.on { background: #6b62d9 !important; color: #fff !important; }
 </style>
   <!-- PERF: pdf.js and jsPDF used to load here as blocking script tags on every
        launch. They're only needed on the Scripts tab and for PDF exports, so they
@@ -7678,7 +7697,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.03 v4 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.03 v5 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -21572,6 +21591,9 @@ function toggleScriptTools(ev) {
   if (ev) ev.stopPropagation();
   const ed = document.getElementById('scripts-editor');
   if (ed) ed.classList.toggle('sv-tools-open');
+  // Tablet / computer: ⋯ sits in the tool row, so the menu drops from it.
+  const m = document.getElementById('sv-menu'), b = ev && ev.currentTarget, bar = ed && ed.querySelector('.cue-topbar');
+  if (m && bar) m.style.setProperty('top', ed.classList.contains('se-bar2') && b && b.getBoundingClientRect ? (b.getBoundingClientRect().bottom - bar.getBoundingClientRect().top + 6) + 'px' : '', 'important');
 }
 // Touch layout keeps the cue types out of the way; this brings them up.
 function toggleCueTypesPanel(on) {
@@ -24184,7 +24206,7 @@ function cueLoadDecision(localRev, syncedRev, serverRev, serverHasData) {
 // Script page header: keep Script | Cue sheet centered only while it fits.
 function seTopbarFit() {
   const bar = document.querySelector('#scripts-editor .cue-topbar'), sv = document.getElementById('sv-switch');
-  if (!bar || !sv || innerWidth <= 768) { if (bar) bar.classList.remove('sv-flow'); return; }
+  if (!bar || !sv || innerWidth <= 768 || document.getElementById('scripts-editor').classList.contains('se-bar2')) { if (bar) bar.classList.remove('sv-flow'); return; }
   bar.classList.remove('sv-flow');
   if (!sv.offsetParent) return;
   const a = sv.getBoundingClientRect();
@@ -24206,10 +24228,28 @@ addEventListener('resize', () => { clearTimeout(seTopbarFit._t); seTopbarFit._t 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
 })();
 
-// The run views (Normal / A · Cards / B · Step) live with the other buttons on
-// the right of the script page's top bar, so the bar is three columns.
-(function seBarCols() {
-  const go = () => { const rs = document.getElementById('run-switch'), act = document.querySelector('#scripts-editor .cue-topbar-actions'); if (rs && act && rs.parentNode !== act) act.insertBefore(rs, act.firstChild); };
+// Tablet / computer: the script page's top bar keeps only what every view
+// shares; the script's own buttons move to the right of its tool row. On a
+// phone they go back where they were (the phone layout is unchanged).
+function seBar2() {
+  const ed = document.getElementById('scripts-editor'); if (!ed) return;
+  const act = ed.querySelector('.cue-topbar-actions'), row = ed.querySelector('.tool-sidebar'), sw = document.getElementById('sv-switch');
+  if (!act || !row || !sw) return;
+  let vt = document.getElementById('se-viewtools');
+  if (!vt) { vt = document.createElement('div'); vt.id = 'se-viewtools'; const undo = row.querySelector('.tool-btn[title="Undo"]'); row.insertBefore(vt, undo || null); }
+  const wide = innerWidth > 768, items = ['run-switch', null, 'se-approx', null].map(id => id && document.getElementById(id));
+  items[1] = ed.querySelector('.cue-topbar .se-find, #se-viewtools .se-find'); items[3] = ed.querySelector('.cue-topbar .sv-more, #se-viewtools .sv-more');
+  if (wide) { items.forEach(el => { if (el && el.parentNode !== vt) vt.appendChild(el); }); }
+  else {
+    const [rs, find, approx, more] = items, menu = document.getElementById('sv-menu');
+    if (rs && rs.parentNode !== sw.parentNode) sw.parentNode.insertBefore(rs, act);
+    [find, approx].forEach(el => { if (el && el.parentNode !== act) act.insertBefore(el, menu || null); });
+    if (more && more.parentNode !== act) act.appendChild(more);
+  }
+  ed.classList.toggle('se-bar2', wide);
+}
+(function () {
+  const go = () => { seBar2(); addEventListener('resize', () => { clearTimeout(seBar2._t); seBar2._t = setTimeout(seBar2, 60); }); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
 })();
 function goHome() {
