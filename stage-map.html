@@ -149,7 +149,9 @@ try {
   .pf-head { gap: 8px; position: sticky; top: -12px; background: var(--surface); z-index: 2; padding-top: 2px; padding-bottom: 6px; }
   .pf-q { font-size: 15px; padding: 9px 11px; border: 1px solid var(--border-2); border-radius: 10px; background: var(--surface-2); color: var(--text); width: 100%; }
   .chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-  .pgrp { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); padding: 10px 2px 3px; }
+  .pgrp { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); padding: 10px 4px 5px; border-radius: 6px; min-height: 32px; }
+  .pgrp:hover { color: var(--text); } .pgrp:focus-visible { outline: 2px solid var(--sel); }
+  .pgrp-t { display: inline-flex; gap: 6px; align-items: center; } .pgrp-t i { font-style: normal; width: 10px; }
   .pop { position: absolute; top: 12px; right: 12px; z-index: 7; width: 300px; max-width: calc(100% - 24px); max-height: calc(100% - 24px); overflow-y: auto; background: var(--surface); color: var(--text);
     border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.25); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
   .pop-h { display: flex; align-items: center; gap: 8px; } .pop-h b { flex: 1; min-width: 0; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -183,7 +185,7 @@ try {
   </div>
 </div>
 <div class="toast" id="toast"></div>
-<div id="build-tag">11.03 v4</div>
+<div id="build-tag">11.03 v5</div>
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
@@ -415,7 +417,9 @@ function renderSide() {
   else if (_sort === 'status') [['Moves in this change', 0], ['On the map', 1], ['Not placed yet', 2]].forEach(([t, n]) => {
     const g = vis.filter(pc => stat(pc) === n); if (!g.length || (n === 0 && !stepIdx)) { if (n === 0) return; }
     if (!g.length) return;
-    h += `<div class="pgrp">${t}<span>${g.length}</span></div>` + g.map(pc => prowHTML(pc, st, ed)).join('');
+    // Each group folds; folded or open is remembered on this device.
+    const gk = 'mmt_stagemap_grp' + n, shut = lsGet(gk, '0') === '1';
+    h += `<button type="button" class="pgrp" aria-expanded="${!shut}" onclick="lsSet('${gk}', '${shut ? '0' : '1'}'); renderSide()"><span class="pgrp-t"><i aria-hidden="true">${shut ? '▸' : '▾'}</i>${t}</span><span>${g.length}</span></button>` + (shut ? '' : g.map(pc => prowHTML(pc, st, ed)).join(''));
   });
   else h += vis.map(pc => prowHTML(pc, st, ed)).join('');
   h += `</div>`;
