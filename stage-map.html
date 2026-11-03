@@ -157,6 +157,9 @@ try {
   .pop-h { display: flex; align-items: center; gap: 8px; } .pop-h b { flex: 1; min-width: 0; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pop .part-row { padding: 6px 0; } .pop .part-n { display: flex; align-items: center; justify-content: space-between; }
   @media (max-width: 760px) { .pop { left: 12px; right: 12px; width: auto; } }
+  html.inbar header { background: #1c1c20; padding-top: 6px; padding-bottom: 6px; }
+  html.inbar #close-btn, html.inbar header h1, html.inbar header .show { display: none; }
+  html.inbar .step { margin-left: 0; }
   #build-tag { position: fixed; bottom: 4px; right: 8px; font-size: 11px; color: #999; z-index: 999; pointer-events: none; background: white; padding: 2px 6px; border-radius: 4px; }
 </style>
 </head>
@@ -185,7 +188,7 @@ try {
   </div>
 </div>
 <div class="toast" id="toast"></div>
-<div id="build-tag">11.03 v5</div>
+<div id="build-tag">11.03 v6</div>
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
@@ -237,6 +240,9 @@ function canEdit() {
 // ── State ──────────────────────────────────────────────────────────────────
 const Q = new URLSearchParams(location.search);
 const EMBED = window.parent !== window || Q.get('embed') === '1';
+// Under the script page's / cue sheet's own Script | Cue sheet | Stage map
+// switch: that bar stays put, so this page drops its own title and Back.
+if (Q.get('bar') === '0') document.documentElement.classList.add('inbar');
 let scriptId = Q.get('script') || lsGet('mmt_cur_script_id', '') || (() => { try { return JSON.parse(lsGet('mmt_cur_script', 'null')).id; } catch (e) { return ''; } })();
 let showName = Q.get('name') || '';
 let cues = [], annotations = {}, presets = {};

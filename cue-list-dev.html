@@ -1054,8 +1054,10 @@
   .in-cut { display: inline-block; margin: 0 6px 3px 0; font: 700 11px 'DM Sans', system-ui, sans-serif; color: #c2410c; border: 1px solid #c2410c; border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
 
   #sm-ov { position: fixed; inset: 0; z-index: 5000; background: #111113; }
+  #sm-ov.in-bar { z-index: 900; bottom: 0; left: 0; right: 0; }
   #sm-ov iframe { width: 100%; height: 100%; border: 0; display: block; }
   html.sm-open, html.sm-open body { overflow: hidden; }
+  html.sm-open .sv-map, html.sm-open .vw-map { background: #fff !important; color: #111 !important; }
   .pr-sec-top { display: flex; align-items: stretch; }
   .pr-sec-top .pr-sec-h { flex: 1; min-width: 0; }
   .pr-sec.open .pr-sec-top { border-bottom: 1px solid var(--grid); }
@@ -1122,7 +1124,7 @@
           <span id="status-count"></span><span id="status">connecting</span>
         </div>
       </div>
-      <div class="vw-switch" id="vw-switch" role="group" aria-label="View"><button type="button" class="ic ic-script" onclick="flipToScript()" aria-pressed="false">Script</button><button type="button" class="on ic ic-list" aria-pressed="true">Cue sheet</button><button type="button" class="vw-map" onclick="openStageMap('presets')" aria-pressed="false" title="Top-down stage map">Stage map</button></div>
+      <div class="vw-switch" id="vw-switch" role="group" aria-label="View"><button type="button" class="ic ic-script" onclick="flipToScript()" aria-pressed="false">Script</button><button type="button" class="on ic ic-list" aria-pressed="true" onclick="closeStageMap()">Cue sheet</button><button type="button" class="vw-map" onclick="openStageMap('presets')" aria-pressed="false" title="Top-down stage map">Stage map</button></div>
       <div class="pr-faces" id="pr-faces" hidden aria-label="Who else is here"></div>
       <span class="edit-state" id="edit-state"></span>
       <button class="top-btn lock-tg" id="edit-btn" onclick="setEditMode(!editMode)" title="Switch between View only and Editing" aria-label="View only or editing"><span class="lk-v ic ic-lock"><span class="lk-w">View only</span></span><span class="lk-e ic ic-pen"><span class="lk-w">Editing</span></span></button>
@@ -2290,18 +2292,31 @@ setInterval(() => { if (_prChk && !document.hidden) prChkFetch(); }, 10000);
 // piece matches.
 let _prOpen = lsGet('mmt_cuelist_pr_open', '0') === '1';
 
-// ── STAGE MAP (dev) ── stage-map.html over this page: the top-down map of the
-// stage for Presets ('presets') or a set change (its cue id).
+// ── STAGE MAP ── stage-map.html shown for Presets ('presets') or a set change
+// (its cue id). On the script page and the cue sheet it opens *under* the page's
+// own Script | Cue sheet | Stage map switch, so that bar never changes when you
+// move between them; anywhere else it covers the page.
 function openStageMap(step, sid, name){
   sid = sid || (scriptId || ''); if (!sid) { try { toast('Open a script first'); } catch (e) {} return; }
-  closeStageMap();
-  const ov = document.createElement('div'); ov.id = 'sm-ov';
-  ov.innerHTML = '<iframe title="Stage map" src="stage-map.html?embed=1&script=' + encodeURIComponent(sid) + '&step=' + encodeURIComponent(step || 'presets') + ((name = name || ssTitle(scriptId, scriptName)) ? '&name=' + encodeURIComponent(name) : '') + '"></iframe>';
+  name = name || ssTitle(scriptId, scriptName);
+  const bar = (typeof CL_EMBED !== 'undefined' && CL_EMBED ? null : document.querySelector('header'));
+  const old = document.getElementById('sm-ov');
+  if (old && old.dataset.sid === String(sid) && old.dataset.step === String(step || 'presets')) { document.querySelectorAll('#vw-switch button').forEach(b => { const on = b.classList.contains('vw-map'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); return; }
+  closeStageMap(true);
+  const ov = document.createElement('div'); ov.id = 'sm-ov'; ov.dataset.sid = sid; ov.dataset.step = step || 'presets';
+  if (bar) { ov.classList.add('in-bar'); ov.style.top = Math.round(bar.getBoundingClientRect().bottom) + 'px'; }
+  ov.innerHTML = '<iframe title="Stage map" src="stage-map.html?embed=1' + (bar ? '&bar=0' : '') + '&script=' + encodeURIComponent(sid) + '&step=' + encodeURIComponent(step || 'presets') + (name ? '&name=' + encodeURIComponent(name) : '') + '"></iframe>';
   document.body.appendChild(ov);
   document.documentElement.classList.add('sm-open');
+  document.querySelectorAll('#vw-switch button').forEach(b => { const on = b.classList.contains('vw-map'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
 }
-function closeStageMap(){ const o = document.getElementById('sm-ov'); if (o) o.remove(); document.documentElement.classList.remove('sm-open'); }
+function closeStageMap(quiet){
+  const o = document.getElementById('sm-ov'); if (o) o.remove();
+  document.documentElement.classList.remove('sm-open');
+  if (!quiet) { document.querySelectorAll('#vw-switch button').forEach(b => { const on = b.classList.contains('ic-list'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); }
+}
 window.addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.mmt === 'stagemap-close') closeStageMap(); });
+addEventListener('resize', () => { const o = document.getElementById('sm-ov'), bar = (typeof CL_EMBED !== 'undefined' && CL_EMBED ? null : document.querySelector('header')); if (o && bar && o.classList.contains('in-bar')) o.style.top = Math.round(bar.getBoundingClientRect().bottom) + 'px'; });
 
 function prSectionHTML(){
   if (scriptId && _prChkSid !== scriptId && !prChkFetch._busy) { prChkFetch._busy = true; setTimeout(() => { prChkFetch._busy = false; prChkFetch(); }, 0); }
@@ -7927,6 +7942,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.03 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.03 v2 dev</div>
 </body>
 </html>
