@@ -1073,6 +1073,22 @@
   .sm-thumb .smt-pc > * { fill: #fff; stroke: #a1a1aa; stroke-width: 1; vector-effect: non-scaling-stroke; opacity: .7; }
   .sm-thumb .smt-mv > * { fill: #18181b; stroke: #18181b; stroke-width: 1; vector-effect: non-scaling-stroke; }
   @media (max-width: 700px) { .sm-thumb { width: 96px; } }
+  #smz { position: fixed; inset: 0; z-index: 2500; background: rgba(10,10,14,.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  #smz .smz-card { background: var(--paper, #fff); color: var(--text, #111); border-radius: 16px; box-shadow: 0 24px 60px rgba(0,0,0,.35); width: min(1100px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+  #smz .smz-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--grid, #e4e4e7); }
+  #smz .smz-h b { flex: 1 1 200px; min-width: 0; font-size: 15px; }
+  #smz .smz-key { font-size: 12px; color: var(--text-muted, #71717a); display: inline-flex; align-items: center; gap: 4px; }
+  #smz .smz-key i { display: inline-block; width: 12px; height: 9px; border: 1px solid #a1a1aa; background: #fff; border-radius: 2px; margin-left: 6px; }
+  #smz .smz-key i.mv { background: #18181b; border-color: #18181b; margin-left: 0; }
+  #smz .smz-btn { border: 1px solid var(--grid, #e4e4e7); background: var(--paper, #fff); color: inherit; border-radius: 999px; padding: 0 14px; min-height: 36px; font: 600 13px 'DM Sans', system-ui, sans-serif; cursor: pointer; }
+  #smz .smz-x { border: 0; background: none; color: inherit; font-size: 18px; width: 40px; height: 40px; border-radius: 10px; cursor: pointer; }
+  #smz .smz-x:hover, #smz .smz-btn:hover { background: rgba(0,0,0,.06); }
+  #smz .smz-map { float: none; width: auto; margin: 0; border: 0; border-radius: 0; cursor: default; padding: 10px; overflow: auto; }
+  #smz .smz-map svg { width: 100%; height: auto; max-height: calc(100vh - 120px); }
+  #smz .smz-map text { fill: #111; font-family: 'DM Sans', system-ui, sans-serif; font-weight: 600; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+  #smz .smz-map .smt-mv text { fill: #fff; stroke: #18181b; }
+  #smz .smz-map .smt-pc > text { opacity: 1; }
+  @media print { #smz { display: none !important; } }
   @media print { .sm-thumb { width: 1.5in; break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   @media print { .pr-map-btn, .map-btn { display: none !important; } }
 
@@ -2344,7 +2360,7 @@ function smFetch(){
     _sm = v ? { plan: v.plan || null, pieces: v.pieces || {}, maps: v.maps || {} } : null; done();
   }, done);
 }
-function smThumbHTML(c){
+function smThumbHTML(c, big){
   if (scriptId && _smSid !== scriptId) setTimeout(smFetch, 0);
   if (!_sm || !c || c.type !== 'shift') return '';
   const order = ['presets'].concat(cuesInScriptOrder().filter(x => x.type === 'shift').map(x => x.id));
@@ -2368,6 +2384,9 @@ function smThumbHTML(c){
       const R = Math.hypot(Math.abs(cx) + w / 2, Math.abs(cy) + dd / 2);
       x0 = Math.min(x0, at.x * k - R); x1 = Math.max(x1, at.x * k + R); y0 = Math.min(y0, at.y * k - R); y1 = Math.max(y1, at.y * k + R);
     });
+    // the big view names each piece
+    if (big) { const nm = def.name || key, p0 = parts[0], w = p0.w * k, dd = p0.d * k, fs = Math.max(10, Math.min(w / Math.max(4, nm.length) * 1.6, dd * .6, 1.2 * k));
+      body += `<text x="${((p0.dx || 0) * k).toFixed(1)}" y="${((p0.dy || 0) * k).toFixed(1)}" text-anchor="middle" dominant-baseline="central" font-size="${fs.toFixed(1)}"${dd < fs * 1.2 ? ` transform="translate(0 ${-(dd / 2 + fs * .8)})"` : ''}>${esc(nm)}</text>`; }
     const g = `<g class="${mv ? 'smt-mv' : 'smt-pc'}" transform="translate(${(at.x * k).toFixed(1)} ${(at.y * k).toFixed(1)}) rotate(${at.r || 0})"><title>${esc(def.name || key)}</title>${body}</g>`;
     if (mv) dark += g; else faint += g;
   });
@@ -2381,8 +2400,29 @@ function smThumbHTML(c){
     const pad = 3 * k; vb = `${(x0 - pad).toFixed(0)} ${(y0 - pad).toFixed(0)} ${(x1 - x0 + 2 * pad).toFixed(0)} ${(y1 - y0 + 2 * pad).toFixed(0)}`;
     bg = `<rect x="${(x0 - pad).toFixed(0)}" y="${(y0 - pad).toFixed(0)}" width="${(x1 - x0 + 2 * pad).toFixed(0)}" height="${(y1 - y0 + 2 * pad).toFixed(0)}" class="smt-stage"/>`;
   }
-  return `<button type="button" class="sm-thumb" onclick="event.stopPropagation(); openStageMap('${esc(c.id)}')" title="Stage map after this change" aria-label="Stage map after this change"><svg viewBox="${vb}" preserveAspectRatio="xMidYMid meet">${bg}${faint}${dark}</svg></button>`;
+  const svgT = `<svg viewBox="${vb}" preserveAspectRatio="xMidYMid meet">${bg}${faint}${dark}</svg>`;
+  if (big) return svgT;
+  return `<button type="button" class="sm-thumb" onclick="event.stopPropagation(); smZoom('${esc(c.id)}')" title="Show the stage map bigger" aria-label="Show the stage map after this change bigger">${svgT}</button>`;
 }
+// Tap a small map: it opens bigger right here, over the sheet. Esc, a click
+// outside it, or ✕ closes it; "Edit on the stage map" opens the full page.
+function smZoom(id){
+  const c = cues.find(x => String(x.id) === String(id)); if (!c) return;
+  smZoomClose();
+  const svgT = smThumbHTML(c, true); if (!svgT) return;
+  const n = changeShortNum(shortNumber(c, typeOf(c.type).name));
+  const ov = document.createElement('div'); ov.id = 'smz'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', 'Stage map after set change ' + n);
+  ov.innerHTML = `<div class="smz-card" onclick="event.stopPropagation()">
+      <div class="smz-h"><b>Stage map after #${esc(n)}${c.cueLine ? ' · ' + esc(c.cueLine) : ''}</b><span class="smz-key"><i class="mv"></i>moves here <i></i>already on stage</span>
+        <button type="button" class="smz-btn" onclick="smZoomClose(); openStageMap('${esc(c.id)}')">Edit on the stage map</button><button type="button" class="smz-x" onclick="smZoomClose()" aria-label="Close">✕</button></div>
+      <div class="smz-map sm-thumb">${svgT}</div></div>`;
+  ov.addEventListener('click', smZoomClose);
+  document.body.appendChild(ov);
+  document.addEventListener('keydown', smZoomKey, true);
+  const x = ov.querySelector('.smz-x'); if (x) x.focus();
+}
+function smZoomKey(e){ if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); smZoomClose(); } }
+function smZoomClose(){ const o = document.getElementById('smz'); if (o) o.remove(); document.removeEventListener('keydown', smZoomKey, true); }
 
 function prSectionHTML(){
   if (scriptId && _prChkSid !== scriptId && !prChkFetch._busy) { prChkFetch._busy = true; setTimeout(() => { prChkFetch._busy = false; prChkFetch(); }, 0); }
@@ -8009,6 +8049,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.03 v4 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.03 v5 dev</div>
 </body>
 </html>
