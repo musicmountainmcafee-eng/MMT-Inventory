@@ -7697,7 +7697,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.03 v6 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.03 v7 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -23793,6 +23793,8 @@ function csPoll() {
   const cs = _cs, sid = showId;
   const ed = document.getElementById('scripts-editor');
   if (!sid || cs.sid !== sid || cs.polling || cs.readOnly || document.visibilityState !== 'visible' || !ed || !ed.classList.contains('open')) return;
+  // A stage map open on this device reports who's here itself (same device id).
+  try { const f = document.getElementById('cs-frame'); if (document.getElementById('sm-ov') || (f && f.contentDocument && f.contentDocument.getElementById('sm-ov'))) return; } catch (e) {}
   if (!cs.loaded) { if (!cs.inflight && ++cs.tick % 3 === 0) csRefresh(false); return; }
   cs.tick++;
   if (cs.safe === false) { if (!cs.inflight && cs.tick % 4 === 0) csRefresh(false); return; }   // old Sheet script: a full read every 12s
@@ -24039,7 +24041,7 @@ function prDescribe(p) {
   }
   if (w[0] === 'cue') return cueName(w[1]) + (w[2] ? ' · ' + (PR_FIELD[w[2]] || w[2]) : '');
   if (w[0] === 'pre') return 'Presets · ' + ((presets[w[1]] || {}).piece || w[1]);
-  return p.page === 'cuesheet' ? 'cue sheet' : p.page && /^p\d+$/.test(p.page) ? 'page ' + p.page.slice(1) : 'looking';
+  return p.page === 'stagemap' ? 'stage map' : p.page === 'cuesheet' ? 'cue sheet' : p.page && /^p\d+$/.test(p.page) ? 'page ' + p.page.slice(1) : 'looking';
 }
 // Go there: their page, and the cue they're on.
 function prCanGo(p) { return /^p\d+$/.test(p.page || '') || /^(cue|mv):/.test(p.where || ''); }

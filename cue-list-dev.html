@@ -1688,6 +1688,8 @@ function start(){
 let _pollN = 0, _polling = false;
 function clCheck(){
   if (document.visibilityState !== 'visible' || !scriptId || _polling) return;
+  // A stage map open here reports who's here itself (same device id).
+  if (document.getElementById('sm-ov')) return;
   _pollN++;
   if (_clSafe === false) { if (_pollN % 4 === 0 && !editMode && !editSaving) fetchCues(); return; }   // old Sheet script
   _polling = true;
@@ -6859,7 +6861,7 @@ function prDescribe(p){
   }
   if (w[0] === 'cue') return cueName(w[1]) + (w[2] ? ' · ' + (PR_FIELD[w[2]] || w[2]) : '');
   if (w[0] === 'pre') return 'Presets · ' + ((presets[w[1]] || {}).piece || w[1]);
-  return p.page === 'cuesheet' ? 'cue sheet' : p.page && /^p\d+$/.test(p.page) ? 'script, page ' + p.page.slice(1) : 'looking';
+  return p.page === 'stagemap' ? 'stage map' : p.page === 'cuesheet' ? 'cue sheet' : p.page && /^p\d+$/.test(p.page) ? 'script, page ' + p.page.slice(1) : 'looking';
 }
 function prCanGo(p){ return /^(cue|mv|pre):/.test(p.where || '') || /^p\d+$/.test(p.page || ''); }
 function prGo(p){
@@ -8007,6 +8009,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.03 v3 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.03 v4 dev</div>
 </body>
 </html>
