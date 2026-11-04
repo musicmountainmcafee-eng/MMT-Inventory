@@ -7649,7 +7649,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.04 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.04 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -18589,6 +18589,7 @@ function normalizePresets(v) {
         notes: String(e.notes || ''),
         hidden: !!e.hidden
       };
+      if (e.custom) out[k].custom = true;   // added by hand on the cue sheet, not from the plot
       const ph = presetPhotos(e);
       if (ph.length) out[k].photos = ph;
     });
@@ -18608,6 +18609,8 @@ function allPieces() {
       if (!seen.has(k)) seen.set(k, v);
     });
   });
+  // Presets added by hand on the cue sheet (things no set change moves).
+  Object.keys(presets || {}).forEach(k => { const e = presets[k]; if (e && e.custom && !seen.has(k)) seen.set(k, String(e.piece || k)); });
   return [...seen.entries()].map(([key, piece]) => ({ key, piece }))
     .sort((a, b) => a.piece.localeCompare(b.piece));
 }

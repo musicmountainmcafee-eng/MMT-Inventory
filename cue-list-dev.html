@@ -1066,6 +1066,10 @@
   .pr-map-btn { flex: none; margin: 8px 10px 8px 0; border: 1px solid var(--grid); background: var(--paper); color: var(--ink, var(--text)); border-radius: 999px; padding: 0 14px; font: 600 13px 'DM Sans', system-ui, sans-serif; cursor: pointer; min-height: 32px; }
   .pr-map-btn:hover { border-color: var(--purple); }
   .map-btn { margin-left: 4px; }
+  .pr-add { display: flex; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--grid); }
+  .pr-add input { flex: 1; min-width: 0; font: 14px 'DM Sans', system-ui, sans-serif; padding: 8px 11px; border: 1px solid var(--grid); border-radius: 9px; background: var(--paper); color: var(--ink, var(--text)); }
+  .pr-add .top-btn { min-height: 36px; padding: 0 14px; font-weight: 600; }
+  @media print { .pr-add { display: none !important; } }
   /* Small stage map at the right of a set change's first row. */
   .sm-thumb { float: right; display: block; width: 150px; margin: 0 0 6px 10px; padding: 0; border: 1px solid var(--grid); border-radius: 8px; background: #fff; overflow: hidden; cursor: pointer; line-height: 0; }
   .sm-thumb:hover { border-color: var(--purple); }
@@ -1926,6 +1930,7 @@ function normalizePresets(v){
                  notes: String(e.notes || ''), hidden: !!e.hidden,
                  spikeIds: Array.isArray(e.spikeIds) ? e.spikeIds.map(String) : [],
                  spike: String(e.spike || '') };
+      if (e.custom) out[k].custom = true;   // added by hand, not from the plot
       const ph = presetPhotos(e);
       if (ph.length) out[k].photos = ph;
     });
@@ -1946,6 +1951,8 @@ function allPieces(){
       if (!seen.has(k)) seen.set(k, v);
     });
   });
+  // Presets added by hand (things no set change moves: a prop table, the fog machine).
+  Object.keys(presets || {}).forEach(k => { const e = presets[k]; if (e && e.custom && !seen.has(k)) seen.set(k, String(e.piece || k)); });
   return [...seen.entries()].map(([key, piece]) => ({ key, piece }))
     .sort((a,b) => a.piece.localeCompare(b.piece));
 }
@@ -2450,7 +2457,7 @@ function prSectionHTML(){
       <colgroup><col style="width:24%"><col style="width:28%"><col style="width:24%"><col style="width:24%"></colgroup>
       <thead><tr><th>Piece</th><th>Preset location</th><th>Spike</th><th>Notes</th></tr></thead>
       <tbody>${rows.map(r => presetRowHTML(r, band = !band)).join('')}</tbody></table>`
-      : '<div class="cs-empty"><b>No pieces yet.</b>Pieces appear here once set changes have moves.</div>'}</div>
+      : '<div class="cs-empty"><b>No pieces yet.</b>Pieces appear here once set changes have moves, or add one below.</div>'}${editMode && !_prChk ? prAddHTML() : ''}</div>
   </section>`;
 }
 function prSecToggle(open){
@@ -2461,6 +2468,28 @@ function prSecToggle(open){
   sec.classList.toggle('open', _prOpen);
   sec.querySelector('.pr-sec-h').setAttribute('aria-expanded', String(_prOpen));
   document.getElementById('pr-sec-body').hidden = !_prOpen;
+}
+// Presets that aren't on the plot (a prop table, the fog machine): typed in
+// here in Edit mode, kept in presets with custom: true, listed with the rest.
+function prAddHTML(){
+  return `<form class="pr-add" onsubmit="event.preventDefault(); prAddCustom(this.elements.n.value); this.reset();">
+    <input name="n" placeholder="Add a preset item that isn't on the plot (e.g. prop table SL)" autocomplete="off" aria-label="New preset item">
+    <button type="submit" class="top-btn">+ Add</button></form>`;
+}
+function prAddCustom(name){
+  name = String(name || '').trim().replace(/\s+/g, ' '); if (!name || !editMode) return;
+  const key = name.toLowerCase();
+  if (allPieces().some(p => p.key === key)) { toast(name + ' is already in Presets'); openPresetSheet(key); return; }
+  presets[key] = Object.assign({ location: '', notes: '', hidden: false, spikeIds: [], spike: '' }, presets[key] || {}, { piece: name, custom: true });
+  editedPresets[key] = true; saveDraft(); markDirty();
+  _prOpen = true; render(); openPresetSheet(key);
+}
+function prRemoveCustom(key){
+  const e = presets[key]; if (!e || !e.custom) return;
+  if (!confirm('Remove ' + (e.piece || key) + ' from Presets?')) return;
+  e.custom = false; e.hidden = true;
+  editedPresets[key] = true; saveDraft(); markDirty();
+  closePresetSheet();
 }
 // Old links and buttons that asked for the Before House sheet: open Presets
 // on the plot and bring it into view.
@@ -5307,6 +5336,8 @@ function saveMoveEdits(forceRead){
       // boxes here don't wipe what someone else filled in.
       const base = JSON.parse(presetBaseline[k] || 'null') || csBlankLike(oursP[k], theirs);
       data.presets[k] = csMergeObj(base, oursP[k], theirs, 'presets.' + k, clashes, PRESET_DEEP);
+      // A preset added by hand has no set change to name it: send its name too.
+      if (oursP[k] && oursP[k].custom && oursP[k].piece && !(theirs && theirs.piece && theirs.piece !== k)) data.presets[k].piece = oursP[k].piece;
       pApplied.push(k);
     });
     const lApplied = [];
@@ -7144,7 +7175,7 @@ function renderPresetPanel(){
   document.getElementById('ms-body').innerHTML = `
     <div class="ms-head">
       <span class="ms-num" style="font-size:19px">${esc(e.piece || key)}</span>
-      <span class="ms-of">· before house · ${at + 1} of ${keys.length}</span>
+      <span class="ms-of">· presets${e.custom ? ' · added by hand' : ''} · ${at + 1} of ${keys.length}</span>
       <span style="flex:1"></span>
       <button class="ms-icon" aria-label="Previous piece" onclick="presetStep(-1)"${at <= 0 ? ' disabled' : ''}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
@@ -7163,6 +7194,7 @@ function renderPresetPanel(){
     <div class="ps-photos" id="ps-photos">${phTilesHTML(key)}</div>
     <div class="ms-btns">
       <button class="ms-btn${e.hidden ? '' : ' dashed'}" onclick="presetField('hidden', ${!e.hidden}); renderPresetPanel();">${e.hidden ? 'Put back on the plot' : 'Leave off the plot'}</button>
+      ${e.custom ? `<button class="ms-btn" style="color:#b42318" onclick="prRemoveCustom('${esc(key)}')">Remove item</button>` : ''}
       <span style="flex:1"></span>
       <button class="ms-btn primary" onclick="closePresetSheet()">${presetSheet.quick ? 'Save' : 'Close'}</button>
     </div>`;
@@ -8050,6 +8082,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.04 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.04 v2 dev</div>
 </body>
 </html>

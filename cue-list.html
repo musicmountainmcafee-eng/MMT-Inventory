@@ -1911,6 +1911,7 @@ function normalizePresets(v){
                  notes: String(e.notes || ''), hidden: !!e.hidden,
                  spikeIds: Array.isArray(e.spikeIds) ? e.spikeIds.map(String) : [],
                  spike: String(e.spike || '') };
+      if (e.custom) out[k].custom = true;   // added by hand, not from the plot
       const ph = presetPhotos(e);
       if (ph.length) out[k].photos = ph;
     });
@@ -1931,6 +1932,8 @@ function allPieces(){
       if (!seen.has(k)) seen.set(k, v);
     });
   });
+  // Presets added by hand (things no set change moves: a prop table, the fog machine).
+  Object.keys(presets || {}).forEach(k => { const e = presets[k]; if (e && e.custom && !seen.has(k)) seen.set(k, String(e.piece || k)); });
   return [...seen.entries()].map(([key, piece]) => ({ key, piece }))
     .sort((a,b) => a.piece.localeCompare(b.piece));
 }
@@ -7950,6 +7953,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.04 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.04 v2</div>
 </body>
 </html>

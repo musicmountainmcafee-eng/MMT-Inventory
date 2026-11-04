@@ -224,7 +224,7 @@ try {
     </div>
     <span class="save" id="save-state" aria-live="polite"></span>
     <div class="pr-faces" id="pr-faces" hidden aria-label="Who else is here"></div>
-    <div id="build-tag" title="Stage map version">Stage map 11.03 v13</div>
+    <div id="build-tag" title="Stage map version">Stage map 11.04 v1</div>
   </header>
   <div class="main">
     <div class="stage" id="stage">
@@ -341,6 +341,7 @@ function buildSteps() {
 function pieceList() {
   const seen = new Map();
   cues.filter(c => c.type === 'shift').forEach(c => (c.moves || []).forEach(m => { const v = String(m.piece || '').trim(); if (v && !seen.has(v.toLowerCase())) seen.set(v.toLowerCase(), v); }));
+  Object.keys(presets || {}).forEach(k => { const e = presets[k]; if (e && e.custom && !seen.has(k)) seen.set(k, String(e.piece || k)); });   // added by hand on the cue sheet
   const out = [...seen].map(([key, name]) => ({ key, name, fromSheet: true, def: sm.pieces[key] || null }));
   Object.keys(sm.pieces).forEach(k => { if (!seen.has(k) && sm.pieces[k] && !sm.pieces[k].gone) out.push({ key: k, name: sm.pieces[k].name, fromSheet: false, def: sm.pieces[k] }); });
   return out.sort((a, b) => a.name.localeCompare(b.name));
