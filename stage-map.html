@@ -165,6 +165,25 @@ try {
   .pr-face.away { opacity: .45; }
   .pr-face.pr-self { margin-left: 8px; cursor: default; }
   .pr-face:focus-visible { box-shadow: 0 0 0 2px #fff; }
+  /* spike tape on the map; pieces not moving in this change are greyed */
+  .pc .spk { pointer-events: none; }
+  .pc .spk.dim { opacity: .28; filter: grayscale(1); }
+  .prow .spkc { font-size: 12px; color: var(--text-muted); display: block; line-height: 1.35; }
+  .prow .spkc i { display: inline-block; width: 14px; height: 8px; border-radius: 2px; border: 1px solid rgba(0,0,0,.35); margin-right: 4px; vertical-align: 0; }
+  .spk-row { justify-content: space-between; margin-top: 8px; }
+  #spk-print { display: none; }
+  @media print {
+    html.printing-spikes body { background: #fff !important; }
+    html.printing-spikes body > :not(#spk-print) { display: none !important; }
+    html.printing-spikes #spk-print { display: block; font: 12px 'DM Sans', system-ui, sans-serif; color: #000; }
+    html.printing-spikes #spk-print h1 { font-size: 18px; margin: 0; } html.printing-spikes #spk-print h2 { font-size: 14px; margin: 2px 0 10px; font-weight: 600; }
+    html.printing-spikes #spk-print .spk-map { display: block; width: 100%; height: auto; max-height: 6.2in; border: 1px solid #ccc; }
+    html.printing-spikes #spk-print table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    html.printing-spikes #spk-print th, html.printing-spikes #spk-print td { border-bottom: 1px solid #ccc; padding: 6px 4px; text-align: left; vertical-align: top; }
+    html.printing-spikes #spk-print tr { break-inside: avoid; }
+    html.printing-spikes #spk-print .sw { display: inline-block; width: 22px; height: 11px; border: 1px solid #000; margin-right: 6px; vertical-align: -1px; }
+    html.printing-spikes #spk-print, html.printing-spikes #spk-print * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
   .pop-h { display: flex; align-items: center; gap: 8px; cursor: move; touch-action: none; user-select: none; -webkit-user-select: none; margin: -4px -4px 0; padding: 4px; border-radius: 10px; }
   .pop-h:hover { background: var(--sel-soft); }
   .pop-grip { color: var(--text-muted); font-size: 16px; line-height: 1; letter-spacing: -2px; }
@@ -214,7 +233,7 @@ try {
   </div>
 </div>
 <div class="toast" id="toast"></div>
-<div id="build-tag">11.03 v11</div>
+<div id="build-tag">11.03 v12</div>
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
@@ -290,6 +309,7 @@ function load() {
     cues = Array.isArray(cd.cues) ? cd.cues : []; annotations = cd.annotations || {}; presets = cd.presets || {};
     done();
   }, done);
+  spkLoad();
   jsonp(SCRIPT_URL + '?action=getKV&key=' + PLAN_KEY + '&_=' + Date.now(), d => { if (d && d.value && d.value.img) { plan = d.value; lsSet('mmt_stageplan_cache', JSON.stringify(plan)); } done(); }, done);
   jsonp(SCRIPT_URL + '?action=getKV&key=' + kvKey() + '&_=' + Date.now(), d => { if (d && d.value && typeof d.value === 'object') { sm = norm(d.value); lsSet('mmt_stagemap_cache_' + scriptId, JSON.stringify(sm)); } done(); }, done);
   if (!showName) { const sid = scriptId; jsonp(SCRIPT_URL + '?action=listScripts&_=' + Date.now(), d => { const s = (d && d.scripts || []).find(x => x.id === sid); if (s) { showName = String(s.name || '').replace(/\.pdf$/i, ''); document.getElementById('show-name').textContent = showName; } }); }
@@ -308,7 +328,9 @@ function buildSteps() {
       const t = [String(m.action || '').trim(), wing].filter(Boolean).join(' · ');
       const who = String(m.who || '').trim();
       info[k] = (info[k] ? info[k] + '; ' : '') + (t || 'moves') + (who ? ' (' + who + ')' : ''); });
-    return { id: c.id, label: '#' + n + (c.cueLine ? ' · ' + c.cueLine : '') + (c.page ? ' (pg. ' + c.page + ')' : ''), moves: (c.moves || []).map(m => String(m.piece || '').trim().toLowerCase()).filter(Boolean), info };
+    const spk = {};
+    (c.moves || []).forEach(m => { const k = String(m.piece || '').trim().toLowerCase(); if (k && !spk[k] && ((m.spikeIds || []).length || m.spike)) spk[k] = { ids: (m.spikeIds || []).map(String), txt: String(m.spike || '').trim() }; });
+    return { id: c.id, label: '#' + n + (c.cueLine ? ' · ' + c.cueLine : '') + (c.page ? ' (pg. ' + c.page + ')' : ''), moves: (c.moves || []).map(m => String(m.piece || '').trim().toLowerCase()).filter(Boolean), info, spk };
   }));
 }
 // Every piece named in a set change, plus pieces added here.
@@ -415,6 +437,7 @@ function draw() {
         : `<rect class="body" data-part="${i}" x="${cx - w / 2}" y="${cy - dd / 2}" width="${w}" height="${dd}" rx="${Math.min(4, dd / 4)}" stroke-width="${sw}" vector-effect="non-scaling-stroke"/>`)
         + `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-size="${fs.toFixed(1)}"${dd < fs * 1.2 ? ` transform="translate(0 ${-(dd / 2 + fs * .8)})"` : ''}>${esc(pc.name)}${parts.length > 1 && sel === pc.key && _partEdit ? ' ' + (i + 1) : ''}</text>`;
     });
+    if (spkOn()) body += spikeMarksSVG(pc, parts, k, moving.has(pc.key) || stepIdx === 0);
     h += `<g class="${cls}" data-key="${esc(pc.key)}" transform="translate(${at.x * k} ${at.y * k}) rotate(${at.r || 0})">${body}</g>`;
   });
   if (mode === 'scale2' && scaleA) h += `<circle cx="${scaleA.x}" cy="${scaleA.y}" r="8" fill="#2563eb" vector-effect="non-scaling-stroke"/>`;
@@ -464,7 +487,8 @@ function renderSide() {
   h += `</div>`;
   const hid = list.filter(isHidden);
   if (hid.length) h += `<details class="hid-grp"${lsGet('mmt_stagemap_hidopen', '0') === '1' ? ' open' : ''} ontoggle="lsSet('mmt_stagemap_hidopen', this.open ? '1' : '0')"><summary>Hidden (${hid.length})</summary><p class="note">Not drawn on any map for this show. Tick one to bring it back.</p><div class="plist">${hid.map(pc => prowHTML(pc, st, ed)).join('')}</div></details>`;
-  h += `<div class="legend"><span><i></i>placed here</span><span><i class="mv"></i>moves in this change</span><span><i class="inh"></i>from an earlier map</span></div></section>`;
+  h += `<div class="legend"><span><i></i>placed here</span><span><i class="mv"></i>moves in this change</span><span><i class="inh"></i>from an earlier map</span></div>
+    <div class="row spk-row"><label class="row note" style="gap:6px"><input type="checkbox"${spkOn() ? ' checked' : ''} onchange="lsSet('mmt_stagemap_spikes', this.checked ? '1' : '0'); draw()"> Spike marks</label><button class="tb" onclick="printSpikes()">Print spike sheet</button></div></section>`;
   if (ed) {
     h += `<section><h2>Add a piece</h2>`;
     Object.keys(STOCK).forEach(g => { h += `<details><summary>${g}</summary><div class="chips">${STOCK[g].map((s, i) => `<button class="chip" onclick="addStock('${g}', ${i})">${esc(s[0])}<small>${fmtFt(s[1])}×${fmtFt(s[2])}</small></button>`).join('')}</div></details>`; });
@@ -584,7 +608,7 @@ function prowHTML(pc, st, ed) {
   const at = posAt(pc.key, stepIdx), mv = st.moves.includes(pc.key), hidden = isHidden(pc), parts = partsOf(pc.def);
   const size = pc.def && (pc.def.w || pc.def.parts) ? (parts.length > 1 ? parts.length + ' parts' : fmtFt(parts[0].w) + ' × ' + fmtFt(parts[0].d)) : 'no size';
   return `<div class="prow-wrap${sel === pc.key ? ' on' : ''}">${ed ? `<label class="vis" title="${hidden ? 'Show on the map' : 'Hide from the map'}"><input type="checkbox"${hidden ? '' : ' checked'} onchange="setHidden('${esc(pc.key)}', !this.checked)" aria-label="${hidden ? 'Show' : 'Hide'} ${esc(pc.name)}"></label>` : ''}
-    <button class="prow${sel === pc.key ? ' on' : ''}" onclick="pick('${esc(pc.key)}')"${hidden ? ' disabled' : ''}><span class="pnm"><b>${esc(pc.name)}</b>${mv ? `<span class="mv">${esc((st.info && st.info[pc.key]) || 'moves')}</span>` : ''}</span><small>${size}</small>${at || hidden ? '' : '<small class="off">not on map</small>'}</button></div>`;
+    <button class="prow${sel === pc.key ? ' on' : ''}" onclick="pick('${esc(pc.key)}')"${hidden ? ' disabled' : ''}><span class="pnm"><b>${esc(pc.name)}</b>${mv ? `<span class="mv">${esc((st.info && st.info[pc.key]) || 'moves')}</span>` : ''}${(mv || stepIdx === 0) && at ? spikeChipHTML(pc.key) : ''}</span><small>${size}</small>${at || hidden ? '' : '<small class="off">not on map</small>'}</button></div>`;
 }
 function defOf(key) { const pc = pieceList().find(x => x.key === key); return Object.assign({ name: pc ? pc.name : key }, sm.pieces[key] || {}); }
 function setHidden(key, hide) {
@@ -894,6 +918,94 @@ function closeMap() {
   if (EMBED) { try { window.parent.postMessage({ mmt: 'stagemap-close' }, location.origin); } catch (e) {} return; }
   if (history.length > 1) history.back(); else location.href = 'cue-list.html';
 }
+// ── Spike marks ─────────────────────────────────────────────────────────────
+// Each piece's spike comes from the cue sheet, the same way the cue sheet
+// shows it: the spike picked on that set change's move, or else the piece's
+// Before House (preset) spike. Its colours and where the tape goes on the
+// piece (corners, upstage corners, T's, X, outline, line) come from the
+// Spike Map page. Pieces moving in this change get bright marks; everything
+// else on stage keeps its marks, greyed out. (Presets: every piece is bright.)
+let _spk = null;
+function spkLoad() {
+  try { _spk = JSON.parse(lsGet('mmt_spike_cache', 'null')); } catch (e) {}
+  jsonp(SCRIPT_URL + '?action=getKV&key=spikemap&_=' + Date.now(), d => { if (d && d.value && typeof d.value === 'object') { _spk = d.value; lsSet('mmt_spike_cache', JSON.stringify(_spk)); draw(); renderSide(); } });
+}
+function spkOn() { return lsGet('mmt_stagemap_spikes', '1') === '1'; }
+function spkList() {
+  const d = _spk || { house: [], shows: {} }, rec = (d.shows && d.shows[scriptId]) || {}, over = rec.over || {};
+  return (d.house || []).map(h => Object.assign({}, h, over[h.id] || {})).concat(rec.extra || []);
+}
+function presetSpike(key) {
+  let p = presets[key];
+  if (!p) { const kk = Object.keys(presets).find(x => String((presets[x] || {}).piece || x).trim().toLowerCase() === key); p = kk ? presets[kk] : null; }
+  return p && ((p.spikeIds || []).length || p.spike) ? { ids: (p.spikeIds || []).map(String), txt: String(p.spike || '').trim() } : null;
+}
+// The spike a piece sits on at a step: from the last change at or before it
+// that moved the piece, else its preset spike.
+function spikeAt(key, i) {
+  for (let j = i; j >= 1; j--) { const st = steps[j]; if (st.moves.includes(key)) { if (st.spk && st.spk[key]) return st.spk[key]; break; } }
+  return presetSpike(key);
+}
+function spikeEntries(key, i) {
+  const sp = spikeAt(key, i); if (!sp) return [];
+  const all = spkList(), out = sp.ids.map(id => all.find(e => e.id === id)).filter(Boolean);
+  if (!out.length && sp.txt) out.push({ label: sp.txt, c1: '#9ca3af', mark: 'corners', typed: true });
+  return out;
+}
+function spikeName(e) { return e.typed ? e.label : (e.label || [e.c1n, e.c2n].filter(Boolean).join(' + ') || 'Spike'); }
+const MARK_NAMES = { corners: 'corners', uscorners: 'upstage corners', t: "T's", x: 'X', outline: 'outline', line: 'line' };
+// Tape drawn in feet on the piece itself, so it turns and scales with it.
+// Upstage is the top of the piece as drawn.
+function spikeMarksSVG(pc, parts, k, strong) {
+  const ents = spikeEntries(pc.key, stepIdx); if (!ents.length) return '';
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  parts.forEach(pt => { x0 = Math.min(x0, (pt.dx || 0) - pt.w / 2); x1 = Math.max(x1, (pt.dx || 0) + pt.w / 2); y0 = Math.min(y0, (pt.dy || 0) - pt.d / 2); y1 = Math.max(y1, (pt.dy || 0) + pt.d / 2); });
+  const W = x1 - x0, D = y1 - y0, leg = Math.max(.5, Math.min(1, Math.min(W, D) / 3));
+  let out = '';
+  ents.forEach((e, n) => {
+    const o = n * 0.25;   // a second spike sits just outside the first
+    const X0 = (x0 - o) * k, Y0 = (y0 - o) * k, X1 = (x1 + o) * k, Y1 = (y1 + o) * k, L = leg * k, cx = (X0 + X1) / 2, cy = (Y0 + Y1) / 2;
+    const corner = (x, y, sx, sy) => `M${x + sx * L} ${y}H${x}V${y + sy * L}`;
+    const mk = e.mark || 'corners';
+    let d = '';
+    if (mk === 'uscorners') d = corner(X0, Y0, 1, 1) + corner(X1, Y0, -1, 1);
+    else if (mk === 't') d = `M${cx - L} ${Y1}H${cx + L}M${cx} ${Y1}V${Y1 - L}M${cx - L} ${Y0}H${cx + L}M${cx} ${Y0}V${Y0 + L}`;
+    else if (mk === 'x') d = `M${cx - L} ${cy - L}L${cx + L} ${cy + L}M${cx + L} ${cy - L}L${cx - L} ${cy + L}`;
+    else if (mk === 'outline') d = `M${X0} ${Y0}H${X1}V${Y1}H${X0}Z`;
+    else if (mk === 'line') d = `M${X0} ${Y1}H${X1}`;
+    else d = corner(X0, Y0, 1, 1) + corner(X1, Y0, -1, 1) + corner(X1, Y1, -1, -1) + corner(X0, Y1, 1, -1);
+    const c1 = e.c1 || '#9ca3af', c2 = e.c2 || '';
+    out += `<g class="spk${strong ? '' : ' dim'}"><title>${esc(pc.name + ' spike: ' + spikeName(e) + ', ' + (MARK_NAMES[mk] || mk))}</title>`
+      + `<path d="${d}" stroke="#111" stroke-width="7" fill="none" stroke-linecap="square" vector-effect="non-scaling-stroke"/>`
+      + `<path d="${d}" stroke="${esc(c1)}" stroke-width="5" fill="none" stroke-linecap="square" vector-effect="non-scaling-stroke"/>`
+      + (c2 ? `<path d="${d}" stroke="${esc(c2)}" stroke-width="2" fill="none" stroke-linecap="square" vector-effect="non-scaling-stroke"/>` : '') + `</g>`;
+  });
+  return out;
+}
+function spikeChipHTML(key) {
+  const ents = spikeEntries(key, stepIdx); if (!ents.length) return '';
+  return `<span class="spkc">${ents.map(e => `<i style="background:${esc(e.c1 || '#9ca3af')}${e.c2 ? ';box-shadow:inset -5px 0 0 ' + esc(e.c2) : ''}"></i>${esc(spikeName(e))}${e.mark && MARK_NAMES[e.mark] ? ' · ' + MARK_NAMES[e.mark] : ''}`).join(', ')}</span>`;
+}
+// Spike sheet: this change's map and a list of each moving piece's spike,
+// ready to print (or save as PDF from the print box).
+function printSpikes() {
+  const st = steps[stepIdx], list = pieceList().filter(pc => !isHidden(pc) && (stepIdx === 0 ? posAt(pc.key, 0) : st.moves.includes(pc.key)));
+  const rows = list.map(pc => { const ents = spikeEntries(pc.key, stepIdx), at = posAt(pc.key, stepIdx);
+    return `<tr><td><b>${esc(pc.name)}</b>${st.info && st.info[pc.key] ? `<br><small>${esc(st.info[pc.key])}</small>` : ''}</td><td>${ents.length ? ents.map(e => `<span class="sw" style="background:${esc(e.c1 || '#9ca3af')}${e.c2 ? ';box-shadow:inset -8px 0 0 ' + esc(e.c2) : ''}"></span>${esc(spikeName(e))}`).join('<br>') : '<i>no spike set</i>'}</td><td>${ents.map(e => esc(MARK_NAMES[e.mark || 'corners'] || e.mark)).join('<br>')}</td><td>${at ? '' : '<i>off stage</i>'}</td></tr>`; }).join('');
+  let el = document.getElementById('spk-print'); if (!el) { el = document.createElement('div'); el.id = 'spk-print'; document.body.appendChild(el); }
+  el.innerHTML = `<h1>Spike sheet · ${esc(showName || '')}</h1><h2>${esc(stepIdx === 0 ? 'Presets' : st.label)}</h2>
+    <table><thead><tr><th>Piece</th><th>Spike</th><th>Where on the piece</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="4"><i>No pieces move in this change.</i></td></tr>'}</tbody></table>`;
+  // a copy of the map, whole plan in view, with spikes on, above the list
+  const was = lsGet('mmt_stagemap_spikes', '1'); lsSet('mmt_stagemap_spikes', '1'); const keepSel = sel; sel = null; draw();
+  const cp = svg.cloneNode(true), ps = planSize(); cp.removeAttribute('id'); cp.setAttribute('viewBox', `0 0 ${ps.w} ${ps.h}`); cp.setAttribute('class', 'spk-map');
+  el.insertBefore(cp, el.querySelector('table'));
+  sel = keepSel; lsSet('mmt_stagemap_spikes', was); draw();
+  document.documentElement.classList.add('printing-spikes');
+  const done = () => { document.documentElement.classList.remove('printing-spikes'); removeEventListener('afterprint', done); };
+  addEventListener('afterprint', done);
+  setTimeout(() => window.print(), 50);
+}
+
 // Someone else's changes, while nobody is mid-drag here: straight away when
 // their page says it saved (prTick), and every 30 s in case.
 function pollMap() {
