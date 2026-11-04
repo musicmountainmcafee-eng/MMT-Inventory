@@ -7649,7 +7649,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.04 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.04 v3</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -8289,7 +8289,11 @@ function csFrameWin() { try { const w = csFrame().contentWindow; return (w && ty
 function csSheetUrl(cueId, view) {
   const name = (document.getElementById('show-name') || {}).textContent || '';
   return CUE_PAGE + '?embed=1&script=' + encodeURIComponent(showId) + (cueId ? '&cue=' + encodeURIComponent(cueId) : '') + (name ? '&name=' + encodeURIComponent(name) : '')
-    + (view === 'shift' ? '&type=shift' : view === 'presets' ? '&view=presets&edit=1' : '');
+    + (view === 'shift' ? '&type=shift' : view === 'presets' ? '&view=presets&edit=1' : '')
+    // This page's version in the address: the app's offline copy is kept per
+    // address, so a new dashboard always opens a fresh cue sheet with it instead
+    // of last time's saved copy.
+    + '&v=' + encodeURIComponent(((document.getElementById('build-tag') || {}).textContent || '').trim());
 }
 // Where you were on each side, so the Script | Cue sheet toggle brings you back
 // to the same spot instead of the top. (The cue sheet sits hidden inside this
@@ -20211,7 +20215,7 @@ function openStageMap(step, sid, name){
   closeStageMap(true);
   const ov = document.createElement('div'); ov.id = 'sm-ov'; ov.dataset.sid = sid; ov.dataset.step = step || 'presets';
   if (bar) { ov.classList.add('in-bar'); ov.style.top = Math.round(bar.getBoundingClientRect().bottom) + 'px'; }
-  ov.innerHTML = '<iframe title="Stage map" src="stage-map.html?embed=1' + (bar ? '&bar=0' : '') + '&script=' + encodeURIComponent(sid) + '&step=' + encodeURIComponent(step || 'presets') + (name ? '&name=' + encodeURIComponent(name) : '') + '"></iframe>';
+  ov.innerHTML = '<iframe title="Stage map" src="stage-map.html?embed=1&v=' + Math.floor(Date.now() / 6e5) + (bar ? '&bar=0' : '') + '&script=' + encodeURIComponent(sid) + '&step=' + encodeURIComponent(step || 'presets') + (name ? '&name=' + encodeURIComponent(name) : '') + '"></iframe>';
   document.body.appendChild(ov);
   document.documentElement.classList.add('sm-open');
   document.querySelectorAll('#sv-switch .sv-btn').forEach(b => { const on = b.dataset.sv === 'map'; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
