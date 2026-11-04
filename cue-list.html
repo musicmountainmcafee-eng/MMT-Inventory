@@ -771,7 +771,8 @@
   @media (min-width: 601px) {
     .bar { position: relative; min-height: 56px; box-sizing: border-box; }
     .vw-switch { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; z-index: 2; }
-    .bar-title { max-width: calc(50% - 290px); margin-right: auto; overflow: hidden; }
+    /* clear of the switch (up to four buttons, ~420px): back button + gap included */
+    .bar-title { max-width: calc(50% - 360px); margin-right: auto; overflow: hidden; }
     .bar-title h1 { flex: 0 1 auto !important; min-width: 0; }
     .bar-title h1 { max-width: 100%; }
   }
@@ -1050,6 +1051,47 @@
   .pr-sec .pr-tbl { margin: 0; border: 0; }
   .pr-sec .pr-tbl thead th { position: static; }
   @media print { .pr-sec-h .pr-sec-chev { display: none; } }
+
+  .in-cut { display: inline-block; margin: 0 6px 3px 0; font: 700 11px 'DM Sans', system-ui, sans-serif; color: #c2410c; border: 1px solid #c2410c; border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+
+  #sm-ov { position: fixed; inset: 0; z-index: 5000; background: #111113; }
+  #sm-ov.in-bar { z-index: 900; bottom: 0; left: 0; right: 0; }
+  #sm-ov iframe { width: 100%; height: 100%; border: 0; display: block; }
+  html.sm-open, html.sm-open body { overflow: hidden; }
+  html.sm-open .sv-map, html.sm-open .vw-map { background: #fff !important; color: #111 !important; }
+  .pr-sec-top { display: flex; align-items: stretch; }
+  .pr-sec-top .pr-sec-h { flex: 1; min-width: 0; }
+  .pr-sec.open .pr-sec-top { border-bottom: 1px solid var(--grid); }
+  .pr-sec.open .pr-sec-h { border-bottom: 0; }
+  .pr-map-btn { flex: none; margin: 8px 10px 8px 0; border: 1px solid var(--grid); background: var(--paper); color: var(--ink, var(--text)); border-radius: 999px; padding: 0 14px; font: 600 13px 'DM Sans', system-ui, sans-serif; cursor: pointer; min-height: 32px; }
+  .pr-map-btn:hover { border-color: var(--purple); }
+  .map-btn { margin-left: 4px; }
+  /* Small stage map at the right of a set change's first row. */
+  .sm-thumb { float: right; display: block; width: 150px; margin: 0 0 6px 10px; padding: 0; border: 1px solid var(--grid); border-radius: 8px; background: #fff; overflow: hidden; cursor: pointer; line-height: 0; }
+  .sm-thumb:hover { border-color: var(--purple); }
+  .sm-thumb svg { display: block; width: 100%; height: auto; max-height: 110px; }
+  .sm-thumb .smt-stage { fill: #f4f4f5; stroke: #d4d4d8; stroke-width: 2; vector-effect: non-scaling-stroke; }
+  .sm-thumb .smt-pc > * { fill: #fff; stroke: #a1a1aa; stroke-width: 1; vector-effect: non-scaling-stroke; opacity: .7; }
+  .sm-thumb .smt-mv > * { fill: #18181b; stroke: #18181b; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  @media (max-width: 700px) { .sm-thumb { width: 96px; } }
+  #smz { position: fixed; inset: 0; z-index: 2500; background: rgba(10,10,14,.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  #smz .smz-card { background: var(--paper, #fff); color: var(--text, #111); border-radius: 16px; box-shadow: 0 24px 60px rgba(0,0,0,.35); width: min(1100px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+  #smz .smz-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--grid, #e4e4e7); }
+  #smz .smz-h b { flex: 1 1 200px; min-width: 0; font-size: 15px; }
+  #smz .smz-key { font-size: 12px; color: var(--text-muted, #71717a); display: inline-flex; align-items: center; gap: 4px; }
+  #smz .smz-key i { display: inline-block; width: 12px; height: 9px; border: 1px solid #a1a1aa; background: #fff; border-radius: 2px; margin-left: 6px; }
+  #smz .smz-key i.mv { background: #18181b; border-color: #18181b; margin-left: 0; }
+  #smz .smz-btn { border: 1px solid var(--grid, #e4e4e7); background: var(--paper, #fff); color: inherit; border-radius: 999px; padding: 0 14px; min-height: 36px; font: 600 13px 'DM Sans', system-ui, sans-serif; cursor: pointer; }
+  #smz .smz-x { border: 0; background: none; color: inherit; font-size: 18px; width: 40px; height: 40px; border-radius: 10px; cursor: pointer; }
+  #smz .smz-x:hover, #smz .smz-btn:hover { background: rgba(0,0,0,.06); }
+  #smz .smz-map { float: none; width: auto; margin: 0; border: 0; border-radius: 0; cursor: default; padding: 10px; overflow: auto; }
+  #smz .smz-map svg { width: 100%; height: auto; max-height: calc(100vh - 120px); }
+  #smz .smz-map text { fill: #111; font-family: 'DM Sans', system-ui, sans-serif; font-weight: 600; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+  #smz .smz-map .smt-mv text { fill: #fff; stroke: #18181b; }
+  #smz .smz-map .smt-pc > text { opacity: 1; }
+  @media print { #smz { display: none !important; } }
+  @media print { .sm-thumb { width: 1.5in; break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  @media print { .pr-map-btn, .map-btn { display: none !important; } }
 </style>
 </head>
 <body>
@@ -1094,7 +1136,7 @@
           <span id="status-count"></span><span id="status">connecting</span>
         </div>
       </div>
-      <div class="vw-switch" id="vw-switch" role="group" aria-label="View"><button type="button" class="ic ic-script" onclick="flipToScript()" aria-pressed="false">Script</button><button type="button" class="on ic ic-list" aria-pressed="true">Cue sheet</button></div>
+      <div class="vw-switch" id="vw-switch" role="group" aria-label="View"><button type="button" class="ic ic-script" onclick="flipToScript()" aria-pressed="false">Script</button><button type="button" class="on ic ic-list" aria-pressed="true" onclick="closeStageMap()">Cue sheet</button><button type="button" class="vw-map" onclick="openStageMap('presets')" aria-pressed="false" title="Top-down stage map">Stage map</button></div>
       <div class="pr-faces" id="pr-faces" hidden aria-label="Who else is here"></div>
       <span class="edit-state" id="edit-state"></span>
       <button class="top-btn lock-tg" id="edit-btn" onclick="setEditMode(!editMode)" title="Switch between View only and Editing" aria-label="View only or editing"><span class="lk-v ic ic-lock"><span class="lk-w">View only</span></span><span class="lk-e ic ic-pen"><span class="lk-w">Editing</span></span></button>
@@ -1648,6 +1690,8 @@ function start(){
 let _pollN = 0, _polling = false;
 function clCheck(){
   if (document.visibilityState !== 'visible' || !scriptId || _polling) return;
+  // A stage map open here reports who's here itself (same device id).
+  if (document.getElementById('sm-ov')) return;
   _pollN++;
   if (_clSafe === false) { if (_pollN % 4 === 0 && !editMode && !editSaving) fetchCues(); return; }   // old Sheet script
   _polling = true;
@@ -2186,6 +2230,112 @@ function render(){
 // It steps aside while a Type or Who filter is on; a search opens it when a
 // piece matches.
 let _prOpen = lsGet('mmt_cuelist_pr_open', '0') === '1';
+
+// ── STAGE MAP ── stage-map.html shown for Presets ('presets') or a set change
+// (its cue id). On the script page and the cue sheet it opens *under* the page's
+// own Script | Cue sheet | Stage map switch, so that bar never changes when you
+// move between them; anywhere else it covers the page.
+function openStageMap(step, sid, name){
+  sid = sid || (scriptId || ''); if (!sid) { try { toast('Open a script first'); } catch (e) {} return; }
+  name = name || ssTitle(scriptId, scriptName);
+  const bar = (typeof CL_EMBED !== 'undefined' && CL_EMBED ? null : document.querySelector('header'));
+  const old = document.getElementById('sm-ov');
+  if (old && old.dataset.sid === String(sid) && old.dataset.step === String(step || 'presets')) { document.querySelectorAll('#vw-switch button').forEach(b => { const on = b.classList.contains('vw-map'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); return; }
+  closeStageMap(true);
+  const ov = document.createElement('div'); ov.id = 'sm-ov'; ov.dataset.sid = sid; ov.dataset.step = step || 'presets';
+  if (bar) { ov.classList.add('in-bar'); ov.style.top = Math.round(bar.getBoundingClientRect().bottom) + 'px'; }
+  ov.innerHTML = '<iframe title="Stage map" src="stage-map.html?embed=1' + (bar ? '&bar=0' : '') + '&script=' + encodeURIComponent(sid) + '&step=' + encodeURIComponent(step || 'presets') + (name ? '&name=' + encodeURIComponent(name) : '') + '"></iframe>';
+  document.body.appendChild(ov);
+  document.documentElement.classList.add('sm-open');
+  document.querySelectorAll('#vw-switch button').forEach(b => { const on = b.classList.contains('vw-map'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+}
+function closeStageMap(quiet){
+  const o = document.getElementById('sm-ov'); if (o) { o.remove(); _smSid = null; }
+  document.documentElement.classList.remove('sm-open');
+  if (!quiet) { document.querySelectorAll('#vw-switch button').forEach(b => { const on = b.classList.contains('ic-list'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); }
+}
+window.addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.mmt === 'stagemap-close') closeStageMap(); });
+addEventListener('resize', () => { const o = document.getElementById('sm-ov'), bar = (typeof CL_EMBED !== 'undefined' && CL_EMBED ? null : document.querySelector('header')); if (o && bar && o.classList.contains('in-bar')) o.style.top = Math.round(bar.getBoundingClientRect().bottom) + 'px'; });
+
+// ── Small stage maps on the sheet ── each set change's first row carries a
+// little picture of the stage after that change (from stage-map.html's saved
+// map): the pieces it moves dark, everything else faint, the ground plan
+// faintly behind. Tap it for the full map at that change. It prints too.
+let _sm = null, _smPlan = null, _smSid = null, _smBusy = false;
+function smFetch(){
+  if (!scriptId || _smBusy) return;
+  const sid = scriptId; _smBusy = true; _smSid = sid;
+  let left = 2; const done = () => { if (--left) return; _smBusy = false; if (sid === scriptId) render(); };
+  jsonp(SCRIPT_URL + '?action=getKV&key=stageplan&_=' + Date.now(), d => { if (d && d.value && d.value.img) _smPlan = d.value; done(); }, done);
+  jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent('stagemap_' + sid) + '&_=' + Date.now(), d => {
+    const v = d && d.value && typeof d.value === 'object' ? d.value : null;
+    _sm = v ? { plan: v.plan || null, pieces: v.pieces || {}, maps: v.maps || {} } : null; done();
+  }, done);
+}
+function smThumbHTML(c, big){
+  if (scriptId && _smSid !== scriptId) setTimeout(smFetch, 0);
+  if (!_sm || !c || c.type !== 'shift') return '';
+  const order = ['presets'].concat(cuesInScriptOrder().filter(x => x.type === 'shift').map(x => x.id));
+  const i = order.indexOf(c.id); if (i < 0) return '';
+  const plan = (_sm.plan && _sm.plan.img) ? _sm.plan : _smPlan, k = (plan && plan.ppf) || 20;
+  const keys = new Set();
+  cues.forEach(x => { if (x.type === 'shift') (x.moves || []).forEach(m => { const v = String(m.piece || '').trim().toLowerCase(); if (v) keys.add(v); }); });
+  Object.keys(_sm.pieces).forEach(key => { if (_sm.pieces[key] && !_sm.pieces[key].gone) keys.add(key); });
+  const moving = new Set((c.moves || []).map(m => String(m.piece || '').trim().toLowerCase()).filter(Boolean));
+  const posAt = key => { for (let j = i; j >= 0; j--) { const m = _sm.maps[order[j]]; if (m && key in m) return m[key] || null; } return null; };
+  let faint = '', dark = '', x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  keys.forEach(key => {
+    const def = _sm.pieces[key] || {}; if (def.hidden) return;
+    const at = posAt(key); if (!at) return;
+    const parts = Array.isArray(def.parts) && def.parts.length ? def.parts : [{ dx: 0, dy: 0, w: def.w || 4, d: def.d || 2, shape: def.shape || 'rect' }];
+    const mv = moving.has(key);
+    let body = '';
+    parts.forEach(pt => {
+      const w = pt.w * k, dd = pt.d * k, cx = (pt.dx || 0) * k, cy = (pt.dy || 0) * k;
+      body += pt.shape === 'round' ? `<ellipse cx="${cx}" cy="${cy}" rx="${w / 2}" ry="${dd / 2}"/>` : `<rect x="${cx - w / 2}" y="${cy - dd / 2}" width="${w}" height="${dd}"/>`;
+      const R = Math.hypot(Math.abs(cx) + w / 2, Math.abs(cy) + dd / 2);
+      x0 = Math.min(x0, at.x * k - R); x1 = Math.max(x1, at.x * k + R); y0 = Math.min(y0, at.y * k - R); y1 = Math.max(y1, at.y * k + R);
+    });
+    // the big view names each piece
+    if (big) { const nm = def.name || key, p0 = parts[0], w = p0.w * k, dd = p0.d * k, fs = Math.max(10, Math.min(w / Math.max(4, nm.length) * 1.6, dd * .6, 1.2 * k));
+      body += `<text x="${((p0.dx || 0) * k).toFixed(1)}" y="${((p0.dy || 0) * k).toFixed(1)}" text-anchor="middle" dominant-baseline="central" font-size="${fs.toFixed(1)}"${dd < fs * 1.2 ? ` transform="translate(0 ${-(dd / 2 + fs * .8)})"` : ''}>${esc(nm)}</text>`; }
+    const g = `<g class="${mv ? 'smt-mv' : 'smt-pc'}" transform="translate(${(at.x * k).toFixed(1)} ${(at.y * k).toFixed(1)}) rotate(${at.r || 0})"><title>${esc(def.name || key)}</title>${body}</g>`;
+    if (mv) dark += g; else faint += g;
+  });
+  if (!faint && !dark) return '';
+  let vb, bg = '';
+  if (plan && plan.img) {
+    vb = `0 0 ${plan.img.w} ${plan.img.h}`;
+    const url = plan.img.id && !/^data:/.test(plan.img.url || '') ? 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(plan.img.id) + '&sz=w800' : plan.img.url;
+    bg = `<image href="${esc(url)}" x="0" y="0" width="${plan.img.w}" height="${plan.img.h}" preserveAspectRatio="none" opacity=".35"/>`;
+  } else {
+    const pad = 3 * k; vb = `${(x0 - pad).toFixed(0)} ${(y0 - pad).toFixed(0)} ${(x1 - x0 + 2 * pad).toFixed(0)} ${(y1 - y0 + 2 * pad).toFixed(0)}`;
+    bg = `<rect x="${(x0 - pad).toFixed(0)}" y="${(y0 - pad).toFixed(0)}" width="${(x1 - x0 + 2 * pad).toFixed(0)}" height="${(y1 - y0 + 2 * pad).toFixed(0)}" class="smt-stage"/>`;
+  }
+  const svgT = `<svg viewBox="${vb}" preserveAspectRatio="xMidYMid meet">${bg}${faint}${dark}</svg>`;
+  if (big) return svgT;
+  return `<button type="button" class="sm-thumb" onclick="event.stopPropagation(); smZoom('${esc(c.id)}')" title="Show the stage map bigger" aria-label="Show the stage map after this change bigger">${svgT}</button>`;
+}
+// Tap a small map: it opens bigger right here, over the sheet. Esc, a click
+// outside it, or ✕ closes it; "Edit on the stage map" opens the full page.
+function smZoom(id){
+  const c = cues.find(x => String(x.id) === String(id)); if (!c) return;
+  smZoomClose();
+  const svgT = smThumbHTML(c, true); if (!svgT) return;
+  const n = changeShortNum(shortNumber(c, typeOf(c.type).name));
+  const ov = document.createElement('div'); ov.id = 'smz'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', 'Stage map after set change ' + n);
+  ov.innerHTML = `<div class="smz-card" onclick="event.stopPropagation()">
+      <div class="smz-h"><b>Stage map after #${esc(n)}${c.cueLine ? ' · ' + esc(c.cueLine) : ''}</b><span class="smz-key"><i class="mv"></i>moves here <i></i>already on stage</span>
+        <button type="button" class="smz-btn" onclick="smZoomClose(); openStageMap('${esc(c.id)}')">Edit on the stage map</button><button type="button" class="smz-x" onclick="smZoomClose()" aria-label="Close">✕</button></div>
+      <div class="smz-map sm-thumb">${svgT}</div></div>`;
+  ov.addEventListener('click', smZoomClose);
+  document.body.appendChild(ov);
+  document.addEventListener('keydown', smZoomKey, true);
+  const x = ov.querySelector('.smz-x'); if (x) x.focus();
+}
+function smZoomKey(e){ if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); smZoomClose(); } }
+function smZoomClose(){ const o = document.getElementById('smz'); if (o) o.remove(); document.removeEventListener('keydown', smZoomKey, true); }
+
 function prSectionHTML(){
   if (activeType || activeWho) return '';
   const all = allPieces().map(({ key, piece }) => ({ ...(presets[key] || {}), piece, key })).filter(r => editMode || !r.hidden);
@@ -2200,11 +2350,11 @@ function prSectionHTML(){
   const gaps = all.filter(r => !r.hidden && !String(r.location || '').trim()).length;
   const n = all.filter(r => !r.hidden).length;
   let band = false;
-  return `<section class="pr-sec${open ? ' open' : ''}" id="pr-sec">
+  return `<section class="pr-sec${open ? ' open' : ''}" id="pr-sec"><div class="pr-sec-top">
     <button type="button" class="pr-sec-h" onclick="prSecToggle()" aria-expanded="${open}" aria-controls="pr-sec-body">
       <svg class="pr-sec-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
       <b>Presets</b><span>${n} piece${n === 1 ? '' : 's'}${gaps ? ' · <em>' + gaps + ' with no location</em>' : ''}</span>
-    </button>
+    </button><button type="button" class="pr-map-btn" onclick="openStageMap('presets')" aria-label="Stage map of the presets">Map</button></div>
     <div class="pr-sec-body" id="pr-sec-body"${open ? '' : ' hidden'}>${rows.length ? `<table class="cs pr-tbl">
       <colgroup><col style="width:24%"><col style="width:28%"><col style="width:24%"><col style="width:24%"></colgroup>
       <thead><tr><th>Piece</th><th>Preset location</th><th>Spike</th><th>Notes</th></tr></thead>
@@ -2610,15 +2760,19 @@ function plRow(c, band, mode){
     lineCell = `<button class="photo-chip" onclick="event.stopPropagation(); revealPhoto('${esc(c.id)}')">Show line photo</button>`;
   }
 
+  const cutHere = inCut(c);
   // Edit mode: a set change with no typed line asks for one; tapping it opens
   // the sheet with the cursor in the Cue line box.
   if (editMode && isShift && !c.cueLine) lineCell = `<button type="button" class="pl-addline" onclick="event.stopPropagation(); openCueLine('${esc(c.id)}')">+ Add cue line</button>` + (lineCell ? ' ' + lineCell : '');
+  if (cutHere) lineCell = `<span class="in-cut" title="${esc('Cut on the script' + (cutHere.note ? ': ' + cutHere.note : ''))}">✂ in a cut</span>` + lineCell;
   // No number column: the cue line leads. Cue types other than set changes
   // keep their coloured chip and number so they can't be mistaken for one.
   // Set changes lead with their change number, called over headset; other cue
   // types keep their coloured chip and number so they can't be mistaken for one.
   const approx = isApprox(c) ? `<span class="approx-tag" title="Placed from the cue sheet. Drag its marker onto the line in the Scripts tab.">approx.</span>` : '';
   const jumpBtn = `<button type="button" class="jump-btn" aria-label="Show in script" title="Show in script" onclick="event.stopPropagation(); jumpToScript('${esc(c.id)}')"><span class="jb-l">Script </span>›</button>`;
+  const thumb = isShift ? smThumbHTML(c) : '';
+  const mapBtn = isShift ? `<button type="button" class="jump-btn map-btn" aria-label="Stage map after this change" title="Stage map after this change" onclick="event.stopPropagation(); openStageMap('${esc(c.id)}')">Map</button>` : '';
   const chip = (isShift ? `<span class="pl-num">#${esc(changeShortNum(shortNumber(c, t.name)))}</span>` : `<span class="pl-num"><span class="cs-chip" style="background:${esc(t.color)}">${esc(t.name)}</span>${esc(shortNumber(c, t.name))}</span>`) + approx;
   // Every move row repeats the change's number, cue line and page, so each
   // row reads on its own. A line photo shows on the first row only.
@@ -2643,7 +2797,7 @@ function plRow(c, band, mode){
       <td class="cs-line" data-f="cueLine">${r.cue}</td>
       <td data-f="piece">${r.piece}${(r.action || r.wing) ? `<span class="pl-actsub" data-f="action">${[r.action, r.wing].filter(Boolean).join(' · ')}</span>` : ''}</td>
       <td class="pl-who" data-f="who">${r.who}</td>
-      <td class="pl-notes" data-f="notes">${r.spike ? `<span data-f="spike">${r.spike}</span>` : ''}${r.notes}</td>`;
+      <td class="pl-notes" data-f="notes">${r.thumb || ''}${r.spike ? `<span data-f="spike">${r.spike}</span>` : ''}${r.notes}</td>`;
     return `
       <td class="pl-numc">${r.num || ''}</td>
       <td class="cs-line" data-f="cueLine">${r.cue}</td>
@@ -2652,19 +2806,19 @@ function plRow(c, band, mode){
                : `<td data-f="piece">${r.piece}</td><td class="pl-act" data-f="action">${r.action}</td><td class="pl-wing" data-f="wing">${r.wing || ''}</td>`}
       <td class="pl-who" data-f="who">${r.who}</td>
       <td data-f="spike">${r.spike}</td>
-      <td class="pl-notes" data-f="notes">${r.notes}</td>`;
+      <td class="pl-notes" data-f="notes">${r.thumb || ''}${r.notes}</td>`;
   };
   const pg = c.page ? 'pg. ' + esc(c.page) : '';
 
   // Not a set change, or one with nothing entered yet: a single row.
   if (!moves.length){
-    return tr('pl-top') + cells({ num: chip + jumpBtn, cue: cueCell, pg, span: true,
+    return tr('pl-top') + cells({ num: chip + jumpBtn + mapBtn, thumb, cue: cueCell, pg, span: true,
       piece: esc(c.action || ''), action: '', who: '', spike: '', notes: esc(notes) }) + '</tr>';
   }
 
   const tap = ` onclick="toggle('${esc(c.id)}')"`;
   if (!open){
-    return tr('pl-top pl-tap', tap) + cells({ num: chip + jumpBtn, cue: cueCell, pg, span: true,
+    return tr('pl-top pl-tap', tap) + cells({ num: chip + jumpBtn + mapBtn, thumb, cue: cueCell, pg, span: true,
       piece: `<span class="pl-piece">${esc(c.action || 'Set change')}</span><br><span class="pl-moves">${moves.length} move${moves.length !== 1 ? 's' : ''} ▾</span>`,
       action: '', who: '', spike: '', notes: esc(notes) }) + '</tr>';
   }
@@ -2678,7 +2832,7 @@ function plRow(c, band, mode){
       if (moveSheet && moveSheet.cueId === String(c.id) && moveSheet.idx === i) cls.push('mv-sel');
       const blank = !m.piece && !m.action && !m.who && !m.spike && !(m.spikeIds || []).length && !m.notes;
       return tr(cls.filter(Boolean).join(' '), ` data-mv="${esc(m.id || '')}" onclick="openMoveAt(event, '${esc(c.id)}', ${i})"`) + cells({
-        num: (first ? chip + jumpBtn : chip) + `<button type="button" class="row-more" aria-label="More for this move" onclick="openRowMenu(event, '${esc(c.id)}', ${i})">⋯</button>`, cue: first ? cueCell : cueRest, pg,
+        thumb: first ? thumb : '', num: (first ? chip + jumpBtn + mapBtn : chip) + `<button type="button" class="row-more" aria-label="More for this move" onclick="openRowMenu(event, '${esc(c.id)}', ${i})">⋯</button>`, cue: first ? cueCell : cueRest, pg,
         piece: blank ? '<span class="mv-empty">Tap to add a move</span>'
           : `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
         action: esc(m.action || ''), wing: esc(wingText(m)), who: esc(m.who || ''), spike: plSpikeHTML(m),
@@ -2694,7 +2848,7 @@ function plRow(c, band, mode){
     const cls = [first ? 'pl-top' : '', 'pl-tap'];
     if (activeWho && !onMove(m, activeWho)) cls.push('pl-dim');
     return tr(cls.filter(Boolean).join(' '), tap + ` data-mv="${esc(m.id || '')}"`) + cells({
-      num: first ? chip + jumpBtn : chip, cue: first ? cueCell : cueRest, pg,
+      thumb: first ? thumb : '', num: first ? chip + jumpBtn + mapBtn : chip, cue: first ? cueCell : cueRest, pg,
       piece: `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
       action: esc(m.action || ''), wing: esc(wingText(m)), who: esc(m.who || ''), spike: plSpikeHTML(m),
       notes: (first && notes ? `<span class="pl-cuenote">${esc(notes)}</span>` : '') + esc(m.notes || '')
@@ -5800,6 +5954,14 @@ function getAdds(){ try { const a = JSON.parse(lsGet(addsKey(), '[]')); return A
 function setAdds(a){ if (a.length) lsSet(addsKey(), JSON.stringify(a)); else { try { localStorage.removeItem(addsKey()); } catch(e){} } }
 function annOf(c){ return (annotations[c.page] || []).find(x => x && x.type === 'cue' && x.cueId === c.id) || null; }
 function isApprox(c){ const a = annOf(c); return !!(a && a.approx); }
+// Cuts marked on the script (dev mockup): a cue whose spot falls between a
+// cut's two ends is "in a cut". It stays on the sheet, flagged.
+function clCuts(){ const out = []; Object.keys(annotations || {}).forEach(p => (annotations[p] || []).forEach(a => { if (a && a.type === 'cut') out.push(a); })); return out; }
+function inCut(c){
+  const a = annOf(c), p = Number(c.page); if (!a || !p) return null;
+  const r = a.rect || { y: a.y || 0, h: 0 }, y = r.y + (r.h || 0) / 2;
+  return clCuts().find(k => p >= k.page0 && p <= k.page1 && (p > k.page0 || y >= k.y0) && (p < k.page1 || y <= k.y1)) || null;
+}
 
 // The page's width in the Scripts tab's canvas pixels (pages draw at 1.5x).
 // Every label sits 28px in from the right edge, so the cues already placed
@@ -6639,7 +6801,7 @@ function prDescribe(p){
   }
   if (w[0] === 'cue') return cueName(w[1]) + (w[2] ? ' · ' + (PR_FIELD[w[2]] || w[2]) : '');
   if (w[0] === 'pre') return 'Presets · ' + ((presets[w[1]] || {}).piece || w[1]);
-  return p.page === 'cuesheet' ? 'cue sheet' : p.page && /^p\d+$/.test(p.page) ? 'script, page ' + p.page.slice(1) : 'looking';
+  return p.page === 'stagemap' ? 'stage map' : p.page === 'cuesheet' ? 'cue sheet' : p.page && /^p\d+$/.test(p.page) ? 'script, page ' + p.page.slice(1) : 'looking';
 }
 function prCanGo(p){ return /^(cue|mv|pre):/.test(p.where || '') || /^p\d+$/.test(p.page || ''); }
 function prGo(p){
@@ -7788,6 +7950,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.30 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.04 v1</div>
 </body>
 </html>
