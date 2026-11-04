@@ -204,7 +204,11 @@ try {
   html.inbar header { background: #1c1c20; padding-top: 6px; padding-bottom: 6px; }
   html.inbar #close-btn, html.inbar header h1, html.inbar header .show { display: none; }
   html.inbar .step { margin-left: 0; }
-  #build-tag { position: fixed; bottom: 4px; right: 8px; font-size: 11px; color: #999; z-index: 999; pointer-events: none; background: white; padding: 2px 6px; border-radius: 4px; }
+  /* In the header, not the corner: inside the dashboard the page's own tag
+     sits in that corner and covered this one. */
+  #build-tag { font-size: 11px; color: #a1a1aa; white-space: nowrap; pointer-events: none; padding: 2px 4px; }
+  .pr-faces:not([hidden]) + #build-tag { margin-left: 4px; }
+  .pr-faces[hidden] + #build-tag { margin-left: auto; }
 </style>
 </head>
 <body>
@@ -220,6 +224,7 @@ try {
     </div>
     <span class="save" id="save-state" aria-live="polite"></span>
     <div class="pr-faces" id="pr-faces" hidden aria-label="Who else is here"></div>
+    <div id="build-tag" title="Stage map version">Stage map 11.03 v13</div>
   </header>
   <div class="main">
     <div class="stage" id="stage">
@@ -233,7 +238,6 @@ try {
   </div>
 </div>
 <div class="toast" id="toast"></div>
-<div id="build-tag">11.03 v12</div>
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
