@@ -152,6 +152,15 @@
   exact knob/button events on the device.
 
 ## Next
+- **Stage map plan (Nov 5), from ChatGPT's review; Mac said plan only, build later, one at a time on dev:**
+  1. Phone + list fixes: long piece names wrap (not cut off); the tick boxes say "Show on map" or become eye icons so they don't read as "done"; details in a pull-up sheet under the map on phones.
+  2. Save reliability (needs Mac at a computer to paste + redeploy the Apps Script): one save at a time on the server (lock), each save confirmed and retried, clear Saving / Saved / Failed status, plus snapshots of each show's map to restore (asked: include snapshots? not answered yet).
+  3. Off pieces park in their wing: the plan already has the wings, so an Off move leaves the piece where you drag it in the wing (drawn faint) until it comes back on, instead of leaving the map.
+  4. Before / After / Movement views per set change, opening in **Movement**: dashed ghost where each piece was, solid where it goes, an arrow between (wing parking makes Off arrows real); arrows are illustrative, not approved paths.
+  5. Crew: on the script page's run views (A · Cards / B · Step), each set change card shows its small stage map + the moves (who, wing, spike); tap for the big map; a "Mine" filter.
+  6. Whole-show spike plot: every spike from Presets and every change on one printable plan, each labelled with piece and change, with filters (colour, scene, piece). (Spike IDs / clash warnings not chosen.)
+  - Not now: move order (sequence numbers), offstage keep-clear zones, CL/PL measurements, playback.
+  - Also from the review: "view only" crew are only stopped in the page, not on the server (same gap as the passcode idea).
 - **Receipt printer at Mac's desk** (asked Oct 31): print from the dashboard to a small receipt printer on the desk (e.g. today's to-dos, a to-do or shopping list). Need to know the printer model and how it connects (USB, Wi-Fi, Bluetooth) before planning.
 - **Bug (dev only, unfolded foldable, every time):** opening Script & Cue Sheet from the side menu shows the script for ~1 s, then bounces to All Scripts and then Show notes. Not reproduced in test browsers (tap or click, 884 and 1038 wide); live is fine. Suspect something added Oct 30–31 on dev.
 - **Stage map (on dev Oct 31: stage-map.html 10.31 v1, Cue Sheet 10.31 v1 dev, Dashboard 10.31 v1 dev)**: top-down map on the uploaded MMT ground plan (both wings + backstage), scale set by tapping two points + a distance; one map for Presets then one per set change (pieces carry over, "MOVES" marks the change's pieces); stock platforms/stairs, flats/doors, furniture, catalogue, custom sizes; drag, rotate, off-the-map-from-here; a show can use its own plan. Opens from Presets "Map", each set change's "Map", and the script page's set change (Stage map). Saved in KV 'stageplan' + 'stagemap_<scriptId>'. Not yet: spike colours on pieces, printing the map in the plot PDF.
