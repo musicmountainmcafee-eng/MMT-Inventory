@@ -184,6 +184,19 @@ try {
     html.printing-spikes #spk-print .sw { display: inline-block; width: 22px; height: 11px; border: 1px solid #000; margin-right: 6px; vertical-align: -1px; }
     html.printing-spikes #spk-print, html.printing-spikes #spk-print * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
+  /* Before / After / Movement */
+  .vw { position: absolute; left: 12px; top: 12px; z-index: 5; display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(20,20,24,.86); box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+  .vw[hidden] { display: none; }
+  .vw button { all: unset; cursor: pointer; padding: 7px 14px; border-radius: 999px; color: #d4d4d8; font: 600 13px 'DM Sans', system-ui, sans-serif; }
+  .vw button.on { background: #fff; color: #111; }
+  .vw button:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+  .vw-note { position: absolute; left: 12px; top: 56px; z-index: 5; font: 600 12px 'DM Sans', system-ui, sans-serif; color: #fff; background: rgba(20,20,24,.75); padding: 4px 10px; border-radius: 999px; }
+  .ghost .body { fill: rgba(255,255,255,.35) !important; stroke: var(--move) !important; stroke-dasharray: 7 5; opacity: .9; }
+  .ghost text { fill: var(--move); font-family: 'DM Sans', sans-serif; font-weight: 600; opacity: .8; }
+  .mv-arrow { stroke: var(--move); fill: none; stroke-linecap: round; }
+  .mv-arrow-halo { stroke: #fff; fill: none; stroke-linecap: round; opacity: .85; }
+  .mv-label { fill: var(--move); font-family: 'DM Sans', sans-serif; font-weight: 700; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
+  svg.ro-view .pc { cursor: default; }
   .pop-h { display: flex; align-items: center; gap: 8px; cursor: move; touch-action: none; user-select: none; -webkit-user-select: none; margin: -4px -4px 0; padding: 4px; border-radius: 10px; }
   .pop-h:hover { background: var(--sel-soft); }
   .pop-grip { color: var(--text-muted); font-size: 16px; line-height: 1; letter-spacing: -2px; }
@@ -224,13 +237,14 @@ try {
     </div>
     <span class="save" id="save-state" aria-live="polite"></span>
     <div class="pr-faces" id="pr-faces" hidden aria-label="Who else is here"></div>
-    <div id="build-tag" title="Stage map version">Stage map 11.04 v1</div>
+    <div id="build-tag" title="Stage map version">Stage map 11.09 v1</div>
   </header>
   <div class="main">
     <div class="stage" id="stage">
       <svg id="svg" aria-label="Stage map"></svg>
       <div class="banner" id="banner" hidden></div>
       <div class="empty" id="empty" hidden></div>
+      <div class="vw" id="vw" role="group" aria-label="Show this change as" hidden><button data-v="before" onclick="setView('before')">Before</button><button data-v="after" onclick="setView('after')">After</button><button data-v="mv" onclick="setView('mv')">Movement</button></div>
       <div class="zoom"><button onclick="zoomBy(1.25)" aria-label="Zoom in">+</button><button onclick="zoomBy(0.8)" aria-label="Zoom out">−</button><button onclick="fit()" aria-label="Fit the plan" style="font-size:13px">Fit</button></div>
     </div>
     <div class="grip" id="grip" role="separator" aria-label="Resize the side panel" tabindex="0"></div>
@@ -332,9 +346,11 @@ function buildSteps() {
       const t = [String(m.action || '').trim(), wing].filter(Boolean).join(' · ');
       const who = String(m.who || '').trim();
       info[k] = (info[k] ? info[k] + '; ' : '') + (t || 'moves') + (who ? ' (' + who + ')' : ''); });
+    const wing = {};
+    (c.moves || []).forEach(m => { const k = String(m.piece || '').trim().toLowerCase(); if (k && !wing[k]) wing[k] = { from: String(m.wing || '').trim(), to: String(m.wingTo || '').trim(), act: String(m.action || '').trim() }; });
     const spk = {};
     (c.moves || []).forEach(m => { const k = String(m.piece || '').trim().toLowerCase(); if (k && !spk[k] && ((m.spikeIds || []).length || m.spike)) spk[k] = { ids: (m.spikeIds || []).map(String), txt: String(m.spike || '').trim() }; });
-    return { id: c.id, label: '#' + n + (c.cueLine ? ' · ' + c.cueLine : '') + (c.page ? ' (pg. ' + c.page + ')' : ''), moves: (c.moves || []).map(m => String(m.piece || '').trim().toLowerCase()).filter(Boolean), info, spk };
+    return { id: c.id, label: '#' + n + (c.cueLine ? ' · ' + c.cueLine : '') + (c.page ? ' (pg. ' + c.page + ')' : ''), moves: (c.moves || []).map(m => String(m.piece || '').trim().toLowerCase()).filter(Boolean), info, spk, wing };
   }));
 }
 // Every piece named in a set change, plus pieces added here.
@@ -427,10 +443,11 @@ function draw() {
     for (let x = 0; x <= s.w; x += k) h += `<line x1="${x}" y1="0" x2="${x}" y2="${s.h}" stroke="rgba(37,99,235,${Math.round(x / k) % 5 ? .08 : .2})" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
     for (let y = 0; y <= s.h; y += k) h += `<line x1="0" y1="${y}" x2="${s.w}" y2="${y}" stroke="rgba(37,99,235,${Math.round(y / k) % 5 ? .08 : .2})" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
   }
-  const st = steps[stepIdx] || steps[0], moving = new Set(st.moves);
+  const st = steps[stepIdx] || steps[0], moving = new Set(st.moves), V = viewNow(), idx = V === 'before' ? stepIdx - 1 : stepIdx;
+  if (V === 'mv') h += movementSVG(st, moving, k, 'under');
   pieceList().forEach(pc => {
     if (isHidden(pc)) return;
-    const at = posAt(pc.key, stepIdx); if (!at) return;
+    const at = posAt(pc.key, idx); if (!at) return;
     const cls = ['pc', moving.has(pc.key) ? 'moved' : '', at.own || stepIdx === 0 ? '' : 'inherit', sel === pc.key ? 'sel' : '', sel === pc.key && _partEdit ? 'parts' : ''].join(' ');
     const sw = sel === pc.key ? 4 : moving.has(pc.key) ? 3.5 : 2;
     const parts = partsOf(pc.def);
@@ -445,10 +462,89 @@ function draw() {
     if (spkOn()) body += spikeMarksSVG(pc, parts, k, moving.has(pc.key) || stepIdx === 0);
     h += `<g class="${cls}" data-key="${esc(pc.key)}" transform="translate(${at.x * k} ${at.y * k}) rotate(${at.r || 0})">${body}</g>`;
   });
+  if (V === 'mv') h += movementSVG(st, moving, k, 'over');
   if (mode === 'scale2' && scaleA) h += `<circle cx="${scaleA.x}" cy="${scaleA.y}" r="8" fill="#2563eb" vector-effect="non-scaling-stroke"/>`;
   if (mode === 'scaleN' && scaleA && scaleA.b) h += `<line x1="${scaleA.x}" y1="${scaleA.y}" x2="${scaleA.b.x}" y2="${scaleA.b.y}" stroke="#2563eb" stroke-width="4" vector-effect="non-scaling-stroke"/><circle cx="${scaleA.x}" cy="${scaleA.y}" r="7" fill="#2563eb"/><circle cx="${scaleA.b.x}" cy="${scaleA.b.y}" r="7" fill="#2563eb"/>`;
   svg.innerHTML = h;
   svg.classList.toggle('ro', !canEdit());
+  svg.classList.toggle('ro-view', V === 'before');
+  const vw = document.getElementById('vw');
+  if (vw) { vw.hidden = stepIdx === 0 || !MV_ON; vw.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === V)); }
+  let note = document.getElementById('vw-note');
+  if (V === 'before') { if (!note) { note = document.createElement('div'); note.id = 'vw-note'; note.className = 'vw-note'; document.getElementById('stage').appendChild(note); } note.textContent = 'Before this change · view only'; }
+  else if (note) note.remove();
+}
+// ── Before / After / Movement ──────────────────────────────────────────────
+// A set change can be shown as the stage just before it, just after it, or
+// "Movement": the after picture plus, for each piece this change moves, a
+// dashed ghost where it was and an arrow to where it goes. A piece coming on
+// from offstage gets an arrow in from the wing on the cue sheet; one going off
+// gets an arrow out toward its wing (SR = left of the plan, SL = right, US =
+// up, DS = down). Arrows only show which way: they aren't planned routes.
+// Movement is where a change opens; the choice is remembered on this device.
+// Still being tried on dev: only pages opened from the dev dashboard / cue sheet (dev=1) get it.
+const MV_ON = Q.get('dev') === '1';
+function viewNow() { if (stepIdx === 0 || !MV_ON) return 'after'; const v = lsGet('mmt_stagemap_view', 'mv'); return v === 'before' || v === 'after' ? v : 'mv'; }
+function setView(v) {
+  lsSet('mmt_stagemap_view', v);
+  if (v === 'before' && _pop) closePop(true);
+  draw();
+}
+function wingDir(t) {
+  t = ' ' + String(t || '').toUpperCase().replace(/STAGE\s*RIGHT/g, 'SR').replace(/STAGE\s*LEFT/g, 'SL').replace(/UP\s*STAGE/g, 'US').replace(/DOWN\s*STAGE/g, 'DS') + ' ';
+  const x = /[^A-Z][UD]?SR[^A-Z]/.test(t) ? -1 : /[^A-Z][UD]?SL[^A-Z]/.test(t) ? 1 : 0;
+  const y = /[^A-Z]US[RL]?[^A-Z]/.test(t) ? -1 : /[^A-Z]DS[RL]?[^A-Z]/.test(t) ? 1 : 0;
+  if (!x && !y) return null;
+  const n = Math.hypot(x, y); return { x: x / n, y: y / n };
+}
+function arrowSVG(x0, y0, x1, y1, label, lx, ly, fs, anchor) {
+  const a = Math.atan2(y1 - y0, x1 - x0), hl = 16, d = `M${x0.toFixed(1)} ${y0.toFixed(1)}L${x1.toFixed(1)} ${y1.toFixed(1)}`;
+  const hx = (s) => `${(x1 - hl * Math.cos(a + s)).toFixed(1)} ${(y1 - hl * Math.sin(a + s)).toFixed(1)}`;
+  const head = `M${hx(.45)}L${x1.toFixed(1)} ${y1.toFixed(1)}L${hx(-.45)}`;
+  return `<path class="mv-arrow-halo" d="${d}${head}" stroke-width="8" vector-effect="non-scaling-stroke"/><path class="mv-arrow" d="${d}${head}" stroke-width="3.5" vector-effect="non-scaling-stroke"/>`
+    + (label ? `<text class="mv-label" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor || 'middle'}" dominant-baseline="central" font-size="${(fs || 20).toFixed(1)}">${esc(label)}</text>` : '');
+}
+function movementSVG(st, moving, k, layer) {
+  if (stepIdx === 0) return '';
+  let out = '';
+  pieceList().forEach(pc => {
+    if (isHidden(pc) || !moving.has(pc.key)) return;
+    const was = posAt(pc.key, stepIdx - 1), now = posAt(pc.key, stepIdx), w = (st.wing || {})[pc.key] || {};
+    const same = was && now && Math.hypot(was.x - now.x, was.y - now.y) < .25 && Math.abs((was.r || 0) - (now.r || 0)) < 1;
+    if (layer === 'under') {
+      if (!was || same) return;
+      // the ghost: where the piece was before this change
+      let body = '';
+      partsOf(pc.def).forEach(pt => {
+        const pw = pt.w * k, pd = pt.d * k, cx = (pt.dx || 0) * k, cy = (pt.dy || 0) * k;
+        body += pt.shape === 'round' ? `<ellipse class="body" cx="${cx}" cy="${cy}" rx="${pw / 2}" ry="${pd / 2}" stroke-width="2.5" vector-effect="non-scaling-stroke"/>` : `<rect class="body" x="${cx - pw / 2}" y="${cy - pd / 2}" width="${pw}" height="${pd}" stroke-width="2.5" vector-effect="non-scaling-stroke"/>`;
+      });
+      out += `<g class="ghost" transform="translate(${was.x * k} ${was.y * k}) rotate(${was.r || 0})"><title>${esc(pc.name)}: where it was before this change</title>${body}</g>`;
+      return;
+    }
+    const L = 6 * k;   // arrows in/out of a wing are 6 ft long, from the piece's edge
+    // how far the piece reaches from its centre in direction dir (feet), allowing for its turn and parts
+    const reach = (at, dir) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      partsOf(pc.def).forEach(pt => { x0 = Math.min(x0, (pt.dx || 0) - pt.w / 2); x1 = Math.max(x1, (pt.dx || 0) + pt.w / 2); y0 = Math.min(y0, (pt.dy || 0) - pt.d / 2); y1 = Math.max(y1, (pt.dy || 0) + pt.d / 2); });
+      const a = (at.r || 0) * Math.PI / 180, ux = dir.x * Math.cos(a) + dir.y * Math.sin(a), uy = -dir.x * Math.sin(a) + dir.y * Math.cos(a);
+      return Math.max(ux > 0 ? x1 * ux : x0 * ux, 0) + Math.max(uy > 0 ? y1 * uy : y0 * uy, 0) + .3; };
+    const fs = .75 * k, anc = dir => dir.x < -.3 ? 'end' : dir.x > .3 ? 'start' : 'middle', gap = dir => L + (Math.abs(dir.x) > .3 ? .4 : 1.1) * fs;
+    if (was && now && !same) {
+      const x0 = was.x * k, y0 = was.y * k, x1 = now.x * k, y1 = now.y * k, d = Math.hypot(x1 - x0, y1 - y0), cut = Math.min(d * .3, .8 * k);
+      out += arrowSVG(x0, y0, x1 - (x1 - x0) / d * cut, y1 - (y1 - y0) / d * cut);
+    } else if (!was && now) {
+      const dir = wingDir(w.from || w.to);
+      if (dir) { const e = reach(now, dir) * k, x1 = now.x * k + dir.x * e, y1 = now.y * k + dir.y * e;
+        out += arrowSVG(x1 + dir.x * L, y1 + dir.y * L, x1, y1, 'from ' + (w.from || w.to), x1 + dir.x * gap(dir), y1 + dir.y * gap(dir), fs, anc(dir)); }
+    } else if (was && !now) {
+      const dir = wingDir(w.to || w.from);
+      const lab = (w.act || 'Off') + ((w.to || w.from) ? ' → ' + (w.to || w.from) : '');
+      if (dir) { const e = reach(was, dir) * k, x0 = was.x * k + dir.x * e, y0 = was.y * k + dir.y * e;
+        out += arrowSVG(x0, y0, x0 + dir.x * L, y0 + dir.y * L, lab, x0 + dir.x * gap(dir), y0 + dir.y * gap(dir), fs, anc(dir)); }
+      else out += `<text class="mv-label" x="${(was.x * k).toFixed(1)}" y="${(was.y * k).toFixed(1)}" text-anchor="middle" dominant-baseline="central" font-size="${fs.toFixed(1)}">${esc(lab)}</text>`;
+    }
+  });
+  return out;
 }
 
 // ── Side panel ─────────────────────────────────────────────────────────────
@@ -805,6 +901,7 @@ svg.addEventListener('pointerdown', e => {
     drag = { part: i, key, at, ox: L.x - (pt0.dx || 0), oy: L.y - (pt0.dy || 0), moved: false, sx: e.clientX, sy: e.clientY };
     return;
   }
+  if (g && viewNow() === 'before') { drag = { pan: true, sx: e.clientX, sy: e.clientY, vb: { ...vb }, moved: false }; return; }
   if (g && canEdit()) {
     const key = g.getAttribute('data-key'), at = posAt(key, stepIdx) || { x: 0, y: 0, r: 0 };
     if (key !== sel) _partEdit = false;
@@ -1001,10 +1098,10 @@ function printSpikes() {
   el.innerHTML = `<h1>Spike sheet · ${esc(showName || '')}</h1><h2>${esc(stepIdx === 0 ? 'Presets' : st.label)}</h2>
     <table><thead><tr><th>Piece</th><th>Spike</th><th>Where on the piece</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="4"><i>No pieces move in this change.</i></td></tr>'}</tbody></table>`;
   // a copy of the map, whole plan in view, with spikes on, above the list
-  const was = lsGet('mmt_stagemap_spikes', '1'); lsSet('mmt_stagemap_spikes', '1'); const keepSel = sel; sel = null; draw();
+  const was = lsGet('mmt_stagemap_spikes', '1'), wasV = lsGet('mmt_stagemap_view', 'mv'); lsSet('mmt_stagemap_spikes', '1'); if (wasV === 'before') lsSet('mmt_stagemap_view', 'mv'); const keepSel = sel; sel = null; draw();
   const cp = svg.cloneNode(true), ps = planSize(); cp.removeAttribute('id'); cp.setAttribute('viewBox', `0 0 ${ps.w} ${ps.h}`); cp.setAttribute('class', 'spk-map');
   el.insertBefore(cp, el.querySelector('table'));
-  sel = keepSel; lsSet('mmt_stagemap_spikes', was); draw();
+  sel = keepSel; lsSet('mmt_stagemap_spikes', was); lsSet('mmt_stagemap_view', wasV); draw();
   document.documentElement.classList.add('printing-spikes');
   const done = () => { document.documentElement.classList.remove('printing-spikes'); removeEventListener('afterprint', done); };
   addEventListener('afterprint', done);

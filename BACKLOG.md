@@ -156,7 +156,7 @@
   1. Phone + list fixes: long piece names wrap (not cut off); the tick boxes say "Show on map" or become eye icons so they don't read as "done"; details in a pull-up sheet under the map on phones.
   2. Save reliability (needs Mac at a computer to paste + redeploy the Apps Script): one save at a time on the server (lock), each save confirmed and retried, clear Saving / Saved / Failed status, plus snapshots of each show's map to restore (asked: include snapshots? not answered yet).
   3. Off pieces park in their wing: the plan already has the wings, so an Off move leaves the piece where you drag it in the wing (drawn faint) until it comes back on, instead of leaving the map.
-  4. Before / After / Movement views per set change, opening in **Movement**: dashed ghost where each piece was, solid where it goes, an arrow between (wing parking makes Off arrows real); arrows are illustrative, not approved paths.
+  4. **On dev Nov 9 (stage map 11.09 v1, dev pages only via dev=1):** Before / After / Movement views per set change, opening in **Movement**: dashed ghost where each piece was, solid where it goes, an arrow between (wing parking makes Off arrows real); arrows are illustrative, not approved paths.
   5. Crew: on the script page's run views (A · Cards / B · Step), each set change card shows its small stage map + the moves (who, wing, spike); tap for the big map; a "Mine" filter.
   6. Whole-show spike plot: every spike from Presets and every change on one printable plan, each labelled with piece and change, with filters (colour, scene, piece). (Spike IDs / clash warnings not chosen.)
   - Not now: move order (sequence numbers), offstage keep-clear zones, CL/PL measurements, playback.
