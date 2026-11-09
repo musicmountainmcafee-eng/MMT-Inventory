@@ -197,6 +197,11 @@ try {
   .mv-arrow-halo { stroke: #fff; fill: none; stroke-linecap: round; opacity: .85; }
   .mv-label { fill: var(--move); font-family: 'DM Sans', sans-serif; font-weight: 700; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
   svg.ro-view .pc { cursor: default; }
+  .mv-route .mv-hit { stroke: transparent; fill: none; pointer-events: stroke; cursor: copy; }
+  .mv-vis path, .mv-vis text { pointer-events: none; }
+  .mv-pt { fill: #fff; stroke: var(--move); stroke-width: 3px; vector-effect: non-scaling-stroke; cursor: grab; }
+  .mv-pt.on { fill: var(--move); }
+  .mv-del { cursor: pointer; } .mv-del circle { fill: #111; } .mv-del path { stroke: #fff; stroke-width: 2.5px; }
   .pop-h { display: flex; align-items: center; gap: 8px; cursor: move; touch-action: none; user-select: none; -webkit-user-select: none; margin: -4px -4px 0; padding: 4px; border-radius: 10px; }
   .pop-h:hover { background: var(--sel-soft); }
   .pop-grip { color: var(--text-muted); font-size: 16px; line-height: 1; letter-spacing: -2px; }
@@ -237,7 +242,7 @@ try {
     </div>
     <span class="save" id="save-state" aria-live="polite"></span>
     <div class="pr-faces" id="pr-faces" hidden aria-label="Who else is here"></div>
-    <div id="build-tag" title="Stage map version">Stage map 11.09 v1</div>
+    <div id="build-tag" title="Stage map version">Stage map 11.09 v2</div>
   </header>
   <div class="main">
     <div class="stage" id="stage">
@@ -332,7 +337,7 @@ function load() {
   jsonp(SCRIPT_URL + '?action=getKV&key=' + kvKey() + '&_=' + Date.now(), d => { if (d && d.value && typeof d.value === 'object') { sm = norm(d.value); lsSet('mmt_stagemap_cache_' + scriptId, JSON.stringify(sm)); } done(); }, done);
   if (!showName) { const sid = scriptId; jsonp(SCRIPT_URL + '?action=listScripts&_=' + Date.now(), d => { const s = (d && d.scripts || []).find(x => x.id === sid); if (s) { showName = String(s.name || '').replace(/\.pdf$/i, ''); document.getElementById('show-name').textContent = showName; } }); }
 }
-function norm(v) { v = v || {}; return { plan: v.plan || null, pieces: v.pieces || {}, maps: v.maps || {} }; }
+function norm(v) { v = v || {}; return { plan: v.plan || null, pieces: v.pieces || {}, maps: v.maps || {}, routes: v.routes || {} }; }
 // Presets, then each set change in script order.
 function annY(c) { const a = (annotations[c.page] || []).find(x => x && x.type === 'cue' && x.cueId === c.id); return a ? (a.rect ? a.rect.y : a.y || 0) : 0; }
 function buildSteps() {
@@ -384,6 +389,7 @@ function applyMapOp(v, op) {
   if (op.t === 'piece') { if (op.v) v.pieces[op.key] = op.v; else delete v.pieces[op.key]; }
   if (op.t === 'pos') { v.maps[op.step] = v.maps[op.step] || {}; if (op.v === undefined) delete v.maps[op.step][op.key]; else v.maps[op.step][op.key] = op.v; }
   if (op.t === 'showplan') v.plan = op.v;
+  if (op.t === 'route') { v.routes = v.routes || {}; v.routes[op.step] = v.routes[op.step] || {}; if (op.v && op.v.length) v.routes[op.step][op.key] = op.v; else delete v.routes[op.step][op.key]; }
   if (op.t === 'drop') Object.keys(v.maps).forEach(s => { if (v.maps[s]) delete v.maps[s][op.key]; });
 }
 function op(o) { if (!canEdit()) return; applyMapOp(sm, o); pending.map.push(o); lsSet('mmt_stagemap_cache_' + scriptId, JSON.stringify(sm)); queueSave(); }
@@ -444,7 +450,7 @@ function draw() {
     for (let y = 0; y <= s.h; y += k) h += `<line x1="0" y1="${y}" x2="${s.w}" y2="${y}" stroke="rgba(37,99,235,${Math.round(y / k) % 5 ? .08 : .2})" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
   }
   const st = steps[stepIdx] || steps[0], moving = new Set(st.moves), V = viewNow(), idx = V === 'before' ? stepIdx - 1 : stepIdx;
-  if (V === 'mv') h += movementSVG(st, moving, k, 'under');
+  if (V === 'mv') h += movementSVG(st, moving, k, 'under') + movementSVG(st, moving, k, 'hit');
   pieceList().forEach(pc => {
     if (isHidden(pc)) return;
     const at = posAt(pc.key, idx); if (!at) return;
@@ -497,12 +503,46 @@ function wingDir(t) {
   if (!x && !y) return null;
   const n = Math.hypot(x, y); return { x: x / n, y: y / n };
 }
-function arrowSVG(x0, y0, x1, y1, label, lx, ly, fs, anchor) {
-  const a = Math.atan2(y1 - y0, x1 - x0), hl = 16, d = `M${x0.toFixed(1)} ${y0.toFixed(1)}L${x1.toFixed(1)} ${y1.toFixed(1)}`;
-  const hx = (s) => `${(x1 - hl * Math.cos(a + s)).toFixed(1)} ${(y1 - hl * Math.sin(a + s)).toFixed(1)}`;
-  const head = `M${hx(.45)}L${x1.toFixed(1)} ${y1.toFixed(1)}L${hx(-.45)}`;
-  return `<path class="mv-arrow-halo" d="${d}${head}" stroke-width="8" vector-effect="non-scaling-stroke"/><path class="mv-arrow" d="${d}${head}" stroke-width="3.5" vector-effect="non-scaling-stroke"/>`
-    + (label ? `<text class="mv-label" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor || 'middle'}" dominant-baseline="central" font-size="${(fs || 20).toFixed(1)}">${esc(label)}</text>` : '');
+// One arrow: a path from A to B through any bend points you've added (feet),
+// arrowhead at B. In Movement, on a computer or tablet you can edit it:
+// click the line to add a bend and drag it; drag a bend to move it; double-
+// click a bend (or tap it, then its ✕) to remove it. Saved per change and
+// piece; no bends = the straight arrow it draws on its own.
+let _rp = null;   // the bend picked: { key, i }
+function routeEditable() { return MV_ON && canEdit() && viewNow() === 'mv'; }
+function routeSVG(pc, P, k, cutEnd, label, lp, la, fs, nb, part) {
+  P = P.map(q => ({ x: q.x * k, y: q.y * k }));
+  const n = P.length, a0 = P[n - 2], a1 = P[n - 1];
+  if (cutEnd) { const d = Math.hypot(a1.x - a0.x, a1.y - a0.y) || 1, cut = Math.min(d * .3, .8 * k); P[n - 1] = { x: a1.x - (a1.x - a0.x) / d * cut, y: a1.y - (a1.y - a0.y) / d * cut }; }
+  const e = P[n - 1], f = P[n - 2], ang = Math.atan2(e.y - f.y, e.x - f.x), hl = 16;
+  const hx = sg => `${(e.x - hl * Math.cos(ang + sg)).toFixed(1)} ${(e.y - hl * Math.sin(ang + sg)).toFixed(1)}`;
+  const d = 'M' + P.map(q => q.x.toFixed(1) + ' ' + q.y.toFixed(1)).join('L'), head = `M${hx(.45)}L${e.x.toFixed(1)} ${e.y.toFixed(1)}L${hx(-.45)}`;
+  const ed = routeEditable(), key = esc(pc.key);
+  // the clickable line sits under the pieces, so a tap on a piece still gets the piece
+  if (part === 'hit') return ed ? `<g class="mv-route ed" data-key="${key}"><path class="mv-hit" d="${d}" stroke-width="18" vector-effect="non-scaling-stroke"><title>${esc(pc.name)}: click the line to add a bend</title></path></g>` : '';
+  let h = `<g class="mv-route mv-vis" data-key="${key}">`
+    + `<path class="mv-arrow-halo" d="${d}${head}" stroke-width="8" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><path class="mv-arrow" d="${d}${head}" stroke-width="3.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+  if (label && lp) h += `<text class="mv-label" x="${(lp.x * k).toFixed(1)}" y="${(lp.y * k).toFixed(1)}" text-anchor="${la}" dominant-baseline="central" font-size="${fs.toFixed(1)}">${esc(label)}</text>`;
+  if (ed) for (let i = 1; i <= nb; i++) {
+    const q = P[i], on = _rp && _rp.key === pc.key && _rp.i === i - 1;
+    h += `<circle class="mv-pt${on ? ' on' : ''}" data-key="${key}" data-i="${i - 1}" cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="${(.45 * k).toFixed(1)}"><title>Drag to move · double-click to remove</title></circle>`;
+    if (on) h += `<g class="mv-del" data-key="${key}" data-i="${i - 1}" transform="translate(${(q.x + .9 * k).toFixed(1)} ${(q.y - .9 * k).toFixed(1)})"><circle r="${(.5 * k).toFixed(1)}"/><path d="M${-.2 * k} ${-.2 * k}L${.2 * k} ${.2 * k}M${.2 * k} ${-.2 * k}L${-.2 * k} ${.2 * k}" vector-effect="non-scaling-stroke"/><title>Remove this bend</title></g>`;
+  }
+  return h + '</g>';
+}
+function routeOf(key) { return (((sm.routes || {})[steps[stepIdx].id] || {})[key] || []).map(q => ({ x: q.x, y: q.y })); }
+function routeSave(key, pts) { op({ t: 'route', step: steps[stepIdx].id, key, v: pts.map(q => ({ x: +q.x.toFixed(2), y: +q.y.toFixed(2) })) }); }
+function routeDel(key, i) { const pts = routeOf(key); pts.splice(i, 1); _rp = null; routeSave(key, pts); draw(); }
+// where a click on the line goes in the list of bends: the segment it's nearest
+function routeInsertAt(g, p) {
+  const pts = [], d = g.querySelector('.mv-hit').getAttribute('d').slice(1).split('L').map(t => t.split(' ').map(Number));
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < d.length - 1; i++) {
+    const [x0, y0] = d[i], [x1, y1] = d[i + 1], dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - x0) * dx + (p.y - y0) * dy) / L2)), dist = Math.hypot(p.x - (x0 + t * dx), p.y - (y0 + t * dy));
+    if (dist < bd) { bd = dist; best = i; }
+  }
+  return best;   // the new bend goes after bend number `best` (0 = right after the start)
 }
 function movementSVG(st, moving, k, layer) {
   if (stepIdx === 0) return '';
@@ -522,27 +562,30 @@ function movementSVG(st, moving, k, layer) {
       out += `<g class="ghost" transform="translate(${was.x * k} ${was.y * k}) rotate(${was.r || 0})"><title>${esc(pc.name)}: where it was before this change</title>${body}</g>`;
       return;
     }
-    const L = 6 * k;   // arrows in/out of a wing are 6 ft long, from the piece's edge
+    const L = 6, kk = k;   // arrows in/out of a wing are 6 ft long, from the piece's edge
     // how far the piece reaches from its centre in direction dir (feet), allowing for its turn and parts
     const reach = (at, dir) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
       partsOf(pc.def).forEach(pt => { x0 = Math.min(x0, (pt.dx || 0) - pt.w / 2); x1 = Math.max(x1, (pt.dx || 0) + pt.w / 2); y0 = Math.min(y0, (pt.dy || 0) - pt.d / 2); y1 = Math.max(y1, (pt.dy || 0) + pt.d / 2); });
       const a = (at.r || 0) * Math.PI / 180, ux = dir.x * Math.cos(a) + dir.y * Math.sin(a), uy = -dir.x * Math.sin(a) + dir.y * Math.cos(a);
       return Math.max(ux > 0 ? x1 * ux : x0 * ux, 0) + Math.max(uy > 0 ? y1 * uy : y0 * uy, 0) + .3; };
-    const fs = .75 * k, anc = dir => dir.x < -.3 ? 'end' : dir.x > .3 ? 'start' : 'middle', gap = dir => L + (Math.abs(dir.x) > .3 ? .4 : 1.1) * fs;
+    const fs = .75 * k, anc = dir => dir.x < -.3 ? 'end' : dir.x > .3 ? 'start' : 'middle', gap = dir => L + (Math.abs(dir.x) > .3 ? .4 : 1.1) * fs / k;
+    let A = null, B = null, label = '', lp = null, la = 'middle', tip = '';
     if (was && now && !same) {
-      const x0 = was.x * k, y0 = was.y * k, x1 = now.x * k, y1 = now.y * k, d = Math.hypot(x1 - x0, y1 - y0), cut = Math.min(d * .3, .8 * k);
-      out += arrowSVG(x0, y0, x1 - (x1 - x0) / d * cut, y1 - (y1 - y0) / d * cut);
+      A = { x: was.x, y: was.y }; B = { x: now.x, y: now.y }; tip = 'moves';
     } else if (!was && now) {
       const dir = wingDir(w.from || w.to);
-      if (dir) { const e = reach(now, dir) * k, x1 = now.x * k + dir.x * e, y1 = now.y * k + dir.y * e;
-        out += arrowSVG(x1 + dir.x * L, y1 + dir.y * L, x1, y1, 'from ' + (w.from || w.to), x1 + dir.x * gap(dir), y1 + dir.y * gap(dir), fs, anc(dir)); }
+      if (dir) { const e = reach(now, dir); B = { x: now.x + dir.x * e, y: now.y + dir.y * e }; A = { x: B.x + dir.x * L, y: B.y + dir.y * L };
+        label = 'from ' + (w.from || w.to); lp = { x: B.x + dir.x * gap(dir), y: B.y + dir.y * gap(dir) }; la = anc(dir); tip = 'comes on'; }
     } else if (was && !now) {
-      const dir = wingDir(w.to || w.from);
-      const lab = (w.act || 'Off') + ((w.to || w.from) ? ' → ' + (w.to || w.from) : '');
-      if (dir) { const e = reach(was, dir) * k, x0 = was.x * k + dir.x * e, y0 = was.y * k + dir.y * e;
-        out += arrowSVG(x0, y0, x0 + dir.x * L, y0 + dir.y * L, lab, x0 + dir.x * gap(dir), y0 + dir.y * gap(dir), fs, anc(dir)); }
-      else out += `<text class="mv-label" x="${(was.x * k).toFixed(1)}" y="${(was.y * k).toFixed(1)}" text-anchor="middle" dominant-baseline="central" font-size="${fs.toFixed(1)}">${esc(lab)}</text>`;
+      const dir = wingDir(w.to || w.from), lab = (w.act || 'Off') + ((w.to || w.from) ? ' → ' + (w.to || w.from) : '');
+      if (dir) { const e = reach(was, dir); A = { x: was.x + dir.x * e, y: was.y + dir.y * e }; B = { x: A.x + dir.x * L, y: A.y + dir.y * L };
+        label = lab; lp = { x: A.x + dir.x * gap(dir), y: A.y + dir.y * gap(dir) }; la = anc(dir); tip = 'goes off'; }
+      else if (layer === 'over') out += `<text class="mv-label" x="${(was.x * k).toFixed(1)}" y="${(was.y * k).toFixed(1)}" text-anchor="middle" dominant-baseline="central" font-size="${fs.toFixed(1)}">${esc(lab)}</text>`;
     }
+    if (!A) return;
+    const bends = (((sm.routes || {})[st.id] || {})[pc.key] || []).map(q => ({ x: q.x, y: q.y }));
+    // with bends, a label sits by the wing end it names, wherever the path goes
+    out += routeSVG(pc, [A, ...bends, B], k, tip === 'moves', label, lp, la, fs, bends.length, layer);
   });
   return out;
 }
@@ -893,6 +936,21 @@ svg.addEventListener('pointerdown', e => {
   if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), vb: { ...vb } }; drag = null; return; }
   const p = pt(e);
   if (mode === 'scale1' || mode === 'scale2') { drag = { tap: true, sx: e.clientX, sy: e.clientY, p }; return; }
+  // bends on a Movement arrow
+  const rdel = e.target.closest && e.target.closest('.mv-del');
+  if (rdel && routeEditable()) { routeDel(rdel.getAttribute('data-key'), +rdel.getAttribute('data-i')); return; }
+  const rpt = e.target.closest && e.target.closest('.mv-pt');
+  if (rpt && routeEditable()) { const key = rpt.getAttribute('data-key'), i = +rpt.getAttribute('data-i');
+    // a second tap on the same bend within 0.4 s = double-click: remove it (the redraw between taps replaces the element, so dblclick can't be used)
+    const now = Date.now(), lt = svg._rpTap; svg._rpTap = { key, i, t: now };
+    if (lt && lt.key === key && lt.i === i && now - lt.t < 400) { svg._rpTap = null; routeDel(key, i); return; }
+    drag = { rkey: key, ri: i, pts: routeOf(key), sx: e.clientX, sy: e.clientY, moved: false }; return; }
+  const rhit = e.target.closest && e.target.closest('.mv-hit');
+  if (rhit && routeEditable()) {
+    const g0 = rhit.closest('.mv-route'), key = g0.getAttribute('data-key'), at = routeInsertAt(g0, p), pts = routeOf(key), k = ppf();
+    pts.splice(at, 0, { x: p.x / k, y: p.y / k }); _rp = { key, i: at };
+    drag = { rkey: key, ri: at, pts, sx: e.clientX, sy: e.clientY, moved: true, added: true }; sm.routes = sm.routes || {}; (sm.routes[steps[stepIdx].id] = sm.routes[steps[stepIdx].id] || {})[key] = pts; draw(); return;
+  }
   const g = e.target.closest && e.target.closest('.pc');
   const partEl = e.target.closest && e.target.closest('[data-part]');
   if (g && canEdit() && _partEdit && sel === g.getAttribute('data-key') && partEl) {
@@ -922,6 +980,11 @@ svg.addEventListener('pointermove', e => {
   }
   if (!drag) return;
   if (drag.pan) { const r = svg.getBoundingClientRect(); vb.x = drag.vb.x - (e.clientX - drag.sx) / r.width * vb.w; vb.y = drag.vb.y - (e.clientY - drag.sy) / r.height * vb.h; setVB(); drag.moved = true; return; }
+  if (drag.rkey) {
+    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
+    drag.moved = true; const p = pt(e), k = ppf();
+    drag.pts[drag.ri] = { x: p.x / k, y: p.y / k }; sm.routes = sm.routes || {}; (sm.routes[steps[stepIdx].id] = sm.routes[steps[stepIdx].id] || {})[drag.rkey] = drag.pts; draw(); return;
+  }
   if (drag.part != null) {
     if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
     drag.moved = true;
@@ -951,6 +1014,7 @@ function endPtr(e) {
     else if (mode === 'scale2') { scaleA.b = d.p; mode = 'scaleN'; banner(); draw(); }
     return;
   }
+  if (d.rkey) { if (d.moved) { _rp = { key: d.rkey, i: d.ri }; routeSave(d.rkey, d.pts); } else { _rp = _rp && _rp.key === d.rkey && _rp.i === d.ri ? null : { key: d.rkey, i: d.ri }; } draw(); return; }
   if (d.part != null) { if (d.moved && d.ndx != null) { const def = defOf(d.key), parts = clone(partsOf(def)); parts[d.part].dx = d.ndx; parts[d.part].dy = d.ndy; savePartsDef(def, parts); } return; }
   if (d.key && d.moved && d.nx != null) { setPos({ x: d.nx, y: d.ny, r: d.r }); draw(); renderSide(); }
   else if (d.key && !d.moved) { if (_pop && _pop !== d.key) popCommit(); openPop(d.key); }
@@ -972,6 +1036,7 @@ svg.addEventListener('wheel', e => {
   zoomBy(Math.exp(-d * (e.ctrlKey ? 0.01 : 0.0025)), p.x, p.y);
 }, { passive: false });
 document.addEventListener('keydown', e => {
+  if (_rp && (e.key === 'Delete' || e.key === 'Backspace') && routeEditable() && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '')) { e.preventDefault(); routeDel(_rp.key, _rp.i); return; }
   if (e.target.closest && e.target.closest('input, select, textarea')) { if (e.key === 'Enter' && mode === 'scaleN') finishScale(); return; }
   if (e.key === 'Escape') { if (mode) cancelScale(); else if (_pop) closePop(true); else if (sel) { sel = null; draw(); renderSide(); } else closeMap(); }
   if (!sel || !canEdit()) return;
