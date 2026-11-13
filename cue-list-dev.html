@@ -5727,7 +5727,25 @@ function whoChoices(){
   const used = new Map();
   cues.forEach(c => (c.moves || []).forEach((m, i) => { if (ed && String(c.id) === ed.c && i === ed.i) return;
     whoNames(m.who).forEach(v => { const k = v.toLowerCase(); if (!used.has(k)) used.set(k, v); }); }));
-  return list.concat([...used.values()].sort((a, b) => a.localeCompare(b)).filter(n => !seen.has(n.toLowerCase())).map(n => ({ name: n, role: '', group: 'used' })));
+  return list.concat([...used.values()].sort((a, b) => a.localeCompare(b)).filter(n => !seen.has(n.toLowerCase()) && !list.some(p => whoIs(n, p.name))).map(n => ({ name: n, role: '', group: 'used' })));
+}
+// How a person is written in Who: first name only, plus a last initial when
+// someone else in the show's cast & crew has the same first name ("David W",
+// "David M"); a full name if even that would clash. A name already written in
+// full ("Kyle B" from before) still counts as that person.
+function whoShort(name){
+  const list = peopleList(clShowSlug()), parts = String(name || '').trim().split(/\s+/), first = parts[0] || '';
+  if (!first) return String(name || '');
+  const fl = first.toLowerCase(), same = list.filter(p => (String(p.name).trim().split(/\s+/)[0] || '').toLowerCase() === fl);
+  if (same.length <= 1) return first;
+  const ini = p => { const w = String(p.name).trim().split(/\s+/).filter(x => !/^(jr|sr|ii|iii|iv)\.?$/i.test(x)); return w.length > 1 ? w[w.length - 1][0].toUpperCase() : ''; };
+  const me = ini({ name }), clash = same.filter(p => ini(p) === me).length > 1;
+  return clash || !me ? String(name).trim() : first + ' ' + me;
+}
+// Does a name written in Who mean this person? (full name or the short form)
+function whoIs(written, person){
+  const w = String(written || '').trim().toLowerCase(), n = String(person || '').trim().toLowerCase();
+  return !!w && (w === n || w === whoShort(person).toLowerCase());
 }
 // ── Who: the cast & crew list ───────────────────────────────────────────────
 // Editing a Who box: on a computer the show's cast & crew list opens on the
@@ -5744,13 +5762,15 @@ function whoPanelWide(){ return window.innerWidth >= 900; }
 function whoTok(v){ return (String(v || '').split(/,|\/|&|;|\+/).pop() || '').trim().toLowerCase(); }
 function whoBusy(name){
   const k = String(name).toLowerCase(), c = boxCue(); let here = 0, all = 0;
-  cues.forEach(x => (x.moves || []).forEach(m => { if (whoNames(m.who).some(n => n.toLowerCase() === k)) { all++; if (c && x === c) here++; } }));
+  cues.forEach(x => (x.moves || []).forEach(m => { if (whoNames(m.who).some(n => whoIs(n, name))) { all++; if (c && x === c) here++; } }));
   return { here, all };
 }
 function whoMatches(tok){
   const v = boxVal('who'), on = whoNames(v), onK = new Set(on.map(x => x.toLowerCase()));
   const q = (_wlQ || (_whoTyping ? tok : '') || '').toLowerCase(), hit = p => !q || String(p.name).toLowerCase().split(/\s+/).some(w => w.startsWith(q)) || String(p.name).toLowerCase().startsWith(q) || String(p.role || '').toLowerCase().split(/[\s,]+/).some(w => w.startsWith(q));
   const ch = whoChoices(), byK = new Map(ch.map(p => [p.name.toLowerCase(), p]));
+  ch.forEach(p => { const sk = whoShort(p.name).toLowerCase(); if (!byK.has(sk)) byK.set(sk, p); });
+  on.forEach(n => { const p = byK.get(n.toLowerCase()); if (p) onK.add(p.name.toLowerCase()); });
   // the half-typed end of the box isn't "on" yet
   const typing = _whoTyping && tok && !byK.has(tok) && on.length && on[on.length - 1].toLowerCase() === tok;
   const sel = on.filter(n => !(typing && n.toLowerCase() === tok)).map(n => byK.get(n.toLowerCase()) || { name: n, role: '', group: 'typed' });
@@ -5804,7 +5824,7 @@ function whoPillsHTML(on){
   let html = '', last = '';
   ch.forEach(p => {
     if (hasList && p.group !== last) { last = p.group; html += `<span class="who-h" data-g="${p.group}">${HEAD[p.group]}</span>`; }
-    html += `<button type="button" class="ms-pill who-pill${on.has(p.name.toLowerCase()) ? ' on' : ''}" data-v="${esc(p.name)}" data-g="${p.group}" data-r="${esc(p.role)}"
+    html += `<button type="button" class="ms-pill who-pill${[...on].some(x => whoIs(x, p.name)) ? ' on' : ''}" data-v="${esc(p.name)}" data-g="${p.group}" data-r="${esc(p.role)}"
       onclick="sheetPick('who', this.dataset.v)">${esc(p.name)}${p.role ? `<small>${esc(p.role)}</small>` : ''}</button>`;
   });
   const edit = slug && !cueReadOnly() ? `<button type="button" class="who-edit" onclick="openPeople('${esc(slug)}', clShowLabel())">${hasList ? 'Edit cast list ›' : "+ Add this show's cast list"}</button>` : '';
@@ -5829,7 +5849,7 @@ function whoKey(e, input){
   const first = tok && [...document.querySelectorAll('#ms-whos .who-pill')].find(b => !b.hidden && !b.classList.contains('on'));
   e.preventDefault();
   if (!first) { input.blur(); return; }
-  const names = whoNames(input.value); names.pop(); names.push(first.dataset.v);
+  const names = whoNames(input.value); names.pop(); names.push(whoShort(first.dataset.v));
   input.value = names.join(', ');
   sheetField('who', input.value);
 }
@@ -6029,7 +6049,7 @@ function boxKey(e, input){
     e.preventDefault();
     if (boxEd && boxEd.field === 'who') {   // finish the name being typed with the first match
       const tok = whoTok(input.value), first = tok && whoMatches(tok).rest[0];
-      if (tok && first) { const names = whoNames(input.value); names.pop(); names.push(first.name); input.value = names.join(', ') + ', '; boxType(input.value); return; }
+      if (tok && first) { const names = whoNames(input.value); names.pop(); names.push(whoShort(first.name)); input.value = names.join(', ') + ', '; boxType(input.value); return; }
     }
     closeBox();
   } else if (e.key === 'Escape') { e.preventDefault(); closeBox(); }
@@ -6062,8 +6082,8 @@ function boxWho(name){
   const names = whoNames(input.value), k = String(name).toLowerCase(), tok = whoTok(input.value);
   // A half-typed name at the end ("Ky") is what the tap finishes, not a person.
   if (_whoTyping && tok && names.length && names[names.length - 1].toLowerCase() === tok && !whoChoices().some(p => p.name.toLowerCase() === tok) && whoFinishes(name, tok)) names.pop();
-  const i = names.findIndex(x => x.toLowerCase() === k);
-  if (i >= 0) names.splice(i, 1); else names.push(name);
+  const i = names.findIndex(x => x.toLowerCase() === k || whoIs(x, name));
+  if (i >= 0) names.splice(i, 1); else names.push(whoShort(name));
   input.value = names.join(', ');
   boxSet('who', input.value);
   _whoTyping = false; whoRefresh();
@@ -7765,8 +7785,8 @@ function sheetPick(field, value){
     const names = whoNames(input.value), k = String(value).toLowerCase(), tok = whoTok(input.value);
     // a half-typed name at the end ("Ky") is what the tap finishes, not a person
     if (tok && names.length && names[names.length - 1].toLowerCase() === tok && tok !== k && !whoChoices().some(p => p.name.toLowerCase() === tok) && whoFinishes(value, tok)) names.pop();
-    const i = names.findIndex(v => v.toLowerCase() === k);
-    if (i >= 0) names.splice(i, 1); else names.push(value);
+    const i = names.findIndex(v => v.toLowerCase() === k || whoIs(v, value));
+    if (i >= 0) names.splice(i, 1); else names.push(whoShort(value));
     input.value = names.join(', ');
     sheetField('who', input.value);
     return;
@@ -7781,8 +7801,8 @@ function syncActionPills(v){
   document.querySelectorAll('#ms-actions .ms-pill').forEach(b => b.classList.toggle('on', b.dataset.v.toLowerCase() === k));
 }
 function syncWhoPills(v){
-  const on = new Set(whoNames(v).map(x => x.toLowerCase()));
-  document.querySelectorAll('#ms-whos .ms-pill').forEach(b => b.classList.toggle('on', on.has(b.dataset.v.toLowerCase())));
+  const names = whoNames(v);
+  document.querySelectorAll('#ms-whos .ms-pill').forEach(b => b.classList.toggle('on', names.some(x => whoIs(x, b.dataset.v))));
   whoFilter(v);
 }
 
@@ -8328,6 +8348,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v6 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v7 dev</div>
 </body>
 </html>
