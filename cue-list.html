@@ -560,6 +560,8 @@
   /* Who: cast & crew list (right side on a computer, inside the box on a phone) */
   #who-panel { position: fixed; right: 0; top: var(--hdr, 0px); bottom: 0; width: 330px; z-index: 455; display: none; flex-direction: column; gap: 8px; background: var(--surface); color: var(--text); border-left: 1px solid var(--border); box-shadow: -10px 0 30px rgba(0,0,0,.12); padding: 14px 12px 12px; }
   #who-panel.open { display: flex; }
+  #box-ed.dock { border-radius: 0; border-width: 0 0 1px 1px; box-shadow: none; z-index: 456; }
+  #who-panel { padding-top: 6px; }
   #who-panel .wl-head { display: flex; flex-direction: column; gap: 2px; }
   #who-panel .wl-head b { font-size: 16px; } #who-panel .wl-head span { font-size: 12px; color: var(--muted, #6b6b73); }
   #who-panel #wl-list { flex: 1; min-height: 0; overflow-y: auto; }
@@ -5778,9 +5780,7 @@ function openWhoPanel(){
   if (!el) { el = document.createElement('aside'); el.id = 'who-panel'; el.setAttribute('aria-label', 'Cast and crew'); document.body.appendChild(el); }
   const c = boxCue(), m = boxMv(), slug = clShowSlug();
   _wlQ = '';
-  el.innerHTML = `<div class="wl-head"><b>Cast &amp; crew</b><span>${esc([m && m.piece, c && shiftLabel(c)].filter(Boolean).join(' · '))}</span></div>
-    <input id="wl-q" class="box-in" placeholder="Search names or roles" autocomplete="off" oninput="_wlQ = this.value.trim(); whoRefresh()" onkeydown="whoSearchKey(event, this)">
-    <div id="wl-list">${whoListHTML()}</div>
+  el.innerHTML = `<div id="wl-list">${whoListHTML()}</div>
     ${slug && !cueReadOnly() ? `<button type="button" class="wl-edit" onclick="closeBox(); openPeople('${esc(slug)}', clShowLabel())">Edit cast list ›</button>` : ''}`;
   el.classList.add('open'); document.body.classList.add('who-open');
 }
@@ -5924,6 +5924,15 @@ function placeBox(cell){
     return;
   }
   el.classList.remove('sheet');
+  if (boxEd.field === 'who' && whoPanelWide()) {
+    // Who on a computer: the box sits at the top of the cast & crew list on the
+    // right, so nothing floats over the rows you're working on.
+    const hdr = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0;
+    el.classList.add('dock'); el.style.width = '330px'; el.style.left = (window.innerWidth - 330) + 'px'; el.style.top = hdr + 'px';
+    const wp = document.getElementById('who-panel'); if (wp) wp.style.top = (hdr + el.offsetHeight) + 'px';
+    return;
+  }
+  el.classList.remove('dock');
   const c = cell || boxCellNow();
   const wide = boxEd.field === 'spike' || (boxEd.field === 'who' && !whoPanelWide());
   const w = Math.min(wide ? 470 : 360, window.innerWidth - 16);
@@ -5939,6 +5948,8 @@ function placeBox(cell){
 }
 function closeBox(){
   if (!boxEd) return;
+  // Who: drop the trailing ", " left ready for another name
+  if (boxEd.field === 'who') { const v = boxVal('who'), clean = whoNames(v).join(', '); if (clean !== v) boxSet('who', clean); }
   boxEd = null; closeWhoPanel();
   const el = document.getElementById('box-ed'); if (el) el.classList.remove('open');
   boxMark(null);
@@ -5974,7 +5985,7 @@ function renderBox(){
       ${boxEd.kind === 'move' ? `<button type="button" class="box-link" onclick="boxFull(true)">${(boxMv() || {}).wingTo ? 'To: ' + esc(boxMv().wingTo) + ' · change ›' : '+ To another wing ›'}</button>` : ''}`;
   } else if (f === 'who') {
     _whoTyping = false;
-    body = whoPanelWide() ? inp('Type names, or pick on the right') : inp('Type or tap names') + `<div class="box-scroll wl-in" id="box-wl">${whoListHTML()}</div>`;
+    body = whoPanelWide() ? inp('Type a name or role, or tap below') : inp('Type or tap names') + `<div class="box-scroll wl-in" id="box-wl">${whoListHTML()}</div>`;
   } else if (f === 'spike') {
     const ids = boxEd.kind === 'preset' ? (presetEntry(boxEd.key).spikeIds || []) : ((boxMv() || {}).spikeIds || []);
     body = `<div class="box-spikes">${spkPickerHTML(scriptId, ids, 'boxSpike')}</div>` + inp('Other spike, typed (optional)');
@@ -6080,7 +6091,7 @@ document.addEventListener('pointerdown', e => {
   const mn = document.getElementById('row-menu');
   if (mn && mn.classList.contains('open') && !mn.contains(e.target) && !(e.target.closest && e.target.closest('.row-more'))) closeRowMenu();
 }, true);
-window.addEventListener('scroll', () => { if (boxEd && !boxNarrow()) placeBox(boxCellNow()); }, { passive: true });
+window.addEventListener('scroll', () => { if (boxEd && !boxNarrow() && !(boxEd.field === 'who' && whoPanelWide())) placeBox(boxCellNow()); }, { passive: true });
 window.addEventListener('resize', () => { if (boxEd) placeBox(boxCellNow()); });
 
 // ── ⋯ on a move ─────────────────────────────────────────────────────────────
@@ -8318,6 +8329,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v5</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v6</div>
 </body>
 </html>
