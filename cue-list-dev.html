@@ -4355,6 +4355,7 @@ function setChangeSections() {
     // sheet tells you it needs filling rather than silently vanishing.
     const moves = (c.moves && c.moves.length) ? c.moves : [{}];
     cur.blocks.push(moves.map((m, i) => ({
+      _m: m, _cid: c.id,   // for the spreadsheet's tape colours and maps
       // Number, cue line and page belong to the change, not the move, so they
       // print once at the top of the block — same as the PDF.
       num:    '#' + changeShortNum(c.number),
@@ -4379,7 +4380,7 @@ function presetRowData() {
   return allPieces()
     .map(({ key, piece }) => ({ ...(presets[key] || {}), piece }))
     .filter(r => !r.hidden)
-    .map(r => ({ piece: String(r.piece || ''), location: String(r.location || ''), spike: spkMoveText(r, showId), notes: String(r.notes || '') }));
+    .map(r => ({ _m: r, piece: String(r.piece || ''), location: String(r.location || ''), spike: spkMoveText(r, showId), notes: String(r.notes || '') }));
 }
 
 // Act number off the front of a scene name: "2-1" or "Act 2, Scene 1". Labels
@@ -4547,6 +4548,89 @@ async function exportSetChangeXLSX() {
   wb.creator = 'MMT Dashboard';
   wb.created = now;
 
+  // ── Looking like the cue sheet ──────────────────────────────────────────────
+  // Spike cells: a square in each tape colour (■, an outline □ for white),
+  // then the label in bold and the tape colours in grey; one line per spike,
+  // anything typed last. Real text, so it wraps, sorts and prints. "No spike"
+  // comes back as the word, which the writers below turn into a grey cell.
+  const xlHex = c => { let n = String(c || '#888888').replace('#', ''); if (n.length === 3) n = n.split('').map(ch => ch + ch).join(''); return ('FF' + n.slice(0, 6)).toUpperCase(); };
+  const xlLight = c => { const h = xlHex(c); const v = [2, 4, 6].map(i => parseInt(h.slice(i, i + 2), 16)); return v[0] * .299 + v[1] * .587 + v[2] * .114 > 235; };
+  function xlSpike(m) {
+    const me = spkEff(m);
+    if (spkIsNone(me)) return 'No spike';
+    const F = (o) => Object.assign({ size: XL_FS, name: 'Helvetica', color: { argb: XL.INK } }, o || {});
+    const runs = [];
+    spkOfMove(me, showId).forEach(e => {
+      if (runs.length) runs.push({ text: '\n', font: F() });
+      if (!e) { runs.push({ text: 'removed spike', font: F({ italic: true, color: { argb: XL.MUTED } }) }); return; }
+      [e.c1, e.c2].filter(Boolean).forEach(c => runs.push({ text: xlLight(c) ? '□' : '■', font: F({ size: XL_FS + 2, color: { argb: xlLight(c) ? 'FF6B6B75' : xlHex(c) } }) }));
+      runs.push({ text: ' ' + spkLabel(e), font: F({ bold: true }) });
+      if (e.label) runs.push({ text: '  ' + spkTapeName(e), font: F({ size: XL_FS - 2, color: { argb: XL.MUTED } }) });
+    });
+    if (me && me.spike) { if (runs.length) runs.push({ text: '\n', font: F() }); runs.push({ text: String(me.spike), font: F() }); }
+    return runs.length ? { richText: runs } : null;
+  }
+  // The small stage map for each change (the cue sheet's own), as a picture.
+  // The ground plan is put inside it when this device can read it; otherwise
+  // the pieces sit on a plain stage.
+  async function xlMaps() {
+    const out = new Map();
+    if (typeof _sm === 'undefined' || !_sm) return out;
+    const plan = (_sm.plan && _sm.plan.img) ? _sm.plan : _smPlan;
+    let planURL = null;
+    if (plan && plan.img) {
+      const u = plan.img.id && !/^data:/.test(plan.img.url || '') ? 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(plan.img.id) + '&sz=w800' : plan.img.url;
+      if (/^data:/.test(u || '')) planURL = u;
+      else try {
+        const bl = await fetch(u).then(x => { if (!x.ok) throw new Error(); return x.blob(); });
+        planURL = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(bl); });
+      } catch (e) { planURL = null; }
+    }
+    const CSS = '<style>.smt-stage{fill:#f4f4f5;stroke:#d4d4d8;stroke-width:2}.smt-pc>*{fill:#fff;stroke:#a1a1aa;stroke-width:3;opacity:.75}.smt-mv>*{fill:#18181b;stroke:#18181b;stroke-width:3}</style>';
+    const toPNG = (svg, W, H) => new Promise(res => {
+      const img = new Image();
+      img.onload = () => { try { const cv = document.createElement('canvas'); cv.width = W * 2; cv.height = H * 2; const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(img, 0, 0, cv.width, cv.height); res(cv.toDataURL('image/png')); } catch (e) { res(null); } };
+      img.onerror = () => res(null);
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    });
+    for (const c of cuesInScriptOrder().filter(x => x.type === SHIFT_TYPE_ID)) {
+      let svg = '';
+      try { svg = smThumbHTML(c, true) || ''; } catch (e) { svg = ''; }
+      if (!svg) continue;
+      const vb = (svg.match(/viewBox="([^"]+)"/) || [])[1]; if (!vb) continue;
+      const [, , vw, vh] = vb.split(/\s+/).map(Number); if (!(vw > 0 && vh > 0)) continue;
+      const W = 210, H = Math.max(60, Math.min(150, Math.round(W * vh / vw)));
+      svg = svg.replace(/<text[\s\S]*?<\/text>/g, '').replace(/<title>[\s\S]*?<\/title>/g, '');
+      svg = svg.replace(/<image [^>]*\/>/, m => planURL ? m.replace(/href="[^"]*"/, 'href="' + planURL + '"') : `<rect x="0" y="0" width="${vw}" height="${vh}" class="smt-stage"/>`);
+      svg = svg.replace('<svg ', `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" `).replace(/(<svg[^>]*>)/, '$1' + CSS);
+      const png = await toPNG(svg, W, H); if (!png) continue;
+      out.set(String(c.id), { id: wb.addImage({ base64: png.split(',')[1], extension: 'png' }), w: W, h: H });
+    }
+    return out;
+  }
+  const MAPS = await xlMaps();
+  // Rows get a height worked out from what's in them (so a change with a map
+  // is tall enough for it), and the map sits in the MAP column at its top.
+  function xlLines(v, width) {
+    const t = v && v.richText ? v.richText.map(x => x.text).join('') : String(v == null ? '' : v);
+    const per = Math.max(4, width * 0.75);
+    return t.split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length / per)), 0);
+  }
+  function xlPlaceMap(ws, cols, cid, r0, r1) {
+    const mp = cid != null && MAPS.get(String(cid)); const mc = cols.findIndex(c => c.key === 'map');
+    if (!mp || mc < 0 || r1 < r0) return;
+    let total = 0;
+    for (let rr = r0; rr <= r1; rr++) {
+      const row = ws.getRow(rr);
+      const lines = Math.max(1, ...cols.map((c, i) => c.wrap ? xlLines(row.getCell(i + 1).value, c.width) : 1));
+      row.height = lines * 15.5 + 6; total += row.height;
+    }
+    const need = mp.h * 0.75 + 9;
+    if (total < need) ws.getRow(r1).height += need - total;
+    ws.addImage(mp.id, { tl: { col: mc + 0.04, row: r0 - 1 + 0.08 }, ext: { width: mp.w, height: mp.h }, editAs: 'oneCell' });
+  }
+  const xlFoot = (what) => ({ oddFooter: '&L&8' + String(showName).replace(/&/g, '&&') + ' · ' + String(what).replace(/&/g, '&&') + '&R&8Page &P of &N' });
+
   // Title left, timestamp beneath it, a rule tying the block to the table —
   // then the column header. All four rows repeat at the top of every printed
   // page, the way drawTitle() runs again on each page of the PDF.
@@ -4567,7 +4651,7 @@ async function exportSetChangeXLSX() {
 
     // Row 3 is the rule under the title — an empty band carrying a bottom border.
     ws.getRow(3).height = 5;
-    for (let i = 1; i <= XLSX_COLS.length; i++) {
+    for (let i = 1; i <= lastCol.charCodeAt(0) - 64; i++) {
       const cell = ws.getRow(3).getCell(i);
       if (cell.col > lastCol.charCodeAt(0) - 64) break;
       cell.border = { bottom: titleR };
@@ -4601,7 +4685,8 @@ async function exportSetChangeXLSX() {
   }
 
   // ── Sheet 1: the plot ──────────────────────────────────────────────────────
-  const LAST = String.fromCharCode(64 + XLSX_COLS.length);   // 'H'
+  const SC_COLS = MAPS.size ? XLSX_COLS.concat([{ key: 'map', label: 'MAP', width: 31, wrap: false, bold: false }]) : XLSX_COLS;
+  const LAST = String.fromCharCode(64 + SC_COLS.length);   // 'I', or 'J' with maps
   const ws = wb.addWorksheet('Set Changes', {
     views: [{ state: 'frozen', ySplit: 4 }],
     pageSetup: {
@@ -4610,9 +4695,10 @@ async function exportSetChangeXLSX() {
       margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 }
     }
   });
-  ws.columns = XLSX_COLS.map(c => ({ key: c.key, width: c.width }));
+  ws.columns = SC_COLS.map(c => ({ key: c.key, width: c.width }));
+  ws.headerFooter = xlFoot('Set Changes');
   titleBlock(ws, LAST, showName, 'Set Changes');
-  headerRow(ws, 4, XLSX_COLS.map(c => c.label));
+  headerRow(ws, 4, SC_COLS.map(c => c.label));
 
   let r = 5;
   let lastAct = null;
@@ -4631,11 +4717,12 @@ async function exportSetChangeXLSX() {
 
     let tint = false;
     sec.blocks.forEach((block, bi) => {
+      const r0 = r;
       block.forEach((mv, mi) => {
         const row = ws.getRow(r);
-        XLSX_COLS.forEach((c, i) => {
+        SC_COLS.forEach((c, i) => {
           const cell = row.getCell(i + 1);
-          cell.value = mv[c.key] || null;
+          cell.value = c.key === 'spike' && mv._m ? xlSpike(mv._m) : (mv[c.key] || null);
           cell.font = { size: XL_FS, bold: c.bold, name: 'Helvetica' };
           if (cell.value === 'No spike' && c.key === 'spike') { cell.value = null; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD4D4D8' } }; }
           cell.alignment = { vertical: 'top', wrapText: c.wrap };
@@ -4648,6 +4735,7 @@ async function exportSetChangeXLSX() {
         });
         r++;
       });
+      xlPlaceMap(ws, SC_COLS, block[0] && block[0]._cid, r0, r - 1);
       tint = !tint;
     });
   });
@@ -4669,6 +4757,7 @@ async function exportSetChangeXLSX() {
     });
     ps.columns = [{ key:'piece', width:30 }, { key:'location', width:38 }, { key:'spike', width:32 }, { key:'notes', width:42 }];
     titleBlock(ps, 'D', showName, 'Set Changes');
+    ps.headerFooter = xlFoot('Presets');
     sceneBar(ps, 4, 'Presets', 'D');
     headerRow(ps, 5, ['PIECE', 'PRESET LOCATION', 'SPIKE', 'NOTES']);
 
@@ -4676,7 +4765,7 @@ async function exportSetChangeXLSX() {
       const row = ps.getRow(6 + idx);
       ['piece', 'location', 'spike', 'notes'].forEach((k, i) => {
         const cell = row.getCell(i + 1);
-        cell.value = rec[k] || null;
+        cell.value = k === 'spike' && rec._m ? xlSpike(rec._m) : (rec[k] || null);
         cell.font = { size: XL_FS, bold: i === 0, name: 'Helvetica' };
         if (cell.value === 'No spike' && k === 'spike') { cell.value = null; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD4D4D8' } }; }
         cell.alignment = { vertical: 'top', wrapText: i !== 0 };
@@ -4733,7 +4822,8 @@ async function exportSetChangeXLSX() {
     return t;
   };
 
-  const CLAST = String.fromCharCode(64 + CREW_COLS.length);   // 'H'
+  const CR_COLS = MAPS.size ? CREW_COLS.concat([{ key: 'map', label: 'MAP', width: 31, wrap: false, bold: false }]) : CREW_COLS;
+  const CLAST = String.fromCharCode(64 + CR_COLS.length);
   people.forEach(person => {
     const changeCount = new Set(person.items.map(it => it.c.id)).size;
     const moveCount = person.items.length;
@@ -4745,21 +4835,23 @@ async function exportSetChangeXLSX() {
         margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 }
       }
     });
-    cs.columns = CREW_COLS.map(c => ({ key: c.key, width: c.width }));
+    cs.columns = CR_COLS.map(c => ({ key: c.key, width: c.width }));
+    cs.headerFooter = xlFoot(person.name);
     titleBlock(cs, CLAST, person.name,
       moveCount + ' move' + (moveCount !== 1 ? 's' : '') + ' in ' + changeCount + ' change' + (changeCount !== 1 ? 's' : ''));
     cs.getCell('A2').value = showName + ' · Set Changes · Updated ' + exportedStr;
-    headerRow(cs, 4, CREW_COLS.map(c => c.label));
+    headerRow(cs, 4, CR_COLS.map(c => c.label));
 
-    let cr = 5, pScene = null, tint = true, prevC = null, firstInScene = true;
+    let cr = 5, pScene = null, tint = true, prevC = null, firstInScene = true, g0 = 5;
     person.items.forEach(it => {
+      if (prevC && (it.scene !== pScene || it.c !== prevC)) xlPlaceMap(cs, CR_COLS, prevC.id, g0, cr - 1);
       if (it.scene !== pScene) {
         pScene = it.scene;
         if (pScene) { sceneBar(cs, cr, pScene, CLAST); cr++; }
         tint = true; prevC = null; firstInScene = true;
       }
       const firstOfChange = it.c !== prevC;
-      if (firstOfChange) { tint = !tint; }
+      if (firstOfChange) { tint = !tint; g0 = cr; }
       const vals = {
         num:    '#' + changeShortNum(it.c.number),
         cue:    String(it.m.trigger || it.c.cueLine || ''),
@@ -4767,12 +4859,12 @@ async function exportSetChangeXLSX() {
         piece:  String(it.m.piece  || ''),
         action: String(it.m.action || ''),
         wing:   wingText(it.m),
-        spike:  spkMoveText(it.m, showId),
+        spike:  xlSpike(it.m),
         notes:  String(it.m.notes  || ''),
         with:   it.others.join(', ')
       };
       const row = cs.getRow(cr);
-      CREW_COLS.forEach((c, i) => {
+      CR_COLS.forEach((c, i) => {
         const cell = row.getCell(i + 1);
         cell.value = vals[c.key] || null;
         cell.font = { size: XL_FS, bold: c.bold, name: 'Helvetica' };
@@ -4783,6 +4875,7 @@ async function exportSetChangeXLSX() {
       });
       cr++; prevC = it.c; firstInScene = false;
     });
+    if (prevC) xlPlaceMap(cs, CR_COLS, prevC.id, g0, cr - 1);
   });
 
   try {
@@ -8451,6 +8544,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v12 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v13 dev</div>
 </body>
 </html>
