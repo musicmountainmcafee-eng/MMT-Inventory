@@ -3707,6 +3707,12 @@ async function exportSetChangePlot(log, offline) {
   // person's name) so the footer can count pages within that section.
   const pageTag = [];
   const tagPage = l => { pageTag[doc.internal.getNumberOfPages()] = l; };
+  // Where each part starts (What's changed, Presets, Set Changes and each
+  // scene, each crew member), for the contents page(s) at the front and the
+  // PDF's side index. Counted before the contents pages go in, then shifted.
+  const marks = [];
+  const mark = (t, lvl, extra) => marks.push(Object.assign({ t, lvl, page: doc.internal.getNumberOfPages() }, extra || {}));
+  let _mAct = null;
   let pageFn = null;   // the crew pages swap in their own page builder
   function newPage(withCont) {
     if (pageFn) return pageFn(withCont);
@@ -3741,7 +3747,7 @@ async function exportSetChangePlot(log, offline) {
   // on their own page(s) ahead of the plot.
   const LOG_RGB = { n: [29,122,58], c: [181,101,29], g: [176,42,32] };
   if (log) {
-    tagPage('Changes');
+    tagPage('Changes'); mark("What's changed", 0);
     const band = (txt) => {
       doc.setFillColor(243,241,251); doc.rect(M, y, TABLE_W, 24, 'F');
       doc.setFillColor(83,74,183); doc.rect(M, y, 4, 24, 'F');
@@ -3824,7 +3830,7 @@ async function exportSetChangePlot(log, offline) {
     };
 
     tagPage('Preset');
-    drawSceneBar('Presets');
+    drawSceneBar('Presets'); mark('Presets', 0);
     drawPresetHead();
 
     doc.setFontSize(FS);
@@ -4025,6 +4031,9 @@ async function exportSetChangePlot(log, offline) {
 
     if (act !== null && pageTag[doc.internal.getNumberOfPages()] === 'PLOT') tagPage('Act ' + act);
     if (sec.label) { curScene = sec.label; drawSceneBar(sec.label); }
+    if (!marks.some(m => m.plot)) mark('Set Changes', 0, { plot: true });
+    if (act !== null && act !== _mAct) { _mAct = act; mark('Act ' + act, 1, { act: true }); }
+    if (sec.label) mark(String(sec.label), act !== null ? 2 : 1);
 
     let shade = false, first = true;
     sec.blocks.forEach(b => {
@@ -4145,6 +4154,8 @@ async function exportSetChangePlot(log, offline) {
     // column header, when this person has anything new since the last send.
     pageFn = null;
     doc.addPage(); tagPage(person.name); crewTitle();
+    if (!marks.some(m => m.crewHead)) mark('Crew', 0, { crewHead: true });
+    mark(person.name, 1, { crew: true, n: changeCount });
     pageFn = crewPage;
     const myLog = log && person.name !== 'No one assigned' ? (log.mine.get(person.name.toLowerCase()) || []) : [];
     if (myLog.length) {
@@ -4214,6 +4225,55 @@ async function exportSetChangePlot(log, offline) {
   // Page N of M, right-aligned on the title baseline. Has to run after the last
   // page exists, so it's a second pass rather than part of drawTitle.
   pageFn = null;
+  // ── Contents ── page(s) at the front: every part, scene and crew member
+  // with its page; tap a line to jump there. Every other page gets a
+  // "Contents" link back (top right). The same list is the PDF's side index
+  // for viewers that show one (Preview, Acrobat, Chrome), opened by default.
+  let nC = 0;
+  if (marks.length > 1) {
+    const LH = 15, GAP = 28, colW = (TABLE_W - GAP) / 2, top = 122, per = Math.floor((pageH - 48 - top) / LH);
+    const rows = [];
+    marks.forEach(m => { if (m.lvl === 0 && rows.length) rows.push(null); rows.push(m); });
+    nC = Math.max(1, Math.ceil(Math.ceil(rows.length / per) / 2));
+    for (let p = 1; p <= nC; p++) doc.insertPage(p);
+    marks.forEach(m => { m.page += nC; });
+    pageTag.splice(1, 0, ...Array(nC).fill('Contents'));
+    for (let p = 1; p <= nC; p++) {
+      doc.setPage(p); drawTitle();
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(22, 22, 28);
+      doc.text(p === 1 ? 'Contents' : 'Contents (cont.)', M, y + 6);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(120, 120, 132);
+      doc.text('Tap a line to jump to it.', M, y + 19);
+    }
+    rows.forEach((m, i) => {
+      if (!m) return;
+      const col = Math.floor(i / per), side = col % 2;
+      doc.setPage(Math.floor(col / 2) + 1);
+      const x0 = M + side * (colW + GAP), x = x0 + m.lvl * 14, right = x0 + colW, yy = top + (i % per) * LH;
+      const big = m.lvl === 0, sub = m.crew && m.n ? m.n + ' change' + (m.n === 1 ? '' : 's') : '';
+      doc.setFont('helvetica', big || m.act ? 'bold' : 'normal'); doc.setFontSize(big ? 10.5 : 9.5); doc.setTextColor(big ? 22 : 40, big ? 22 : 40, big ? 28 : 48);
+      const label = doc.splitTextToSize(m.t, colW - (x - x0) - 70)[0] || '';
+      doc.text(label, x, yy);
+      let end = x + doc.getTextWidth(label);
+      if (sub) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(130, 130, 142); doc.text(sub, end + 6, yy); end += 6 + doc.getTextWidth(sub); }
+      doc.setFont('helvetica', big ? 'bold' : 'normal'); doc.setFontSize(big ? 10.5 : 9.5); doc.setTextColor(90, 90, 105);
+      const pn = String(m.page); doc.text(pn, right, yy, { align: 'right' });
+      doc.setDrawColor(200, 200, 208); doc.setLineWidth(0.6); doc.setLineDashPattern([0.8, 2.4], 0);
+      const a = end + 5, b = right - doc.getTextWidth(pn) - 5; if (b > a) doc.line(a, yy - 2.5, b, yy - 2.5);
+      doc.setLineDashPattern([], 0);
+      doc.link(x0, yy - 11, colW, LH, { pageNumber: m.page });
+    });
+    // the side index: parts, then acts and scenes / crew under them
+    try {
+      let part = null, actNode = null;
+      marks.forEach(m => {
+        if (m.lvl === 0) { part = doc.outline.add(null, m.t, { pageNumber: m.page }); actNode = null; return; }
+        if (m.act) { actNode = doc.outline.add(part, m.t, { pageNumber: m.page }); return; }
+        doc.outline.add(m.lvl === 2 && actNode ? actNode : part, m.t, { pageNumber: m.page });
+      });
+      doc.setDisplayMode(null, null, 'UseOutlines');
+    } catch (e) {}
+  }
   const totalPages = doc.internal.getNumberOfPages();
   // Plot pages from before any act number take the act that follows them;
   // a show with no act numbers at all just says Set Changes.
@@ -4236,6 +4296,12 @@ async function exportSetChangePlot(log, offline) {
     doc.text('Page ' + i + ' of ' + totalPages, M + TABLE_W, 52, { align: 'right' });
     doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(90,90,105);
     doc.text((pageTag[i] || 'Set Changes') + '  ·  ' + secOf[i] + ' of ' + secLen[i], M + TABLE_W, pageH - 22, { align: 'right' });
+    if (nC && i > nC) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(37, 99, 235);
+      const w = doc.getTextWidth('Contents');
+      doc.text('Contents', M + TABLE_W, 64, { align: 'right' });
+      doc.link(M + TABLE_W - w - 3, 55, w + 6, 12, { pageNumber: 1 });
+    }
   }
 
   const safe = showName.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
@@ -8385,6 +8451,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v11 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v12 dev</div>
 </body>
 </html>
