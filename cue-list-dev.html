@@ -1110,6 +1110,9 @@
   tr.pr-done .mv-piece { text-decoration: line-through; text-decoration-color: rgba(21,128,61,.6); }
   .pr-by { display: block; margin: 3px 0 0 32px; font-size: 11.5px; color: #15803d; font-weight: 600; }
   @media (max-width: 600px) { .pr-chk-meter { width: 70px; } tr.pr-chk td { padding-top: 12px; padding-bottom: 12px; } }
+
+  #ver-note { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 3000; border: 0; border-radius: 999px; background: #111; color: #fff; font: 600 14px 'DM Sans', system-ui, sans-serif; padding: 11px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.3); cursor: pointer; }
+  @media print { #ver-note { display: none !important; } }
 </style>
 </head>
 <body>
@@ -8103,7 +8106,49 @@ function copyCrewLink(){
 applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
+
+// ── Keeping this page up to date ───────────────────────────────────────────
+// The app opens its saved offline copy of this page first (fast, and works
+// without signal), so a new version used to need several reloads. Now, when
+// the page opens and whenever you come back to it (at most every 5 min), it
+// asks GitHub for the current copy and compares version tags. If there's a
+// newer one it swaps the saved copy and reloads, but only when nothing is
+// unsaved: not in Editing, no changes waiting, no panel open, not typing.
+// Otherwise a small "New version ready" note waits until you tap it.
+function clVerCheck(){
+  if (clVerCheck._t && Date.now() - clVerCheck._t < 5 * 60000) return;
+  clVerCheck._t = Date.now();
+  const mine = ((document.getElementById('build-tag') || {}).textContent || '').trim();
+  if (!mine || !navigator.onLine) return;
+  fetch(location.pathname + '?vcheck=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(html => {
+    // the tag is the <div> at the end of the page (this script also mentions it, so take the last one)
+    const all = html ? [...html.matchAll(/<div id="build-tag"[^>]*>([^<]+)<\/div>/g)] : [], theirs = all.length ? all[all.length - 1][1].trim() : '';
+    if (!theirs || theirs === mine) return;
+    const once = 'mmt_vreload_' + location.pathname + '_' + theirs;
+    try { if (sessionStorage.getItem(once)) return; } catch (e) {}
+    // put the new copy where the app's offline store keeps this page, so the reload gets it
+    const swap = (window.caches ? caches.keys().then(ks => Promise.all(ks.map(k => caches.open(k).then(c => c.keys().then(reqs => Promise.all(reqs
+      .filter(q => new URL(q.url).pathname === location.pathname)
+      .map(q => c.put(q, new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }))))))))) : Promise.resolve());
+    swap.catch(() => {}).then(() => clVerReady(theirs, once));
+  }).catch(() => {});
+}
+function clVerSafe(){
+  const a = document.activeElement;
+  return !editMode && clPending() === 0 && !document.querySelector('#move-sheet.open, .box.open, #smz, #sm-ov')
+    && !(a && /INPUT|TEXTAREA|SELECT/.test(a.tagName));
+}
+function clVerReady(tag, once){
+  const go = () => { try { sessionStorage.setItem(once, '1'); } catch (e) {} location.reload(); };
+  if (clVerSafe()) { go(); return; }
+  let el = document.getElementById('ver-note');
+  if (!el) { el = document.createElement('button'); el.id = 'ver-note'; el.type = 'button'; document.body.appendChild(el); }
+  el.textContent = 'New version ready (' + tag + ') · tap to update';
+  el.onclick = () => { if (!clVerSafe()) { toast('Finish your edit and press Done first, so nothing is lost'); return; } go(); };
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
+setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v2 dev</div>
 </body>
 </html>
