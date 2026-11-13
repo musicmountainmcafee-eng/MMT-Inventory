@@ -557,6 +557,25 @@
   #edit-btn.lock-tg:not(.on) .lk-v, #edit-btn.lock-tg.on .lk-e { background: var(--purple); color: #fff; }
   @media (max-width: 600px) { #edit-btn.lock-tg span { padding: 5px 7px; } }
   /* Box editor */
+  /* Who: cast & crew list (right side on a computer, inside the box on a phone) */
+  #who-panel { position: fixed; right: 0; top: var(--hdr, 0px); bottom: 0; width: 330px; z-index: 455; display: none; flex-direction: column; gap: 8px; background: var(--surface); color: var(--text); border-left: 1px solid var(--border); box-shadow: -10px 0 30px rgba(0,0,0,.12); padding: 14px 12px 12px; }
+  #who-panel.open { display: flex; }
+  #who-panel .wl-head { display: flex; flex-direction: column; gap: 2px; }
+  #who-panel .wl-head b { font-size: 16px; } #who-panel .wl-head span { font-size: 12px; color: var(--muted, #6b6b73); }
+  #who-panel #wl-list { flex: 1; min-height: 0; overflow-y: auto; }
+  #who-panel .wl-edit { border: 0; background: none; color: var(--muted, #6b6b73); font: 600 13px 'DM Sans', system-ui, sans-serif; text-align: left; padding: 6px 2px; cursor: pointer; }
+  .wl-g { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted, #6b6b73); margin: 10px 4px 4px; }
+  .wl-row { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border: 0; background: none; color: inherit; font: inherit; padding: 8px 8px; border-radius: 9px; cursor: pointer; min-height: 44px; }
+  .wl-row:hover, .wl-row:focus-visible { background: rgba(0,0,0,.05); }
+  .wl-row.on { background: rgba(37,99,235,.08); }
+  .wl-ck { flex: none; width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--border); display: grid; place-items: center; font-size: 13px; font-weight: 800; color: #fff; }
+  .wl-row.on .wl-ck { background: #2563eb; border-color: #2563eb; }
+  .wl-n { flex: 1; min-width: 0; font-weight: 600; font-size: 14px; display: flex; flex-direction: column; }
+  .wl-n small { font-weight: 500; font-size: 12px; color: var(--muted, #6b6b73); }
+  .wl-c { flex: none; font-size: 12px; color: var(--muted, #6b6b73); white-space: nowrap; }
+  .wl-none { font-size: 13px; color: var(--muted, #6b6b73); padding: 10px 6px; }
+  #box-ed .wl-in { margin-top: 8px; max-height: 40vh; overflow-y: auto; }
+  @media print { #who-panel { display: none !important; } }
   #box-ed { position: fixed; z-index: 460; display: none; background: var(--surface); color: var(--text); border: 1px solid var(--border);
     border-radius: 14px; box-shadow: 0 14px 40px rgba(0,0,0,.25); padding: 12px 14px; box-sizing: border-box; font-size: 15px; max-height: 70vh; overflow-y: auto; }
   #box-ed.open { display: block; }
@@ -5700,7 +5719,83 @@ function onPeopleChanged(){ if (moveSheet) { const y = (document.querySelector('
 function whoChoices(){
   const list = peopleList(clShowSlug());
   const seen = new Set(list.map(p => p.name.toLowerCase()));
-  return list.concat(allWho().filter(n => !seen.has(n.toLowerCase())).map(n => ({ name: n, role: '', group: 'used' })));
+  // Names on other moves only: the move being edited would offer back whatever is
+  // half-typed in it ("Ky") as a person, and a tap then kept it as a second name.
+  const ed = boxEd && boxEd.kind === 'move' ? { c: String(boxEd.cueId), i: boxEd.idx } : moveSheet ? { c: String(moveSheet.cueId), i: moveSheet.idx } : null;
+  const used = new Map();
+  cues.forEach(c => (c.moves || []).forEach((m, i) => { if (ed && String(c.id) === ed.c && i === ed.i) return;
+    whoNames(m.who).forEach(v => { const k = v.toLowerCase(); if (!used.has(k)) used.set(k, v); }); }));
+  return list.concat([...used.values()].sort((a, b) => a.localeCompare(b)).filter(n => !seen.has(n.toLowerCase())).map(n => ({ name: n, role: '', group: 'used' })));
+}
+// ── Who: the cast & crew list ───────────────────────────────────────────────
+// Editing a Who box: on a computer the show's cast & crew list opens on the
+// right of the cue sheet; on a phone or small tablet it's inside the box.
+// Names already on this move come first, ticked; then Crew, Cast, and anyone
+// else named on this plot, each with how many moves they already have in this
+// change and in the show. Typing in the box (or the list's search) narrows it;
+// Enter takes the top match; a tap adds or removes a name.
+let _wlQ = '', _whoTyping = false;   // _whoTyping: the end of the box is a name still being typed
+// Does tapping this person finish what's half-typed? ("Ky" → Kyle B, or a role: "scro" → Louis T)
+function whoFinishes(name, tok){ const p = whoChoices().find(x => x.name.toLowerCase() === String(name).toLowerCase()) || { name, role: '' };
+  return String(p.name).toLowerCase().startsWith(tok) || String(p.name).toLowerCase().split(/\s+/).some(w => w.startsWith(tok)) || String(p.role || '').toLowerCase().split(/[\s,]+/).some(w => w.startsWith(tok)); }
+function whoPanelWide(){ return window.innerWidth >= 900; }
+function whoTok(v){ return (String(v || '').split(/,|\/|&|;|\+/).pop() || '').trim().toLowerCase(); }
+function whoBusy(name){
+  const k = String(name).toLowerCase(), c = boxCue(); let here = 0, all = 0;
+  cues.forEach(x => (x.moves || []).forEach(m => { if (whoNames(m.who).some(n => n.toLowerCase() === k)) { all++; if (c && x === c) here++; } }));
+  return { here, all };
+}
+function whoMatches(tok){
+  const v = boxVal('who'), on = whoNames(v), onK = new Set(on.map(x => x.toLowerCase()));
+  const q = (_wlQ || (_whoTyping ? tok : '') || '').toLowerCase(), hit = p => !q || String(p.name).toLowerCase().split(/\s+/).some(w => w.startsWith(q)) || String(p.name).toLowerCase().startsWith(q) || String(p.role || '').toLowerCase().split(/[\s,]+/).some(w => w.startsWith(q));
+  const ch = whoChoices(), byK = new Map(ch.map(p => [p.name.toLowerCase(), p]));
+  // the half-typed end of the box isn't "on" yet
+  const typing = _whoTyping && tok && !byK.has(tok) && on.length && on[on.length - 1].toLowerCase() === tok;
+  const sel = on.filter(n => !(typing && n.toLowerCase() === tok)).map(n => byK.get(n.toLowerCase()) || { name: n, role: '', group: 'typed' });
+  const rest = ch.filter(p => !onK.has(p.name.toLowerCase()) || (typing && p.name.toLowerCase() === tok)).filter(hit);
+  return { sel, rest };
+}
+function whoListHTML(){
+  const tok = whoTok(boxVal('who')), { sel, rest } = whoMatches(tok);
+  const HEAD = { crew: 'Crew', cast: 'Cast', used: 'Also on this plot' };
+  const row = (p, on) => { const b = whoBusy(p.name);
+    return `<button type="button" class="wl-row${on ? ' on' : ''}" data-v="${esc(p.name)}" onclick="whoTap(this.dataset.v)">
+      <span class="wl-ck" aria-hidden="true">${on ? '✓' : ''}</span><span class="wl-n">${esc(p.name)}${p.role ? `<small>${esc(p.role)}</small>` : ''}</span>
+      <span class="wl-c">${b.here ? b.here + ' here · ' : ''}${b.all} in show</span></button>`; };
+  let h = sel.length ? `<div class="wl-g">On this move</div>` + sel.map(p => row(p, true)).join('') : '';
+  let last = '';
+  rest.forEach(p => { if (p.group !== last) { last = p.group; h += `<div class="wl-g">${HEAD[p.group] || ''}</div>`; } h += row(p, false); });
+  if (!sel.length && !rest.length) h += `<div class="wl-none">No one matches${tok || _wlQ ? ` “${esc(_wlQ || tok)}”` : ''}. Enter keeps it as typed.</div>`;
+  return h;
+}
+function whoRefresh(){
+  const box = document.getElementById('box-wl'); if (box) box.innerHTML = whoListHTML();
+  const pl = document.getElementById('wl-list'); if (pl) pl.innerHTML = whoListHTML();
+}
+function openWhoPanel(){
+  let el = document.getElementById('who-panel');
+  if (!el) { el = document.createElement('aside'); el.id = 'who-panel'; el.setAttribute('aria-label', 'Cast and crew'); document.body.appendChild(el); }
+  const c = boxCue(), m = boxMv(), slug = clShowSlug();
+  _wlQ = '';
+  el.innerHTML = `<div class="wl-head"><b>Cast &amp; crew</b><span>${esc([m && m.piece, c && shiftLabel(c)].filter(Boolean).join(' · '))}</span></div>
+    <input id="wl-q" class="box-in" placeholder="Search names or roles" autocomplete="off" oninput="_wlQ = this.value.trim(); whoRefresh()" onkeydown="whoSearchKey(event, this)">
+    <div id="wl-list">${whoListHTML()}</div>
+    ${slug && !cueReadOnly() ? `<button type="button" class="wl-edit" onclick="closeBox(); openPeople('${esc(slug)}', clShowLabel())">Edit cast list ›</button>` : ''}`;
+  el.classList.add('open'); document.body.classList.add('who-open');
+}
+function closeWhoPanel(){ const el = document.getElementById('who-panel'); if (el) el.classList.remove('open'); document.body.classList.remove('who-open'); _wlQ = ''; }
+function whoTap(name){
+  boxWho(name);
+  const q = document.getElementById('wl-q');
+  if (q && document.activeElement === q) { q.value = ''; _wlQ = ''; whoRefresh(); return; }
+  const i = document.querySelector('#box-ed input.box-in'); if (i) { i.focus(); const n = i.value.length; try { i.setSelectionRange(n, n); } catch (e) {} }
+}
+function whoSearchKey(e, input){
+  if (e.key === 'Escape') { e.preventDefault(); closeBox(); return; }
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const first = whoMatches('').rest[0];
+  if (first) { boxWho(first.name); input.value = ''; _wlQ = ''; whoRefresh(); }
 }
 function whoPillsHTML(on){
   const ch = whoChoices(), slug = clShowSlug();
@@ -5829,12 +5924,13 @@ function placeBox(cell){
   }
   el.classList.remove('sheet');
   const c = cell || boxCellNow();
-  const wide = boxEd.field === 'spike' || boxEd.field === 'who';
+  const wide = boxEd.field === 'spike' || (boxEd.field === 'who' && !whoPanelWide());
   const w = Math.min(wide ? 470 : 360, window.innerWidth - 16);
   el.style.width = w + 'px';
   const r = c ? c.getBoundingClientRect() : { left: 20, right: 20, top: 120, bottom: 120 };
   const hdr = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0;
-  const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+  const room = boxEd.field === 'who' && whoPanelWide() ? 340 : 0;   // the cast & crew list on the right
+  const left = Math.max(8, Math.min(r.left, window.innerWidth - room - w - 8));
   const h = el.offsetHeight;
   let top = r.bottom + 6;
   if (top + h > window.innerHeight - 8) top = (r.top - h - 6 > hdr + 4) ? r.top - h - 6 : Math.max(hdr + 4, window.innerHeight - h - 8);
@@ -5842,7 +5938,7 @@ function placeBox(cell){
 }
 function closeBox(){
   if (!boxEd) return;
-  boxEd = null;
+  boxEd = null; closeWhoPanel();
   const el = document.getElementById('box-ed'); if (el) el.classList.remove('open');
   boxMark(null);
   if (document.activeElement && document.activeElement.closest && document.activeElement.closest('#box-ed')) document.activeElement.blur();
@@ -5876,8 +5972,8 @@ function renderBox(){
       <span class="box-sep"></span>${WING_NUMS.map(n => `<button type="button" class="box-pill box-num${p.num === n ? ' on' : ''}"${numbered ? '' : ' disabled'} onclick="boxWing('num', '${n}')">${n}</button>`).join('')}</div>
       ${boxEd.kind === 'move' ? `<button type="button" class="box-link" onclick="boxFull(true)">${(boxMv() || {}).wingTo ? 'To: ' + esc(boxMv().wingTo) + ' · change ›' : '+ To another wing ›'}</button>` : ''}`;
   } else if (f === 'who') {
-    const on = new Set(whoNames(v).map(x => x.toLowerCase()));
-    body = inp('Type or tap names') + `<div class="box-pills box-scroll" id="box-whos">${whoChoices().map(p => `<button type="button" class="box-pill${on.has(p.name.toLowerCase()) ? ' on' : ''}" data-v="${esc(p.name)}" data-r="${esc(p.role || '')}" onclick="boxWho(this.dataset.v)">${esc(p.name)}${p.role ? `<small>${esc(p.role)}</small>` : ''}</button>`).join('')}</div>`;
+    _whoTyping = false;
+    body = whoPanelWide() ? inp('Type names, or pick on the right') : inp('Type or tap names') + `<div class="box-scroll wl-in" id="box-wl">${whoListHTML()}</div>`;
   } else if (f === 'spike') {
     const ids = boxEd.kind === 'preset' ? (presetEntry(boxEd.key).spikeIds || []) : ((boxMv() || {}).spikeIds || []);
     body = `<div class="box-spikes">${spkPickerHTML(scriptId, ids, 'boxSpike')}</div>` + inp('Other spike, typed (optional)');
@@ -5889,8 +5985,8 @@ function renderBox(){
       <button type="button" class="box-x" aria-label="Close" onclick="closeBox()">×</button></div>
     ${body}
     <div class="box-foot"><button type="button" class="box-link" onclick="boxFull()">Full edit ›</button>
-      <span class="box-hint">${BOX_TYPED[f] ? 'Enter or tap another box to finish' : f === 'who' ? 'Tap names to add or remove' : 'Saves as you pick'}</span></div>`;
-  if (f === 'who') whoFilterBox(v);
+      <span class="box-hint">${BOX_TYPED[f] ? 'Enter or tap another box to finish' : f === 'who' ? 'Enter: top match · comma: next name' : 'Saves as you pick'}</span></div>`;
+  if (f === 'who' && whoPanelWide()) openWhoPanel(); else closeWhoPanel();
 }
 function boxSet(field, value){
   if (!boxEd) return;
@@ -5912,7 +6008,7 @@ function boxSet(field, value){
 function boxType(v){
   if (!boxEd) return;
   boxSet(boxEd.field, v);
-  if (boxEd.field === 'who') { syncBoxWho(v); whoFilterBox(v); }
+  if (boxEd.field === 'who') { _whoTyping = !/[,\/&;+]\s*$/.test(v); whoRefresh(); }
   if (boxEd.field === 'wing') { const el = document.getElementById('box-ed'); const keep = el.querySelector('input.box-in'); const pos = keep ? keep.selectionStart : null;
     renderBox(); const i = el.querySelector('input.box-in'); if (i) { i.focus(); try { i.setSelectionRange(pos, pos); } catch (e) {} } }
   if (boxEd.field === 'action') document.querySelectorAll('#box-ed .box-pill').forEach(b => b.classList.toggle('on', b.dataset.v.toLowerCase() === String(v).toLowerCase()));
@@ -5921,9 +6017,8 @@ function boxKey(e, input){
   if (e.key === 'Enter') {
     e.preventDefault();
     if (boxEd && boxEd.field === 'who') {   // finish the name being typed with the first match
-      const first = [...document.querySelectorAll('#box-whos .box-pill')].find(b => !b.hidden && !b.classList.contains('on'));
-      const tok = (String(input.value).split(/,|\/|&|;|\+/).pop() || '').trim();
-      if (tok && first) { const names = whoNames(input.value); names.pop(); names.push(first.dataset.v); input.value = names.join(', '); boxType(input.value); return; }
+      const tok = whoTok(input.value), first = tok && whoMatches(tok).rest[0];
+      if (tok && first) { const names = whoNames(input.value); names.pop(); names.push(first.name); input.value = names.join(', ') + ', '; boxType(input.value); return; }
     }
     closeBox();
   } else if (e.key === 'Escape') { e.preventDefault(); closeBox(); }
@@ -5953,18 +6048,14 @@ function boxSpike(id){
 }
 function boxWho(name){
   const input = document.querySelector('#box-ed input.box-in'); if (!input) return;
-  const names = whoNames(input.value), k = String(name).toLowerCase();
+  const names = whoNames(input.value), k = String(name).toLowerCase(), tok = whoTok(input.value);
+  // A half-typed name at the end ("Ky") is what the tap finishes, not a person.
+  if (_whoTyping && tok && names.length && names[names.length - 1].toLowerCase() === tok && !whoChoices().some(p => p.name.toLowerCase() === tok) && whoFinishes(name, tok)) names.pop();
   const i = names.findIndex(x => x.toLowerCase() === k);
-  if (i >= 0) names.splice(i, 1);
-  else {
-    // A half-typed name at the end is replaced by the pick.
-    const tok = (String(input.value).split(/,|\/|&|;|\+/).pop() || '').trim().toLowerCase();
-    if (tok && !names.some(x => x.toLowerCase() === tok && whoChoices().some(p => p.name.toLowerCase() === tok))) names.pop();
-    names.push(name);
-  }
+  if (i >= 0) names.splice(i, 1); else names.push(name);
   input.value = names.join(', ');
   boxSet('who', input.value);
-  syncBoxWho(input.value); whoFilterBox('');
+  _whoTyping = false; whoRefresh();
 }
 function syncBoxWho(v){
   const on = new Set(whoNames(v).map(x => x.toLowerCase()));
@@ -5983,7 +6074,8 @@ function whoFilterBox(v){
 // so tapping the next box opens that one).
 document.addEventListener('pointerdown', e => {
   const el = document.getElementById('box-ed');
-  if (boxEd && el && !el.contains(e.target)) closeBox();
+  const wp = document.getElementById('who-panel');
+  if (boxEd && el && !el.contains(e.target) && !(wp && wp.contains(e.target))) closeBox();
   const mn = document.getElementById('row-menu');
   if (mn && mn.classList.contains('open') && !mn.contains(e.target) && !(e.target.closest && e.target.closest('.row-more'))) closeRowMenu();
 }, true);
@@ -7659,7 +7751,9 @@ function sheetPick(field, value){
   if (!input) return;
   if (field === 'who') {
     // Adds or takes off that one person, keeping the others typed there.
-    const names = whoNames(input.value), k = String(value).toLowerCase();
+    const names = whoNames(input.value), k = String(value).toLowerCase(), tok = whoTok(input.value);
+    // a half-typed name at the end ("Ky") is what the tap finishes, not a person
+    if (tok && names.length && names[names.length - 1].toLowerCase() === tok && tok !== k && !whoChoices().some(p => p.name.toLowerCase() === tok) && whoFinishes(value, tok)) names.pop();
     const i = names.findIndex(v => v.toLowerCase() === k);
     if (i >= 0) names.splice(i, 1); else names.push(value);
     input.value = names.join(', ');
@@ -8223,6 +8317,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v4 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v5 dev</div>
 </body>
 </html>
