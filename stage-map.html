@@ -238,7 +238,7 @@ try {
   .spk-opt[disabled] { opacity: .6; cursor: default; }
   .spk-opt.nos .spk-none { width: 32px; height: 16px; padding: 0; flex: none; }
   .spk-sw { flex: none; display: block; }
-  .spk-none { display: inline-block; background: #000; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; width: fit-content; }
+  .spk-none { display: inline-block; background: #000; width: 40px; height: 14px; border-radius: 3px; }
   .spk-key { gap: 10px; } .spk-key.hid { opacity: .55; }
   .spk-key small { white-space: normal; }
   .sw-grid { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -264,7 +264,7 @@ try {
     </div>
     <span class="save" id="save-state" aria-live="polite"></span>
     <div class="pr-faces" id="pr-faces" hidden aria-label="Who else is here"></div>
-    <div id="build-tag" title="Stage map version">Stage map 11.13 v1</div>
+    <div id="build-tag" title="Stage map version">Stage map 11.13 v2</div>
   </header>
   <div class="main">
     <div class="stage" id="stage">
@@ -1182,7 +1182,7 @@ function spikeChipHTML(key) {
 function printSpikes() {
   const st = steps[stepIdx], list = pieceList().filter(pc => !isHidden(pc) && (stepIdx === 0 ? posAt(pc.key, 0) : st.moves.includes(pc.key)));
   const rows = list.map(pc => { const ents = spikeEntries(pc.key, stepIdx), at = posAt(pc.key, stepIdx);
-    return `<tr><td><b>${esc(pc.name)}</b>${st.info && st.info[pc.key] ? `<br><small>${esc(st.info[pc.key])}</small>` : ''}</td><td>${ents.length ? ents.map(e => `<span class="sw" style="background:${esc(e.c1 || '#9ca3af')}${e.c2 ? ';box-shadow:inset -8px 0 0 ' + esc(e.c2) : ''}"></span>${esc(spikeName(e))}`).join('<br>') : (spikeAt(pc.key, stepIdx) || {}).none ? '<b>No spike</b>' : '<i>no spike set</i>'}</td><td>${ents.map(e => esc(MARK_NAMES[e.mark || 'corners'] || e.mark)).join('<br>')}</td><td>${at ? '' : '<i>off stage</i>'}</td></tr>`; }).join('');
+    return `<tr><td><b>${esc(pc.name)}</b>${st.info && st.info[pc.key] ? `<br><small>${esc(st.info[pc.key])}</small>` : ''}</td><td>${ents.length ? ents.map(e => `<span class="sw" style="background:${esc(e.c1 || '#9ca3af')}${e.c2 ? ';box-shadow:inset -8px 0 0 ' + esc(e.c2) : ''}"></span>${esc(spikeName(e))}`).join('<br>') : (spikeAt(pc.key, stepIdx) || {}).none ? '<span class="sw" style="background:#000"></span>' : '<i>no spike set</i>'}</td><td>${ents.map(e => esc(MARK_NAMES[e.mark || 'corners'] || e.mark)).join('<br>')}</td><td>${at ? '' : '<i>off stage</i>'}</td></tr>`; }).join('');
   let el = document.getElementById('spk-print'); if (!el) { el = document.createElement('div'); el.id = 'spk-print'; document.body.appendChild(el); }
   el.innerHTML = `<h1>Spike sheet · ${esc(showName || '')}</h1><h2>${esc(stepIdx === 0 ? 'Presets' : st.label)}</h2>
     <table><thead><tr><th>Piece</th><th>Spike</th><th>Where on the piece</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="4"><i>No pieces move in this change.</i></td></tr>'}</tbody></table>`;
@@ -1444,7 +1444,7 @@ function spkResolved() {
 // What a piece's spike is at this step, as a line.
 function spkStateHTML(key) {
   const sp = spikeAt(key, stepIdx);
-  if (sp && sp.none) return `<span class="spk-none">No spike</span>`;
+  if (sp && sp.none) return `<span class="spk-none" role="img" aria-label="No spike" title="No spike"></span>`;
   const c = spikeChipHTML(key);
   return c || `<small class="off">no spike yet</small>`;
 }
@@ -1475,7 +1475,7 @@ function spkPieceHTML(key, ed) {
   if (!own && t.kind === 'move') { const ps = presetSpike(key); if (ps) h += `<p class="note">Nothing picked for this move, so it uses its Presets spike: ${spkStateHTML(key)}</p>`; }
   const list = spkList().filter(e => !e.hidden || ids.includes(e.id));
   h += `<div class="spk-grid">${list.map(e => { const on = ids.includes(e.id); return `<button class="spk-opt${on ? ' on' : ''}"${ed ? '' : ' disabled'} aria-pressed="${on}" onclick="spkToggle(${jsq(key)}, ${jsq(e.id)})">${spkSwatch(e, 32, 16)}<span><b>${esc(spikeName(e))}</b><small>${esc(e.label ? spkTapeName(e) : (MARK_NAMES[e.mark || 'corners'] || ''))}</small></span></button>`; }).join('')}
-    <button class="spk-opt nos${none ? ' on' : ''}"${ed ? '' : ' disabled'} aria-pressed="${none}" onclick="spkToggle(${jsq(key)}, '__none')"><span class="spk-none" aria-hidden="true">&nbsp;</span><span><b>No spike</b><small>a black box on the cue sheet</small></span></button></div>`;
+    <button class="spk-opt nos${none ? ' on' : ''}"${ed ? '' : ' disabled'} aria-pressed="${none}" onclick="spkToggle(${jsq(key)}, '__none')"><span class="spk-none" aria-hidden="true">&nbsp;</span><span><b>No spike</b><small>fills the cue sheet box black</small></span></button></div>`;
   if (!list.length) h += `<p class="note">No tape colours for this show yet. Add one in the tape key below.</p>`;
   h += `<div class="field">Other spike, typed<input id="spk-txt" value="${esc(txt)}" placeholder="e.g. glow tape"${ed ? '' : ' disabled'} onchange="spkTyped(${jsq(key)}, this.value)" onkeydown="if(event.key==='Enter')this.blur()" autocomplete="off"></div>`;
   return h + `<p class="note">${t.kind === 'preset' ? "Saves to this piece's preset on the cue sheet." : 'Saves to this move on the cue sheet.'}</p></div>`;

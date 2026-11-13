@@ -6165,7 +6165,9 @@ table td { font-size: 14px !important; }
   @media (max-width: 768px) { #scripts-editor .se-htm { height: 30px; padding: 0 9px !important; } }
 
 
-  .spk-none { display: inline-block; background: #000; color: #fff; font-size: 11px; font-weight: 700; line-height: 1.2; padding: 3px 9px; border-radius: 4px; white-space: nowrap; }
+  .spk-none { display: inline-block; width: 40px; height: 15px; background: #000; border-radius: 3px; vertical-align: middle; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  td:has(> .spk-none), td:has(> .mv-spike > .spk-none), td:has(> span[data-f="spike"] > .spk-none) { background: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  td:has(> .spk-none) .spk-none, td:has(> .mv-spike > .spk-none) .spk-none { visibility: hidden; }
 </style>
   <!-- PERF: pdf.js and jsPDF used to load here as blocking script tags on every
        launch. They're only needed on the Scripts tab and for PDF exports, so they
@@ -7649,7 +7651,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v3</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -20955,7 +20957,7 @@ function spkOfMove(m, sid){
 function spkIsNone(m){ return !!(m && m.noSpike && !m.spike && !(Array.isArray(m.spikeIds) && m.spikeIds.length)); }
 function spkChipsHTML(m, sid){
   m = spkEff(m);
-  if (spkIsNone(m)) return `<span class="spk-none" title="No spike needed">No spike</span>`;
+  if (spkIsNone(m)) return `<span class="spk-none" role="img" aria-label="No spike" title="No spike needed"></span>`;
   const chips = spkOfMove(m, sid).map(e => e
     ? `<span class="spk-chip" title="${spkEsc(spkTapeName(e))}">${spkSVG(e, 30, 15)}<span>${spkEsc(spkLabel(e))}</span></span>`
     : `<span class="spk-chip spk-gone">removed spike</span>`).join('');
