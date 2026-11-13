@@ -5211,7 +5211,11 @@ function saveMoveEdits(forceRead){
       // Not there when editing began: measure from an empty entry, so blank
       // boxes here don't wipe what someone else filled in.
       const base = JSON.parse(presetBaseline[k] || 'null') || csBlankLike(oursP[k], theirs);
-      data.presets[k] = csMergeObj(base, oursP[k], theirs, 'presets.' + k, clashes, PRESET_DEEP);
+      // Nothing on the Sheet for this piece yet: nobody else has changed it, so ours
+      // goes in as it is (measured against a blank entry, every box we filled
+      // looked like a clash with "someone").
+      if (!data.presets[k]) data.presets[k] = JSON.parse(JSON.stringify(oursP[k]));
+      else data.presets[k] = csMergeObj(base, oursP[k], theirs, 'presets.' + k, clashes, PRESET_DEEP);
       // A preset added by hand has no set change to name it: send its name too.
       if (oursP[k] && oursP[k].custom && oursP[k].piece && !(theirs && theirs.piece && theirs.piece !== k)) data.presets[k].piece = oursP[k].piece;
       pApplied.push(k);
@@ -8022,6 +8026,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v3</div>
 </body>
 </html>
