@@ -5209,6 +5209,8 @@ function saveMoveEdits(forceRead){
       // boxes here don't wipe what someone else filled in.
       const base = JSON.parse(presetBaseline[k] || 'null') || csBlankLike(oursP[k], theirs);
       data.presets[k] = csMergeObj(base, oursP[k], theirs, 'presets.' + k, clashes, PRESET_DEEP);
+      // A preset added by hand has no set change to name it: send its name too.
+      if (oursP[k] && oursP[k].custom && oursP[k].piece && !(theirs && theirs.piece && theirs.piece !== k)) data.presets[k].piece = oursP[k].piece;
       pApplied.push(k);
     });
     const lApplied = [];
@@ -5804,6 +5806,7 @@ function openRowMenu(e, cueId, idx){
     ${real ? `<button type="button" onclick="rowMenuDo('dup')">Duplicate move</button>` : ''}
     ${real && prev ? `<button type="button" onclick="rowMenuDo('to', '${esc(prev.id)}')">Move to ‹ ${esc(shiftLabel(prev))}</button>` : ''}
     ${real && next ? `<button type="button" onclick="rowMenuDo('to', '${esc(next.id)}')">Move to ${esc(shiftLabel(next))} ›</button>` : ''}
+    ${real && m0piece(c, idx) ? `<button type="button" onclick="rowMenuDo('preset')">Move to Presets</button>` : ''}
     <button type="button" onclick="rowMenuDo('script')">Show in script ›</button>
     ${real ? `<button type="button" class="danger" onclick="rowMenuDo('del')">Delete move</button>` : ''}`;
   el.classList.add('open');
@@ -5812,6 +5815,7 @@ function openRowMenu(e, cueId, idx){
   const h = el.offsetHeight;
   el.style.top = (r.bottom + 4 + h > window.innerHeight - 8 ? Math.max(8, r.top - h - 4) : r.bottom + 4) + 'px';
 }
+function m0piece(c, idx){ const m = (c.moves || [])[idx]; return m && String(m.piece || '').trim(); }
 function closeRowMenu(){ rowMenu = null; const el = document.getElementById('row-menu'); if (el) el.classList.remove('open'); }
 function rowMenuDo(what, arg){
   if (!rowMenu) return;
@@ -5835,6 +5839,26 @@ function rowMenuDo(what, arg){
     t.moves.push(m);
     editedCues[c.id] = true; editedCues[t.id] = true; saveDraft(); markDirty(); render();
     toast((m.piece || 'Move') + ' moved to ' + shiftLabel(t));
+  } else if (what === 'preset') {
+    // A move that is really a preset (set before the show): its details go onto
+    // the piece's Presets entry and the move leaves this cue. Location: the
+    // move's wing (only if the preset has none); notes: what it said to do, its
+    // notes and who; spike: the move's, if the preset has none.
+    const name = String(m.piece || '').trim(), key = name.toLowerCase(); if (!name) return;
+    if (!confirm('Move ' + name + ' to Presets? It comes off ' + shiftLabel(c) + '.')) return;
+    const e = presetEntry(key);
+    if (!e.piece || e.piece === key) e.piece = name;
+    const wing = [m.wing, m.wingTo].map(v => String(v || '').trim()).filter(Boolean).join(' → ');
+    if (!String(e.location || '').trim() && wing) e.location = wing;
+    const add = [String(m.action || '').trim(), String(m.notes || '').trim(), String(m.who || '').trim() ? '(' + String(m.who).trim() + ')' : ''].filter(Boolean).join(' · ');
+    if (add && String(e.notes || '').indexOf(add) < 0) e.notes = [String(e.notes || '').trim(), add].filter(Boolean).join(' · ');
+    if (!(e.spikeIds || []).length && !String(e.spike || '').trim()) { if ((m.spikeIds || []).length) e.spikeIds = m.spikeIds.slice(); else if (m.spike) e.spike = m.spike; }
+    c.moves.splice(idx, 1);
+    // still listed in Presets even if no set change names it any more
+    if (!allPieces().some(x => x.key === key)) e.custom = true;
+    e.hidden = false;
+    editedCues[c.id] = true; editedPresets[key] = true; saveDraft(); markDirty(); render();
+    toast(name + ' moved to Presets');
   } else if (what === 'del') {
     if (!confirm('Delete ' + ((m.piece || m.action) || 'this move') + '?')) return;
     c.moves.splice(idx, 1);
@@ -7953,6 +7977,6 @@ applyTheme(currentTheme(), false);
 if (PLOT_ID) plotViewBoot();
 else if (clResumeSignIn()) unlock(); else { updateDots(); clFetchCrewPins(); clFetchCrewPerms(); }
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.04 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v1</div>
 </body>
 </html>
