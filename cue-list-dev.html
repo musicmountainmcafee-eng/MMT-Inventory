@@ -4335,6 +4335,7 @@ function changeShortNum(v) {
 // Grouped exactly the way the PDF groups it: one section per scene marker
 // (including scenes with no changes yet — an empty scene bar on the page is how
 // you see the gap), one block per SHIFT cue, one row per move.
+let _xlPlan = null;   // the ground plan picture, kept for the next export
 function setChangeSections() {
   const ordered = cuesInScriptOrder();
   const SCENE_LABELS = sceneLabels();
@@ -4581,15 +4582,24 @@ async function exportSetChangeXLSX() {
     if (plan && plan.img) {
       const u = plan.img.id && !/^data:/.test(plan.img.url || '') ? 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(plan.img.id) + '&sz=w800' : plan.img.url;
       if (/^data:/.test(u || '')) planURL = u;
+      // Drive won't hand the picture to a page, so it comes through the
+      // dashboard's own script (getDriveImage), the way show photos do.
+      else if (plan.img.id && _xlPlan && _xlPlan.id === plan.img.id) planURL = _xlPlan.url;
+      else if (plan.img.id && (planURL = await new Promise(res => jsonp(SCRIPT_URL + '?action=getDriveImage&fileId=' + encodeURIComponent(plan.img.id) + '&_=' + Date.now(),
+          d => res(d && d.success && d.base64 ? 'data:' + (d.mimeType || 'image/png') + ';base64,' + d.base64 : null), () => res(null), 45000)))) _xlPlan = { id: plan.img.id, url: planURL };
       else try {
         const bl = await fetch(u).then(x => { if (!x.ok) throw new Error(); return x.blob(); });
         planURL = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(bl); });
       } catch (e) { planURL = null; }
     }
-    const CSS = '<style>.smt-stage{fill:#f4f4f5;stroke:#d4d4d8;stroke-width:2}.smt-pc>*{fill:#fff;stroke:#a1a1aa;stroke-width:3;opacity:.75}.smt-mv>*{fill:#18181b;stroke:#18181b;stroke-width:3}</style>';
+    // Sizes in the map's own units, worked out per map so lines and names come
+    // out the same on screen whatever the plan's size.
+    const CSS = u => `<style>.smt-stage{fill:#f4f4f5;stroke:#d4d4d8;stroke-width:${2 * u}}.smt-pc>*{fill:#fff;stroke:#71717a;stroke-width:${1 * u};opacity:.85}.smt-mv>*{fill:#18181b;stroke:#18181b;stroke-width:${1 * u}}`
+      + `.smt-pc>text{fill:#27272a;stroke:#fff;stroke-width:${2.4 * u};paint-order:stroke;opacity:1}.smt-mv>text{fill:#fff;stroke:#18181b;stroke-width:${2.4 * u};paint-order:stroke}`
+      + `text{font-family:Helvetica,Arial,sans-serif;font-weight:700}</style>`;
     const toPNG = (svg, W, H) => new Promise(res => {
       const img = new Image();
-      img.onload = () => { try { const cv = document.createElement('canvas'); cv.width = W * 2; cv.height = H * 2; const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(img, 0, 0, cv.width, cv.height); res(cv.toDataURL('image/png')); } catch (e) { res(null); } };
+      img.onload = () => { try { const cv = document.createElement('canvas'); cv.width = W * 3; cv.height = H * 3; const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(img, 0, 0, cv.width, cv.height); res(cv.toDataURL('image/png')); } catch (e) { res(null); } };
       img.onerror = () => res(null);
       img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
     });
@@ -4599,16 +4609,18 @@ async function exportSetChangeXLSX() {
       if (!svg) continue;
       const vb = (svg.match(/viewBox="([^"]+)"/) || [])[1]; if (!vb) continue;
       const [, , vw, vh] = vb.split(/\s+/).map(Number); if (!(vw > 0 && vh > 0)) continue;
-      const W = 210, H = Math.max(60, Math.min(150, Math.round(W * vh / vw)));
-      svg = svg.replace(/<text[\s\S]*?<\/text>/g, '').replace(/<title>[\s\S]*?<\/title>/g, '');
+      const W = 320, H = Math.max(90, Math.min(230, Math.round(W * vh / vw))), u = Math.max(vw / W, vh / H);
+      // piece names stay (at least 8px tall in the picture); tooltips go
+      svg = svg.replace(/<title>[\s\S]*?<\/title>/g, '').replace(/font-size="([\d.]+)"/g, (m0, n) => 'font-size="' + Math.max(+n, 8 * u).toFixed(1) + '"');
       svg = svg.replace(/<image [^>]*\/>/, m => planURL ? m.replace(/href="[^"]*"/, 'href="' + planURL + '"') : `<rect x="0" y="0" width="${vw}" height="${vh}" class="smt-stage"/>`);
-      svg = svg.replace('<svg ', `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" `).replace(/(<svg[^>]*>)/, '$1' + CSS);
+      svg = svg.replace('<svg ', `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" `).replace(/(<svg[^>]*>)/, '$1' + CSS(u));
       const png = await toPNG(svg, W, H); if (!png) continue;
       out.set(String(c.id), { id: wb.addImage({ base64: png.split(',')[1], extension: 'png' }), w: W, h: H });
     }
     return out;
   }
   const MAPS = await xlMaps();
+  if (MAPS.size === 0 && typeof _sm !== 'undefined' && _sm) toast('Stage maps could not be drawn for the spreadsheet');
   // Rows get a height worked out from what's in them (so a change with a map
   // is tall enough for it), and the map sits in the MAP column at its top.
   function xlLines(v, width) {
@@ -4685,7 +4697,7 @@ async function exportSetChangeXLSX() {
   }
 
   // ── Sheet 1: the plot ──────────────────────────────────────────────────────
-  const SC_COLS = MAPS.size ? XLSX_COLS.concat([{ key: 'map', label: 'MAP', width: 31, wrap: false, bold: false }]) : XLSX_COLS;
+  const SC_COLS = MAPS.size ? XLSX_COLS.concat([{ key: 'map', label: 'MAP', width: 46, wrap: false, bold: false }]) : XLSX_COLS;
   const LAST = String.fromCharCode(64 + SC_COLS.length);   // 'I', or 'J' with maps
   const ws = wb.addWorksheet('Set Changes', {
     views: [{ state: 'frozen', ySplit: 4 }],
@@ -4822,7 +4834,7 @@ async function exportSetChangeXLSX() {
     return t;
   };
 
-  const CR_COLS = MAPS.size ? CREW_COLS.concat([{ key: 'map', label: 'MAP', width: 31, wrap: false, bold: false }]) : CREW_COLS;
+  const CR_COLS = MAPS.size ? CREW_COLS.concat([{ key: 'map', label: 'MAP', width: 46, wrap: false, bold: false }]) : CREW_COLS;
   const CLAST = String.fromCharCode(64 + CR_COLS.length);
   people.forEach(person => {
     const changeCount = new Set(person.items.map(it => it.c.id)).size;
@@ -8544,6 +8556,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v13 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v14 dev</div>
 </body>
 </html>
