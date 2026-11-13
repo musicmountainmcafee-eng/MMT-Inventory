@@ -599,8 +599,9 @@
   #box-ed .box-pill:disabled { opacity: .35; cursor: default; }
   #box-ed .box-sep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 2px; }
   #box-ed .box-spikes { margin-bottom: 8px; }
-  .spk-none { display: inline-block; width: 44px; height: 16px; background: #000; border-radius: 3px; vertical-align: middle; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  td:has(> .spk-none), td:has(> .mv-spike > .spk-none), td:has(> span[data-f="spike"] > .spk-none) { background: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .spk-none { display: inline-block; width: 44px; height: 16px; background: #d4d4d8; border-radius: 3px; vertical-align: middle; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  [data-theme="dark"] .spk-none, [data-theme="dark"] td:has(> .spk-none), [data-theme="dark"] td:has(> .mv-spike > .spk-none), [data-theme="dark"] td:has(> span[data-f="spike"] > .spk-none) { background: #3f3f46 !important; }
+  td:has(> .spk-none), td:has(> .mv-spike > .spk-none), td:has(> span[data-f="spike"] > .spk-none) { background: #d4d4d8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   td:has(> .spk-none) .spk-none, td:has(> .mv-spike > .spk-none) .spk-none { visibility: hidden; }
   .spk-opt-none .spk-none { width: 44px; height: 22px; padding: 0; flex: none; }
   #box-ed .spk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
@@ -3831,6 +3832,7 @@ async function exportSetChangePlot(log, offline) {
     presetRows.forEach(r => {
       // Spike cells hold the tape drawing, label and colours, then anything typed.
       const presetSpike = (rec, w) => {
+        if (spkIsNone(spkEff(rec))) return [{ t: '', ind: 0, none: true }];
         const out = [];
         spkOfMove(rec, showId).forEach(e => {
           if (!e) return;
@@ -3860,6 +3862,7 @@ async function exportSetChangePlot(log, offline) {
         cells[k].forEach((ln, li) => {
           const base = y + PAD + LEAD - 3 + li * LEAD;
           if (typeof ln === 'string') { doc.text(ln, PX[k] + PAD, base); return; }
+          if (ln.none) { doc.setFillColor(212, 212, 216); doc.rect(PX[k], y, c.w, rowH, 'F'); return; }
           if (ln.e) spkDrawPDF(doc, ln.e, PX[k] + PAD, base - 8, 15, 9);
           doc.setFont('helvetica', ln.bold ? 'bold' : 'normal');
           doc.setFontSize(ln.small ? FS - 1.5 : FS);
@@ -3900,6 +3903,7 @@ async function exportSetChangePlot(log, offline) {
   // white); then anything typed. Lines carry how to draw themselves.
   const SPK_IND = 20;
   const spikeCell = m => {
+    if (spkIsNone(spkEff(m))) return [{ t: '', ind: 0, none: true }];
     const out = [];
     spkOfMove(m, showId).forEach(e => {
       if (!e) return;
@@ -3962,6 +3966,7 @@ async function exportSetChangePlot(log, offline) {
         r.cells[col.key].forEach((ln, li) => {
           const base = y + PAD + LEAD - 3 + li * LEAD;
           if (typeof ln === 'string') { doc.text(ln, X[i] + PAD, base); return; }
+          if (ln.none) { doc.setFillColor(212, 212, 216); doc.rect(X[i], y, col.w, r.h, 'F'); return; }
           if (ln.e) spkDrawPDF(doc, ln.e, X[i] + PAD, base - 8, 15, 9);
           doc.setFont('helvetica', ln.bold ? 'bold' : 'normal');
           doc.setFontSize(ln.small ? FS - 1.5 : FS);
@@ -4184,6 +4189,7 @@ async function exportSetChangePlot(log, offline) {
           r.cells[col.key].forEach((ln, li) => {
             const base = y + PAD + LEAD - 3 + li * LEAD;
             if (typeof ln === 'string') { doc.text(ln, CX[k] + PAD, base); return; }
+            if (ln.none) { doc.setFillColor(212, 212, 216); doc.rect(CX[k], y, col.w, r.h, 'F'); return; }
             if (ln.e) spkDrawPDF(doc, ln.e, CX[k] + PAD, base - 8, 15, 9);
             doc.setFont('helvetica', ln.bold ? 'bold' : 'normal');
             doc.setFontSize(ln.small ? FS - 1.5 : FS);
@@ -4565,6 +4571,7 @@ async function exportSetChangeXLSX() {
           const cell = row.getCell(i + 1);
           cell.value = mv[c.key] || null;
           cell.font = { size: XL_FS, bold: c.bold, name: 'Helvetica' };
+          if (cell.value === 'No spike' && c.key === 'spike') { cell.value = null; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD4D4D8' } }; }
           cell.alignment = { vertical: 'top', wrapText: c.wrap };
           cell.border = {
             left: thin, right: thin, bottom: thin,
@@ -4605,6 +4612,7 @@ async function exportSetChangeXLSX() {
         const cell = row.getCell(i + 1);
         cell.value = rec[k] || null;
         cell.font = { size: XL_FS, bold: i === 0, name: 'Helvetica' };
+        if (cell.value === 'No spike' && k === 'spike') { cell.value = null; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD4D4D8' } }; }
         cell.alignment = { vertical: 'top', wrapText: i !== 0 };
         cell.border = { top: thin, left: thin, right: thin, bottom: thin };
       });
@@ -4702,6 +4710,7 @@ async function exportSetChangeXLSX() {
         const cell = row.getCell(i + 1);
         cell.value = vals[c.key] || null;
         cell.font = { size: XL_FS, bold: c.bold, name: 'Helvetica' };
+        if (cell.value === 'No spike' && c.key === 'spike') { cell.value = null; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD4D4D8' } }; }
         cell.alignment = { vertical: 'top', wrapText: c.wrap };
         cell.border = { left: thin, right: thin, bottom: thin,
           top: (firstOfChange && !firstInScene) ? rule : thin };
@@ -8376,6 +8385,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v10 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v11 dev</div>
 </body>
 </html>
