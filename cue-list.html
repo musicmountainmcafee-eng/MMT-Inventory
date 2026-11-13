@@ -557,6 +557,25 @@
   #edit-btn.lock-tg:not(.on) .lk-v, #edit-btn.lock-tg.on .lk-e { background: var(--purple); color: #fff; }
   @media (max-width: 600px) { #edit-btn.lock-tg span { padding: 5px 7px; } }
   /* Box editor */
+  /* Who: cast & crew list (right side on a computer, inside the box on a phone) */
+  #who-panel { position: fixed; right: 0; top: var(--hdr, 0px); bottom: 0; width: 330px; z-index: 455; display: none; flex-direction: column; gap: 8px; background: var(--surface); color: var(--text); border-left: 1px solid var(--border); box-shadow: -10px 0 30px rgba(0,0,0,.12); padding: 14px 12px 12px; }
+  #who-panel.open { display: flex; }
+  #who-panel .wl-head { display: flex; flex-direction: column; gap: 2px; }
+  #who-panel .wl-head b { font-size: 16px; } #who-panel .wl-head span { font-size: 12px; color: var(--muted, #6b6b73); }
+  #who-panel #wl-list { flex: 1; min-height: 0; overflow-y: auto; }
+  #who-panel .wl-edit { border: 0; background: none; color: var(--muted, #6b6b73); font: 600 13px 'DM Sans', system-ui, sans-serif; text-align: left; padding: 6px 2px; cursor: pointer; }
+  .wl-g { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted, #6b6b73); margin: 10px 4px 4px; }
+  .wl-row { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border: 0; background: none; color: inherit; font: inherit; padding: 8px 8px; border-radius: 9px; cursor: pointer; min-height: 44px; }
+  .wl-row:hover, .wl-row:focus-visible { background: rgba(0,0,0,.05); }
+  .wl-row.on { background: rgba(37,99,235,.08); }
+  .wl-ck { flex: none; width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--border); display: grid; place-items: center; font-size: 13px; font-weight: 800; color: #fff; }
+  .wl-row.on .wl-ck { background: #2563eb; border-color: #2563eb; }
+  .wl-n { flex: 1; min-width: 0; font-weight: 600; font-size: 14px; display: flex; flex-direction: column; }
+  .wl-n small { font-weight: 500; font-size: 12px; color: var(--muted, #6b6b73); }
+  .wl-c { flex: none; font-size: 12px; color: var(--muted, #6b6b73); white-space: nowrap; }
+  .wl-none { font-size: 13px; color: var(--muted, #6b6b73); padding: 10px 6px; }
+  #box-ed .wl-in { margin-top: 8px; max-height: 40vh; overflow-y: auto; }
+  @media print { #who-panel { display: none !important; } }
   #box-ed { position: fixed; z-index: 460; display: none; background: var(--surface); color: var(--text); border: 1px solid var(--border);
     border-radius: 14px; box-shadow: 0 14px 40px rgba(0,0,0,.25); padding: 12px 14px; box-sizing: border-box; font-size: 15px; max-height: 70vh; overflow-y: auto; }
   #box-ed.open { display: block; }
@@ -1037,6 +1056,9 @@
   }
 
   /* ── Presets section at the top of the plot ── */
+  /* Intermission preset: the Presets look, inside the cue list under the Intermission header */
+  tr.int-host > td { padding: 8px 0 4px !important; background: transparent !important; border: 0 !important; }
+  .int-sec { margin: 0; }
   .pr-sec { margin: 0 0 14px; border: 1px solid var(--grid); border-radius: 10px; background: var(--paper); overflow: hidden; }
   .pr-sec-h { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; color: var(--ink, var(--text)); font: 15px 'DM Sans', system-ui, sans-serif; min-height: 46px; }
   .pr-sec-h b { font-weight: 700; font-size: 1.05em; }
@@ -1066,6 +1088,10 @@
   .pr-map-btn { flex: none; margin: 8px 10px 8px 0; border: 1px solid var(--grid); background: var(--paper); color: var(--ink, var(--text)); border-radius: 999px; padding: 0 14px; font: 600 13px 'DM Sans', system-ui, sans-serif; cursor: pointer; min-height: 32px; }
   .pr-map-btn:hover { border-color: var(--purple); }
   .map-btn { margin-left: 4px; }
+  .pr-add { display: flex; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--grid); }
+  .pr-add input { flex: 1; min-width: 0; font: 14px 'DM Sans', system-ui, sans-serif; padding: 8px 11px; border: 1px solid var(--grid); border-radius: 9px; background: var(--paper); color: var(--ink, var(--text)); }
+  .pr-add .top-btn { min-height: 36px; padding: 0 14px; font-weight: 600; }
+  @media print { .pr-add { display: none !important; } }
   /* Small stage map at the right of a set change's first row. */
   .sm-thumb { float: right; display: block; width: 150px; margin: 0 0 6px 10px; padding: 0; border: 1px solid var(--grid); border-radius: 8px; background: #fff; overflow: hidden; cursor: pointer; line-height: 0; }
   .sm-thumb:hover { border-color: var(--purple); }
@@ -1092,6 +1118,20 @@
   @media print { #smz { display: none !important; } }
   @media print { .sm-thumb { width: 1.5in; break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   @media print { .pr-map-btn, .map-btn { display: none !important; } }
+
+  .pr-chk-btn.on { background: var(--ink, #111); color: var(--paper, #fff); border-color: var(--ink, #111); }
+  .pr-chk-btn.all:not(.on) { color: #15803d; border-color: rgba(21,128,61,.45); }
+  .pr-chk-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--grid); font: 14px 'DM Sans', system-ui, sans-serif; }
+  .pr-chk-meter { width: 120px; height: 8px; border-radius: 999px; background: var(--grid); overflow: hidden; flex: none; }
+  .pr-chk-meter i { display: block; height: 100%; background: #15803d; }
+  .pr-chk-clear { margin-left: auto; border: 1px solid var(--grid); background: var(--paper); color: var(--ink-meta, #666); border-radius: 999px; padding: 4px 12px; font: 600 12.5px 'DM Sans', system-ui, sans-serif; cursor: pointer; }
+  tr.pr-chk { cursor: pointer; }
+  .pr-box { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-right: 10px; border: 2px solid var(--ink-meta, #888); border-radius: 6px; vertical-align: -5px; font-weight: 800; font-size: 14px; color: #fff; }
+  tr.pr-done .pr-box { background: #15803d; border-color: #15803d; }
+  tr.pr-done td { color: var(--ink-meta, #777); }
+  tr.pr-done .mv-piece { text-decoration: line-through; text-decoration-color: rgba(21,128,61,.6); }
+  .pr-by { display: block; margin: 3px 0 0 32px; font-size: 11.5px; color: #15803d; font-weight: 600; }
+  @media (max-width: 600px) { .pr-chk-meter { width: 70px; } tr.pr-chk td { padding-top: 12px; padding-bottom: 12px; } }
 
   #ver-note { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 3000; border: 0; border-radius: 999px; background: #111; color: #fff; font: 600 14px 'DM Sans', system-ui, sans-serif; padding: 11px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.3); cursor: pointer; }
   @media print { #ver-note { display: none !important; } }
@@ -2171,6 +2211,7 @@ function render(){
       if (!firstBand && !plot) body += '<tr class="scene-gap"><td colspan="5"></td></tr>';
       body += `<tr class="scene"><td colspan="${NC}">${esc(g.label)}${
         g.page != null ? `<span class="scene-pg">pg. ${esc(g.page)}</span>` : ''}</td></tr>`;
+      if (/intermission/i.test(g.label)) { const ih = interSectionHTML(); if (ih) body += `<tr class="int-host"><td colspan="${NC}">${ih}</td></tr>`; }
       if (g.id) body += addGap(g.id);
       band = false; firstBand = false;
     }
@@ -2231,6 +2272,82 @@ function render(){
   if (typeof clFlashRows === 'function') clFlashRows();
 }
 
+
+// ── NIGHTLY PRESET CHECK ─────────────────────────────────────────────────────
+// Before a show, someone walks the presets and ticks each piece. One shared
+// list per script per day (KV 'presetcheck_<scriptId>': { day, ticks: { key:
+// { by, at } } }); anyone signed in here can tick, and the next day starts
+// clean on its own. Ticks save one at a time onto the Sheet's copy, so two
+// people walking opposite wings both keep theirs. "Check" on the Presets bar
+// turns it on for this device.
+let _prChk = lsGet('mmt_cuelist_prchk', '0') === '1';
+let _prChkData = { day: '', ticks: {} }, _prChkOps = [], _prChkSaving = false, _prChkSid = '';
+function prChkDay(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function prChkKey(){ return 'presetcheck_' + scriptId; }
+function prChkTicks(){ return (_prChkData && _prChkData.day === prChkDay() && _prChkData.ticks) || {}; }
+function prChkTick(key){ return prChkTicks()[key] || null; }
+function prChkTime(at){ try { return at ? new Date(at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''; } catch (e) { return ''; } }
+function prChkBtnHTML(rows){
+  if (!IS_DEV_PAGE) return '';   // the nightly preset check is still being tried on dev
+  const n = rows.length, done = rows.filter(r => prChkTick(r.key)).length;
+  return `<button type="button" class="pr-map-btn pr-chk-btn${_prChk ? ' on' : ''}${n && done === n ? ' all' : ''}" onclick="prChkMode()" aria-pressed="${_prChk}" title="Tonight's preset check">${_prChk ? 'Done checking' : 'Check'}${done ? ` · ${done}/${n}` : ''}</button>`;
+}
+function prChkBarHTML(rows){
+  const n = rows.length, done = rows.filter(r => prChkTick(r.key)).length;
+  const pct = n ? Math.round(done / n * 100) : 0;
+  return `<div class="pr-chk-bar"><div class="pr-chk-meter"><i style="width:${pct}%"></i></div>
+    <span>${done === n && n ? '<b>All set.</b> Every piece is in its preset spot.' : `<b>${done} of ${n}</b> checked for ${new Date().toLocaleDateString('en-US', { weekday: 'long' })}. Tap a piece once it's in place.`}</span>
+    ${done ? `<button type="button" class="pr-chk-clear" onclick="prChkClear(this)">Untick all</button>` : ''}</div>`;
+}
+function prChkMode(){
+  _prChk = !_prChk; lsSet('mmt_cuelist_prchk', _prChk ? '1' : '0');
+  if (_prChk) { try { closeBox(); } catch (e) {} prChkFetch(); }
+  render();
+}
+function prChkApply(v, op){
+  if (!v || v.day !== op.day) { v.day = op.day; v.ticks = {}; }
+  if (op.clear) v.ticks = {};
+  else if (op.v) v.ticks[op.key] = op.v; else delete v.ticks[op.key];
+}
+function prChkToggle(key){
+  const day = prChkDay(), was = prChkTick(key);
+  const op = { day, key, v: was ? null : { by: clName || (clRole === 'td' ? 'TD' : ''), at: new Date().toISOString() } };
+  if (_prChkData.day !== day) _prChkData = { day, ticks: {} };
+  prChkApply(_prChkData, op); _prChkOps.push(op); prChkSave(); render();
+}
+function prChkClear(btn){
+  if (btn && !btn.dataset.sure) { btn.dataset.sure = '1'; btn.textContent = 'Tap again to untick all'; setTimeout(() => { if (btn.isConnected) { delete btn.dataset.sure; btn.textContent = 'Untick all'; } }, 3000); return; }
+  const op = { day: prChkDay(), clear: true }; prChkApply(_prChkData, op); _prChkOps.push(op); prChkSave(); render();
+}
+function prChkSave(){
+  if (_prChkSaving || !_prChkOps.length || !scriptId) return;
+  _prChkSaving = true;
+  const ops = _prChkOps.slice(), key = prChkKey();
+  jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent(key) + '&_=' + Date.now(), d => {
+    const fresh = (d && d.value && typeof d.value === 'object') ? d.value : { day: '', ticks: {} };
+    ops.forEach(o => prChkApply(fresh, o));
+    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveKV', key, value: fresh }) })
+      .then(r => r.text()).then(t => { let x = null; try { x = JSON.parse(t); } catch (e) {} if (x && x.success === false) throw new Error('not saved'); })
+      .then(() => { _prChkSaving = false; _prChkOps = _prChkOps.slice(ops.length); _prChkData = fresh; _prChkOps.forEach(o => prChkApply(_prChkData, o)); if (_prChkOps.length) prChkSave(); else render(); },
+            () => { _prChkSaving = false; toast("A tick didn't save. It's kept here; trying again."); setTimeout(prChkSave, 10000); });
+  }, () => { _prChkSaving = false; setTimeout(prChkSave, 10000); });
+}
+function prChkFetch(){
+  if (!IS_DEV_PAGE) return;
+  if (!scriptId || _prChkSaving || _prChkOps.length) return;
+  const sid = scriptId;
+  jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent(prChkKey()) + '&_=' + Date.now(), d => {
+    if (sid !== scriptId || _prChkSaving || _prChkOps.length) return;
+    const v = (d && d.value && typeof d.value === 'object') ? d.value : { day: '', ticks: {} };
+    const changed = JSON.stringify(v) !== JSON.stringify(_prChkData) || _prChkSid !== sid;
+    _prChkData = v; _prChkSid = sid;
+    if (changed) render();
+  });
+}
+// Others' ticks show up within ~10 s while checking; the count on the bar
+// loads once when the sheet opens.
+setInterval(() => { if (_prChk && !document.hidden) prChkFetch(); }, 10000);
+
 // ── PRESETS (was "Before house opens") ─────────────────────────────────────
 // A folding section at the top of the set change plot: where every piece
 // starts when the doors open. Folded or open is remembered on this device.
@@ -2251,7 +2368,7 @@ function openStageMap(step, sid, name){
   closeStageMap(true);
   const ov = document.createElement('div'); ov.id = 'sm-ov'; ov.dataset.sid = sid; ov.dataset.step = step || 'presets';
   if (bar) { ov.classList.add('in-bar'); ov.style.top = Math.round(bar.getBoundingClientRect().bottom) + 'px'; }
-  ov.innerHTML = '<iframe title="Stage map" src="stage-map.html?embed=1&v=' + Math.floor(Date.now() / 6e5) + (bar ? '&bar=0' : '') + '&script=' + encodeURIComponent(sid) + '&step=' + encodeURIComponent(step || 'presets') + (name ? '&name=' + encodeURIComponent(name) : '') + '"></iframe>';
+  ov.innerHTML = '<iframe title="Stage map" src="stage-map.html?embed=1&v=' + Math.floor(Date.now() / 6e5) + (bar ? '&bar=0' : '') + (IS_DEV_PAGE ? '&dev=1' : '') + '&script=' + encodeURIComponent(sid) + '&step=' + encodeURIComponent(step || 'presets') + (name ? '&name=' + encodeURIComponent(name) : '') + '"></iframe>';
   document.body.appendChild(ov);
   document.documentElement.classList.add('sm-open');
   document.querySelectorAll('#vw-switch button').forEach(b => { const on = b.classList.contains('vw-map'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
@@ -2344,8 +2461,9 @@ function smZoomKey(e){ if (e.key === 'Escape') { e.preventDefault(); e.stopPropa
 function smZoomClose(){ const o = document.getElementById('smz'); if (o) o.remove(); document.removeEventListener('keydown', smZoomKey, true); }
 
 function prSectionHTML(){
+  if (scriptId && _prChkSid !== scriptId && !prChkFetch._busy) { prChkFetch._busy = true; setTimeout(() => { prChkFetch._busy = false; prChkFetch(); }, 0); }
   if (activeType || activeWho) return '';
-  const all = allPieces().map(({ key, piece }) => ({ ...(presets[key] || {}), piece, key })).filter(r => editMode || !r.hidden);
+  const all = allPieces().map(({ key, piece }) => ({ ...(presets[key] || {}), piece, key })).filter(r => (editMode && !_prChk) || !r.hidden);
   const rows = all.filter(r => {
     if (!query) return true;
     const h = [r.piece, r.location, r.notes].filter(Boolean).join(' ').toLowerCase();
@@ -2353,7 +2471,7 @@ function prSectionHTML(){
   });
   if (query && !rows.length) return '';
   if (!all.length && !editMode) return '';
-  const open = _prOpen || !!query;
+  const open = _prOpen || !!query || _prChk;
   const gaps = all.filter(r => !r.hidden && !String(r.location || '').trim()).length;
   const n = all.filter(r => !r.hidden).length;
   let band = false;
@@ -2361,12 +2479,13 @@ function prSectionHTML(){
     <button type="button" class="pr-sec-h" onclick="prSecToggle()" aria-expanded="${open}" aria-controls="pr-sec-body">
       <svg class="pr-sec-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
       <b>Presets</b><span>${n} piece${n === 1 ? '' : 's'}${gaps ? ' · <em>' + gaps + ' with no location</em>' : ''}</span>
-    </button><button type="button" class="pr-map-btn" onclick="openStageMap('presets')" aria-label="Stage map of the presets">Map</button></div>
+    </button>${prChkBtnHTML(all.filter(r => !r.hidden))}<button type="button" class="pr-map-btn" onclick="openStageMap('presets')" aria-label="Stage map of the presets">Map</button></div>
+    ${_prChk ? prChkBarHTML(all.filter(r => !r.hidden)) : ''}
     <div class="pr-sec-body" id="pr-sec-body"${open ? '' : ' hidden'}>${rows.length ? `<table class="cs pr-tbl">
       <colgroup><col style="width:24%"><col style="width:28%"><col style="width:24%"><col style="width:24%"></colgroup>
       <thead><tr><th>Piece</th><th>Preset location</th><th>Spike</th><th>Notes</th></tr></thead>
       <tbody>${rows.map(r => presetRowHTML(r, band = !band)).join('')}</tbody></table>`
-      : '<div class="cs-empty"><b>No pieces yet.</b>Pieces appear here once set changes have moves.</div>'}</div>
+      : '<div class="cs-empty"><b>No pieces yet.</b>Pieces appear here once set changes have moves, or add one below.</div>'}${editMode && !_prChk ? prAddHTML() : ''}</div>
   </section>`;
 }
 function prSecToggle(open){
@@ -2377,6 +2496,88 @@ function prSecToggle(open){
   sec.classList.toggle('open', _prOpen);
   sec.querySelector('.pr-sec-h').setAttribute('aria-expanded', String(_prOpen));
   document.getElementById('pr-sec-body').hidden = !_prOpen;
+}
+// Presets that aren't on the plot (a prop table, the fog machine): typed in
+// here in Edit mode, kept in presets with custom: true, listed with the rest.
+function prAddHTML(){
+  return `<form class="pr-add" onsubmit="event.preventDefault(); prAddCustom(this.elements.n.value); this.reset();">
+    <input name="n" placeholder="Add a preset item that isn't on the plot (e.g. prop table SL)" autocomplete="off" aria-label="New preset item">
+    <button type="submit" class="top-btn">+ Add</button></form>`;
+}
+function prAddCustom(name){
+  name = String(name || '').trim().replace(/\s+/g, ' '); if (!name || !editMode) return;
+  const key = name.toLowerCase();
+  if (allPieces().some(p => p.key === key)) { toast(name + ' is already in Presets'); openPresetSheet(key); return; }
+  presets[key] = Object.assign({ location: '', notes: '', hidden: false, spikeIds: [], spike: '' }, presets[key] || {}, { piece: name, custom: true });
+  editedPresets[key] = true; saveDraft(); markDirty();
+  _prOpen = true; render(); openPresetSheet(key);
+}
+function prRemoveCustom(key){
+  const e = presets[key]; if (!e || !e.custom) return;
+  if (!confirm('Remove ' + (e.piece || key) + ' from Presets?')) return;
+  e.custom = false; e.hidden = true;
+  editedPresets[key] = true; saveDraft(); markDirty();
+  closePresetSheet();
+}
+// ── INTERMISSION PRESET ─────────────────────────────────────────────────────
+// A list of jobs for intermission (sweep confetti, reset the desk), shown
+// under the scene header named "Intermission". Same columns as Presets, plus
+// Who. Tasks live in presets under keys "int:<id>" with inter: true, so they
+// save, merge, take photos and open in the same panel as presets do; they
+// never count as pieces (not on the plot, not on the stage map).
+let _intOpen = lsGet('mmt_cuelist_int_open', '1') === '1';
+function interKeys(){
+  return Object.keys(presets).filter(k => presets[k] && presets[k].inter)
+    .sort((a, b) => (+presets[a].order || 0) - (+presets[b].order || 0) || String(presets[a].piece).localeCompare(String(presets[b].piece)));
+}
+function interSectionHTML(){
+  if (activeType || activeWho) return '';
+  const all = interKeys().map(k => ({ ...presets[k], key: k }));
+  const rows = all.filter(r => {
+    if (!query) return true;
+    const h = [r.piece, r.location, r.notes, r.who].filter(Boolean).join(' ').toLowerCase();
+    return query.split(/\s+/).filter(Boolean).every(tok => h.includes(tok));
+  });
+  if (query && !rows.length) return '';
+  if (!all.length && !editMode) return '';
+  const open = _intOpen || !!query;
+  let band = false;
+  return `<section class="pr-sec int-sec${open ? ' open' : ''}" id="int-sec"><div class="pr-sec-top">
+    <button type="button" class="pr-sec-h" onclick="intSecToggle()" aria-expanded="${open}" aria-controls="int-sec-body">
+      <svg class="pr-sec-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      <b>Intermission preset</b><span>${all.length} task${all.length === 1 ? '' : 's'}</span>
+    </button></div>
+    <div class="pr-sec-body" id="int-sec-body"${open ? '' : ' hidden'}>${rows.length ? `<table class="cs pr-tbl">
+      <colgroup><col style="width:22%"><col style="width:22%"><col style="width:18%"><col style="width:24%"><col style="width:14%"></colgroup>
+      <thead><tr><th>Task</th><th>Location</th><th>Spike</th><th>Notes</th><th>Who</th></tr></thead>
+      <tbody>${rows.map(r => presetRowHTML(r, band = !band)).join('')}</tbody></table>`
+      : '<div class="cs-empty"><b>No intermission tasks yet.</b>Add one below.</div>'}${editMode ? `<form class="pr-add" onsubmit="event.preventDefault(); interAdd(this.elements.n.value); this.reset();">
+      <input name="n" placeholder="Add an intermission task (e.g. sweep confetti, reset Scrooge's desk)" autocomplete="off" aria-label="New intermission task">
+      <button type="submit" class="top-btn">+ Add</button></form>` : ''}</div>
+  </section>`;
+}
+function intSecToggle(open){
+  _intOpen = typeof open === 'boolean' ? open : !_intOpen;
+  lsSet('mmt_cuelist_int_open', _intOpen ? '1' : '0');
+  const sec = document.getElementById('int-sec'); if (!sec) { render(); return; }
+  sec.classList.toggle('open', _intOpen);
+  sec.querySelector('.pr-sec-h').setAttribute('aria-expanded', String(_intOpen));
+  document.getElementById('int-sec-body').hidden = !_intOpen;
+}
+function interAdd(name){
+  name = String(name || '').trim().replace(/\s+/g, ' '); if (!name || !editMode) return;
+  const key = 'int:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const last = interKeys().reduce((m, k) => Math.max(m, +presets[k].order || 0), 0);
+  presets[key] = { piece: name, inter: true, order: last + 1, who: '', location: '', notes: '', hidden: false, spikeIds: [], spike: '' };
+  editedPresets[key] = true; saveDraft(); markDirty();
+  _intOpen = true; render(); openPresetSheet(key);
+}
+function interRemove(key){
+  const e = presets[key]; if (!e || !e.inter) return;
+  if (!confirm('Remove "' + (e.piece || 'this task') + '" from the intermission preset?')) return;
+  e.inter = false; e.hidden = true;
+  editedPresets[key] = true; saveDraft(); markDirty();
+  closePresetSheet();
 }
 // Old links and buttons that asked for the Before House sheet: open Presets
 // on the plot and bring it into view.
@@ -2444,11 +2645,22 @@ function presetRowHTML(r, band){
   if (presetSheet && presetSheet.key === r.key) cls.push('mv-sel');
   const loc = String(r.location || '').trim();
   const hasSpike = (r.spikeIds || []).length || r.spike;
+  if (_prChk) {
+    const t = prChkTick(r.key);
+    cls.push('pr-chk'); if (t) cls.push('pr-done');
+    return `<tr class="${cls.join(' ')}" data-key="${esc(r.key)}" onclick="prChkToggle('${esc(r.key)}')" role="checkbox" aria-checked="${!!t}" tabindex="0" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();prChkToggle('${esc(r.key)}')}">
+    <td><span class="pr-box" aria-hidden="true">${t ? '✓' : ''}</span><span class="mv-piece">${esc(r.piece)}</span>${t ? `<span class="pr-by">${esc(t.by || '')} ${esc(prChkTime(t.at))}</span>` : ''}</td>
+    <td class="cs-action">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
+    <td class="cs-line">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : ''}</td>
+    <td class="cs-notes">${esc(r.notes || '')}</td>
+  </tr>`;
+  }
   return `<tr class="${cls.join(' ')} pr-tap" data-key="${esc(r.key)}" onclick="presetTap(event, '${esc(r.key)}')">
     <td><span class="mv-piece">${esc(r.piece)}</span>${r.hidden ? '<span class="pr-offtag">not on plot</span>' : ''}${prPhotosHTML(r.key, r.photos)}</td>
     <td class="cs-action" data-pf="location">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
     <td class="cs-line" data-pf="spike">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : (editMode ? '<span class="pr-addspike">+ Spike</span>' : '')}</td>
-    <td class="cs-notes" data-pf="notes">${esc(r.notes || '')}</td>
+    <td class="cs-notes" data-pf="notes">${esc(r.notes || '')}</td>${r.inter ? `
+    <td class="cs-who">${esc(r.who || '')}</td>` : ''}
   </tr>`;
 }
 
@@ -5508,7 +5720,83 @@ function onPeopleChanged(){ if (moveSheet) { const y = (document.querySelector('
 function whoChoices(){
   const list = peopleList(clShowSlug());
   const seen = new Set(list.map(p => p.name.toLowerCase()));
-  return list.concat(allWho().filter(n => !seen.has(n.toLowerCase())).map(n => ({ name: n, role: '', group: 'used' })));
+  // Names on other moves only: the move being edited would offer back whatever is
+  // half-typed in it ("Ky") as a person, and a tap then kept it as a second name.
+  const ed = boxEd && boxEd.kind === 'move' ? { c: String(boxEd.cueId), i: boxEd.idx } : moveSheet ? { c: String(moveSheet.cueId), i: moveSheet.idx } : null;
+  const used = new Map();
+  cues.forEach(c => (c.moves || []).forEach((m, i) => { if (ed && String(c.id) === ed.c && i === ed.i) return;
+    whoNames(m.who).forEach(v => { const k = v.toLowerCase(); if (!used.has(k)) used.set(k, v); }); }));
+  return list.concat([...used.values()].sort((a, b) => a.localeCompare(b)).filter(n => !seen.has(n.toLowerCase())).map(n => ({ name: n, role: '', group: 'used' })));
+}
+// ── Who: the cast & crew list ───────────────────────────────────────────────
+// Editing a Who box: on a computer the show's cast & crew list opens on the
+// right of the cue sheet; on a phone or small tablet it's inside the box.
+// Names already on this move come first, ticked; then Crew, Cast, and anyone
+// else named on this plot, each with how many moves they already have in this
+// change and in the show. Typing in the box (or the list's search) narrows it;
+// Enter takes the top match; a tap adds or removes a name.
+let _wlQ = '', _whoTyping = false;   // _whoTyping: the end of the box is a name still being typed
+// Does tapping this person finish what's half-typed? ("Ky" → Kyle B, or a role: "scro" → Louis T)
+function whoFinishes(name, tok){ const p = whoChoices().find(x => x.name.toLowerCase() === String(name).toLowerCase()) || { name, role: '' };
+  return String(p.name).toLowerCase().startsWith(tok) || String(p.name).toLowerCase().split(/\s+/).some(w => w.startsWith(tok)) || String(p.role || '').toLowerCase().split(/[\s,]+/).some(w => w.startsWith(tok)); }
+function whoPanelWide(){ return window.innerWidth >= 900; }
+function whoTok(v){ return (String(v || '').split(/,|\/|&|;|\+/).pop() || '').trim().toLowerCase(); }
+function whoBusy(name){
+  const k = String(name).toLowerCase(), c = boxCue(); let here = 0, all = 0;
+  cues.forEach(x => (x.moves || []).forEach(m => { if (whoNames(m.who).some(n => n.toLowerCase() === k)) { all++; if (c && x === c) here++; } }));
+  return { here, all };
+}
+function whoMatches(tok){
+  const v = boxVal('who'), on = whoNames(v), onK = new Set(on.map(x => x.toLowerCase()));
+  const q = (_wlQ || (_whoTyping ? tok : '') || '').toLowerCase(), hit = p => !q || String(p.name).toLowerCase().split(/\s+/).some(w => w.startsWith(q)) || String(p.name).toLowerCase().startsWith(q) || String(p.role || '').toLowerCase().split(/[\s,]+/).some(w => w.startsWith(q));
+  const ch = whoChoices(), byK = new Map(ch.map(p => [p.name.toLowerCase(), p]));
+  // the half-typed end of the box isn't "on" yet
+  const typing = _whoTyping && tok && !byK.has(tok) && on.length && on[on.length - 1].toLowerCase() === tok;
+  const sel = on.filter(n => !(typing && n.toLowerCase() === tok)).map(n => byK.get(n.toLowerCase()) || { name: n, role: '', group: 'typed' });
+  const rest = ch.filter(p => !onK.has(p.name.toLowerCase()) || (typing && p.name.toLowerCase() === tok)).filter(hit);
+  return { sel, rest };
+}
+function whoListHTML(){
+  const tok = whoTok(boxVal('who')), { sel, rest } = whoMatches(tok);
+  const HEAD = { crew: 'Crew', cast: 'Cast', used: 'Also on this plot' };
+  const row = (p, on) => { const b = whoBusy(p.name);
+    return `<button type="button" class="wl-row${on ? ' on' : ''}" data-v="${esc(p.name)}" onclick="whoTap(this.dataset.v)">
+      <span class="wl-ck" aria-hidden="true">${on ? '✓' : ''}</span><span class="wl-n">${esc(p.name)}${p.role ? `<small>${esc(p.role)}</small>` : ''}</span>
+      <span class="wl-c">${b.here ? b.here + ' here · ' : ''}${b.all} in show</span></button>`; };
+  let h = sel.length ? `<div class="wl-g">On this move</div>` + sel.map(p => row(p, true)).join('') : '';
+  let last = '';
+  rest.forEach(p => { if (p.group !== last) { last = p.group; h += `<div class="wl-g">${HEAD[p.group] || ''}</div>`; } h += row(p, false); });
+  if (!sel.length && !rest.length) h += `<div class="wl-none">No one matches${tok || _wlQ ? ` “${esc(_wlQ || tok)}”` : ''}. Enter keeps it as typed.</div>`;
+  return h;
+}
+function whoRefresh(){
+  const box = document.getElementById('box-wl'); if (box) box.innerHTML = whoListHTML();
+  const pl = document.getElementById('wl-list'); if (pl) pl.innerHTML = whoListHTML();
+}
+function openWhoPanel(){
+  let el = document.getElementById('who-panel');
+  if (!el) { el = document.createElement('aside'); el.id = 'who-panel'; el.setAttribute('aria-label', 'Cast and crew'); document.body.appendChild(el); }
+  const c = boxCue(), m = boxMv(), slug = clShowSlug();
+  _wlQ = '';
+  el.innerHTML = `<div class="wl-head"><b>Cast &amp; crew</b><span>${esc([m && m.piece, c && shiftLabel(c)].filter(Boolean).join(' · '))}</span></div>
+    <input id="wl-q" class="box-in" placeholder="Search names or roles" autocomplete="off" oninput="_wlQ = this.value.trim(); whoRefresh()" onkeydown="whoSearchKey(event, this)">
+    <div id="wl-list">${whoListHTML()}</div>
+    ${slug && !cueReadOnly() ? `<button type="button" class="wl-edit" onclick="closeBox(); openPeople('${esc(slug)}', clShowLabel())">Edit cast list ›</button>` : ''}`;
+  el.classList.add('open'); document.body.classList.add('who-open');
+}
+function closeWhoPanel(){ const el = document.getElementById('who-panel'); if (el) el.classList.remove('open'); document.body.classList.remove('who-open'); _wlQ = ''; }
+function whoTap(name){
+  boxWho(name);
+  const q = document.getElementById('wl-q');
+  if (q && document.activeElement === q) { q.value = ''; _wlQ = ''; whoRefresh(); return; }
+  const i = document.querySelector('#box-ed input.box-in'); if (i) { i.focus(); const n = i.value.length; try { i.setSelectionRange(n, n); } catch (e) {} }
+}
+function whoSearchKey(e, input){
+  if (e.key === 'Escape') { e.preventDefault(); closeBox(); return; }
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const first = whoMatches('').rest[0];
+  if (first) { boxWho(first.name); input.value = ''; _wlQ = ''; whoRefresh(); }
 }
 function whoPillsHTML(on){
   const ch = whoChoices(), slug = clShowSlug();
@@ -5637,12 +5925,13 @@ function placeBox(cell){
   }
   el.classList.remove('sheet');
   const c = cell || boxCellNow();
-  const wide = boxEd.field === 'spike' || boxEd.field === 'who';
+  const wide = boxEd.field === 'spike' || (boxEd.field === 'who' && !whoPanelWide());
   const w = Math.min(wide ? 470 : 360, window.innerWidth - 16);
   el.style.width = w + 'px';
   const r = c ? c.getBoundingClientRect() : { left: 20, right: 20, top: 120, bottom: 120 };
   const hdr = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 0;
-  const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+  const room = boxEd.field === 'who' && whoPanelWide() ? 340 : 0;   // the cast & crew list on the right
+  const left = Math.max(8, Math.min(r.left, window.innerWidth - room - w - 8));
   const h = el.offsetHeight;
   let top = r.bottom + 6;
   if (top + h > window.innerHeight - 8) top = (r.top - h - 6 > hdr + 4) ? r.top - h - 6 : Math.max(hdr + 4, window.innerHeight - h - 8);
@@ -5650,7 +5939,7 @@ function placeBox(cell){
 }
 function closeBox(){
   if (!boxEd) return;
-  boxEd = null;
+  boxEd = null; closeWhoPanel();
   const el = document.getElementById('box-ed'); if (el) el.classList.remove('open');
   boxMark(null);
   if (document.activeElement && document.activeElement.closest && document.activeElement.closest('#box-ed')) document.activeElement.blur();
@@ -5684,8 +5973,8 @@ function renderBox(){
       <span class="box-sep"></span>${WING_NUMS.map(n => `<button type="button" class="box-pill box-num${p.num === n ? ' on' : ''}"${numbered ? '' : ' disabled'} onclick="boxWing('num', '${n}')">${n}</button>`).join('')}</div>
       ${boxEd.kind === 'move' ? `<button type="button" class="box-link" onclick="boxFull(true)">${(boxMv() || {}).wingTo ? 'To: ' + esc(boxMv().wingTo) + ' · change ›' : '+ To another wing ›'}</button>` : ''}`;
   } else if (f === 'who') {
-    const on = new Set(whoNames(v).map(x => x.toLowerCase()));
-    body = inp('Type or tap names') + `<div class="box-pills box-scroll" id="box-whos">${whoChoices().map(p => `<button type="button" class="box-pill${on.has(p.name.toLowerCase()) ? ' on' : ''}" data-v="${esc(p.name)}" data-r="${esc(p.role || '')}" onclick="boxWho(this.dataset.v)">${esc(p.name)}${p.role ? `<small>${esc(p.role)}</small>` : ''}</button>`).join('')}</div>`;
+    _whoTyping = false;
+    body = whoPanelWide() ? inp('Type names, or pick on the right') : inp('Type or tap names') + `<div class="box-scroll wl-in" id="box-wl">${whoListHTML()}</div>`;
   } else if (f === 'spike') {
     const ids = boxEd.kind === 'preset' ? (presetEntry(boxEd.key).spikeIds || []) : ((boxMv() || {}).spikeIds || []);
     body = `<div class="box-spikes">${spkPickerHTML(scriptId, ids, 'boxSpike')}</div>` + inp('Other spike, typed (optional)');
@@ -5697,8 +5986,8 @@ function renderBox(){
       <button type="button" class="box-x" aria-label="Close" onclick="closeBox()">×</button></div>
     ${body}
     <div class="box-foot"><button type="button" class="box-link" onclick="boxFull()">Full edit ›</button>
-      <span class="box-hint">${BOX_TYPED[f] ? 'Enter or tap another box to finish' : f === 'who' ? 'Tap names to add or remove' : 'Saves as you pick'}</span></div>`;
-  if (f === 'who') whoFilterBox(v);
+      <span class="box-hint">${BOX_TYPED[f] ? 'Enter or tap another box to finish' : f === 'who' ? 'Enter: top match · comma: next name' : 'Saves as you pick'}</span></div>`;
+  if (f === 'who' && whoPanelWide()) openWhoPanel(); else closeWhoPanel();
 }
 function boxSet(field, value){
   if (!boxEd) return;
@@ -5720,7 +6009,7 @@ function boxSet(field, value){
 function boxType(v){
   if (!boxEd) return;
   boxSet(boxEd.field, v);
-  if (boxEd.field === 'who') { syncBoxWho(v); whoFilterBox(v); }
+  if (boxEd.field === 'who') { _whoTyping = !/[,\/&;+]\s*$/.test(v); whoRefresh(); }
   if (boxEd.field === 'wing') { const el = document.getElementById('box-ed'); const keep = el.querySelector('input.box-in'); const pos = keep ? keep.selectionStart : null;
     renderBox(); const i = el.querySelector('input.box-in'); if (i) { i.focus(); try { i.setSelectionRange(pos, pos); } catch (e) {} } }
   if (boxEd.field === 'action') document.querySelectorAll('#box-ed .box-pill').forEach(b => b.classList.toggle('on', b.dataset.v.toLowerCase() === String(v).toLowerCase()));
@@ -5729,9 +6018,8 @@ function boxKey(e, input){
   if (e.key === 'Enter') {
     e.preventDefault();
     if (boxEd && boxEd.field === 'who') {   // finish the name being typed with the first match
-      const first = [...document.querySelectorAll('#box-whos .box-pill')].find(b => !b.hidden && !b.classList.contains('on'));
-      const tok = (String(input.value).split(/,|\/|&|;|\+/).pop() || '').trim();
-      if (tok && first) { const names = whoNames(input.value); names.pop(); names.push(first.dataset.v); input.value = names.join(', '); boxType(input.value); return; }
+      const tok = whoTok(input.value), first = tok && whoMatches(tok).rest[0];
+      if (tok && first) { const names = whoNames(input.value); names.pop(); names.push(first.name); input.value = names.join(', ') + ', '; boxType(input.value); return; }
     }
     closeBox();
   } else if (e.key === 'Escape') { e.preventDefault(); closeBox(); }
@@ -5761,18 +6049,14 @@ function boxSpike(id){
 }
 function boxWho(name){
   const input = document.querySelector('#box-ed input.box-in'); if (!input) return;
-  const names = whoNames(input.value), k = String(name).toLowerCase();
+  const names = whoNames(input.value), k = String(name).toLowerCase(), tok = whoTok(input.value);
+  // A half-typed name at the end ("Ky") is what the tap finishes, not a person.
+  if (_whoTyping && tok && names.length && names[names.length - 1].toLowerCase() === tok && !whoChoices().some(p => p.name.toLowerCase() === tok) && whoFinishes(name, tok)) names.pop();
   const i = names.findIndex(x => x.toLowerCase() === k);
-  if (i >= 0) names.splice(i, 1);
-  else {
-    // A half-typed name at the end is replaced by the pick.
-    const tok = (String(input.value).split(/,|\/|&|;|\+/).pop() || '').trim().toLowerCase();
-    if (tok && !names.some(x => x.toLowerCase() === tok && whoChoices().some(p => p.name.toLowerCase() === tok))) names.pop();
-    names.push(name);
-  }
+  if (i >= 0) names.splice(i, 1); else names.push(name);
   input.value = names.join(', ');
   boxSet('who', input.value);
-  syncBoxWho(input.value); whoFilterBox('');
+  _whoTyping = false; whoRefresh();
 }
 function syncBoxWho(v){
   const on = new Set(whoNames(v).map(x => x.toLowerCase()));
@@ -5791,7 +6075,8 @@ function whoFilterBox(v){
 // so tapping the next box opens that one).
 document.addEventListener('pointerdown', e => {
   const el = document.getElementById('box-ed');
-  if (boxEd && el && !el.contains(e.target)) closeBox();
+  const wp = document.getElementById('who-panel');
+  if (boxEd && el && !el.contains(e.target) && !(wp && wp.contains(e.target))) closeBox();
   const mn = document.getElementById('row-menu');
   if (mn && mn.classList.contains('open') && !mn.contains(e.target) && !(e.target.closest && e.target.closest('.row-more'))) closeRowMenu();
 }, true);
@@ -7001,7 +7286,7 @@ document.addEventListener('keydown', e => {
 // Same bottom panel as a move: where the piece starts, its spike, notes, and
 // whether it prints on the plot. Edits go through presetField, so drafts, the
 // unsaved count and the careful save all cover them.
-function presetList(){ return allPieces().map(p => p.key); }
+function presetList(){ return presetSheet && /^int:/.test(presetSheet.key) ? interKeys() : allPieces().map(p => p.key); }
 function presetEntry(key){
   if (!presets[key]){
     const p = allPieces().find(x => x.key === key);
@@ -7078,15 +7363,19 @@ function renderPresetPanel(){
   document.getElementById('ms-body').innerHTML = `
     <div class="ms-head">
       <span class="ms-num" style="font-size:19px">${esc(e.piece || key)}</span>
-      <span class="ms-of">· before house · ${at + 1} of ${keys.length}</span>
+      <span class="ms-of">· ${e.inter ? 'intermission' : 'presets'}${e.custom ? ' · added by hand' : ''} · ${at + 1} of ${keys.length}</span>
       <span style="flex:1"></span>
       <button class="ms-icon" aria-label="Previous piece" onclick="presetStep(-1)"${at <= 0 ? ' disabled' : ''}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
       <button class="ms-icon" aria-label="Next piece" onclick="presetStep(1)"${at >= keys.length - 1 ? ' disabled' : ''}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
+    ${e.inter ? `<div class="ms-grid ms-g2 ms-even">
+      <label class="ms-f"><span>Task</span><input id="ps-piece" class="ms-in" value="${esc(e.piece || '')}" autocomplete="off" oninput="presetField('piece', this.value)"></label>
+      <label class="ms-f"><span>Who</span>${inp('who', 'e.g. Kyle B')}</label>
+    </div>` : ''}
     <div class="ms-grid ms-g2 ms-even">
-      <label class="ms-f"><span>Preset location</span>${inp('location', 'e.g. SL wing, upstage')}</label>
+      <label class="ms-f"><span>${e.inter ? 'Location' : 'Preset location'}</span>${inp('location', 'e.g. SL wing, upstage')}</label>
       <label class="ms-f"><span>Note</span>${inp('notes', 'Optional')}</label>
     </div>
     <div class="ms-spike-head"><span>Spike</span><a href="${spkMapURL(scriptId, scriptName)}" target="_blank" rel="noopener">Edit spike map ›</a></div>
@@ -7096,7 +7385,8 @@ function renderPresetPanel(){
     <div class="ps-photos-head">Photos</div>
     <div class="ps-photos" id="ps-photos">${phTilesHTML(key)}</div>
     <div class="ms-btns">
-      <button class="ms-btn${e.hidden ? '' : ' dashed'}" onclick="presetField('hidden', ${!e.hidden}); renderPresetPanel();">${e.hidden ? 'Put back on the plot' : 'Leave off the plot'}</button>
+      ${e.inter ? `<button class="ms-btn" style="color:#b42318" onclick="interRemove('${esc(key)}')">Remove task</button>` : `<button class="ms-btn${e.hidden ? '' : ' dashed'}" onclick="presetField('hidden', ${!e.hidden}); renderPresetPanel();">${e.hidden ? 'Put back on the plot' : 'Leave off the plot'}</button>`}
+      ${e.custom ? `<button class="ms-btn" style="color:#b42318" onclick="prRemoveCustom('${esc(key)}')">Remove item</button>` : ''}
       <span style="flex:1"></span>
       <button class="ms-btn primary" onclick="closePresetSheet()">${presetSheet.quick ? 'Save' : 'Close'}</button>
     </div>`;
@@ -7462,7 +7752,9 @@ function sheetPick(field, value){
   if (!input) return;
   if (field === 'who') {
     // Adds or takes off that one person, keeping the others typed there.
-    const names = whoNames(input.value), k = String(value).toLowerCase();
+    const names = whoNames(input.value), k = String(value).toLowerCase(), tok = whoTok(input.value);
+    // a half-typed name at the end ("Ky") is what the tap finishes, not a person
+    if (tok && names.length && names[names.length - 1].toLowerCase() === tok && tok !== k && !whoChoices().some(p => p.name.toLowerCase() === tok) && whoFinishes(value, tok)) names.pop();
     const i = names.findIndex(v => v.toLowerCase() === k);
     if (i >= 0) names.splice(i, 1); else names.push(value);
     input.value = names.join(', ');
@@ -7802,7 +8094,6 @@ document.addEventListener('keydown', e => {
 // No PIN — it's view only, like a Drive "anyone with the link" share. Live:
 // it re-reads the Sheet every minute and when the tab comes back into view.
 // Changes compare against the last version marked as sent.
-// Back burner (see BACKLOG.md): off on the live page until it's finished.
 const PLOT_ID = '';
 let pvTab = '', pvLog = null, pvBase = undefined, pvAt = 0, pvBusy = false;
 function plotLinkFor(id){
@@ -8027,6 +8318,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v5</div>
 </body>
 </html>
