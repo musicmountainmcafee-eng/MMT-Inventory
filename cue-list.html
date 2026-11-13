@@ -2662,7 +2662,7 @@ function presetRowHTML(r, band){
     <td class="cs-action" data-pf="location">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
     <td class="cs-line" data-pf="spike">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : (editMode ? '<span class="pr-addspike">+ Spike</span>' : '')}</td>
     <td class="cs-notes" data-pf="notes">${esc(r.notes || '')}</td>${r.inter ? `
-    <td class="cs-who">${esc(r.who || '')}</td>` : ''}
+    <td class="cs-who">${esc(whoDisplay(r.who))}</td>` : ''}
   </tr>`;
 }
 
@@ -2884,7 +2884,7 @@ function cueRow(c, band){
         <td class="cs-action">${blank
             ? '<span class="mv-empty">Tap to add a move</span>'
             : `<span class="mv-piece">${esc(m.piece || '')}</span>${m.action ? `<span class="mv-act">${esc(m.action)}</span>` : ''}`}</td>
-        <td class="cs-who">${esc(m.who || '')}</td>
+        <td class="cs-who">${esc(whoDisplay(m.who))}</td>
         <td class="cs-line"><span class="mv-spike spk-line">${spkChipsHTML(m, scriptId)}</span></td>
         <td class="cs-notes">${m.notes ? `<span class="mv-note">${esc(m.notes)}</span>` : ''}</td>
       </tr>` + (last
@@ -2902,7 +2902,7 @@ function cueRow(c, band){
       <td class="cs-action"><span class="mv-piece">${esc(m.piece || '')}</span>${
           m.action ? `<span class="mv-act">${esc(m.action)}</span>` : ''}${
           first && c.action ? `<span class="mv-cueact">${esc(c.action)}</span>` : ''}</td>
-      <td class="cs-who">${esc(m.who || '')}</td>
+      <td class="cs-who">${esc(whoDisplay(m.who))}</td>
       <td class="cs-line">${first ? lineCell : ''}</td>
       <td class="cs-notes">${first && notes ? `<span class="mv-note">${esc(notes)}</span>` : ''}${meta}</td>
     </tr>`;
@@ -3056,7 +3056,7 @@ function plRow(c, band, mode){
         thumb: first ? thumb : '', num: (first ? chip + jumpBtn + mapBtn : chip) + `<button type="button" class="row-more" aria-label="More for this move" onclick="openRowMenu(event, '${esc(c.id)}', ${i})">⋯</button>`, cue: first ? cueCell : cueRest, pg,
         piece: blank ? '<span class="mv-empty">Tap to add a move</span>'
           : `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
-        action: esc(m.action || ''), wing: esc(wingText(m)), who: esc(m.who || ''), spike: plSpikeHTML(m),
+        action: esc(m.action || ''), wing: esc(wingText(m)), who: esc(whoDisplay(m.who)), spike: plSpikeHTML(m),
         notes: (first && notes ? `<span class="pl-cuenote">${esc(notes)}</span>` : '') + esc(m.notes || '')
       }) + '</tr>' + (last
         ? tr('pl-addrow') + `<td colspan="${cols}"><button class="mv-plus" onclick="event.stopPropagation(); sheetAddMove('${esc(c.id)}')">+ Add move</button></td></tr>`
@@ -3071,7 +3071,7 @@ function plRow(c, band, mode){
     return tr(cls.filter(Boolean).join(' '), tap + ` data-mv="${esc(m.id || '')}"`) + cells({
       thumb: first ? thumb : '', num: first ? chip + jumpBtn + mapBtn : chip, cue: first ? cueCell : cueRest, pg,
       piece: `<span class="pl-piece">${esc(m.piece || '')}</span>${first && c.action ? `<span class="pl-cueact">${esc(c.action)}</span>` : ''}`,
-      action: esc(m.action || ''), wing: esc(wingText(m)), who: esc(m.who || ''), spike: plSpikeHTML(m),
+      action: esc(m.action || ''), wing: esc(wingText(m)), who: esc(whoDisplay(m.who)), spike: plSpikeHTML(m),
       notes: (first && notes ? `<span class="pl-cuenote">${esc(notes)}</span>` : '') + esc(m.notes || '')
     }) + '</tr>';
   }).join('');
@@ -5743,6 +5743,12 @@ function whoShort(name){
   const me = ini({ name }), clash = same.filter(p => ini(p) === me).length > 1;
   return clash || !me ? String(name).trim() : first + ' ' + me;
 }
+// What a Who cell shows: each person on the cast & crew list by their short
+// form; anything else as written. The Sheet keeps the names as entered.
+function whoDisplay(text){
+  const list = peopleList(clShowSlug()); if (!list.length) return String(text || '');
+  return whoNames(text).map(n => { const p = list.find(x => whoIs(n, x.name)); return p ? whoShort(p.name) : n; }).join(', ');
+}
 // Does a name written in Who mean this person? (full name or the short form)
 function whoIs(written, person){
   const w = String(written || '').trim().toLowerCase(), n = String(person || '').trim().toLowerCase();
@@ -5850,7 +5856,7 @@ function whoKey(e, input){
   const first = tok && [...document.querySelectorAll('#ms-whos .who-pill')].find(b => !b.hidden && !b.classList.contains('on'));
   e.preventDefault();
   if (!first) { input.blur(); return; }
-  const names = whoNames(input.value); names.pop(); names.push(whoShort(first.dataset.v));
+  const names = whoNames(input.value); names.pop(); names.push(first.dataset.v);
   input.value = names.join(', ');
   sheetField('who', input.value);
 }
@@ -6050,7 +6056,7 @@ function boxKey(e, input){
     e.preventDefault();
     if (boxEd && boxEd.field === 'who') {   // finish the name being typed with the first match
       const tok = whoTok(input.value), first = tok && whoMatches(tok).rest[0];
-      if (tok && first) { const names = whoNames(input.value); names.pop(); names.push(whoShort(first.name)); input.value = names.join(', ') + ', '; boxType(input.value); return; }
+      if (tok && first) { const names = whoNames(input.value); names.pop(); names.push(first.name); input.value = names.join(', ') + ', '; boxType(input.value); return; }
     }
     closeBox();
   } else if (e.key === 'Escape') { e.preventDefault(); closeBox(); }
@@ -6084,7 +6090,7 @@ function boxWho(name){
   // A half-typed name at the end ("Ky") is what the tap finishes, not a person.
   if (_whoTyping && tok && names.length && names[names.length - 1].toLowerCase() === tok && !whoChoices().some(p => p.name.toLowerCase() === tok) && whoFinishes(name, tok)) names.pop();
   const i = names.findIndex(x => x.toLowerCase() === k || whoIs(x, name));
-  if (i >= 0) names.splice(i, 1); else names.push(whoShort(name));
+  if (i >= 0) names.splice(i, 1); else names.push(name);
   input.value = names.join(', ');
   boxSet('who', input.value);
   _whoTyping = false; whoRefresh();
@@ -7787,7 +7793,7 @@ function sheetPick(field, value){
     // a half-typed name at the end ("Ky") is what the tap finishes, not a person
     if (tok && names.length && names[names.length - 1].toLowerCase() === tok && tok !== k && !whoChoices().some(p => p.name.toLowerCase() === tok) && whoFinishes(value, tok)) names.pop();
     const i = names.findIndex(v => v.toLowerCase() === k || whoIs(v, value));
-    if (i >= 0) names.splice(i, 1); else names.push(whoShort(value));
+    if (i >= 0) names.splice(i, 1); else names.push(value);
     input.value = names.join(', ');
     sheetField('who', input.value);
     return;
@@ -8349,6 +8355,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v7</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v8</div>
 </body>
 </html>
