@@ -599,6 +599,9 @@
   #box-ed .box-pill:disabled { opacity: .35; cursor: default; }
   #box-ed .box-sep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 2px; }
   #box-ed .box-spikes { margin-bottom: 8px; }
+  .spk-none { display: inline-block; background: #000; color: #fff; font-size: 11px; font-weight: 700; line-height: 1.2; padding: 3px 9px; border-radius: 4px; letter-spacing: .02em; white-space: nowrap; }
+  .spk-none.spk-inh { opacity: .7; }
+  .spk-opt-none .spk-none { width: 44px; height: 22px; padding: 0; flex: none; }
   #box-ed .spk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
   #box-ed .spk-opt { display: flex; align-items: center; gap: 8px; text-align: left; font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); cursor: pointer; }
   #box-ed .spk-opt b { display: block; font-size: 13.5px; font-weight: 600; }
@@ -1335,8 +1338,6 @@
     <label style="margin-top:18px;">Set change history</label>
     <div class="size-row"><button onclick="openHistory()">Open history</button></div>
 
-    <label style="margin-top:18px;">Spike tape</label>
-    <div class="size-row"><button onclick="openSpikeMap()">Open the spike map</button></div>
 
     <div class="modal-btns"><button class="top-btn primary" onclick="closeSheet()">Done</button></div>
   </div>
@@ -1957,6 +1958,7 @@ function normalizePresets(v){
                  spikeIds: Array.isArray(e.spikeIds) ? e.spikeIds.map(String) : [],
                  spike: String(e.spike || '') };
       if (e.custom) out[k].custom = true;   // added by hand, not from the plot
+      if (e.noSpike) out[k].noSpike = true; // no spike needed: a black box
       if (e.inter) { out[k].inter = true; out[k].who = String(e.who || ''); out[k].order = +e.order || 0; }   // an intermission preset task
       const ph = presetPhotos(e);
       if (ph.length) out[k].photos = ph;
@@ -2008,7 +2010,7 @@ function allWho(){
 // that had a spike, location or note now completely blank, something else
 // cleared them (an old copy of the dashboard, say), so offer to put them back.
 const prGuardKey = () => 'mmt_cuelist_savedpresets_' + scriptId;
-const prHasData = e => !!(e && ((Array.isArray(e.spikeIds) && e.spikeIds.length) || e.spike || e.location || e.notes || e.hidden || (Array.isArray(e.photos) && e.photos.length)));
+const prHasData = e => !!(e && ((Array.isArray(e.spikeIds) && e.spikeIds.length) || e.spike || e.noSpike || e.location || e.notes || e.hidden || (Array.isArray(e.photos) && e.photos.length)));
 function prGuardRemember(p){ try { localStorage.setItem(prGuardKey(), JSON.stringify(normalizePresets(p || {}))); } catch (e) {} }
 let _prLost = [];
 function prGuardCheck(){
@@ -2747,13 +2749,14 @@ function spkSVG(e, w, h){
 // piece's colour shows on every move of it (and in the plot and Excel) until a
 // move is given its own.
 function spkEff(m){
-  if (!m || m.spike || (Array.isArray(m.spikeIds) && m.spikeIds.length)) return m;
+  if (!m || m.spike || (Array.isArray(m.spikeIds) && m.spikeIds.length) || m.noSpike) return m;
   const k = String(m.piece || '').trim().toLowerCase();
   if (!k || typeof presets === 'undefined' || !presets) return m;
   let p = presets[k];
   if (!p) { const kk = Object.keys(presets).find(x => String((presets[x] || {}).piece || x).trim().toLowerCase() === k); p = kk ? presets[kk] : null; }
   if (p && p !== m && (p.spike || (Array.isArray(p.spikeIds) && p.spikeIds.length)))
     return Object.assign({}, m, { spikeIds: (p.spikeIds || []).slice(), spike: p.spike || '', _inh: true });
+  if (p && p !== m && p.noSpike) return Object.assign({}, m, { noSpike: true, _inh: true });
   return m;
 }
 function spkOfMove(m, sid){
@@ -2761,8 +2764,13 @@ function spkOfMove(m, sid){
   return (Array.isArray(m && m.spikeIds) ? m.spikeIds : []).map(id => spkFind(sid, id));
 }
 // Chips for display: tape drawing + label, then anything typed.
+// "No spike" (picked here or on the stage map): a black box, only when
+// nothing else is picked or typed.
+function spkIsNone(m){ return !!(m && m.noSpike && !m.spike && !(Array.isArray(m.spikeIds) && m.spikeIds.length)); }
+function spkNoneHTML(m){ return `<span class="spk-none${m && m._inh ? ' spk-inh' : ''}" title="${m && m._inh ? 'No spike (from Presets)' : 'No spike needed'}">No spike</span>`; }
 function spkChipsHTML(m, sid){
   m = spkEff(m);
+  if (spkIsNone(m)) return spkNoneHTML(m);
   const chips = spkOfMove(m, sid).map(e => e
     ? `<span class="spk-chip" title="${spkEsc(e.label || '')}">${spkSVG(e, 36, 18)}<span>${spkEsc(spkTapeName(e) || spkLabel(e))}</span></span>`
     : `<span class="spk-chip spk-gone">removed spike</span>`).join('');
@@ -2772,17 +2780,20 @@ function spkChipsHTML(m, sid){
 // The same in words, for spreadsheets and anything else without pictures.
 function spkMoveText(m, sid){
   m = spkEff(m);
+  if (spkIsNone(m)) return 'No spike';
   const parts = spkOfMove(m, sid).filter(Boolean).map(e => e.label ? `${e.label} (${spkTapeName(e)})` : spkTapeName(e));
   if (m && m.spike) parts.push(String(m.spike));
   return parts.join('; ');
 }
 // Picker body: every colour this show uses as a toggle. Hidden colours only
 // appear if this move already has them, so nothing silently disappears.
-function spkPickerHTML(sid, selected, toggleFn){
+function spkPickerHTML(sid, selected, toggleFn, none){
   const sel = new Set(selected || []);
   const list = spkList(sid).filter(e => !e.hidden || sel.has(e.id));
-  if (!list.length) return `<div class="spk-empty">No spike colors for this show yet.</div>`;
-  return `<div class="spk-grid">${list.map(e => `<button type="button" class="spk-opt${sel.has(e.id) ? ' on' : ''}"
+  const nos = `<button type="button" class="spk-opt spk-opt-none${none ? ' on' : ''}" onclick="${toggleFn}('__none')" aria-pressed="${!!none}">
+      <span class="spk-none" aria-hidden="true">&nbsp;</span><span><b>No spike</b><small>Shows as a black box</small></span></button>`;
+  if (!list.length) return `<div class="spk-empty">No spike colors for this show yet. Add them in the stage map's Spikes tab.</div><div class="spk-grid">${nos}</div>`;
+  return `<div class="spk-grid">${nos}${list.map(e => `<button type="button" class="spk-opt${sel.has(e.id) ? ' on' : ''}"
       onclick="${toggleFn}('${spkEsc(e.id)}')" aria-pressed="${sel.has(e.id)}">
       ${spkSVG(e, 44, 22)}<span><b>${spkEsc(spkLabel(e))}</b><small>${spkEsc(e.label ? spkTapeName(e) : '')}</small></span></button>`).join('')}</div>`;
 }
@@ -2948,6 +2959,7 @@ function cycleLayout(){ setLayout(LAYOUTS[(LAYOUTS.indexOf(layout) + 1) % LAYOUT
 // colours underneath, then anything typed.
 function plSpikeHTML(m){
   m = spkEff(m);
+  if (spkIsNone(m)) return spkNoneHTML(m);
   const html = spkOfMove(m, scriptId).map(e => e
     ? `<span class="pl-spk">${spkSVG(e, 30, 15)}<span><b>${spkEsc(spkLabel(e))}</b>${
         e.label ? `<small>${spkEsc(spkTapeName(e))}</small>` : ''}</span></span>`
@@ -6014,7 +6026,7 @@ function renderBox(){
     body = whoPanelWide() ? inp('Type a name or role, or tap below') : inp('Type or tap names') + `<div class="box-scroll wl-in" id="box-wl">${whoListHTML()}</div>`;
   } else if (f === 'spike') {
     const ids = boxEd.kind === 'preset' ? (presetEntry(boxEd.key).spikeIds || []) : ((boxMv() || {}).spikeIds || []);
-    body = `<div class="box-spikes">${spkPickerHTML(scriptId, ids, 'boxSpike')}</div>` + inp('Other spike, typed (optional)');
+    body = `<div class="box-spikes">${spkPickerHTML(scriptId, ids, 'boxSpike', (boxEd.kind === 'preset' ? presetEntry(boxEd.key) : (boxMv() || {})).noSpike)}</div>` + inp('Other spike, typed (optional)');
   } else {
     body = inp(f === 'cueLine' ? 'Type the line this change goes on' : f === 'piece' ? 'e.g. Main Curtain' : f === 'location' ? 'e.g. SL wing, upstage' : 'Note', f === 'piece' ? ' list="box-pieces"' : '')
       + (f === 'piece' ? `<datalist id="box-pieces">${allPieces().map(x => `<option value="${esc(x.piece)}"></option>`).join('')}</datalist>` : '');
@@ -6077,6 +6089,9 @@ function boxWing(part, val){
   if (done) closeBox(); else renderBox();
 }
 function boxSpike(id){
+  if (id === '__none') { const on = !(boxEd.kind === 'preset' ? presetEntry(boxEd.key) : (boxMv() || {})).noSpike;
+    if (on) { boxSet('spikeIds', []); boxSet('spike', ''); } boxSet('noSpike', on || undefined); closeBox(); return; }
+  if ((boxEd.kind === 'preset' ? presetEntry(boxEd.key) : (boxMv() || {})).noSpike) boxSet('noSpike', undefined);
   const cur = (boxEd.kind === 'preset' ? (presetEntry(boxEd.key).spikeIds || []) : ((boxMv() || {}).spikeIds || [])).slice();
   const i = cur.indexOf(id);
   if (i >= 0) { cur.splice(i, 1); boxSet('spikeIds', cur); renderBox(); return; }
@@ -7379,12 +7394,15 @@ function presetField(field, value){
 }
 function presetSpike(id){
   if (!presetSheet) return;
+  if (id === '__none') { const on = !presetEntry(presetSheet.key).noSpike; if (on) { presetField('spikeIds', []); presetField('spike', ''); const t = document.querySelector('#ps-spikes ~ input, input[oninput^="presetField(\'spike\'"]'); if (t) t.value = ''; }
+    presetField('noSpike', on || undefined); const bx = document.getElementById('ps-spikes'); if (bx) bx.innerHTML = spkPickerHTML(scriptId, on ? [] : presetEntry(presetSheet.key).spikeIds, 'presetSpike', on); return; }
+  if (presetEntry(presetSheet.key).noSpike) presetField('noSpike', undefined);
   const cur = (presetEntry(presetSheet.key).spikeIds || []).slice();
   const i = cur.indexOf(id);
   if (i >= 0) cur.splice(i, 1); else cur.push(id);
   presetField('spikeIds', cur);
   const box = document.getElementById('ps-spikes');
-  if (box) box.innerHTML = spkPickerHTML(scriptId, cur, 'presetSpike');
+  if (box) box.innerHTML = spkPickerHTML(scriptId, cur, 'presetSpike', false);
 }
 function presetStep(dir){
   const keys = presetList();
@@ -7415,8 +7433,8 @@ function renderPresetPanel(){
       <label class="ms-f"><span>${e.inter ? 'Location' : 'Preset location'}</span>${inp('location', 'e.g. SL wing, upstage')}</label>
       <label class="ms-f"><span>Note</span>${inp('notes', 'Optional')}</label>
     </div>
-    <div class="ms-spike-head"><span>Spike</span><a href="${spkMapURL(scriptId, scriptName)}" target="_blank" rel="noopener">Edit spike map ›</a></div>
-    <div id="ps-spikes">${spkPickerHTML(scriptId, e.spikeIds, 'presetSpike')}</div>
+    <div class="ms-spike-head"><span>Spike</span></div>
+    <div id="ps-spikes">${spkPickerHTML(scriptId, e.spikeIds, 'presetSpike', e.noSpike)}</div>
     <input id="ps-spike" class="ms-in" style="margin:8px 0 6px" value="${esc(e.spike || '')}" placeholder="Other spike, typed (optional)"
       autocomplete="off" oninput="presetField('spike', this.value)">
     <div class="ps-photos-head">Photos</div>
@@ -7775,12 +7793,15 @@ function sheetSpike(id){
   const c = sheetCue();
   if (!c || !c.moves || !c.moves[moveSheet.idx]) return;
   const m = c.moves[moveSheet.idx];
+  if (id === '__none') { const on = !m.noSpike; if (on) { mvField(c.id, moveSheet.idx, 'spikeIds', []); mvField(c.id, moveSheet.idx, 'spike', ''); const t = document.querySelector('input[oninput^="sheetField(\'spike\'"]'); if (t) t.value = ''; }
+    mvField(c.id, moveSheet.idx, 'noSpike', on || undefined); const bx = document.getElementById('ms-spikes'); if (bx) bx.innerHTML = spkPickerHTML(scriptId, on ? [] : m.spikeIds, 'sheetSpike', on); return; }
+  if (m.noSpike) mvField(c.id, moveSheet.idx, 'noSpike', undefined);
   const cur = Array.isArray(m.spikeIds) ? m.spikeIds.slice() : [];
   const i = cur.indexOf(id);
   if (i >= 0) cur.splice(i, 1); else cur.push(id);
   mvField(c.id, moveSheet.idx, 'spikeIds', cur);
   const box = document.getElementById('ms-spikes');
-  if (box) box.innerHTML = spkPickerHTML(scriptId, cur, 'sheetSpike');
+  if (box) box.innerHTML = spkPickerHTML(scriptId, cur, 'sheetSpike', false);
   refreshSheetRows(c);
 }
 
@@ -7855,8 +7876,8 @@ function renderMoveSheet(){
       <label class="ms-f"><span>Note</span>${inp('notes', 'Note')}</label>
     </div>
     ${whoPillsHTML(whoOn)}
-    <div class="ms-spike-head"><span>Spike</span><a href="${spkMapURL(scriptId, scriptName)}" target="_blank" rel="noopener">Edit spike map ›</a></div>
-    <div id="ms-spikes">${spkPickerHTML(scriptId, m.spikeIds, 'sheetSpike')}</div>
+    <div class="ms-spike-head"><span>Spike</span></div>
+    <div id="ms-spikes">${spkPickerHTML(scriptId, m.spikeIds, 'sheetSpike', m.noSpike)}</div>
     <input id="ms-spike" class="ms-in" style="margin:8px 0 6px" value="${esc(m.spike || '')}" placeholder="Other spike, typed (optional)"
       autocomplete="off" oninput="sheetField('spike', this.value)">
     ${moveToHTML(c)}
@@ -8355,6 +8376,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v8</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v9</div>
 </body>
 </html>

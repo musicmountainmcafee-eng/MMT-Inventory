@@ -6165,6 +6165,7 @@ table td { font-size: 14px !important; }
   @media (max-width: 768px) { #scripts-editor .se-htm { height: 30px; padding: 0 9px !important; } }
 
 
+  .spk-none { display: inline-block; background: #000; color: #fff; font-size: 11px; font-weight: 700; line-height: 1.2; padding: 3px 9px; border-radius: 4px; white-space: nowrap; }
 </style>
   <!-- PERF: pdf.js and jsPDF used to load here as blocking script tags on every
        launch. They're only needed on the Scripts tab and for PDF exports, so they
@@ -7311,7 +7312,6 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
         <button class="top-btn ic ic-list" onclick="flipToCueSheet()">Cue sheet</button>
         <button class="top-btn ic ic-list" onclick="flipToCueSheet('', 'shift')">Set change plot</button>
         <button class="top-btn ic ic-home" onclick="flipToCueSheet('', 'presets')">Presets</button>
-        <button class="top-btn ic ic-spike" onclick="openSpikeMap()">Spike map<svg class="mi-ext" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg></button>
         <div class="mi-sep"></div>
         <div class="mi-head">This script</div>
         <button class="top-btn ic ic-pdf" onclick="exportAnnotatedPDF()">Export script PDF</button>
@@ -7649,7 +7649,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v2</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -12687,7 +12687,6 @@ function renderShowHub() {
           <div class="hub-links">
             <button class="hub-link" onclick="switchTab('checklists')">Pre-show checklists</button>
             <button class="hub-link" onclick="hubOpenPlot()">Set change plot</button>
-            <button class="hub-link" onclick="hubOpenSpike()">Spike map</button>
             <button class="hub-link" onclick="switchTab('reference')">Reference photos</button>
           </div>
         </div>
@@ -18594,6 +18593,7 @@ function normalizePresets(v) {
         hidden: !!e.hidden
       };
       if (e.custom) out[k].custom = true;   // added by hand on the cue sheet, not from the plot
+      if (e.noSpike) out[k].noSpike = true; // no spike needed (cue sheet / stage map): a black box
       if (e.inter) { out[k].inter = true; out[k].who = String(e.who || ''); out[k].order = +e.order || 0; }   // an intermission preset task (cue sheet)
       const ph = presetPhotos(e);
       if (ph.length) out[k].photos = ph;
@@ -20937,13 +20937,14 @@ function spkSVG(e, w, h){
 // piece's colour shows on every move of it (and in the plot and Excel) until a
 // move is given its own.
 function spkEff(m){
-  if (!m || m.spike || (Array.isArray(m.spikeIds) && m.spikeIds.length)) return m;
+  if (!m || m.spike || (Array.isArray(m.spikeIds) && m.spikeIds.length) || m.noSpike) return m;
   const k = String(m.piece || '').trim().toLowerCase();
   if (!k || typeof presets === 'undefined' || !presets) return m;
   let p = presets[k];
   if (!p) { const kk = Object.keys(presets).find(x => String((presets[x] || {}).piece || x).trim().toLowerCase() === k); p = kk ? presets[kk] : null; }
   if (p && p !== m && (p.spike || (Array.isArray(p.spikeIds) && p.spikeIds.length)))
     return Object.assign({}, m, { spikeIds: (p.spikeIds || []).slice(), spike: p.spike || '', _inh: true });
+  if (p && p !== m && p.noSpike) return Object.assign({}, m, { noSpike: true, _inh: true });
   return m;
 }
 function spkOfMove(m, sid){
@@ -20951,8 +20952,10 @@ function spkOfMove(m, sid){
   return (Array.isArray(m && m.spikeIds) ? m.spikeIds : []).map(id => spkFind(sid, id));
 }
 // Chips for display: tape drawing + label, then anything typed.
+function spkIsNone(m){ return !!(m && m.noSpike && !m.spike && !(Array.isArray(m.spikeIds) && m.spikeIds.length)); }
 function spkChipsHTML(m, sid){
   m = spkEff(m);
+  if (spkIsNone(m)) return `<span class="spk-none" title="No spike needed">No spike</span>`;
   const chips = spkOfMove(m, sid).map(e => e
     ? `<span class="spk-chip" title="${spkEsc(spkTapeName(e))}">${spkSVG(e, 30, 15)}<span>${spkEsc(spkLabel(e))}</span></span>`
     : `<span class="spk-chip spk-gone">removed spike</span>`).join('');
@@ -20962,6 +20965,7 @@ function spkChipsHTML(m, sid){
 // The same in words, for spreadsheets and anything else without pictures.
 function spkMoveText(m, sid){
   m = spkEff(m);
+  if (spkIsNone(m)) return 'No spike';
   const parts = spkOfMove(m, sid).filter(Boolean).map(e => e.label ? `${e.label} (${spkTapeName(e)})` : spkTapeName(e));
   if (m && m.spike) parts.push(String(m.spike));
   return parts.join('; ');
@@ -21420,7 +21424,7 @@ function spkRenderPicker(){
   if (!pop || !m) return;
   const name = (document.getElementById('show-name') || {}).textContent || '';
   pop.innerHTML = `<div class="spk-head"><b>Spike</b><span>${spkEsc(m.piece || 'this move')}</span>
-      <a href="${spkMapURL(showId, name)}" target="_blank" rel="noopener">Edit spike map ›</a></div>
+</div>
     ${spkPickerHTML(showId, m.spikeIds, 'spkTogglePick')}
     <div class="spk-foot"><span>Tap to add or remove. Type one-offs in the box.</span>
       <button type="button" class="spk-done" onclick="spkClosePicker(true)">Done</button></div>`;

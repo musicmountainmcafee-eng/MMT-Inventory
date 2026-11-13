@@ -224,6 +224,28 @@ try {
   html.inbar .step { margin-left: 0; }
   /* In the header, not the corner: inside the dashboard the page's own tag
      sits in that corner and covered this one. */
+  .side-tabs, .seg2 { display: flex; gap: 3px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
+  .side-tabs button, .seg2 button { flex: 1; border: 0; background: transparent; border-radius: 999px; padding: 7px 10px; font-weight: 700; font-size: 13px; color: var(--text-muted); }
+  .seg2 button { padding: 5px 8px; font-size: 12px; }
+  .side-tabs button.on, .seg2 button.on { background: var(--accent); color: var(--accent-ink); }
+  .spk-card { border: 1px solid var(--sel); background: var(--sel-soft); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .spk-card-h { display: flex; align-items: center; gap: 8px; } .spk-card-h b { flex: 1; font-size: 15px; }
+  .spk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .spk-opt { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--border-2); border-radius: 10px; background: var(--surface); text-align: left; min-height: 42px; min-width: 0; }
+  .spk-opt > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+  .spk-opt b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .spk-opt small { color: var(--text-muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .spk-opt.on { border-color: var(--sel); box-shadow: inset 0 0 0 2px var(--sel); }
+  .spk-opt[disabled] { opacity: .6; cursor: default; }
+  .spk-opt.nos .spk-none { width: 32px; height: 16px; padding: 0; flex: none; }
+  .spk-sw { flex: none; display: block; }
+  .spk-none { display: inline-block; background: #000; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; width: fit-content; }
+  .spk-key { gap: 10px; } .spk-key.hid { opacity: .55; }
+  .spk-key small { white-space: normal; }
+  .sw-grid { display: flex; flex-wrap: wrap; gap: 5px; }
+  .sw-grid .sw { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border-2); border-radius: 999px; padding: 4px 9px 4px 4px; background: var(--surface); font-size: 12px; font-weight: 600; }
+  .sw-grid .sw i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(0,0,0,.3); }
+  .sw-grid .sw.on { border-color: var(--sel); box-shadow: inset 0 0 0 2px var(--sel); }
+  .spk-prev { display: flex; align-items: center; gap: 10px; font-size: 15px; }
   #build-tag { font-size: 11px; color: #a1a1aa; white-space: nowrap; pointer-events: none; padding: 2px 4px; }
   .pr-faces:not([hidden]) + #build-tag { margin-left: 4px; }
   .pr-faces[hidden] + #build-tag { margin-left: auto; }
@@ -242,7 +264,7 @@ try {
     </div>
     <span class="save" id="save-state" aria-live="polite"></span>
     <div class="pr-faces" id="pr-faces" hidden aria-label="Who else is here"></div>
-    <div id="build-tag" title="Stage map version">Stage map 11.09 v2</div>
+    <div id="build-tag" title="Stage map version">Stage map 11.13 v1</div>
   </header>
   <div class="main">
     <div class="stage" id="stage">
@@ -330,6 +352,7 @@ function load() {
   jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), d => {
     const cd = (d && (d.cueData || d.data)) || {};
     cues = Array.isArray(cd.cues) ? cd.cues : []; annotations = cd.annotations || {}; presets = cd.presets || {};
+    cuePend.forEach(o => applyCueOp({ cues, presets }, o));
     done();
   }, done);
   spkLoad();
@@ -354,7 +377,7 @@ function buildSteps() {
     const wing = {};
     (c.moves || []).forEach(m => { const k = String(m.piece || '').trim().toLowerCase(); if (k && !wing[k]) wing[k] = { from: String(m.wing || '').trim(), to: String(m.wingTo || '').trim(), act: String(m.action || '').trim() }; });
     const spk = {};
-    (c.moves || []).forEach(m => { const k = String(m.piece || '').trim().toLowerCase(); if (k && !spk[k] && ((m.spikeIds || []).length || m.spike)) spk[k] = { ids: (m.spikeIds || []).map(String), txt: String(m.spike || '').trim() }; });
+    (c.moves || []).forEach(m => { const k = String(m.piece || '').trim().toLowerCase(); if (k && !spk[k] && ((m.spikeIds || []).length || m.spike || m.noSpike)) spk[k] = { ids: (m.spikeIds || []).map(String), txt: String(m.spike || '').trim(), none: !!m.noSpike && !(m.spikeIds || []).length && !String(m.spike || '').trim() }; });
     return { id: c.id, label: '#' + n + (c.cueLine ? ' · ' + c.cueLine : '') + (c.page ? ' (pg. ' + c.page + ')' : ''), moves: (c.moves || []).map(m => String(m.piece || '').trim().toLowerCase()).filter(Boolean), info, spk, wing };
   }));
 }
@@ -465,7 +488,7 @@ function draw() {
         : `<rect class="body" data-part="${i}" x="${cx - w / 2}" y="${cy - dd / 2}" width="${w}" height="${dd}" rx="${Math.min(4, dd / 4)}" stroke-width="${sw}" vector-effect="non-scaling-stroke"/>`)
         + `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-size="${fs.toFixed(1)}"${dd < fs * 1.2 ? ` transform="translate(0 ${-(dd / 2 + fs * .8)})"` : ''}>${esc(pc.name)}${parts.length > 1 && sel === pc.key && _partEdit ? ' ' + (i + 1) : ''}</text>`;
     });
-    if (spkOn()) body += spikeMarksSVG(pc, parts, k, moving.has(pc.key) || stepIdx === 0);
+    if (spkOn() || _sideTab === 'spikes') body += spikeMarksSVG(pc, parts, k, moving.has(pc.key) || stepIdx === 0);
     h += `<g class="${cls}" data-key="${esc(pc.key)}" transform="translate(${at.x * k} ${at.y * k}) rotate(${at.r || 0})">${body}</g>`;
   });
   if (V === 'mv') h += movementSVG(st, moving, k, 'over');
@@ -606,8 +629,9 @@ function parseFt(s) {
 let _q = '', _flt = lsGet('mmt_stagemap_flt', 'all'), _sort = lsGet('mmt_stagemap_sort', 'status'), _pop = null;
 function renderSide() {
   const side = document.getElementById('side'), ed = canEdit(), st = steps[stepIdx];
+  if (_sideTab === 'spikes') { side.innerHTML = spkPanelHTML(); renderPop(); return; }
   const p = activePlan();
-  if (!p || !p.img) { side.innerHTML = `<section><h2>Pieces</h2><p class="note">Add the ground plan first.</p></section>`; renderPop(); return; }
+  if (!p || !p.img) { side.innerHTML = sideTabsHTML() + `<section><h2>Pieces</h2><p class="note">Add the ground plan first.</p></section>`; renderPop(); return; }
   const focusQ = document.activeElement && document.activeElement.id === 'pf-q';
   const list = pieceList(), moving = new Set(st.moves);
   const stat = pc => moving.has(pc.key) ? 0 : posAt(pc.key, stepIdx) ? 1 : 2;
@@ -615,7 +639,7 @@ function renderSide() {
   if (_flt === 'mv') vis = vis.filter(pc => stat(pc) === 0); if (_flt === 'on') vis = vis.filter(pc => posAt(pc.key, stepIdx)); if (_flt === 'off') vis = vis.filter(pc => !posAt(pc.key, stepIdx));
   vis.sort((a, b) => _sort === 'name' ? a.name.localeCompare(b.name) : (stat(a) - stat(b)) || a.name.localeCompare(b.name));
   const chip = (k, t) => `<button class="chip${_flt === k ? ' on' : ''}" onclick="_flt='${k}';lsSet('mmt_stagemap_flt','${k}');renderSide()" aria-pressed="${_flt === k}">${t}</button>`;
-  let h = `<section class="pf-head"><h2>${stepIdx === 0 ? 'Pieces · Presets' : 'Pieces · ' + esc(st.label)}</h2>
+  let h = sideTabsHTML() + `<section class="pf-head"><h2>${stepIdx === 0 ? 'Pieces · Presets' : 'Pieces · ' + esc(st.label)}</h2>
     <input id="pf-q" class="pf-q" placeholder="Find a piece" value="${esc(_q)}" oninput="_q=this.value;renderSide()" aria-label="Find a piece" autocomplete="off">
     <div class="chips">${chip('all', 'All')}${stepIdx ? chip('mv', 'Moves here') : ''}${chip('on', 'On map')}${chip('off', 'Not placed')}
       <button class="chip" onclick="_sort=_sort==='name'?'status':'name';lsSet('mmt_stagemap_sort',_sort);renderSide()">Sort: ${_sort === 'name' ? 'A–Z' : 'by status'}</button></div></section><section><div class="plist">`;
@@ -652,7 +676,7 @@ function renderSide() {
 }
 // ── Pop-up editor ── opens when a piece is tapped (on the map or in the list).
 // The cursor starts in Width; Tab goes to Depth; Enter saves and closes.
-function openPop(key) { _pop = key; sel = key; draw(); renderSide(); }
+function openPop(key) { if (_sideTab === 'spikes') { spkSel(key); return; } _pop = key; sel = key; draw(); renderSide(); }
 function closePop(save) { if (save) popCommit(); _pop = null; _partEdit = false; if (_staleSide) { _staleSide = false; renderAll(); return; } renderPop(); draw(); renderSide(); }
 function renderPop() {
   let el = document.getElementById('pop');
@@ -1095,7 +1119,7 @@ function closeMap() {
 let _spk = null;
 function spkLoad() {
   try { _spk = JSON.parse(lsGet('mmt_spike_cache', 'null')); } catch (e) {}
-  jsonp(SCRIPT_URL + '?action=getKV&key=spikemap&_=' + Date.now(), d => { if (d && d.value && typeof d.value === 'object') { _spk = d.value; lsSet('mmt_spike_cache', JSON.stringify(_spk)); draw(); renderSide(); } });
+  jsonp(SCRIPT_URL + '?action=getKV&key=spikemap&_=' + Date.now(), d => { if (d && d.value && typeof d.value === 'object') { _spk = d.value; (typeof spkPend !== 'undefined' ? spkPend : []).forEach(o => spkApply(_spk, o)); lsSet('mmt_spike_cache', JSON.stringify(_spk)); draw(); if (!_spkEd) renderSide(); } });
 }
 function spkOn() { return lsGet('mmt_stagemap_spikes', '1') === '1'; }
 function spkList() {
@@ -1105,7 +1129,7 @@ function spkList() {
 function presetSpike(key) {
   let p = presets[key];
   if (!p) { const kk = Object.keys(presets).find(x => String((presets[x] || {}).piece || x).trim().toLowerCase() === key); p = kk ? presets[kk] : null; }
-  return p && ((p.spikeIds || []).length || p.spike) ? { ids: (p.spikeIds || []).map(String), txt: String(p.spike || '').trim() } : null;
+  return p && ((p.spikeIds || []).length || p.spike || p.noSpike) ? { ids: (p.spikeIds || []).map(String), txt: String(p.spike || '').trim(), none: !!p.noSpike && !(p.spikeIds || []).length && !String(p.spike || '').trim() } : null;
 }
 // The spike a piece sits on at a step: from the last change at or before it
 // that moved the piece, else its preset spike.
@@ -1114,7 +1138,7 @@ function spikeAt(key, i) {
   return presetSpike(key);
 }
 function spikeEntries(key, i) {
-  const sp = spikeAt(key, i); if (!sp) return [];
+  const sp = spikeAt(key, i); if (!sp || sp.none) return [];
   const all = spkList(), out = sp.ids.map(id => all.find(e => e.id === id)).filter(Boolean);
   if (!out.length && sp.txt) out.push({ label: sp.txt, c1: '#9ca3af', mark: 'corners', typed: true });
   return out;
@@ -1158,7 +1182,7 @@ function spikeChipHTML(key) {
 function printSpikes() {
   const st = steps[stepIdx], list = pieceList().filter(pc => !isHidden(pc) && (stepIdx === 0 ? posAt(pc.key, 0) : st.moves.includes(pc.key)));
   const rows = list.map(pc => { const ents = spikeEntries(pc.key, stepIdx), at = posAt(pc.key, stepIdx);
-    return `<tr><td><b>${esc(pc.name)}</b>${st.info && st.info[pc.key] ? `<br><small>${esc(st.info[pc.key])}</small>` : ''}</td><td>${ents.length ? ents.map(e => `<span class="sw" style="background:${esc(e.c1 || '#9ca3af')}${e.c2 ? ';box-shadow:inset -8px 0 0 ' + esc(e.c2) : ''}"></span>${esc(spikeName(e))}`).join('<br>') : '<i>no spike set</i>'}</td><td>${ents.map(e => esc(MARK_NAMES[e.mark || 'corners'] || e.mark)).join('<br>')}</td><td>${at ? '' : '<i>off stage</i>'}</td></tr>`; }).join('');
+    return `<tr><td><b>${esc(pc.name)}</b>${st.info && st.info[pc.key] ? `<br><small>${esc(st.info[pc.key])}</small>` : ''}</td><td>${ents.length ? ents.map(e => `<span class="sw" style="background:${esc(e.c1 || '#9ca3af')}${e.c2 ? ';box-shadow:inset -8px 0 0 ' + esc(e.c2) : ''}"></span>${esc(spikeName(e))}`).join('<br>') : (spikeAt(pc.key, stepIdx) || {}).none ? '<b>No spike</b>' : '<i>no spike set</i>'}</td><td>${ents.map(e => esc(MARK_NAMES[e.mark || 'corners'] || e.mark)).join('<br>')}</td><td>${at ? '' : '<i>off stage</i>'}</td></tr>`; }).join('');
   let el = document.getElementById('spk-print'); if (!el) { el = document.createElement('div'); el.id = 'spk-print'; document.body.appendChild(el); }
   el.innerHTML = `<h1>Spike sheet · ${esc(showName || '')}</h1><h2>${esc(stepIdx === 0 ? 'Presets' : st.label)}</h2>
     <table><thead><tr><th>Piece</th><th>Spike</th><th>Where on the piece</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="4"><i>No pieces move in this change.</i></td></tr>'}</tbody></table>`;
@@ -1254,6 +1278,8 @@ function reloadCues() {
     const cd = (d && (d.cueData || d.data)) || {}; if (!Array.isArray(cd.cues)) return;
     const id = (steps[stepIdx] || {}).id;
     cues = cd.cues; annotations = cd.annotations || {}; presets = cd.presets || {};
+    cuePend.forEach(o => applyCueOp({ cues, presets }, o));
+    if (!cuePend.length && !_spkEd) spkLoad();
     buildSteps(); const i = steps.findIndex(x => x.id === id); stepIdx = i >= 0 ? i : 0;
     refreshView();
   });
@@ -1263,12 +1289,292 @@ function reloadCues() {
 // they catch up when the box closes.
 function refreshView() {
   draw();
-  if (_pop) { _staleSide = true; return; }
+  if (_pop || _spkEd || _spkTyping()) { _staleSide = true; return; }
   renderAll();
 }
 let _staleSide = false;
 setInterval(prTick, 3000);
 window.addEventListener('pagehide', () => { try { if (scriptId) fetch(SCRIPT_URL + '?action=getCueRev&scriptId=' + encodeURIComponent(scriptId) + '&me=' + encodeURIComponent(prDevId()) + '&bye=1', { mode: 'no-cors', keepalive: true }); } catch (e) {} });
+
+// ── Spikes panel ── the side panel's Pieces | Spikes switch. Spikes holds
+// everything the old Spike Map page did (the tape key: house colours, this
+// show's relabels, hides and extras) plus picking each piece's tape here on
+// the map. A pick is written onto the cue sheet's own move (spikeIds, spike,
+// noSpike) or, at Presets, the piece's preset, so both pages show the same.
+// The tape key saves to KV 'spikemap' as small operations replayed onto the
+// server's copy (as spike-map.html did); picks save to the cue sheet's data
+// the same way: read it fresh, put the picks on, save with its revision, and
+// try again if someone saved in between. Either kind waits on this device
+// until it's in.
+let _sideTab = lsGet('mmt_stagemap_side', 'pieces') === 'spikes' ? 'spikes' : 'pieces';
+let _spkEd = null, _spkScope = 'show';
+const jsq = s => esc(JSON.stringify(String(s == null ? '' : s)));
+const SPK_BOARD = [['Fl. green', '#3fef6b'], ['Green', '#22c84a'], ['Fl. yellow', '#ecf72e'], ['Lime yellow', '#cfec1c'],
+  ['White', '#ffffff'], ['Lt blue', '#3d9ef0'], ['Orange', '#ff5a1f'], ['Brown', '#a0826a'], ['Pink', '#ff3d8b'], ['Red', '#d7262e']];
+const SPK_MARKS = [['corners', 'Corners'], ['uscorners', 'Upstage corners'], ['t', "T's"], ['x', 'X'], ['outline', 'Outline'], ['line', 'Line']];
+const SPK_FIELDS = ['label', 'c1', 'c1n', 'c2', 'c2n', 'style', 'text', 'mark', 'note'];
+function spkPalette() { return Array.isArray(_spk && _spk.tapes) && _spk.tapes.length ? _spk.tapes : SPK_BOARD; }
+function spkTapeName(e) { return [e.c1n, e.c2 ? e.c2n : ''].filter(Boolean).join(' + '); }
+function spkSwatch(e, w, h) {
+  const c1 = esc(e.c1 || '#9ca3af'), c2 = esc(e.c2 || e.c1 || '#9ca3af');
+  return `<svg class="spk-sw" width="${w}" height="${h}" viewBox="0 0 32 16" aria-hidden="true"><rect width="32" height="16" rx="3" fill="#262626"/><path d="M4 12V4h9" stroke="${c1}" stroke-width="3.5" fill="none"/><path d="M19 4h9v8" stroke="${c2}" stroke-width="3.5" fill="none"/></svg>`;
+}
+function sideTabsHTML() {
+  const b = (t, l) => `<button role="tab" aria-selected="${_sideTab === t}" class="${_sideTab === t ? 'on' : ''}" onclick="setSideTab('${t}')">${l}</button>`;
+  return `<div class="side-tabs" role="tablist">${b('pieces', 'Pieces')}${b('spikes', 'Spikes')}</div>`;
+}
+function setSideTab(t) { if (_pop) closePop(true); _sideTab = t; _spkEd = null; lsSet('mmt_stagemap_side', t); draw(); renderSide(); }
+function spkSel(key) { if (_pop) { popCommit(); _pop = null; renderPop(); } sel = key; _partEdit = false; draw(); renderSide(); }
+
+// Where this piece's spike is set at this step: its preset (Presets), or its
+// move in this change. A piece that doesn't move here has none to set.
+function spkTarget(key) {
+  if (stepIdx === 0) return { kind: 'preset', key };
+  const st = steps[stepIdx];
+  return st && st.moves.includes(key) ? { kind: 'move', cue: st.id, key } : null;
+}
+function presetKeyFor(p, key) { if (p[key]) return key; return Object.keys(p).find(x => String((p[x] || {}).piece || x).trim().toLowerCase() === key) || null; }
+function spkTargetObj(t) {
+  if (t.kind === 'preset') { const k = presetKeyFor(presets || {}, t.key); return k ? presets[k] : null; }
+  const c = cues.find(x => String(x.id) === String(t.cue));
+  return c ? (c.moves || []).find(m => String(m.piece || '').trim().toLowerCase() === t.key) || null : null;
+}
+function applyCueOp(d, o) {
+  let e = null;
+  if (o.kind === 'preset') {
+    d.presets = d.presets && typeof d.presets === 'object' ? d.presets : {};
+    let k = presetKeyFor(d.presets, o.key);
+    if (!k) { k = o.key; d.presets[k] = { piece: o.name || o.key, location: '', notes: '', hidden: false, spikeIds: [], spike: '' }; }
+    e = d.presets[k];
+  } else {
+    const c = (d.cues || []).find(x => String(x.id) === String(o.cue));
+    e = c ? (c.moves || []).find(m => String(m.piece || '').trim().toLowerCase() === o.key) : null;
+  }
+  if (!e) return false;
+  e.spikeIds = (o.ids || []).slice(); e.spike = o.txt || '';
+  if (o.none) e.noSpike = true; else delete e.noSpike;
+  return true;
+}
+const cuePendKey = () => 'mmt_stagemap_cuepend_' + scriptId;
+let cuePend = (() => { try { return JSON.parse(lsGet('mmt_stagemap_cuepend_' + scriptId, '[]')) || []; } catch (e) { return []; } })();
+let _cueSaving = false;
+function rebuildSteps() { const id = (steps[stepIdx] || {}).id; buildSteps(); const i = steps.findIndex(x => x.id === id); stepIdx = i >= 0 ? i : 0; }
+function cueOp(o) {
+  if (!canEdit()) { toast('View only'); return; }
+  applyCueOp({ cues, presets }, o);
+  cuePend.push(o); lsSet(cuePendKey(), JSON.stringify(cuePend));
+  rebuildSteps(); draw(); renderSide(); cueFlush();
+}
+function cueFlush(tries) {
+  if (_cueSaving || !cuePend.length || !scriptId) return;
+  _cueSaving = true; setSave('Saving…');
+  const batch = cuePend.slice();
+  const fail = () => { _cueSaving = false; setSave('Not saved, kept here; retrying', true); clearTimeout(cueFlush._r); cueFlush._r = setTimeout(cueFlush, 15000); };
+  jsonp(SCRIPT_URL + '?action=getCueData&scriptId=' + encodeURIComponent(scriptId) + '&_=' + Date.now(), d => {
+    const fresh = d && (d.cueData || d.data);
+    if (!fresh || !Array.isArray(fresh.cues)) return fail();
+    batch.forEach(o => applyCueOp(fresh, o));
+    const baseRev = typeof d.rev === 'number' ? d.rev : (fresh._rev || 0);
+    fresh._rev = baseRev + 1; fresh._savedAt = new Date().toISOString(); delete fresh._log;
+    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'saveCueData', scriptId, baseRev, saveId: 'sm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8), cueData: fresh }) })
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then(t => {
+        let res; try { res = JSON.parse(t); } catch (e) { res = { unknown: true }; }
+        _cueSaving = false;
+        // someone saved in between, or the answer got lost: read again, put the picks on again
+        if (res.conflict || res.busy || res.unknown) { if ((tries || 0) < 6) { setTimeout(() => cueFlush((tries || 0) + 1), 400); return; } return fail(); }
+        if (!res.success) return fail();
+        cuePend = cuePend.slice(batch.length); lsSet(cuePendKey(), JSON.stringify(cuePend));
+        if (typeof res.rev === 'number') _cueRev = res.rev;
+        cues = fresh.cues; annotations = fresh.annotations || annotations; presets = fresh.presets || {};
+        cuePend.forEach(o => applyCueOp({ cues, presets }, o));
+        rebuildSteps();
+        setSave('Saved'); setTimeout(() => { if (document.getElementById('save-state').textContent === 'Saved') setSave(''); }, 1800);
+        if (cuePend.length) cueFlush(); else { draw(); if (!_spkTyping()) renderSide(); }
+      }).catch(fail);
+  }, fail);
+}
+function _spkTyping() { const a = document.activeElement; return !!(a && a.closest && a.closest('#side') && /^(INPUT|TEXTAREA)$/.test(a.tagName)); }
+
+// The tape key (KV 'spikemap'), the same operations spike-map.html used.
+let spkPend = (() => { try { return JSON.parse(lsGet('mmt_stagemap_spkpend', '[]')) || []; } catch (e) { return []; } })();
+let _spkSaving = false;
+function spkShowRec(d, sid) { d.shows = d.shows || {}; if (!d.shows[sid]) d.shows[sid] = { name: '', over: {}, extra: [] }; const r = d.shows[sid]; r.over = r.over || {}; r.extra = r.extra || []; return r; }
+function spkApply(d, op) {
+  d.house = d.house || []; d.shows = d.shows || {};
+  if (op.t === 'houseUpsert') { const i = d.house.findIndex(e => e.id === op.e.id); if (i >= 0) d.house[i] = clone(op.e); else d.house.push(clone(op.e)); }
+  else if (op.t === 'houseDelete') { d.house = d.house.filter(e => e.id !== op.id); Object.values(d.shows).forEach(r => { if (r && r.over) delete r.over[op.id]; }); }
+  else if (op.t === 'showOver') { const r = spkShowRec(d, op.sid); if (op.name) r.name = op.name; if (op.over == null) delete r.over[op.id]; else r.over[op.id] = clone(op.over); }
+  else if (op.t === 'showUpsert') { const r = spkShowRec(d, op.sid); if (op.name) r.name = op.name; const i = r.extra.findIndex(e => e.id === op.e.id); if (i >= 0) r.extra[i] = clone(op.e); else r.extra.push(clone(op.e)); }
+  else if (op.t === 'showDelete') { const r = spkShowRec(d, op.sid); r.extra = r.extra.filter(e => e.id !== op.id); }
+  return d;
+}
+function spkCommit(op) {
+  if (!canEdit()) { toast('View only'); return; }
+  _spk = _spk && typeof _spk === 'object' ? _spk : { _v: 1, house: [], shows: {} };
+  spkApply(_spk, op); lsSet('mmt_spike_cache', JSON.stringify(_spk));
+  spkPend.push(op); lsSet('mmt_stagemap_spkpend', JSON.stringify(spkPend));
+  draw(); renderSide(); spkFlush();
+}
+function spkFlush() {
+  if (_spkSaving || !spkPend.length) return;
+  _spkSaving = true; setSave('Saving…');
+  const batch = spkPend.slice();
+  const fail = () => { _spkSaving = false; setSave('Not saved, kept here; retrying', true); clearTimeout(spkFlush._r); spkFlush._r = setTimeout(spkFlush, 15000); };
+  jsonp(SCRIPT_URL + '?action=getKV&key=spikemap&_=' + Date.now(), d => {
+    const fresh = d && d.value && typeof d.value === 'object' ? d.value : { _v: 1, house: [], shows: {} };
+    batch.forEach(o => spkApply(fresh, o));
+    fresh._v = 1; fresh._savedAt = new Date().toISOString();
+    post('spikemap', fresh).then(() => {
+      _spkSaving = false;
+      spkPend = spkPend.slice(batch.length); lsSet('mmt_stagemap_spkpend', JSON.stringify(spkPend));
+      _spk = fresh; spkPend.forEach(o => spkApply(_spk, o)); lsSet('mmt_spike_cache', JSON.stringify(_spk));
+      setSave('Saved'); setTimeout(() => { if (document.getElementById('save-state').textContent === 'Saved') setSave(''); }, 1800);
+      if (spkPend.length) spkFlush(); else { draw(); if (!_spkEd && !_spkTyping()) renderSide(); }
+    }, fail);
+  }, fail);
+}
+function spkResolved() {
+  const d = _spk || { house: [], shows: {} }, rec = (d.shows || {})[scriptId] || {}, over = rec.over || {};
+  return (d.house || []).map(h => Object.assign({}, h, over[h.id] || {}, { _src: 'house', _hid: !!(over[h.id] && over[h.id].hidden), _over: !!over[h.id] && Object.keys(over[h.id]).some(k => k !== 'hidden') }))
+    .concat((rec.extra || []).map(x => Object.assign({}, x, { _src: 'show' })));
+}
+
+// What a piece's spike is at this step, as a line.
+function spkStateHTML(key) {
+  const sp = spikeAt(key, stepIdx);
+  if (sp && sp.none) return `<span class="spk-none">No spike</span>`;
+  const c = spikeChipHTML(key);
+  return c || `<small class="off">no spike yet</small>`;
+}
+function spkPanelHTML() {
+  const ed = canEdit(), st = steps[stepIdx] || { id: 'presets', label: 'Presets', moves: [] };
+  let h = sideTabsHTML();
+  if (_spkEd) return h + spkEditorHTML();
+  h += `<section><h2>Spikes · ${esc(stepIdx === 0 ? 'Presets' : st.label)}</h2>`;
+  h += sel && pieceList().some(x => x.key === sel) ? spkPieceHTML(sel, ed) : `<p class="note">Tap a piece on the map, or below, to pick its spike tape.</p>`;
+  const list = pieceList().filter(pc => !isHidden(pc) && (stepIdx === 0 ? posAt(pc.key, 0) || presetSpike(pc.key) : st.moves.includes(pc.key)));
+  h += `</section><section><h2>${stepIdx === 0 ? 'Pieces at Presets' : 'Moving in this change'}</h2><div class="plist">`
+    + (list.length ? list.map(pc => `<button class="prow${sel === pc.key ? ' on' : ''}" onclick="spkSel(${jsq(pc.key)})"><span class="pnm"><b>${esc(pc.name)}</b>${spkStateHTML(pc.key)}</span></button>`).join('')
+      : `<p class="note">${stepIdx === 0 ? 'No pieces placed at Presets yet.' : 'No pieces move in this change.'}</p>`)
+    + `</div><div class="row"><button class="tb" onclick="printSpikes()">Print spike sheet</button></div></section>`;
+  return h + spkKeyHTML(ed);
+}
+function spkPieceHTML(key, ed) {
+  const pc = pieceList().find(x => x.key === key);
+  let h = `<div class="spk-card"><div class="spk-card-h"><b>${esc(pc.name)}</b><button class="tb" onclick="spkSel(null)">Done</button></div>`;
+  const t = spkTarget(key);
+  if (!t) {
+    let from = 0; for (let j = stepIdx; j >= 1; j--) if (steps[j].moves.includes(key)) { from = j; break; }
+    return h + `<div>${spkStateHTML(key)}</div><p class="note">Doesn't move in this change. Its spike is set ${from ? 'at ' + esc(steps[from].label) : 'in Presets'}.</p>
+      <div class="row"><button class="tb" onclick="goStep(${jsq(steps[from].id)});spkSel(${jsq(key)})">Go there</button></div></div>`;
+  }
+  const o = spkTargetObj(t) || {}, ids = (o.spikeIds || []).map(String), txt = String(o.spike || '');
+  const none = !!o.noSpike && !ids.length && !txt.trim(), own = ids.length || txt.trim() || o.noSpike;
+  if (!own && t.kind === 'move') { const ps = presetSpike(key); if (ps) h += `<p class="note">Nothing picked for this move, so it uses its Presets spike: ${spkStateHTML(key)}</p>`; }
+  const list = spkList().filter(e => !e.hidden || ids.includes(e.id));
+  h += `<div class="spk-grid">${list.map(e => { const on = ids.includes(e.id); return `<button class="spk-opt${on ? ' on' : ''}"${ed ? '' : ' disabled'} aria-pressed="${on}" onclick="spkToggle(${jsq(key)}, ${jsq(e.id)})">${spkSwatch(e, 32, 16)}<span><b>${esc(spikeName(e))}</b><small>${esc(e.label ? spkTapeName(e) : (MARK_NAMES[e.mark || 'corners'] || ''))}</small></span></button>`; }).join('')}
+    <button class="spk-opt nos${none ? ' on' : ''}"${ed ? '' : ' disabled'} aria-pressed="${none}" onclick="spkToggle(${jsq(key)}, '__none')"><span class="spk-none" aria-hidden="true">&nbsp;</span><span><b>No spike</b><small>a black box on the cue sheet</small></span></button></div>`;
+  if (!list.length) h += `<p class="note">No tape colours for this show yet. Add one in the tape key below.</p>`;
+  h += `<div class="field">Other spike, typed<input id="spk-txt" value="${esc(txt)}" placeholder="e.g. glow tape"${ed ? '' : ' disabled'} onchange="spkTyped(${jsq(key)}, this.value)" onkeydown="if(event.key==='Enter')this.blur()" autocomplete="off"></div>`;
+  return h + `<p class="note">${t.kind === 'preset' ? "Saves to this piece's preset on the cue sheet." : 'Saves to this move on the cue sheet.'}</p></div>`;
+}
+function spkToggle(key, id) {
+  const t = spkTarget(key); if (!t) return;
+  const o = spkTargetObj(t) || {}, pc = pieceList().find(x => x.key === key);
+  let ids = (o.spikeIds || []).map(String), none = !!o.noSpike, txt = String(o.spike || '');
+  if (id === '__none') { none = !none; if (none) { ids = []; txt = ''; } }
+  else { const i = ids.indexOf(id); if (i >= 0) ids.splice(i, 1); else ids.push(id); none = false; }
+  cueOp({ t: 'spk', kind: t.kind, cue: t.cue, key, name: pc ? pc.name : key, ids, txt, none });
+}
+function spkTyped(key, v) {
+  const t = spkTarget(key); if (!t) return;
+  const o = spkTargetObj(t) || {}, pc = pieceList().find(x => x.key === key);
+  v = String(v || '').trim(); if (v === String(o.spike || '').trim()) return;
+  cueOp({ t: 'spk', kind: t.kind, cue: t.cue, key, name: pc ? pc.name : key, ids: (o.spikeIds || []).map(String), txt: v, none: v ? false : !!o.noSpike });
+}
+function spkKeyHTML(ed) {
+  const house = _spkScope === 'house', d = _spk || { house: [] };
+  const list = house ? (d.house || []).map(x => Object.assign({}, x, { _src: 'house' })) : spkResolved();
+  const b = (s, l) => `<button class="${_spkScope === s ? 'on' : ''}" onclick="_spkScope='${s}';renderSide()">${l}</button>`;
+  return `<section><h2>Tape key</h2><div class="seg2">${b('show', 'This show')}${b('house', 'House colours')}</div>
+    <p class="note">${house ? 'Every show starts with these. A show can relabel one, or hide one it isn’t using.' : 'What each tape means on this show. Tap one to change it.'}</p><div class="plist">`
+    + (list.length ? list.map(e => `<button class="prow spk-key${e._hid ? ' hid' : ''}"${ed ? '' : ' disabled'} onclick="spkEdit('${house ? 'house' : 'show'}', ${jsq(e.id)})">${spkSwatch(e, 34, 17)}<span class="pnm"><b>${esc(spikeName(e))}</b><small>${esc([e.label ? spkTapeName(e) : '', MARK_NAMES[e.mark || 'corners']].filter(Boolean).join(' · '))}${e._hid ? ' · not used this show' : e._over ? ' · changed for this show' : ''}</small></span></button>`).join('')
+      : `<p class="note">No colours yet.</p>`)
+    + `</div>${ed ? `<div class="row"><button class="tb pri" onclick="spkEdit('${house ? 'house' : 'show'}', null)">+ Add a colour</button></div>` : ''}</section>`;
+}
+function spkEdit(scope, id) {
+  const d = _spk || { house: [], shows: {} };
+  const e = id ? (scope === 'house' ? Object.assign({ _src: 'house' }, (d.house || []).find(x => x.id === id)) : spkResolved().find(x => x.id === id)) : null;
+  const v = {}; SPK_FIELDS.forEach(k => v[k] = e && e[k] != null ? String(e[k]) : ''); if (!v.mark) v.mark = 'corners';
+  _spkEd = { scope, src: e ? e._src : scope, id: e ? e.id : null, v, two: !!(e && e.c2), hid: !!(e && e._hid), over: !!(e && e._over) };
+  if (_pop) closePop(true);
+  renderSide();
+}
+function spkEditorHTML() {
+  const E = _spkEd, v = E.v, pal = spkPalette().slice();
+  [[v.c1n, v.c1], [v.c2n, v.c2]].forEach(([n, c]) => { if (c && !pal.some(t => t[1] === c)) pal.push([n || 'Other', c]); });
+  E._pal = pal;
+  const sw = slot => `<div class="sw-grid">${pal.map(([n, c], i) => { const on = (slot === 1 ? v.c1 : v.c2) === c; return `<button class="sw${on ? ' on' : ''}" aria-pressed="${on}" onclick="spkEdTape(${slot}, ${i})"><i style="background:${esc(c)}"></i>${esc(n)}</button>`; }).join('')}</div>`;
+  const where = E.scope === 'house' ? 'House colour, for every show' : E.src === 'house' ? 'House colour, changed for this show only' : 'Just for this show';
+  let h = `<section class="spk-ed"><h2>${E.id ? 'Edit colour' : 'New colour'}</h2><p class="note">${where}</p>
+    <div class="spk-prev">${spkSwatch(v.c1 ? Object.assign({}, v, E.two ? {} : { c2: '' }) : { c1: '#555' }, 48, 24)}<b>${esc(v.label || spkTapeName(E.two ? v : Object.assign({}, v, { c2: '' })) || 'Pick a tape')}</b></div>
+    <div class="field">What it marks<input id="spk-ed-label" value="${esc(v.label)}" placeholder="e.g. Act 1, or Scrooge's house" oninput="_spkEd.v.label=this.value" autocomplete="off"></div>
+    <div class="field">Tape</div>${sw(1)}
+    <label class="row note" style="gap:6px"><input type="checkbox"${E.two ? ' checked' : ''} onchange="_spkEd.two=this.checked;renderSide()"> Two colours</label>
+    ${E.two ? `<div class="field">Second colour</div>${sw(2)}` : ''}
+    <div class="field">Where the tape goes on the piece</div><div class="chips">${SPK_MARKS.map(([m, l]) => `<button class="chip${v.mark === m ? ' on' : ''}" aria-pressed="${v.mark === m}" onclick="_spkEd.v.mark='${m}';renderSide()">${l}</button>`).join('')}</div>
+    <div class="field">Note<input id="spk-ed-note" value="${esc(v.note)}" placeholder="Optional" oninput="_spkEd.v.note=this.value" autocomplete="off"></div>
+    <div class="row"><button class="tb" onclick="_spkEd=null;renderSide()">Cancel</button><button class="tb pri" onclick="spkEdSave()">Save colour</button></div>`;
+  if (E.id) {
+    h += `<div class="row">`;
+    if (E.scope === 'show' && E.src === 'house') h += `<button class="tb" onclick="spkEdHide(${!E.hid})">${E.hid ? 'Use on this show' : 'Not used this show'}</button>${E.over ? `<button class="tb" onclick="spkEdReset()">Back to the house colour</button>` : ''}`;
+    else h += `<button class="tb warn" onclick="spkEdDelete()">Delete</button>`;
+    h += `</div>`;
+  }
+  return h + `</section>`;
+}
+function spkEdTape(slot, i) {
+  const t = (_spkEd._pal || spkPalette())[i]; if (!t) return;
+  if (slot === 1) { _spkEd.v.c1 = t[1]; _spkEd.v.c1n = t[0]; } else { _spkEd.v.c2 = t[1]; _spkEd.v.c2n = t[0]; }
+  renderSide();
+}
+const spkUid = () => 'sp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function spkEdSave() {
+  const E = _spkEd, v = Object.assign({}, E.v);
+  v.label = String(v.label || '').trim(); v.note = String(v.note || '').trim();
+  if (!v.c1) { toast('Pick a tape colour'); return; }
+  if (!E.two) { v.c2 = ''; v.c2n = ''; v.style = ''; } else if (!v.c2) { toast('Pick the second colour'); return; } else if (!v.style) v.style = 'tab';
+  const d = _spk || { house: [], shows: {} }, name = showName || '';
+  if (E.scope === 'house') { const was = (d.house || []).find(x => x.id === E.id) || {}; spkCommit({ t: 'houseUpsert', e: Object.assign({}, was, v, { id: E.id || spkUid() }) }); }
+  else if (E.src === 'house') {
+    const base = (d.house || []).find(x => x.id === E.id) || {}, cur = ((d.shows || {})[scriptId] || {}).over || {}, over = {};
+    SPK_FIELDS.forEach(k => { if ((v[k] || '') !== String(base[k] || '')) over[k] = v[k]; });
+    if (cur[E.id] && cur[E.id].hidden) over.hidden = true;
+    spkCommit({ t: 'showOver', sid: scriptId, name, id: E.id, over: Object.keys(over).length ? over : null });
+  } else { const rec = ((d.shows || {})[scriptId] || {}), was = (rec.extra || []).find(x => x.id === E.id) || {}; spkCommit({ t: 'showUpsert', sid: scriptId, name, e: Object.assign({}, was, v, { id: E.id || spkUid() }) }); }
+  _spkEd = null; renderSide(); toast('Colour saved');
+}
+function spkEdHide(h) {
+  const E = _spkEd, cur = Object.assign({}, ((((_spk || {}).shows || {})[scriptId] || {}).over || {})[E.id]);
+  if (h) cur.hidden = true; else delete cur.hidden;
+  spkCommit({ t: 'showOver', sid: scriptId, name: showName || '', id: E.id, over: Object.keys(cur).length ? cur : null });
+  _spkEd = null; renderSide(); toast(h ? 'Not used on this show' : 'Back on this show');
+}
+function spkEdReset() {
+  const E = _spkEd;
+  spkCommit({ t: 'showOver', sid: scriptId, name: showName || '', id: E.id, over: E.hid ? { hidden: true } : null });
+  _spkEd = null; renderSide(); toast('Back to the house colour');
+}
+function spkEdDelete() {
+  const E = _spkEd;
+  if (!confirm(E.scope === 'house' ? 'Delete this house colour from every show?' : 'Delete this colour from this show?')) return;
+  spkCommit(E.scope === 'house' ? { t: 'houseDelete', id: E.id } : { t: 'showDelete', sid: scriptId, id: E.id });
+  _spkEd = null; renderSide(); toast('Colour deleted');
+}
+if (cuePend.length) setTimeout(cueFlush, 1500);
+if (spkPend.length) setTimeout(spkFlush, 1500);
 
 if (!document.getElementById('app').hidden) load();
 </script>
