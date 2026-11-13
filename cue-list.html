@@ -1915,6 +1915,7 @@ function normalizePresets(v){
                  spikeIds: Array.isArray(e.spikeIds) ? e.spikeIds.map(String) : [],
                  spike: String(e.spike || '') };
       if (e.custom) out[k].custom = true;   // added by hand, not from the plot
+      if (e.inter) { out[k].inter = true; out[k].who = String(e.who || ''); out[k].order = +e.order || 0; }   // an intermission preset task
       const ph = presetPhotos(e);
       if (ph.length) out[k].photos = ph;
     });
@@ -5217,7 +5218,7 @@ function saveMoveEdits(forceRead){
       if (!data.presets[k]) data.presets[k] = JSON.parse(JSON.stringify(oursP[k]));
       else data.presets[k] = csMergeObj(base, oursP[k], theirs, 'presets.' + k, clashes, PRESET_DEEP);
       // A preset added by hand has no set change to name it: send its name too.
-      if (oursP[k] && oursP[k].custom && oursP[k].piece && !(theirs && theirs.piece && theirs.piece !== k)) data.presets[k].piece = oursP[k].piece;
+      if (oursP[k] && (oursP[k].custom || oursP[k].inter) && oursP[k].piece && !(theirs && theirs.piece && theirs.piece !== k)) data.presets[k].piece = oursP[k].piece;
       pApplied.push(k);
     });
     const lApplied = [];
@@ -8026,6 +8027,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v4</div>
 </body>
 </html>

@@ -1037,6 +1037,9 @@
   }
 
   /* ── Presets section at the top of the plot ── */
+  /* Intermission preset: the Presets look, inside the cue list under the Intermission header */
+  tr.int-host > td { padding: 8px 0 4px !important; background: transparent !important; border: 0 !important; }
+  .int-sec { margin: 0; }
   .pr-sec { margin: 0 0 14px; border: 1px solid var(--grid); border-radius: 10px; background: var(--paper); overflow: hidden; }
   .pr-sec-h { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; color: var(--ink, var(--text)); font: 15px 'DM Sans', system-ui, sans-serif; min-height: 46px; }
   .pr-sec-h b { font-weight: 700; font-size: 1.05em; }
@@ -1934,6 +1937,7 @@ function normalizePresets(v){
                  spikeIds: Array.isArray(e.spikeIds) ? e.spikeIds.map(String) : [],
                  spike: String(e.spike || '') };
       if (e.custom) out[k].custom = true;   // added by hand, not from the plot
+      if (e.inter) { out[k].inter = true; out[k].who = String(e.who || ''); out[k].order = +e.order || 0; }   // an intermission preset task
       const ph = presetPhotos(e);
       if (ph.length) out[k].photos = ph;
     });
@@ -2189,6 +2193,7 @@ function render(){
       if (!firstBand && !plot) body += '<tr class="scene-gap"><td colspan="5"></td></tr>';
       body += `<tr class="scene"><td colspan="${NC}">${esc(g.label)}${
         g.page != null ? `<span class="scene-pg">pg. ${esc(g.page)}</span>` : ''}</td></tr>`;
+      if (/intermission/i.test(g.label)) { const ih = interSectionHTML(); if (ih) body += `<tr class="int-host"><td colspan="${NC}">${ih}</td></tr>`; }
       if (g.id) body += addGap(g.id);
       band = false; firstBand = false;
     }
@@ -2494,6 +2499,66 @@ function prRemoveCustom(key){
   editedPresets[key] = true; saveDraft(); markDirty();
   closePresetSheet();
 }
+// ── INTERMISSION PRESET ─────────────────────────────────────────────────────
+// A list of jobs for intermission (sweep confetti, reset the desk), shown
+// under the scene header named "Intermission". Same columns as Presets, plus
+// Who. Tasks live in presets under keys "int:<id>" with inter: true, so they
+// save, merge, take photos and open in the same panel as presets do; they
+// never count as pieces (not on the plot, not on the stage map).
+let _intOpen = lsGet('mmt_cuelist_int_open', '1') === '1';
+function interKeys(){
+  return Object.keys(presets).filter(k => presets[k] && presets[k].inter)
+    .sort((a, b) => (+presets[a].order || 0) - (+presets[b].order || 0) || String(presets[a].piece).localeCompare(String(presets[b].piece)));
+}
+function interSectionHTML(){
+  if (activeType || activeWho) return '';
+  const all = interKeys().map(k => ({ ...presets[k], key: k }));
+  const rows = all.filter(r => {
+    if (!query) return true;
+    const h = [r.piece, r.location, r.notes, r.who].filter(Boolean).join(' ').toLowerCase();
+    return query.split(/\s+/).filter(Boolean).every(tok => h.includes(tok));
+  });
+  if (query && !rows.length) return '';
+  if (!all.length && !editMode) return '';
+  const open = _intOpen || !!query;
+  let band = false;
+  return `<section class="pr-sec int-sec${open ? ' open' : ''}" id="int-sec"><div class="pr-sec-top">
+    <button type="button" class="pr-sec-h" onclick="intSecToggle()" aria-expanded="${open}" aria-controls="int-sec-body">
+      <svg class="pr-sec-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      <b>Intermission preset</b><span>${all.length} task${all.length === 1 ? '' : 's'}</span>
+    </button></div>
+    <div class="pr-sec-body" id="int-sec-body"${open ? '' : ' hidden'}>${rows.length ? `<table class="cs pr-tbl">
+      <colgroup><col style="width:22%"><col style="width:22%"><col style="width:18%"><col style="width:24%"><col style="width:14%"></colgroup>
+      <thead><tr><th>Task</th><th>Location</th><th>Spike</th><th>Notes</th><th>Who</th></tr></thead>
+      <tbody>${rows.map(r => presetRowHTML(r, band = !band)).join('')}</tbody></table>`
+      : '<div class="cs-empty"><b>No intermission tasks yet.</b>Add one below.</div>'}${editMode ? `<form class="pr-add" onsubmit="event.preventDefault(); interAdd(this.elements.n.value); this.reset();">
+      <input name="n" placeholder="Add an intermission task (e.g. sweep confetti, reset Scrooge's desk)" autocomplete="off" aria-label="New intermission task">
+      <button type="submit" class="top-btn">+ Add</button></form>` : ''}</div>
+  </section>`;
+}
+function intSecToggle(open){
+  _intOpen = typeof open === 'boolean' ? open : !_intOpen;
+  lsSet('mmt_cuelist_int_open', _intOpen ? '1' : '0');
+  const sec = document.getElementById('int-sec'); if (!sec) { render(); return; }
+  sec.classList.toggle('open', _intOpen);
+  sec.querySelector('.pr-sec-h').setAttribute('aria-expanded', String(_intOpen));
+  document.getElementById('int-sec-body').hidden = !_intOpen;
+}
+function interAdd(name){
+  name = String(name || '').trim().replace(/\s+/g, ' '); if (!name || !editMode) return;
+  const key = 'int:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const last = interKeys().reduce((m, k) => Math.max(m, +presets[k].order || 0), 0);
+  presets[key] = { piece: name, inter: true, order: last + 1, who: '', location: '', notes: '', hidden: false, spikeIds: [], spike: '' };
+  editedPresets[key] = true; saveDraft(); markDirty();
+  _intOpen = true; render(); openPresetSheet(key);
+}
+function interRemove(key){
+  const e = presets[key]; if (!e || !e.inter) return;
+  if (!confirm('Remove "' + (e.piece || 'this task') + '" from the intermission preset?')) return;
+  e.inter = false; e.hidden = true;
+  editedPresets[key] = true; saveDraft(); markDirty();
+  closePresetSheet();
+}
 // Old links and buttons that asked for the Before House sheet: open Presets
 // on the plot and bring it into view.
 function prShow(){
@@ -2574,7 +2639,8 @@ function presetRowHTML(r, band){
     <td><span class="mv-piece">${esc(r.piece)}</span>${r.hidden ? '<span class="pr-offtag">not on plot</span>' : ''}${prPhotosHTML(r.key, r.photos)}</td>
     <td class="cs-action" data-pf="location">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
     <td class="cs-line" data-pf="spike">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : (editMode ? '<span class="pr-addspike">+ Spike</span>' : '')}</td>
-    <td class="cs-notes" data-pf="notes">${esc(r.notes || '')}</td>
+    <td class="cs-notes" data-pf="notes">${esc(r.notes || '')}</td>${r.inter ? `
+    <td class="cs-who">${esc(r.who || '')}</td>` : ''}
   </tr>`;
 }
 
@@ -5344,7 +5410,7 @@ function saveMoveEdits(forceRead){
       if (!data.presets[k]) data.presets[k] = JSON.parse(JSON.stringify(oursP[k]));
       else data.presets[k] = csMergeObj(base, oursP[k], theirs, 'presets.' + k, clashes, PRESET_DEEP);
       // A preset added by hand has no set change to name it: send its name too.
-      if (oursP[k] && oursP[k].custom && oursP[k].piece && !(theirs && theirs.piece && theirs.piece !== k)) data.presets[k].piece = oursP[k].piece;
+      if (oursP[k] && (oursP[k].custom || oursP[k].inter) && oursP[k].piece && !(theirs && theirs.piece && theirs.piece !== k)) data.presets[k].piece = oursP[k].piece;
       pApplied.push(k);
     });
     const lApplied = [];
@@ -7127,7 +7193,7 @@ document.addEventListener('keydown', e => {
 // Same bottom panel as a move: where the piece starts, its spike, notes, and
 // whether it prints on the plot. Edits go through presetField, so drafts, the
 // unsaved count and the careful save all cover them.
-function presetList(){ return allPieces().map(p => p.key); }
+function presetList(){ return presetSheet && /^int:/.test(presetSheet.key) ? interKeys() : allPieces().map(p => p.key); }
 function presetEntry(key){
   if (!presets[key]){
     const p = allPieces().find(x => x.key === key);
@@ -7204,15 +7270,19 @@ function renderPresetPanel(){
   document.getElementById('ms-body').innerHTML = `
     <div class="ms-head">
       <span class="ms-num" style="font-size:19px">${esc(e.piece || key)}</span>
-      <span class="ms-of">· presets${e.custom ? ' · added by hand' : ''} · ${at + 1} of ${keys.length}</span>
+      <span class="ms-of">· ${e.inter ? 'intermission' : 'presets'}${e.custom ? ' · added by hand' : ''} · ${at + 1} of ${keys.length}</span>
       <span style="flex:1"></span>
       <button class="ms-icon" aria-label="Previous piece" onclick="presetStep(-1)"${at <= 0 ? ' disabled' : ''}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
       <button class="ms-icon" aria-label="Next piece" onclick="presetStep(1)"${at >= keys.length - 1 ? ' disabled' : ''}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
+    ${e.inter ? `<div class="ms-grid ms-g2 ms-even">
+      <label class="ms-f"><span>Task</span><input id="ps-piece" class="ms-in" value="${esc(e.piece || '')}" autocomplete="off" oninput="presetField('piece', this.value)"></label>
+      <label class="ms-f"><span>Who</span>${inp('who', 'e.g. Kyle B')}</label>
+    </div>` : ''}
     <div class="ms-grid ms-g2 ms-even">
-      <label class="ms-f"><span>Preset location</span>${inp('location', 'e.g. SL wing, upstage')}</label>
+      <label class="ms-f"><span>${e.inter ? 'Location' : 'Preset location'}</span>${inp('location', 'e.g. SL wing, upstage')}</label>
       <label class="ms-f"><span>Note</span>${inp('notes', 'Optional')}</label>
     </div>
     <div class="ms-spike-head"><span>Spike</span><a href="${spkMapURL(scriptId, scriptName)}" target="_blank" rel="noopener">Edit spike map ›</a></div>
@@ -7222,7 +7292,7 @@ function renderPresetPanel(){
     <div class="ps-photos-head">Photos</div>
     <div class="ps-photos" id="ps-photos">${phTilesHTML(key)}</div>
     <div class="ms-btns">
-      <button class="ms-btn${e.hidden ? '' : ' dashed'}" onclick="presetField('hidden', ${!e.hidden}); renderPresetPanel();">${e.hidden ? 'Put back on the plot' : 'Leave off the plot'}</button>
+      ${e.inter ? `<button class="ms-btn" style="color:#b42318" onclick="interRemove('${esc(key)}')">Remove task</button>` : `<button class="ms-btn${e.hidden ? '' : ' dashed'}" onclick="presetField('hidden', ${!e.hidden}); renderPresetPanel();">${e.hidden ? 'Put back on the plot' : 'Leave off the plot'}</button>`}
       ${e.custom ? `<button class="ms-btn" style="color:#b42318" onclick="prRemoveCustom('${esc(key)}')">Remove item</button>` : ''}
       <span style="flex:1"></span>
       <button class="ms-btn primary" onclick="closePresetSheet()">${presetSheet.quick ? 'Save' : 'Close'}</button>
@@ -8153,6 +8223,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v3 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v4 dev</div>
 </body>
 </html>
