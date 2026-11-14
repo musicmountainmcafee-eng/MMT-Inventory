@@ -2750,7 +2750,9 @@ function spkSVG(e, w, h){
 // piece's colour shows on every move of it (and in the plot and Excel) until a
 // move is given its own.
 function spkEff(m){
-  if (!m || m.spike || (Array.isArray(m.spikeIds) && m.spikeIds.length) || m.noSpike) return m;
+  // noSpike: true = picked "No spike"; 'auto' = a new move, grey until a
+  // spike is picked, but its piece's Presets spike still shows through.
+  if (!m || m.spike || (Array.isArray(m.spikeIds) && m.spikeIds.length) || m.noSpike === true) return m;
   const k = String(m.piece || '').trim().toLowerCase();
   if (!k || typeof presets === 'undefined' || !presets) return m;
   let p = presets[k];
@@ -2767,6 +2769,7 @@ function spkOfMove(m, sid){
 // Chips for display: tape drawing + label, then anything typed.
 // "No spike" (picked here or on the stage map): a black box, only when
 // nothing else is picked or typed.
+function spkNoneOn(m){ const e = spkEff(m); return spkIsNone(e) && !e._inh; }   // "No spike" shows as picked
 function spkIsNone(m){ return !!(m && m.noSpike && !m.spike && !(Array.isArray(m.spikeIds) && m.spikeIds.length)); }
 function spkNoneHTML(m){ return `<span class="spk-none" role="img" aria-label="No spike" title="${m && m._inh ? 'No spike (from Presets)' : 'No spike needed'}"></span>`; }
 function spkChipsHTML(m, sid){
@@ -2819,7 +2822,7 @@ function cueRow(c, band){
   const notes = c.notes || c.description || '';
   const isShift = c.type === SHIFT_TYPE_ID;
   let moves = isShift ? (c.moves || []) : [];
-  if (editMode && isShift && !moves.length) moves = [{ piece:'', action:'', who:'', spike:'', notes:'' }];
+  if (editMode && isShift && !moves.length) moves = [{ piece:'', action:'', who:'', spike:'', notes:'', noSpike:'auto' }];
   const open = (c.id in expanded) ? expanded[c.id] : true;
   const hasMoves = moves.length > 0;
 
@@ -2978,7 +2981,7 @@ function plRow(c, band, mode){
   let moves = isShift ? (c.moves || []) : [];
   // Edit mode: an empty set change still gets a row to tap, and every change
   // stays open so each move can be reached.
-  if (editMode && isShift && !moves.length) moves = [{ piece:'', action:'', who:'', spike:'', notes:'' }];
+  if (editMode && isShift && !moves.length) moves = [{ piece:'', action:'', who:'', spike:'', notes:'', noSpike:'auto' }];
   const open = editMode ? true : (c.id in expanded) ? expanded[c.id] : true;
   const merged = mode !== 'full', compact = mode === 'compact';
 
@@ -5319,7 +5322,7 @@ function mvAddRow(cueId){
   const c = cues.find(x => String(x.id) === String(cueId));
   if (!c) return;
   c.moves = c.moves || [];
-  c.moves.push({ id: 'mv' + Date.now() + Math.random().toString(36).slice(2, 6), piece:'', action:'', who:'', spike:'', notes:'' });
+  c.moves.push({ id: 'mv' + Date.now() + Math.random().toString(36).slice(2, 6), piece:'', action:'', who:'', spike:'', notes:'', noSpike:'auto' });
   editedCues[cueId] = true;
   saveDraft(); markDirty(); render();
 }
@@ -6206,7 +6209,7 @@ function renderBox(){
     body = whoPanelWide() ? inp('Type a name or role, or tap below') : inp('Type or tap names') + `<div class="box-scroll wl-in" id="box-wl">${whoListHTML()}</div>`;
   } else if (f === 'spike') {
     const ids = boxEd.kind === 'preset' ? (presetEntry(boxEd.key).spikeIds || []) : ((boxMv() || {}).spikeIds || []);
-    body = `<div class="box-spikes">${spkPickerHTML(scriptId, ids, 'boxSpike', (boxEd.kind === 'preset' ? presetEntry(boxEd.key) : (boxMv() || {})).noSpike)}</div>` + inp('Other spike, typed (optional)');
+    body = `<div class="box-spikes">${spkPickerHTML(scriptId, ids, 'boxSpike', spkNoneOn(boxEd.kind === 'preset' ? presetEntry(boxEd.key) : (boxMv() || {})))}</div>` + inp('Other spike, typed (optional)');
   } else {
     body = inp(f === 'cueLine' ? 'Type the line this change goes on' : f === 'piece' ? 'e.g. Main Curtain' : f === 'location' ? 'e.g. SL wing, upstage' : 'Note', f === 'piece' ? ' list="box-pieces"' : '')
       + (f === 'piece' ? `<datalist id="box-pieces">${allPieces().map(x => `<option value="${esc(x.piece)}"></option>`).join('')}</datalist>` : '');
@@ -6269,7 +6272,7 @@ function boxWing(part, val){
   if (done) closeBox(); else renderBox();
 }
 function boxSpike(id){
-  if (id === '__none') { const on = !(boxEd.kind === 'preset' ? presetEntry(boxEd.key) : (boxMv() || {})).noSpike;
+  if (id === '__none') { const on = !spkNoneOn(boxEd.kind === 'preset' ? presetEntry(boxEd.key) : (boxMv() || {}));
     if (on) { boxSet('spikeIds', []); boxSet('spike', ''); } boxSet('noSpike', on || undefined); closeBox(); return; }
   if ((boxEd.kind === 'preset' ? presetEntry(boxEd.key) : (boxMv() || {})).noSpike) boxSet('noSpike', undefined);
   const cur = (boxEd.kind === 'preset' ? (presetEntry(boxEd.key).spikeIds || []) : ((boxMv() || {}).spikeIds || [])).slice();
@@ -7669,7 +7672,7 @@ function openMove(cueId, idx, added){
   if (!c) return;
   c.moves = c.moves || [];
   // An empty set change shows a "Tap to add a move" row with nothing behind it.
-  if (!c.moves.length){ c.moves.push({ id: 'mv' + Date.now() + Math.random().toString(36).slice(2, 6), piece:'', action:'', who:'', spike:'', notes:'' }); idx = 0; added = true; }
+  if (!c.moves.length){ c.moves.push({ id: 'mv' + Date.now() + Math.random().toString(36).slice(2, 6), piece:'', action:'', who:'', spike:'', notes:'', noSpike:'auto' }); idx = 0; added = true; }
   if (idx >= c.moves.length) idx = c.moves.length - 1;
   {
     const mvId = c.moves[idx] && c.moves[idx].id;
@@ -7781,7 +7784,7 @@ function sheetAddMove(cueId){
   c.moves = c.moves || [];
   // A lone blank placeholder is reused rather than stacking another blank.
   if (c.moves.length && blankMove(c.moves[c.moves.length - 1])) return openMove(c.id, c.moves.length - 1, true);
-  c.moves.push({ id: 'mv' + Date.now() + Math.random().toString(36).slice(2, 6), piece:'', action:'', who:'', spike:'', notes:'' });
+  c.moves.push({ id: 'mv' + Date.now() + Math.random().toString(36).slice(2, 6), piece:'', action:'', who:'', spike:'', notes:'', noSpike:'auto' });
   openMove(c.id, c.moves.length - 1, true);
 }
 
@@ -7973,7 +7976,7 @@ function sheetSpike(id){
   const c = sheetCue();
   if (!c || !c.moves || !c.moves[moveSheet.idx]) return;
   const m = c.moves[moveSheet.idx];
-  if (id === '__none') { const on = !m.noSpike; if (on) { mvField(c.id, moveSheet.idx, 'spikeIds', []); mvField(c.id, moveSheet.idx, 'spike', ''); const t = document.querySelector('input[oninput^="sheetField(\'spike\'"]'); if (t) t.value = ''; }
+  if (id === '__none') { const on = !spkNoneOn(m); if (on) { mvField(c.id, moveSheet.idx, 'spikeIds', []); mvField(c.id, moveSheet.idx, 'spike', ''); const t = document.querySelector('input[oninput^="sheetField(\'spike\'"]'); if (t) t.value = ''; }
     mvField(c.id, moveSheet.idx, 'noSpike', on || undefined); const bx = document.getElementById('ms-spikes'); if (bx) bx.innerHTML = spkPickerHTML(scriptId, on ? [] : m.spikeIds, 'sheetSpike', on); return; }
   if (m.noSpike) mvField(c.id, moveSheet.idx, 'noSpike', undefined);
   const cur = Array.isArray(m.spikeIds) ? m.spikeIds.slice() : [];
@@ -8057,7 +8060,7 @@ function renderMoveSheet(){
     </div>
     ${whoPillsHTML(whoOn)}
     <div class="ms-spike-head"><span>Spike</span></div>
-    <div id="ms-spikes">${spkPickerHTML(scriptId, m.spikeIds, 'sheetSpike', m.noSpike)}</div>
+    <div id="ms-spikes">${spkPickerHTML(scriptId, m.spikeIds, 'sheetSpike', spkNoneOn(m))}</div>
     <input id="ms-spike" class="ms-in" style="margin:8px 0 6px" value="${esc(m.spike || '')}" placeholder="Other spike, typed (optional)"
       autocomplete="off" oninput="sheetField('spike', this.value)">
     ${moveToHTML(c)}
@@ -8556,6 +8559,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v14 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v15 dev</div>
 </body>
 </html>

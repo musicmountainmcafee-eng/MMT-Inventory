@@ -265,7 +265,7 @@ try {
     </div>
     <span class="save" id="save-state" aria-live="polite"></span>
     <div class="pr-faces" id="pr-faces" hidden aria-label="Who else is here"></div>
-    <div id="build-tag" title="Stage map version">Stage map 11.13 v3</div>
+    <div id="build-tag" title="Stage map version">Stage map 11.13 v4</div>
   </header>
   <div class="main">
     <div class="stage" id="stage">
@@ -378,7 +378,7 @@ function buildSteps() {
     const wing = {};
     (c.moves || []).forEach(m => { const k = String(m.piece || '').trim().toLowerCase(); if (k && !wing[k]) wing[k] = { from: String(m.wing || '').trim(), to: String(m.wingTo || '').trim(), act: String(m.action || '').trim() }; });
     const spk = {};
-    (c.moves || []).forEach(m => { const k = String(m.piece || '').trim().toLowerCase(); if (k && !spk[k] && ((m.spikeIds || []).length || m.spike || m.noSpike)) spk[k] = { ids: (m.spikeIds || []).map(String), txt: String(m.spike || '').trim(), none: !!m.noSpike && !(m.spikeIds || []).length && !String(m.spike || '').trim() }; });
+    (c.moves || []).forEach(m => { const k = String(m.piece || '').trim().toLowerCase(); if (k && !spk[k] && ((m.spikeIds || []).length || m.spike || m.noSpike)) spk[k] = { ids: (m.spikeIds || []).map(String), txt: String(m.spike || '').trim(), none: !!m.noSpike && !(m.spikeIds || []).length && !String(m.spike || '').trim(), auto: m.noSpike === 'auto' }; });
     return { id: c.id, label: '#' + n + (c.cueLine ? ' · ' + c.cueLine : '') + (c.page ? ' (pg. ' + c.page + ')' : ''), moves: (c.moves || []).map(m => String(m.piece || '').trim().toLowerCase()).filter(Boolean), info, spk, wing };
   }));
 }
@@ -1135,7 +1135,7 @@ function presetSpike(key) {
 // The spike a piece sits on at a step: from the last change at or before it
 // that moved the piece, else its preset spike.
 function spikeAt(key, i) {
-  for (let j = i; j >= 1; j--) { const st = steps[j]; if (st.moves.includes(key)) { if (st.spk && st.spk[key]) return st.spk[key]; break; } }
+  for (let j = i; j >= 1; j--) { const st = steps[j]; if (st.moves.includes(key)) { if (st.spk && st.spk[key]) return st.spk[key].auto && st.spk[key].none ? (presetSpike(key) || st.spk[key]) : st.spk[key]; break; } }
   return presetSpike(key);
 }
 function spikeEntries(key, i) {
@@ -1472,7 +1472,7 @@ function spkPieceHTML(key, ed) {
       <div class="row"><button class="tb" onclick="goStep(${jsq(steps[from].id)});spkSel(${jsq(key)})">Go there</button></div></div>`;
   }
   const o = spkTargetObj(t) || {}, ids = (o.spikeIds || []).map(String), txt = String(o.spike || '');
-  const none = !!o.noSpike && !ids.length && !txt.trim(), own = ids.length || txt.trim() || o.noSpike;
+  const none = !!o.noSpike && !!(spikeAt(key, stepIdx) || {}).none && !ids.length && !txt.trim(), own = ids.length || txt.trim() || o.noSpike === true;
   if (!own && t.kind === 'move') { const ps = presetSpike(key); if (ps) h += `<p class="note">Nothing picked for this move, so it uses its Presets spike: ${spkStateHTML(key)}</p>`; }
   const list = spkList().filter(e => !e.hidden || ids.includes(e.id));
   h += `<div class="spk-grid">${list.map(e => { const on = ids.includes(e.id); return `<button class="spk-opt${on ? ' on' : ''}"${ed ? '' : ' disabled'} aria-pressed="${on}" onclick="spkToggle(${jsq(key)}, ${jsq(e.id)})">${spkSwatch(e, 32, 16)}<span><b>${esc(spikeName(e))}</b><small>${esc(e.label ? spkTapeName(e) : (MARK_NAMES[e.mark || 'corners'] || ''))}</small></span></button>`; }).join('')}
@@ -1484,7 +1484,7 @@ function spkPieceHTML(key, ed) {
 function spkToggle(key, id) {
   const t = spkTarget(key); if (!t) return;
   const o = spkTargetObj(t) || {}, pc = pieceList().find(x => x.key === key);
-  let ids = (o.spikeIds || []).map(String), none = !!o.noSpike, txt = String(o.spike || '');
+  let ids = (o.spikeIds || []).map(String), none = !!o.noSpike && !!(spikeAt(key, stepIdx) || {}).none, txt = String(o.spike || '');
   if (id === '__none') { none = !none; if (none) { ids = []; txt = ''; } }
   else { const i = ids.indexOf(id); if (i >= 0) ids.splice(i, 1); else ids.push(id); none = false; }
   cueOp({ t: 'spk', kind: t.kind, cue: t.cue, key, name: pc ? pc.name : key, ids, txt, none });

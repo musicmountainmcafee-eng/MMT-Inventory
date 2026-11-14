@@ -7652,7 +7652,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v4</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v5</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -20940,7 +20940,7 @@ function spkSVG(e, w, h){
 // piece's colour shows on every move of it (and in the plot and Excel) until a
 // move is given its own.
 function spkEff(m){
-  if (!m || m.spike || (Array.isArray(m.spikeIds) && m.spikeIds.length) || m.noSpike) return m;
+  if (!m || m.spike || (Array.isArray(m.spikeIds) && m.spikeIds.length) || m.noSpike === true) return m;   // 'auto' (new move) lets the Presets spike show
   const k = String(m.piece || '').trim().toLowerCase();
   if (!k || typeof presets === 'undefined' || !presets) return m;
   let p = presets[k];
@@ -21485,7 +21485,7 @@ function moveAdd(cueId) {
   if (!Array.isArray(c.moves)) c.moves = [];
   c.moves.push({
     id: 'mv' + Date.now() + Math.random().toString(36).slice(2, 6),
-    piece: '', action: '', who: '', spike: '', notes: ''
+    piece: '', action: '', who: '', spike: '', notes: '', noSpike: 'auto'
   });
   renderCueList();
   renderMoveDrawer(false);
