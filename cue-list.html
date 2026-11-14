@@ -2532,6 +2532,8 @@ function prRemoveCustom(key){
 // save, merge, take photos and open in the same panel as presets do; they
 // never count as pieces (not on the plot, not on the stage map).
 let _intOpen = lsGet('mmt_cuelist_int_open', '1') === '1';
+// The Intermission preset shows under a scene header named "Intermission".
+function hasInterHeader(){ const L = sceneLabels(); return cues.some(c => isSceneCue(c) && /intermission/i.test(String(L[c.id] || c.number || ''))); }
 function interKeys(){
   return Object.keys(presets).filter(k => presets[k] && presets[k].inter)
     .sort((a, b) => (+presets[a].order || 0) - (+presets[b].order || 0) || String(presets[a].piece).localeCompare(String(presets[b].piece)));
@@ -6165,6 +6167,7 @@ function openRowMenu(e, cueId, idx){
     ${real && prev ? `<button type="button" onclick="rowMenuDo('to', '${esc(prev.id)}')">Move to ‹ ${esc(shiftLabel(prev))}</button>` : ''}
     ${real && next ? `<button type="button" onclick="rowMenuDo('to', '${esc(next.id)}')">Move to ${esc(shiftLabel(next))} ›</button>` : ''}
     ${real && m0piece(c, idx) ? `<button type="button" onclick="rowMenuDo('preset')">Move to Presets</button>` : ''}
+    ${real && (m0piece(c, idx) || String(((c.moves || [])[idx] || {}).action || '').trim()) && hasInterHeader() ? `<button type="button" onclick="rowMenuDo('inter')">Move to Intermission preset</button>` : ''}
     <button type="button" onclick="rowMenuDo('script')">Show in script ›</button>
     ${real ? `<button type="button" class="danger" onclick="rowMenuDo('del')">Delete move</button>` : ''}`;
   el.classList.add('open');
@@ -6217,6 +6220,23 @@ function rowMenuDo(what, arg){
     e.hidden = false;
     editedCues[c.id] = true; editedPresets[key] = true; saveDraft(); markDirty(); render();
     toast(name + ' moved to Presets');
+  } else if (what === 'inter') {
+    // Like Move to Presets, but it becomes an intermission task: the piece is
+    // the task, what the move said to do and its notes go in Notes, and it
+    // keeps its wing (as Location), Who and spike. The move leaves this cue.
+    const name = String(m.piece || '').trim() || String(m.action || '').trim(); if (!name) return;
+    if (!confirm('Move ' + name + ' to the Intermission preset? It comes off ' + shiftLabel(c) + '.')) return;
+    const key = 'int:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const last = interKeys().reduce((n, k) => Math.max(n, +presets[k].order || 0), 0);
+    const wing = [m.wing, m.wingTo].map(v => String(v || '').trim()).filter(Boolean).join(' → ');
+    const notes = [String(m.piece || '').trim() ? String(m.action || '').trim() : '', String(m.notes || '').trim()].filter(Boolean).join(' · ');
+    presets[key] = { piece: name, inter: true, order: last + 1, who: String(m.who || '').trim(), location: wing, notes, hidden: false,
+      spikeIds: (m.spikeIds || []).slice(), spike: String(m.spike || '') };
+    if (m.noSpike === true) presets[key].noSpike = true;
+    c.moves.splice(idx, 1);
+    editedCues[c.id] = true; editedPresets[key] = true; saveDraft(); markDirty();
+    _intOpen = true; lsSet('mmt_cuelist_int_open', '1'); render();
+    toast(name + ' moved to the Intermission preset');
   } else if (what === 'del') {
     if (!confirm('Delete ' + ((m.piece || m.action) || 'this move') + '?')) return;
     c.moves.splice(idx, 1);
@@ -8389,6 +8409,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v12</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v13</div>
 </body>
 </html>
