@@ -2287,71 +2287,305 @@ function render(){
 // clean on its own. Ticks save one at a time onto the Sheet's copy, so two
 // people walking opposite wings both keep theirs. "Check" on the Presets bar
 // turns it on for this device.
+// ── PRESET CHECK (shared list) ───────────────────────────────────────────────
+// Before each performance the crew ticks off the Presets, and at intermission
+// the Intermission preset. One shared list per performance, so everyone sees
+// each tick within a few seconds. The performances come from the timer's show
+// schedule (KV 'timer_cfg', only ever read here): a list opens 30 minutes
+// before that performance's call and stays until the next one opens. Each
+// performance keeps its own record (KV 'pchk_<script>_<performance>': ticks,
+// plus a log of every tick and untick with who and when), listed in
+// 'pchk_<script>' for the History view. The same block is in the dev cue
+// sheet and the dev dashboard.
+const PC = (() => {
+  const POLL = 4000, OPEN_BEFORE = 30 * 6e4, STAY = 6 * 36e5;
+  let H = { sid: () => '', show: () => '', who: () => '', changed: () => {}, visible: () => false, dev: false };
+  let cfg = null, cfgAt = 0, cfgBusy = false, cfgFail = false;
+  let doc = null, docKey = '', ops = [], saving = false, recent = [], modal = null, hist = null;
+  const e = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const pad = n => String(n).padStart(2, '0');
+  const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const at = (date, time) => { const a = date.split('-').map(Number), b = time.split(':').map(Number); return new Date(a[0], a[1] - 1, a[2], b[0], b[1] || 0, 0, 0).getTime(); };
+  const dow = date => { const a = date.split('-').map(Number); return ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date(a[0], a[1] - 1, a[2]).getDay()]; };
+  const clock = ms => new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const dayName = ms => { const d = new Date(ms), t = new Date(); return ymd(d) === ymd(t) ? 'today' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); };
+  const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (x) {} return null; };
+  const words = s => String(s || '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(w => w && !/^(a|an|the|\d{4})$/.test(w));
+  function sameShow(a, b) { const x = words(a), y = words(b); if (!x.length || !y.length) return false; const s = x.length <= y.length ? x : y, l = s === x ? y : x; return s.every(w => l.includes(w)); }
+
+  // ── the show schedule (read only) ──
+  function loadCfg(force) {
+    if (cfgBusy || (!force && cfg && Date.now() - cfgAt < 10 * 6e4)) return;
+    cfgBusy = true;
+    jsonp(SCRIPT_URL + '?action=getKV&key=timer_cfg&_=' + Date.now(), d => {
+      cfgBusy = false; let v = d && d.value; if (typeof v === 'string') { try { v = JSON.parse(v); } catch (x) { v = null; } }
+      if (v && typeof v === 'object') { cfg = v; cfgAt = Date.now(); cfgFail = false; } else cfgFail = !cfg;
+      H.changed(); poll();
+    }, () => { cfgBusy = false; cfgFail = !cfg; H.changed(); });
+  }
+  const stages = () => cfg ? [['main', cfg.runs || [], cfg.template || [], -60], ['kids', (cfg.kids || {}).runs || [], (cfg.kids || {}).template || [], -45]] : [];
+  function firstOfRun(r) {
+    const d = new Date(at(r.start, '12:00'));
+    for (let i = 0; i < 400; i++) { const ds = ymd(d); if (ds > r.end) break; const ts = (r.pattern || {})[dow(ds)] || []; if (ts.length && (r.exceptions || []).indexOf(ds) < 0) return ds + 'T' + ts.slice().sort()[0]; d.setDate(d.getDate() + 1); }
+    return '';
+  }
+  function perfsOn(date) {
+    const out = [];
+    stages().forEach(([st, runs, tpl, defOff]) => runs.forEach(r => {
+      if (!r.start || !r.end || date < r.start || date > r.end || (r.exceptions || []).indexOf(date) >= 0) return;
+      if (!sameShow(r.show, H.show())) return;
+      ((r.pattern || {})[dow(date)] || []).forEach(t => {
+        const curtain = at(date, t), c = tpl.find(x => x && x.type === 'anchor' && /^CALL\b/i.test(x.name || ''));
+        let call = curtain + (c && typeof c.offset === 'number' ? c.offset : defOff) * 6e4;
+        // opening night on the Mainstage: call is 6:00 PM (as the timer has it)
+        if (st === 'main' && firstOfRun(r) === date + 'T' + t && at(date, '18:00') < curtain) call = at(date, '18:00');
+        out.push({ key: (st === 'kids' ? 'ct' : '') + date + 'T' + t, show: r.show || H.show(), date, time: t, curtain, call, open: call - OPEN_BEFORE });
+      });
+    }));
+    return out;
+  }
+  const anyRun = () => stages().some(s => s[1].some(r => sameShow(r.show, H.show())));
+  // The performance whose list is open now, or the next one coming.
+  function state() {
+    const now = Date.now(), test = ls('mmt_pchk_test');
+    if (H.dev && test === ymd(new Date())) return { perf: { key: 'test' + test, show: H.show(), date: test, time: '', test: true, curtain: now, call: now, open: now } };
+    if (!cfg) return { why: cfgFail ? 'offline' : 'loading' };
+    let all = [];
+    for (let i = -1; i <= 30; i++) { const d = new Date(now + i * 864e5); all = all.concat(perfsOn(ymd(d))); }
+    all.sort((a, b) => a.open - b.open);
+    const next = all.find(p => p.open > now) || null;
+    // a list stays until the next one opens (or 6 hours past curtain)
+    const cur = all.filter(p => p.open <= now && now <= p.curtain + STAY).pop() || null;
+    return { perf: cur, next, why: cur ? '' : (anyRun() || all.length) ? 'closed' : 'noshow' };
+  }
+  function statusText() {
+    const s = state();
+    if (s.perf) return s.perf.test ? 'Test check (dev only)' : 'Preset check for the ' + clock(s.perf.curtain) + ' show';
+    if (s.why === 'loading') return 'Looking up the show schedule…';
+    if (s.why === 'offline') return "Couldn't read the show schedule.";
+    if (s.next) return 'Preset check opens ' + dayName(s.next.open) + ' at ' + clock(s.next.open) + ', 30 minutes before call.';
+    return s.why === 'noshow' ? 'No performances of this show are on the timer’s schedule.' : 'No performance coming up on the schedule.';
+  }
+  const active = () => !!state().perf;
+
+  // ── what's on the list ──
+  function items() {
+    const P = (typeof presets !== 'undefined' && presets) || {};
+    let pre = [];
+    try { pre = allPieces().map(({ key, piece }) => Object.assign({}, P[key] || {}, { key, name: piece, sec: 'pre' })).filter(r => !r.hidden && !r.inter); } catch (x) {}
+    const int = Object.keys(P).filter(k => P[k] && P[k].inter && !P[k].hidden)
+      .sort((a, b) => (+P[a].order || 0) - (+P[b].order || 0) || String(P[a].piece).localeCompare(String(P[b].piece)))
+      .map(k => Object.assign({}, P[k], { key: k, name: String(P[k].piece || ''), sec: 'int' }));
+    return pre.concat(int);
+  }
+  const keyOf = perf => 'pchk_' + H.sid() + '_' + String(perf.key).replace(/[^a-zA-Z0-9]/g, '');
+  function cur() { const s = state(); if (!s.perf || !H.sid()) return null; const k = keyOf(s.perf); if (k !== docKey) { docKey = k; doc = null; ops = ops.filter(o => o.dk === k); recent = []; } return s.perf; }
+  const tick = key => (cur() && doc && doc.ticks && doc.ticks[key]) || null;
+  function counts(sec) { const it = items().filter(r => !sec || r.sec === sec); return { n: it.length, done: it.filter(r => tick(r.key)).length }; }
+
+  // ── ticking and saving ──
+  function apply(v, op) {
+    v.ticks = v.ticks || {}; v.log = v.log || [];
+    if (v.log.some(l => l.id === op.id)) return;
+    if (op.on) v.ticks[op.k] = { by: op.by, at: op.at }; else delete v.ticks[op.k];
+    v.log.push({ id: op.id, k: op.k, n: op.n, by: op.by, at: op.at, on: op.on ? 1 : 0 });
+    if (v.log.length > 600) v.log = v.log.slice(-600);
+  }
+  function toggle(key) {
+    const perf = cur(); if (!perf) { toast(statusText()); return; }
+    const it = items().find(r => r.key === key), was = tick(key);
+    const op = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), dk: docKey, k: key, n: it ? it.name : key, by: H.who() || 'Someone', at: new Date().toISOString(), on: !was };
+    doc = doc || {}; apply(doc, op); ops.push(op); save(); H.changed(); paint();
+  }
+  function stamp(v, perf) {
+    v.perf = perf.key; v.show = perf.show; v.date = perf.date; v.time = perf.time; if (perf.test) v.test = true;
+    v.items = items().map(r => ({ k: r.key, n: r.name, s: r.sec }));
+  }
+  function save() {
+    const perf = cur(); if (saving || !ops.length || !perf) return;
+    saving = true; const batch = ops.slice(), key = docKey;
+    const fail = () => { saving = false; clearTimeout(save._t); save._t = setTimeout(save, 8000); };
+    jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent(key) + '&_=' + Date.now(), d => {
+      const fresh = (d && d.value && typeof d.value === 'object') ? d.value : {};
+      batch.forEach(o => apply(fresh, o)); stamp(fresh, perf);
+      fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveKV', key, value: fresh }) })
+        .then(r => r.text()).then(t => { let x = null; try { x = JSON.parse(t); } catch (y) {} if (x && x.success === false) throw new Error('not saved'); })
+        .then(() => {
+          saving = false; ops = ops.slice(batch.length);
+          const now = Date.now(); recent = recent.filter(r => now - r.t < 30000).concat(batch.map(o => ({ t: now, o })));
+          if (key === docKey) { doc = fresh; ops.forEach(o => apply(doc, o)); }
+          index(perf, fresh);
+          if (ops.length) save(); else { H.changed(); paint(); }
+        }, () => { toast("A tick didn't save. It's kept here; trying again."); fail(); });
+    }, fail);
+  }
+  // The list of performances, for History.
+  function index(perf, v) {
+    const key = 'pchk_' + H.sid();
+    jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent(key) + '&_=' + Date.now(), d => {
+      const idx = (d && d.value && typeof d.value === 'object') ? d.value : {}; idx.perfs = idx.perfs || {};
+      const n = (v.items || []).length, done = (v.items || []).filter(i => v.ticks && v.ticks[i.k]).length;
+      idx.perfs[perf.key] = { show: perf.show, date: perf.date, time: perf.time, test: perf.test ? 1 : 0, n, done, last: new Date().toISOString() };
+      fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveKV', key, value: idx }) }).catch(() => {});
+    });
+  }
+  function poll() {
+    const perf = cur(); if (!perf || saving || ops.length) return;
+    const key = docKey;
+    jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent(key) + '&_=' + Date.now(), d => {
+      if (key !== docKey || saving || ops.length) return;
+      const v = (d && d.value && typeof d.value === 'object') ? d.value : {};
+      // a tick of ours that someone's save landed on top of goes up again
+      const now = Date.now(); recent = recent.filter(r => now - r.t < 30000);
+      const lost = recent.filter(r => !(v.log || []).some(l => l.id === r.o.id)).map(r => r.o);
+      const changed = JSON.stringify(v.ticks || {}) !== JSON.stringify((doc || {}).ticks || {}) || !doc;
+      doc = v;
+      if (lost.length) { recent = recent.filter(r => lost.indexOf(r.o) < 0); lost.forEach(o => { apply(doc, o); ops.push(o); }); save(); }
+      if (changed || lost.length) { H.changed(); paint(); }
+    });
+  }
+  let _was = '';
+  setInterval(() => {
+    if (document.hidden || !H.sid()) return;
+    const s = state(), sig = (s.perf ? s.perf.key : '') + '|' + (s.next ? s.next.key : '') + '|' + s.why;
+    if (sig !== _was) { _was = sig; H.changed(); paint(); }
+    if (s.perf && (H.visible() || modal)) poll();
+  }, POLL);
+  setInterval(() => { if (!document.hidden && H.sid()) loadCfg(); }, 60000);
+
+  // ── what it looks like ──
+  const BOX = t => `<span class="pc-box${t ? ' on' : ''}" aria-hidden="true">${t ? '✓' : ''}</span>`;
+  function rowHTML(r) {
+    const t = tick(r.key), sub = [r.location, r.sec === 'int' ? r.who : '', r.notes].map(v => String(v || '').trim()).filter(Boolean).join(' · ');
+    return `<button type="button" class="pc-row${t ? ' done' : ''}" data-pc="${e(r.key)}" role="checkbox" aria-checked="${!!t}">${BOX(t)}
+      <span class="pc-main"><b>${e(r.name)}</b>${sub ? `<small>${e(sub)}</small>` : ''}</span>${t ? `<span class="pc-by">${e(t.by || '')}<br>${e(clock(t.at))}</span>` : ''}</button>`;
+  }
+  // One section's list ('pre' or 'int'), for the script's Run view and the panel.
+  function blockHTML(sec) {
+    const it = items().filter(r => r.sec === sec), title = sec === 'int' ? 'Intermission preset' : 'Presets';
+    if (!it.length) return '';
+    if (!active()) return `<div class="pc-block pc-closed"><div class="pc-h"><b>${title} check</b><span>${e(statusText())}</span></div>
+      <div class="pc-acts">${H.dev ? '<button type="button" class="pc-btn" data-pcact="test">Start a test check (dev only)</button>' : ''}<button type="button" class="pc-btn" data-pcact="hist">History</button></div></div>`;
+    const c = counts(sec), all = c.n && c.done === c.n;
+    return `<div class="pc-block${all ? ' pc-all' : ''}"><div class="pc-h"><b>${title} check</b><span>${all ? 'All set' : c.done + ' of ' + c.n}</span>
+      <i class="pc-meter"><i style="width:${c.n ? Math.round(c.done / c.n * 100) : 0}%"></i></i></div>
+      <div class="pc-rows">${it.map(rowHTML).join('')}</div></div>`;
+  }
+  const sig = () => { const s = state(); return (s.perf ? s.perf.key : s.why + (s.next ? s.next.key : '')) + '|' + JSON.stringify((doc || {}).ticks || {}) + '|' + items().map(r => r.key + r.name + (r.location || '') + (r.notes || '') + (r.who || '')).join(','); };
+
+  // The whole list (both sections) and History, as a panel over the page.
+  function openPanel(view) { hist = view === 'hist' ? { list: null } : null; if (!modal) { modal = document.createElement('div'); modal.id = 'pc-modal'; document.body.appendChild(modal); } paint(); if (hist) loadHist(); else poll(); }
+  function closePanel() { if (modal) modal.remove(); modal = null; hist = null; }
+  function paint() {
+    if (!modal) return;
+    const keep = (modal.querySelector('.pc-body') || {}).scrollTop || 0;
+    let body;
+    if (hist) body = histHTML();
+    else { const s = state(); body = `<p class="pc-status">${e(statusText())}${s.perf && s.perf.test ? ' <button type="button" class="pc-btn" data-pcact="endtest">End test</button>' : ''}</p>` + (blockHTML('pre') + blockHTML('int') || '<p class="pc-status">Nothing on the Presets or Intermission lists yet.</p>'); }
+    modal.innerHTML = `<div class="pc-card" role="dialog" aria-label="Preset check"><div class="pc-top"><b>${hist ? (hist.doc ? 'Check history' : 'Check history') : 'Preset check'}</b>
+      ${hist ? `<button type="button" class="pc-btn" data-pcact="${hist.doc ? 'histback' : 'list'}">‹ Back</button>` : '<button type="button" class="pc-btn" data-pcact="hist">History</button>'}
+      <button type="button" class="pc-btn" data-pcact="close" aria-label="Close">Done</button></div><div class="pc-body">${body}</div></div>`;
+    const b = modal.querySelector('.pc-body'); if (b) b.scrollTop = keep;
+  }
+  function loadHist() {
+    jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent('pchk_' + H.sid()) + '&_=' + Date.now(), d => {
+      if (!hist) return; const v = (d && d.value && typeof d.value === 'object') ? d.value : {};
+      hist.list = Object.keys(v.perfs || {}).map(k => Object.assign({ key: k }, v.perfs[k])).sort((a, b) => String(b.date + b.time).localeCompare(String(a.date + a.time)));
+      paint();
+    }, () => { if (hist) { hist.list = []; hist.err = true; paint(); } });
+  }
+  function openHist(pk) {
+    hist.doc = { loading: true }; paint();
+    jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent(keyOf({ key: pk })) + '&_=' + Date.now(), d => { if (!hist) return; hist.doc = (d && d.value && typeof d.value === 'object') ? d.value : { empty: true }; paint(); },
+      () => { if (hist) { hist.doc = { empty: true }; paint(); } });
+  }
+  const perfLabel = p => { let s = p.date || ''; try { s = new Date(at(p.date, p.time || '12:00')).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + (p.time ? ', ' + clock(at(p.date, p.time)) : ''); } catch (x) {} return s + (p.test ? ' (test)' : ''); };
+  function histHTML() {
+    if (hist.doc) {
+      const v = hist.doc; if (v.loading) return '<p class="pc-status">Loading…</p>'; if (v.empty) return '<p class="pc-status">Nothing was recorded for this performance.</p>';
+      const sec = s => { const it = (v.items || []).filter(i => i.s === s); if (!it.length) return ''; return `<h4>${s === 'int' ? 'Intermission preset' : 'Presets'}</h4>` + it.map(i => { const t = (v.ticks || {})[i.k]; return `<div class="pc-hrow${t ? '' : ' miss'}">${BOX(t)}<span class="pc-main"><b>${e(i.n)}</b></span><span class="pc-by">${t ? e(t.by || '') + ' · ' + e(clock(t.at)) : 'not checked'}</span></div>`; }).join(''); };
+      const log = (v.log || []).slice().sort((a, b) => String(a.at).localeCompare(String(b.at)));
+      return `<p class="pc-status"><b>${e(perfLabel(v))}</b> · ${e(v.show || '')}</p>${sec('pre')}${sec('int')}
+        <h4>Everything that was tapped</h4>${log.length ? log.map(l => `<div class="pc-lrow"><span>${e(clock(l.at))}</span><span><b>${e(l.by || '')}</b> ${l.on ? 'checked' : 'unchecked'} ${e(l.n || l.k)}</span></div>`).join('') : '<p class="pc-status">Nothing.</p>'}`;
+    }
+    if (!hist.list) return '<p class="pc-status">Loading…</p>';
+    if (!hist.list.length) return `<p class="pc-status">${hist.err ? "Couldn't load the history." : 'No checks recorded yet. Each performance shows up here once someone ticks something.'}</p>`;
+    return hist.list.map(p => `<button type="button" class="pc-row" data-pcact="perf" data-perf="${e(p.key)}"><span class="pc-main"><b>${e(perfLabel(p))}</b><small>${e(p.show || '')}</small></span><span class="pc-by">${p.done} of ${p.n}<br>checked</span></button>`).join('');
+  }
+  document.addEventListener('click', ev => {
+    const a = ev.target.closest && ev.target.closest('[data-pcact]');
+    if (a) {
+      const w = a.dataset.pcact; ev.stopPropagation();
+      if (w === 'close') closePanel(); else if (w === 'hist') openPanel('hist'); else if (w === 'list') { hist = null; paint(); poll(); }
+      else if (w === 'histback') { hist.doc = null; paint(); } else if (w === 'perf') openHist(a.dataset.perf); else if (w === 'panel') openPanel();
+      else if (w === 'test') { if (confirm('Start a test check? It is only for trying this out on the dev pages and is marked as a test in History.')) { ls('mmt_pchk_test', ymd(new Date())); H.changed(); paint(); poll(); } }
+      else if (w === 'endtest') { ls('mmt_pchk_test', null); H.changed(); paint(); }
+      return;
+    }
+    const r = ev.target.closest && ev.target.closest('[data-pc]');
+    if (r && r.closest('.pc-block')) { ev.stopPropagation(); toggle(r.dataset.pc); return; }
+    if (modal && ev.target === modal) closePanel();
+  }, true);
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && modal) closePanel(); });
+  const css = document.createElement('style');
+  css.textContent = `
+  .pc-block { border: 1px solid rgba(128,128,128,.35); border-radius: 12px; margin: 8px 0; overflow: hidden; font: 14px 'DM Sans', system-ui, sans-serif; text-align: left; }
+  .pc-block.pc-all { border-color: rgba(21,128,61,.6); }
+  .pc-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; background: rgba(128,128,128,.12); }
+  .pc-h b { font-size: 14px; } .pc-h span { opacity: .75; font-size: 13px; }
+  .pc-meter { margin-left: auto; width: 90px; height: 7px; border-radius: 99px; background: rgba(128,128,128,.3); overflow: hidden; display: block; }
+  .pc-meter i { display: block; height: 100%; background: #16a34a; }
+  .pc-rows { display: flex; flex-direction: column; }
+  .pc-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 8px 12px; border: 0; border-top: 1px solid rgba(128,128,128,.22); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .pc-row.done .pc-main { opacity: .55; } .pc-row.done .pc-main b { text-decoration: line-through; }
+  .pc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; } .pc-main small { opacity: .7; font-size: 12px; }
+  .pc-box { flex: none; width: 24px; height: 24px; border: 2px solid rgba(128,128,128,.7); border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; }
+  .pc-box.on { background: #16a34a; border-color: #16a34a; color: #fff; }
+  .pc-by { flex: none; text-align: right; font-size: 11.5px; opacity: .75; line-height: 1.25; }
+  .pc-acts { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px 12px; }
+  .pc-btn { border: 1px solid rgba(128,128,128,.5); background: transparent; color: inherit; border-radius: 99px; padding: 5px 12px; font: 600 12.5px 'DM Sans', system-ui, sans-serif; cursor: pointer; }
+  #pc-modal { position: fixed; inset: 0; z-index: 99990; background: rgba(0,0,0,.5); display: flex; align-items: flex-start; justify-content: center; padding: 4vh 12px; }
+  #pc-modal .pc-card { background: #fff; color: #18181b; width: min(560px, 100%); max-height: 92vh; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; font: 14px 'DM Sans', system-ui, sans-serif; }
+  [data-theme="dark"] #pc-modal .pc-card { background: #1c1c21; color: #f4f4f5; }
+  .pc-top { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid rgba(128,128,128,.25); } .pc-top b { flex: 1; font-size: 16px; }
+  .pc-body { overflow: auto; padding: 8px 14px 16px; } .pc-body h4 { margin: 14px 0 4px; font-size: 13px; text-transform: none; }
+  .pc-status { margin: 8px 0; opacity: .8; font-size: 13.5px; }
+  .pc-hrow, .pc-lrow { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid rgba(128,128,128,.18); font-size: 13.5px; }
+  .pc-hrow.miss .pc-by { color: #dc2626; opacity: 1; font-weight: 700; } .pc-hrow .pc-box { width: 20px; height: 20px; font-size: 12px; }
+  .pc-lrow > span:first-child { flex: none; width: 70px; opacity: .7; }`;
+  document.head.appendChild(css);
+  return { init(h) { H = Object.assign(H, h); loadCfg(true); }, active, tick, toggle, counts, items, statusText, blockHTML, openPanel, poll, sig, state,
+    startTest() { ls('mmt_pchk_test', ymd(new Date())); H.changed(); poll(); } };
+})();
+
+// The cue sheet's side of it: "Check" on the Presets bar turns the Presets and
+// Intermission rows into tick boxes on this device.
 let _prChk = lsGet('mmt_cuelist_prchk', '0') === '1';
-let _prChkData = { day: '', ticks: {} }, _prChkOps = [], _prChkSaving = false, _prChkSid = '';
-function prChkDay(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
-function prChkKey(){ return 'presetcheck_' + scriptId; }
-function prChkTicks(){ return (_prChkData && _prChkData.day === prChkDay() && _prChkData.ticks) || {}; }
-function prChkTick(key){ return prChkTicks()[key] || null; }
+PC.init({ sid: () => scriptId, show: () => scriptName, who: () => clName || (clRole === 'td' ? 'TD' : ''), dev: true,
+  visible: () => _prChk, changed: () => { if (_prChk && !PC.active()) { _prChk = false; lsSet('mmt_cuelist_prchk', '0'); } try { render(); } catch (e) {} } });
+function prChkTick(key){ return PC.tick(key); }
 function prChkTime(at){ try { return at ? new Date(at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''; } catch (e) { return ''; } }
 function prChkBtnHTML(rows){
-  const n = rows.length, done = rows.filter(r => prChkTick(r.key)).length;
-  return `<button type="button" class="pr-map-btn pr-chk-btn${_prChk ? ' on' : ''}${n && done === n ? ' all' : ''}" onclick="prChkMode()" aria-pressed="${_prChk}" title="Tonight's preset check">${_prChk ? 'Done checking' : 'Check'}${done ? ` · ${done}/${n}` : ''}</button>`;
+  const c = PC.counts(), on = PC.active();
+  return `<button type="button" class="pr-map-btn pr-chk-btn${_prChk ? ' on' : ''}${on && c.n && c.done === c.n ? ' all' : ''}" onclick="prChkMode()" aria-pressed="${_prChk}" title="${esc(PC.statusText())}">${_prChk ? 'Done checking' : 'Check'}${on && c.done ? ` · ${c.done}/${c.n}` : ''}</button>`;
 }
 function prChkBarHTML(rows){
-  const n = rows.length, done = rows.filter(r => prChkTick(r.key)).length;
-  const pct = n ? Math.round(done / n * 100) : 0;
+  const c = PC.counts(), pct = c.n ? Math.round(c.done / c.n * 100) : 0;
   return `<div class="pr-chk-bar"><div class="pr-chk-meter"><i style="width:${pct}%"></i></div>
-    <span>${done === n && n ? '<b>All set.</b> Every piece is in its preset spot.' : `<b>${done} of ${n}</b> checked for ${new Date().toLocaleDateString('en-US', { weekday: 'long' })}. Tap a piece once it's in place.`}</span>
-    ${done ? `<button type="button" class="pr-chk-clear" onclick="prChkClear(this)">Untick all</button>` : ''}</div>`;
+    <span>${c.done === c.n && c.n ? '<b>All set.</b> Everything is checked.' : `<b>${c.done} of ${c.n}</b> checked. ${esc(PC.statusText())}. Tap each one once it's in place.`}</span>
+    <button type="button" class="pr-chk-clear" data-pcact="hist">History</button></div>`;
 }
 function prChkMode(){
+  if (!_prChk && !PC.active()) {
+    if (confirm(PC.statusText() + '\n\nStart a test check instead? (dev only, marked as a test in History)')) PC.startTest(); else return;
+  }
   _prChk = !_prChk; lsSet('mmt_cuelist_prchk', _prChk ? '1' : '0');
-  if (_prChk) { try { closeBox(); } catch (e) {} prChkFetch(); }
+  if (_prChk) { try { closeBox(); } catch (e) {} _intOpen = true; PC.poll(); }
   render();
 }
-function prChkApply(v, op){
-  if (!v || v.day !== op.day) { v.day = op.day; v.ticks = {}; }
-  if (op.clear) v.ticks = {};
-  else if (op.v) v.ticks[op.key] = op.v; else delete v.ticks[op.key];
-}
-function prChkToggle(key){
-  const day = prChkDay(), was = prChkTick(key);
-  const op = { day, key, v: was ? null : { by: clName || (clRole === 'td' ? 'TD' : ''), at: new Date().toISOString() } };
-  if (_prChkData.day !== day) _prChkData = { day, ticks: {} };
-  prChkApply(_prChkData, op); _prChkOps.push(op); prChkSave(); render();
-}
-function prChkClear(btn){
-  if (btn && !btn.dataset.sure) { btn.dataset.sure = '1'; btn.textContent = 'Tap again to untick all'; setTimeout(() => { if (btn.isConnected) { delete btn.dataset.sure; btn.textContent = 'Untick all'; } }, 3000); return; }
-  const op = { day: prChkDay(), clear: true }; prChkApply(_prChkData, op); _prChkOps.push(op); prChkSave(); render();
-}
-function prChkSave(){
-  if (_prChkSaving || !_prChkOps.length || !scriptId) return;
-  _prChkSaving = true;
-  const ops = _prChkOps.slice(), key = prChkKey();
-  jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent(key) + '&_=' + Date.now(), d => {
-    const fresh = (d && d.value && typeof d.value === 'object') ? d.value : { day: '', ticks: {} };
-    ops.forEach(o => prChkApply(fresh, o));
-    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveKV', key, value: fresh }) })
-      .then(r => r.text()).then(t => { let x = null; try { x = JSON.parse(t); } catch (e) {} if (x && x.success === false) throw new Error('not saved'); })
-      .then(() => { _prChkSaving = false; _prChkOps = _prChkOps.slice(ops.length); _prChkData = fresh; _prChkOps.forEach(o => prChkApply(_prChkData, o)); if (_prChkOps.length) prChkSave(); else render(); },
-            () => { _prChkSaving = false; toast("A tick didn't save. It's kept here; trying again."); setTimeout(prChkSave, 10000); });
-  }, () => { _prChkSaving = false; setTimeout(prChkSave, 10000); });
-}
-function prChkFetch(){
-  if (!scriptId || _prChkSaving || _prChkOps.length) return;
-  const sid = scriptId;
-  jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent(prChkKey()) + '&_=' + Date.now(), d => {
-    if (sid !== scriptId || _prChkSaving || _prChkOps.length) return;
-    const v = (d && d.value && typeof d.value === 'object') ? d.value : { day: '', ticks: {} };
-    const changed = JSON.stringify(v) !== JSON.stringify(_prChkData) || _prChkSid !== sid;
-    _prChkData = v; _prChkSid = sid;
-    if (changed) render();
-  });
-}
-// Others' ticks show up within ~10 s while checking; the count on the bar
-// loads once when the sheet opens.
-setInterval(() => { if (_prChk && !document.hidden) prChkFetch(); }, 10000);
+function prChkToggle(key){ PC.toggle(key); }
+function prChkFetch(){ PC.poll(); }
+
 
 // ── PRESETS (was "Before house opens") ─────────────────────────────────────
 // A folding section at the top of the set change plot: where every piece
@@ -2466,7 +2700,7 @@ function smZoomKey(e){ if (e.key === 'Escape') { e.preventDefault(); e.stopPropa
 function smZoomClose(){ const o = document.getElementById('smz'); if (o) o.remove(); document.removeEventListener('keydown', smZoomKey, true); }
 
 function prSectionHTML(){
-  if (scriptId && _prChkSid !== scriptId && !prChkFetch._busy) { prChkFetch._busy = true; setTimeout(() => { prChkFetch._busy = false; prChkFetch(); }, 0); }
+  if (scriptId && PC._sid !== scriptId) { PC._sid = scriptId; setTimeout(() => PC.poll(), 0); }
   if (activeType || activeWho) return '';
   const all = allPieces().map(({ key, piece }) => ({ ...(presets[key] || {}), piece, key })).filter(r => (editMode && !_prChk) || !r.hidden);
   const rows = all.filter(r => {
@@ -2655,11 +2889,11 @@ function presetRowHTML(r, band){
   if (_prChk) {
     const t = prChkTick(r.key);
     cls.push('pr-chk'); if (t) cls.push('pr-done');
-    return `<tr class="${cls.join(' ')}" data-key="${esc(r.key)}" onclick="prChkToggle('${esc(r.key)}')" role="checkbox" aria-checked="${!!t}" tabindex="0" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();prChkToggle('${esc(r.key)}')}">
+    return `<tr class="${cls.join(' ')}" data-key="${esc(r.key)}" onclick="prChkToggle(this.dataset.key)" role="checkbox" aria-checked="${!!t}" tabindex="0" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();prChkToggle(this.dataset.key)}">
     <td><span class="pr-box" aria-hidden="true">${t ? '✓' : ''}</span><span class="mv-piece">${esc(r.piece)}</span>${t ? `<span class="pr-by">${esc(t.by || '')} ${esc(prChkTime(t.at))}</span>` : ''}</td>
     <td class="cs-action">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
     <td class="cs-line">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : ''}</td>
-    <td class="cs-notes">${esc(r.notes || '')}</td>
+    <td class="cs-notes">${esc(r.notes || '')}</td>${r.inter ? `<td class="cs-who">${esc(whoDisplay(r.who))}</td>` : ''}
   </tr>`;
   }
   return `<tr class="${cls.join(' ')} pr-tap" data-key="${esc(r.key)}" onclick="presetTap(event, '${esc(r.key)}')">
@@ -8579,6 +8813,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v16 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v17 dev</div>
 </body>
 </html>
