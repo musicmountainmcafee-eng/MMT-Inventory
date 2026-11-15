@@ -33,6 +33,7 @@ function doPost(e) {
     if (data.action === 'saveShowNote') return saveShowNote(data);
     if (data.action === 'saveCleaning') return saveCleaning(e, data);
     if (data.action === 'saveKV')       return saveKV(data);
+    if (data.action === 'saveCastSheet') return saveCastSheet(data);
     if (data.action === 'taskOps')      return taskOps(data);
     if (data.action === 'shopOps')      return shopOps(data);
     return response({ success: false, error: 'Unknown action' });
@@ -80,6 +81,7 @@ function doGet(e) {
   if (action === 'saveCueData')   return wrap(saveCueData(e, null));
   if (action === 'saveShowNote') return wrap(saveShowNote(e.parameter));
   if (action === 'getKV')         return wrap(getKV(e));
+  if (action === 'getCastIndex')  return wrap(getCastIndex());
   if (action === 'getShowPhotos') return wrap(getShowPhotos(e));
   if (action === 'saveKV')        return wrap(saveKV(e.parameter));
   if (action === 'saveTask')      return wrap(saveTask(e.parameter));
@@ -565,6 +567,85 @@ function _saveKV(key, value) {
   if (row < 0) { row = sheet.getLastRow() + 1; sheet.getRange(row, 1).setNumberFormat('@').setValue(key); }
   _bigWriteRow(sheet, row, 2, value);
   return response({ success: true });
+}
+
+// ── CAST SHEETS (11.14 v1) ───────────────────────────────────────────────────
+// Each show can have its own Google spreadsheet for the cast: the set changes
+// in show order, the scenes, and the same moves listed by person. The cue
+// sheet works the rows out and sends them here after a save; this only writes
+// them down. The file is made the first time (in the Drive folder "MMT Cast
+// Sheets", shared so anyone with the link can view), and after that the same
+// file is rewritten, so its link never changes. Every cell is plain text, so
+// nothing typed on the cue sheet can run as a formula, and so the cast page
+// reads every column as text. Which show has which file is kept in the
+// KVStore under 'cast_index'.
+var CAST_TABS = [
+  ['Set Changes', ['Scene', 'Scene page', 'Cue', 'Page', 'Cue line', 'Piece', 'Action', 'Wing', 'Who', 'Notes', 'Updated'], 'changes'],
+  ['Scenes',      ['Scene', 'Page'], 'scenes'],
+  ['By person',   ['Name', 'Scene', 'Cue', 'Page', 'Cue line', 'Piece', 'Action', 'Wing', 'With', 'Notes'], 'people']
+];
+function _kvRead(key) {
+  var rows = _kvSheet().getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) if (rows[i][0] === key) { var v = _bigJoin(rows[i], 1); try { return JSON.parse(v); } catch (err) { return null; } }
+  return null;
+}
+function _castIndex() { var v = _kvRead('cast_index'); return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; }
+function _castTab(ss, name, head, rows, pos) {
+  var sheet = ss.getSheetByName(name), fresh = !sheet;
+  if (fresh) sheet = ss.insertSheet(name, pos);
+  sheet.clearContents();
+  var w = head.length, values = [head];
+  (rows || []).forEach(function (r) { var out = []; for (var i = 0; i < w; i++) out.push(String(r && r[i] != null ? r[i] : '').slice(0, 2000)); values.push(out); });
+  if (sheet.getMaxRows() < values.length) sheet.insertRowsAfter(sheet.getMaxRows(), values.length - sheet.getMaxRows());
+  if (sheet.getMaxColumns() < w) sheet.insertColumnsAfter(sheet.getMaxColumns(), w - sheet.getMaxColumns());
+  var range = sheet.getRange(1, 1, values.length, w);
+  range.setNumberFormat('@');
+  range.setValues(values);
+  if (fresh) {
+    sheet.getRange(1, 1, 1, w).setFontWeight('bold').setBackground('#18181b').setFontColor('#ffffff');
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, sheet.getMaxRows(), w).setWrap(true).setVerticalAlignment('top');
+    for (var c = 1; c <= w; c++) sheet.setColumnWidth(c, /line|Notes|Piece|Who|With|Scene$/.test(head[c - 1]) ? 190 : 90);
+  }
+}
+function saveCastSheet(data) {
+  var sid = String((data && data.scriptId) || '');
+  if (!sid) return response({ success: false, error: 'No script' });
+  if (!data.changes || !data.changes.length) return response({ success: false, error: 'Nothing to write' });
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(20000); } catch (err) { return response({ success: false, error: 'Busy, try again' }); }
+  try {
+    var index = _castIndex(), ent = index[sid], ss = null, shared = true;
+    var title = 'MMT Cast Sheet · ' + String(data.showName || sid).slice(0, 80);
+    if (ent && ent.id) { try { if (!DriveApp.getFileById(ent.id).isTrashed()) ss = SpreadsheetApp.openById(ent.id); } catch (err) { ss = null; } }
+    if (!ss) {
+      ss = SpreadsheetApp.create(title);
+      var file = DriveApp.getFileById(ss.getId());
+      try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (err) { shared = false; }
+      try {
+        var it = DriveApp.getFoldersByName('MMT Cast Sheets');
+        file.moveTo(it.hasNext() ? it.next() : DriveApp.createFolder('MMT Cast Sheets'));
+      } catch (err) {}
+    } else {
+      if (ss.getName() !== title) ss.rename(title);
+      shared = !(ent && ent.shared === false);
+    }
+    CAST_TABS.forEach(function (t, i) { _castTab(ss, t[0], t[1], data[t[2]] || [], i); });
+    var first = ss.getSheetByName('Sheet1');
+    if (first && ss.getSheets().length > 1) ss.deleteSheet(first);
+    index[sid] = { id: ss.getId(), url: ss.getUrl(), name: String(data.showName || ''), sig: String(data.sig || ''), shared: shared, updated: new Date().toISOString() };
+    _saveKV('cast_index', index);
+    return response({ success: true, id: ss.getId(), url: ss.getUrl(), shared: shared, sig: index[sid].sig });
+  } catch (err) {
+    return response({ success: false, error: err.message });
+  } finally { lock.releaseLock(); }
+}
+// The shows that have a cast sheet, for the cast page's "which show" list.
+function getCastIndex() {
+  var index = _castIndex();
+  var shows = Object.keys(index).map(function (sid) { var e = index[sid]; return { show: sid, name: e.name, sheet: e.id, url: e.url, sig: e.sig, shared: e.shared !== false, updated: e.updated }; });
+  shows.sort(function (a, b) { return String(b.updated).localeCompare(String(a.updated)); });
+  return response({ success: true, cast: true, shows: shows });
 }
 
 // ── Values too big for one cell ─────────────────────────────────────────────

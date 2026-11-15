@@ -53,17 +53,22 @@
 </head>
 <body>
 <div id="app"></div>
-<div id="build-tag">11.14 v1 dev</div>
+<div id="build-tag">11.14 v2 dev</div>
 <script>
 // ── MMT CAST SHEET ───────────────────────────────────────────────────────────
 // The link the cast opens: one show's set changes, read only, on a phone.
 // Three views: My moves (pick your name once), Whole plot, Scenes.
 //   cast-dev.html            → asks which show, and remembers it
 //   cast-dev.html?show=<id>  → that show only (the link sent to one cast)
-// The data will come from each show's own cast Google Sheet (written by the
-// cue sheet on every save), read straight from Google so 70 phones never touch
-// the dashboard's script. Until that Sheet exists this page runs on the sample
-// shows below, and says so. Nothing here writes anywhere.
+//   cast-dev.html?show=<id>&s=<sheet>  → the same, without asking the script
+// Each show's moves come from its own cast Google Sheet (written by the cue
+// sheet after every save), read straight from Google (the Sheet's "Set
+// Changes" tab), so a full cast on their phones never touches the dashboard's
+// script. The script is only asked once, for the list of shows, and not at all
+// on a per-show link that carries its sheet. Until the script has its cast
+// update (or with ?demo=1) the page runs on the sample shows below, and says
+// so. Nothing here writes anywhere.
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVONJuSlGzl04FZCzd3h45V2AsKC3HkqI6eeaujMetaDGkeGctL9IolMkJNBeJA7BaBg/exec';
 const Q = new URLSearchParams(location.search);
 const LOCKED = Q.get('show') || '';
 const REFRESH_MS = 30000;
@@ -107,12 +112,63 @@ const SAMPLE = {
           { piece: 'Cottage flat', action: 'On', wing: 'SL → CS', who: ['Jo', 'Sam'] }] }] }] }
   }
 };
-// Where the data comes from. Today: the samples. Later: the show's cast Sheet.
-const Source = {
+// Ask Google for something as a script tag (works from any page, no sign-in).
+let _jp = 0;
+function jsonp(url, cbParam) {
+  return new Promise((res, rej) => {
+    const cb = '__cast' + (++_jp) + Date.now().toString(36), el = document.createElement('script');
+    const done = (f, v) => { clearTimeout(t); try { delete window[cb]; } catch (e) { window[cb] = undefined; } el.remove(); f(v); };
+    const t = setTimeout(() => done(rej, new Error('timeout')), 20000);
+    window[cb] = d => done(res, d); el.onerror = () => done(rej, new Error('load'));
+    el.src = url.replace('%CB%', cb) + (cbParam ? '&' + cbParam + '=' + cb : ''); document.head.appendChild(el);
+  });
+}
+// A cast Sheet's "Set Changes" tab → scenes, each with its changes and moves.
+function readTable(t) {
+  let cols = ((t && t.cols) || []).map(c => String(c.label || '').trim()), rows = ((t && t.rows) || []).map(r => (r.c || []).map(c => c && c.v != null ? String(c.v) : ''));
+  if (cols.indexOf('Scene') < 0 && rows.length && rows[0].indexOf('Scene') >= 0) cols = rows.shift().map(v => v.trim());   // heading row came through as data
+  const at = n => cols.indexOf(n), g = (r, n) => at(n) >= 0 ? (r[at(n)] || '').trim() : '';
+  if (at('Scene') < 0 || at('Piece') < 0) throw new Error('Not a cast sheet');
+  const scenes = []; let sc = null, ch = null, updated = 0;
+  rows.forEach(r => {
+    const u = g(r, 'Updated'); if (u && !updated) updated = Date.parse(u) || 0;
+    const label = g(r, 'Scene'), sp = g(r, 'Scene page');
+    if (!sc || sc.label !== label || sc.page !== sp) { sc = { label, page: sp, changes: [] }; scenes.push(sc); ch = null; }
+    const piece = g(r, 'Piece'), action = g(r, 'Action'); if (!piece && !action) return;
+    const num = g(r, 'Cue').replace(/^#/, ''), page = g(r, 'Page'), cue = g(r, 'Cue line');
+    if (!ch || ch.num !== num || ch.page !== page || ch.cue !== cue) { ch = { num, page, cue, moves: [] }; sc.changes.push(ch); }
+    ch.moves.push({ piece, action, wing: g(r, 'Wing'), who: g(r, 'Who').split(',').map(x => x.trim()).filter(Boolean), notes: g(r, 'Notes') });
+  });
+  return { scenes, updated };
+}
+// Where the data comes from: the cast Sheets, or the samples.
+const Sample = {
   demo: true,
   shows() { return Promise.resolve(SAMPLE.shows); },
   show(id) { const d = SAMPLE.data[id]; return d ? Promise.resolve(Object.assign({ updated: Date.now() }, d)) : Promise.reject(new Error('No such show')); }
 };
+const Live = {
+  demo: false, list: null,
+  index() {
+    return jsonp(SCRIPT_URL + '?action=getCastIndex&_=' + Date.now(), 'callback').then(d => {
+      if (!d || !d.cast) throw Object.assign(new Error('old'), { old: true });
+      Live.list = (d.shows || []).filter(x => x.sheet).map(x => ({ id: String(x.show), name: x.name || 'Show', sheet: x.sheet }));
+      ls('mmt_cast_index', JSON.stringify(Live.list)); return Live.list;
+    });
+  },
+  shows() { return Live.index().catch(e => { if (e.old) throw e; try { Live.list = JSON.parse(ls('mmt_cast_index') || 'null'); } catch (x) {} if (!Live.list) throw e; return Live.list; }); },
+  sheetOf(id) {
+    if (LOCKED && id === LOCKED && Q.get('s')) return Promise.resolve({ sheet: Q.get('s'), name: '' });
+    const hit = l => (l || []).find(x => x.id === id);
+    return hit(Live.list) ? Promise.resolve(hit(Live.list)) : Live.shows().then(l => hit(l) || Promise.reject(new Error('No such show')));
+  },
+  show(id) {
+    return Live.sheetOf(id).then(e => jsonp('https://docs.google.com/spreadsheets/d/' + encodeURIComponent(e.sheet) + '/gviz/tq?tqx=out:json;responseHandler:%CB%&sheet=' + encodeURIComponent('Set Changes') + '&headers=1&_=' + Date.now())
+      .then(d => { if (!d || d.status === 'error' || !d.table) throw new Error('read'); const t = readTable(d.table);
+        return { name: e.name || (hit => hit ? hit.name : '')((Live.list || []).find(x => x.id === id)) || ls('mmt_cast_name_' + id) || 'Cast Sheet', scenes: t.scenes, updated: t.updated || Date.now() }; }));
+  }
+};
+let Source = Q.get('demo') === '1' ? Sample : Live;
 
 // ── state ──
 let shows = [], showId = LOCKED || ls('mmt_cast_show') || '', data = null, view = ls('mmt_cast_view') || 'mine', me = '', picking = false, err = '', lastOk = 0;
@@ -127,7 +183,7 @@ function load(first) {
   if (!showId) return;
   Source.show(showId).then(d => {
     const changed = JSON.stringify(d.scenes) !== JSON.stringify(data && data.scenes);
-    data = d; err = ''; lastOk = Date.now(); ls('mmt_cast_data_' + showId, JSON.stringify(d));
+    data = d; err = ''; lastOk = Date.now(); ls('mmt_cast_data_' + showId, JSON.stringify(d)); if (d.name && d.name !== 'Cast Sheet') ls('mmt_cast_name_' + showId, d.name);
     if (me && !people().some(p => p.name === me)) { me = ''; }
     if (first || changed) render(); else stamp();
   }).catch(() => {
@@ -143,9 +199,10 @@ function stamp() { const el = document.getElementById('upd'); if (el && data) el
 // ── drawing ──
 function render() {
   const app = document.getElementById('app'), demo = Source.demo ? '<div class="demo">Sample data. This is a preview of the cast page, not a real show.</div>' : '';
+  if (!Source.demo && showsErr && !showId) { app.innerHTML = `<header><div class="h-top"><div class="h-name"><b>MMT Cast Sheet</b></div></div><nav></nav></header><main><p class="empty">${esc(showsErr)}</p><p class="empty"><button class="btn" data-a="reshows">Try again</button></p></main>`; return; }
   if (!showId || (!data && !err && !shows.length && !LOCKED)) { app.innerHTML = demo + chooserHTML(); return; }
   if (!showId) { app.innerHTML = demo + chooserHTML(); return; }
-  if (!data) { app.innerHTML = demo + `<header><div class="h-top"><div class="h-name"><b>Cast Sheet</b></div></div><nav></nav></header><main><p class="empty">${esc(err || 'Loading…')}</p>${err ? '<p class="empty"><button class="btn" data-a="retry">Try again</button></p>' : ''}</main>`; return; }
+  if (!data) { app.innerHTML = demo + `<header><div class="h-top"><div class="h-name"><b>Cast Sheet</b></div></div><nav></nav></header><main><p class="empty">${esc(err || 'Loading…')}</p>${err ? `<p class="empty"><button class="btn" data-a="retry">Try again</button>${LOCKED ? '' : ' <button class="btn" data-a="shows">Pick a show</button>'}</p>` : ''}</main>`; return; }
   const tabs = [['mine', 'My moves'], ['plot', 'Whole plot'], ['scenes', 'Scenes']];
   app.innerHTML = demo + `<header><div class="h-top"><div class="h-name"><b>${esc(data.name)}</b><small id="upd"></small></div>
       ${LOCKED ? '' : '<button class="h-btn" data-a="shows">Shows</button>'}<button class="h-btn" data-a="theme" aria-label="Switch light or dark">${theme === 'dark' ? 'Light' : 'Dark'}</button></div>
@@ -156,7 +213,7 @@ function render() {
 function chooserHTML() {
   return `<header><div class="h-top"><div class="h-name"><b>MMT Cast Sheet</b><small>Music Mountain Theatre</small></div></div><nav></nav></header>
     <main><h2>Which show are you in?</h2><p class="sub">This phone will remember it. You can switch any time.</p>
-    <div class="pick">${shows.length ? shows.map(s => `<button data-a="show" data-v="${esc(s.id)}">${esc(s.name)}<small>${esc(s.stage || '')}</small></button>`).join('') : '<p class="empty">Loading shows…</p>'}</div></main>`;
+    <div class="pick">${shows.length ? shows.map(s => `<button data-a="show" data-v="${esc(s.id)}">${esc(s.name)}<small>${esc(s.stage || '')}</small></button>`).join('') : `<p class="empty">${showsLoaded ? 'No show has a cast sheet yet.' : 'Loading shows…'}</p>`}</div></main>`;
 }
 function whoLine(m) { return (m.who || []).map(w => w === me ? `<i>${esc(w)}</i>` : esc(w)).join(', '); }
 function moveHTML(m, isMe) {
@@ -199,12 +256,20 @@ document.addEventListener('click', ev => {
   else if (a === 'theme') { theme = theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = theme; ls('mmt_cast_theme', theme); render(); }
   else if (a === 'scene') { view = 'plot'; ls('mmt_cast_view', 'plot'); render(); const el = document.getElementById('sc-' + v); if (el) el.scrollIntoView(); }
   else if (a === 'retry') { err = ''; render(); load(true); }
+  else if (a === 'reshows') { showsErr = ''; render(); getShows(); }
 });
 setInterval(() => { if (!document.hidden && showId) load(false); else stamp(); }, REFRESH_MS);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && showId) load(false); });
 
-Source.shows().then(s => { shows = s; if (!showId) render(); }).catch(() => {});
-if (showId) { me = ls('mmt_cast_me_' + showId) || ''; render(); load(true); } else render();
+// The list of shows. If the dashboard's script doesn't have its cast update
+// yet, fall back to the samples (and say so).
+let showsErr = '', showsLoaded = false;
+function getShows() {
+  return Source.shows().then(s => { shows = s; showsLoaded = true; if (!showId) render(); })
+    .catch(e => { if (e && e.old) { Source = Sample; if (!SAMPLE.data[showId]) showId = ''; data = null; return getShows(); } showsErr = "Couldn't load the list of shows. Check your signal and try again."; if (!showId) render(); });
+}
+if (showId && (Source.demo || Q.get('s'))) { me = ls('mmt_cast_me_' + showId) || ''; render(); load(true); if (!LOCKED) getShows(); }
+else { render(); getShows().then(() => { if (showId) { me = ls('mmt_cast_me_' + showId) || ''; render(); load(true); } }); }
 </script>
 </body>
 </html>

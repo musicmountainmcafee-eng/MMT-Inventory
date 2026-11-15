@@ -3,7 +3,7 @@
 <style>body{font-family:-apple-system,system-ui,sans-serif;margin:16px;background:#fff;color:#222}
 button{font-size:18px;padding:12px 22px;border:0;border-radius:8px;background:#534ab7;color:#fff;cursor:pointer}
 #ok{margin-left:12px;color:#1a7f37;font-weight:600}textarea{width:100%;height:60vh;margin-top:14px;font:12px ui-monospace,monospace;box-sizing:border-box}</style></head>
-<body><h2>Main Sheet script update (big values across cells + safer cue saves)</h2>
+<body><h2>Main Sheet script update (11.14 v1: cast sheets)</h2>
 <p>Tap Copy, then in Apps Script select everything in Code.gs and paste over it.</p>
 <button onclick="cp()">Copy the code</button><span id="ok"></span>
 <textarea id="c" readonly>const PHOTO_FOLDER_ID = &#x27;1lHOzK17bJfXGHfCeVaopghbrjUKIs61Ur2r5aYy8naYKcTjyB0uiv-XNVKsQpFWo02AlSMtG&#x27;;
@@ -41,6 +41,7 @@ function doPost(e) {
     if (data.action === &#x27;saveShowNote&#x27;) return saveShowNote(data);
     if (data.action === &#x27;saveCleaning&#x27;) return saveCleaning(e, data);
     if (data.action === &#x27;saveKV&#x27;)       return saveKV(data);
+    if (data.action === &#x27;saveCastSheet&#x27;) return saveCastSheet(data);
     if (data.action === &#x27;taskOps&#x27;)      return taskOps(data);
     if (data.action === &#x27;shopOps&#x27;)      return shopOps(data);
     return response({ success: false, error: &#x27;Unknown action&#x27; });
@@ -88,6 +89,7 @@ function doGet(e) {
   if (action === &#x27;saveCueData&#x27;)   return wrap(saveCueData(e, null));
   if (action === &#x27;saveShowNote&#x27;) return wrap(saveShowNote(e.parameter));
   if (action === &#x27;getKV&#x27;)         return wrap(getKV(e));
+  if (action === &#x27;getCastIndex&#x27;)  return wrap(getCastIndex());
   if (action === &#x27;getShowPhotos&#x27;) return wrap(getShowPhotos(e));
   if (action === &#x27;saveKV&#x27;)        return wrap(saveKV(e.parameter));
   if (action === &#x27;saveTask&#x27;)      return wrap(saveTask(e.parameter));
@@ -573,6 +575,85 @@ function _saveKV(key, value) {
   if (row &lt; 0) { row = sheet.getLastRow() + 1; sheet.getRange(row, 1).setNumberFormat(&#x27;@&#x27;).setValue(key); }
   _bigWriteRow(sheet, row, 2, value);
   return response({ success: true });
+}
+
+// ── CAST SHEETS (11.14 v1) ───────────────────────────────────────────────────
+// Each show can have its own Google spreadsheet for the cast: the set changes
+// in show order, the scenes, and the same moves listed by person. The cue
+// sheet works the rows out and sends them here after a save; this only writes
+// them down. The file is made the first time (in the Drive folder &quot;MMT Cast
+// Sheets&quot;, shared so anyone with the link can view), and after that the same
+// file is rewritten, so its link never changes. Every cell is plain text, so
+// nothing typed on the cue sheet can run as a formula, and so the cast page
+// reads every column as text. Which show has which file is kept in the
+// KVStore under &#x27;cast_index&#x27;.
+var CAST_TABS = [
+  [&#x27;Set Changes&#x27;, [&#x27;Scene&#x27;, &#x27;Scene page&#x27;, &#x27;Cue&#x27;, &#x27;Page&#x27;, &#x27;Cue line&#x27;, &#x27;Piece&#x27;, &#x27;Action&#x27;, &#x27;Wing&#x27;, &#x27;Who&#x27;, &#x27;Notes&#x27;, &#x27;Updated&#x27;], &#x27;changes&#x27;],
+  [&#x27;Scenes&#x27;,      [&#x27;Scene&#x27;, &#x27;Page&#x27;], &#x27;scenes&#x27;],
+  [&#x27;By person&#x27;,   [&#x27;Name&#x27;, &#x27;Scene&#x27;, &#x27;Cue&#x27;, &#x27;Page&#x27;, &#x27;Cue line&#x27;, &#x27;Piece&#x27;, &#x27;Action&#x27;, &#x27;Wing&#x27;, &#x27;With&#x27;, &#x27;Notes&#x27;], &#x27;people&#x27;]
+];
+function _kvRead(key) {
+  var rows = _kvSheet().getDataRange().getValues();
+  for (var i = 1; i &lt; rows.length; i++) if (rows[i][0] === key) { var v = _bigJoin(rows[i], 1); try { return JSON.parse(v); } catch (err) { return null; } }
+  return null;
+}
+function _castIndex() { var v = _kvRead(&#x27;cast_index&#x27;); return (v &amp;&amp; typeof v === &#x27;object&#x27; &amp;&amp; !Array.isArray(v)) ? v : {}; }
+function _castTab(ss, name, head, rows, pos) {
+  var sheet = ss.getSheetByName(name), fresh = !sheet;
+  if (fresh) sheet = ss.insertSheet(name, pos);
+  sheet.clearContents();
+  var w = head.length, values = [head];
+  (rows || []).forEach(function (r) { var out = []; for (var i = 0; i &lt; w; i++) out.push(String(r &amp;&amp; r[i] != null ? r[i] : &#x27;&#x27;).slice(0, 2000)); values.push(out); });
+  if (sheet.getMaxRows() &lt; values.length) sheet.insertRowsAfter(sheet.getMaxRows(), values.length - sheet.getMaxRows());
+  if (sheet.getMaxColumns() &lt; w) sheet.insertColumnsAfter(sheet.getMaxColumns(), w - sheet.getMaxColumns());
+  var range = sheet.getRange(1, 1, values.length, w);
+  range.setNumberFormat(&#x27;@&#x27;);
+  range.setValues(values);
+  if (fresh) {
+    sheet.getRange(1, 1, 1, w).setFontWeight(&#x27;bold&#x27;).setBackground(&#x27;#18181b&#x27;).setFontColor(&#x27;#ffffff&#x27;);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, sheet.getMaxRows(), w).setWrap(true).setVerticalAlignment(&#x27;top&#x27;);
+    for (var c = 1; c &lt;= w; c++) sheet.setColumnWidth(c, /line|Notes|Piece|Who|With|Scene$/.test(head[c - 1]) ? 190 : 90);
+  }
+}
+function saveCastSheet(data) {
+  var sid = String((data &amp;&amp; data.scriptId) || &#x27;&#x27;);
+  if (!sid) return response({ success: false, error: &#x27;No script&#x27; });
+  if (!data.changes || !data.changes.length) return response({ success: false, error: &#x27;Nothing to write&#x27; });
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(20000); } catch (err) { return response({ success: false, error: &#x27;Busy, try again&#x27; }); }
+  try {
+    var index = _castIndex(), ent = index[sid], ss = null, shared = true;
+    var title = &#x27;MMT Cast Sheet · &#x27; + String(data.showName || sid).slice(0, 80);
+    if (ent &amp;&amp; ent.id) { try { if (!DriveApp.getFileById(ent.id).isTrashed()) ss = SpreadsheetApp.openById(ent.id); } catch (err) { ss = null; } }
+    if (!ss) {
+      ss = SpreadsheetApp.create(title);
+      var file = DriveApp.getFileById(ss.getId());
+      try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (err) { shared = false; }
+      try {
+        var it = DriveApp.getFoldersByName(&#x27;MMT Cast Sheets&#x27;);
+        file.moveTo(it.hasNext() ? it.next() : DriveApp.createFolder(&#x27;MMT Cast Sheets&#x27;));
+      } catch (err) {}
+    } else {
+      if (ss.getName() !== title) ss.rename(title);
+      shared = !(ent &amp;&amp; ent.shared === false);
+    }
+    CAST_TABS.forEach(function (t, i) { _castTab(ss, t[0], t[1], data[t[2]] || [], i); });
+    var first = ss.getSheetByName(&#x27;Sheet1&#x27;);
+    if (first &amp;&amp; ss.getSheets().length &gt; 1) ss.deleteSheet(first);
+    index[sid] = { id: ss.getId(), url: ss.getUrl(), name: String(data.showName || &#x27;&#x27;), sig: String(data.sig || &#x27;&#x27;), shared: shared, updated: new Date().toISOString() };
+    _saveKV(&#x27;cast_index&#x27;, index);
+    return response({ success: true, id: ss.getId(), url: ss.getUrl(), shared: shared, sig: index[sid].sig });
+  } catch (err) {
+    return response({ success: false, error: err.message });
+  } finally { lock.releaseLock(); }
+}
+// The shows that have a cast sheet, for the cast page&#x27;s &quot;which show&quot; list.
+function getCastIndex() {
+  var index = _castIndex();
+  var shows = Object.keys(index).map(function (sid) { var e = index[sid]; return { show: sid, name: e.name, sheet: e.id, url: e.url, sig: e.sig, shared: e.shared !== false, updated: e.updated }; });
+  shows.sort(function (a, b) { return String(b.updated).localeCompare(String(a.updated)); });
+  return response({ success: true, cast: true, shows: shows });
 }
 
 // ── Values too big for one cell ─────────────────────────────────────────────
@@ -1826,5 +1907,5 @@ function getListsRev() {
 <script>function cp(){const t=document.getElementById('c');t.select();t.setSelectionRange(0,t.value.length);
 const done=()=>{document.getElementById('ok').textContent='Copied ('+t.value.length.toLocaleString()+' characters)';};
 (navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(done,()=>{document.execCommand('copy');done();});}</script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">10.28 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.14 v1</div>
 </body></html>
