@@ -8852,7 +8852,7 @@ function castRows(){
   });
   return { data, tabs, moves, sig: 'c2.' + castHash([data, tabs.map(t => [t.name, t.sig])]) };
 }
-const CAST_HEAD = ['Scene', 'Scene page', 'Cue', 'Page', 'Cue line', 'Piece', 'Action', 'Wing', 'Who', 'Spike', 'Spike data', 'Notes', 'Updated'];
+const CAST_HEAD = ['Scene', 'Scene page', 'Cue', 'Page', 'Cue line', 'Piece', 'Action', 'Wing', 'Who', 'Spike', 'Spike data', 'Notes', 'Updated', 'Show'];
 function castLoad(){
   const sid = scriptId;
   jsonp(SCRIPT_URL + '?action=getCastIndex&_=' + Date.now(), d => {
@@ -8871,6 +8871,7 @@ function castSync(force){
   if (!r.moves) { if (force) { _castErr = 'There are no set changes with moves yet.'; castPaint(); } return; }
   if (!force && r.sig === _cast.sig) return;
   r.data[0][12] = new Date().toISOString();
+  r.data[0][13] = scriptName || '';
   _castBusy = true; _castErr = ''; castPaint();
   const sid = scriptId;
   fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveCastSheet', v: 2, scriptId: sid, showName: scriptName || '', sig: r.sig, tabs: r.tabs, data: { head: CAST_HEAD, rows: r.data } }) })
@@ -8964,6 +8965,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.14 v2 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.14 v3 dev</div>
 </body>
 </html>
