@@ -569,57 +569,113 @@ function _saveKV(key, value) {
   return response({ success: true });
 }
 
-// ── CAST SHEETS (11.14 v1) ───────────────────────────────────────────────────
-// Each show can have its own Google spreadsheet for the cast: the set changes
-// in show order, the scenes, and the same moves listed by person. The cue
-// sheet works the rows out and sends them here after a save; this only writes
-// them down. The file is made the first time (in the Drive folder "MMT Cast
-// Sheets", shared so anyone with the link can view), and after that the same
-// file is rewritten, so its link never changes. Every cell is plain text, so
-// nothing typed on the cue sheet can run as a formula, and so the cast page
-// reads every column as text. Which show has which file is kept in the
-// KVStore under 'cast_index'.
-var CAST_TABS = [
-  ['Set Changes', ['Scene', 'Scene page', 'Cue', 'Page', 'Cue line', 'Piece', 'Action', 'Wing', 'Who', 'Notes', 'Updated'], 'changes'],
-  ['Scenes',      ['Scene', 'Page'], 'scenes'],
-  ['By person',   ['Name', 'Scene', 'Cue', 'Page', 'Cue line', 'Piece', 'Action', 'Wing', 'With', 'Notes'], 'people']
-];
+// ── CAST SHEETS (11.14 v2) ───────────────────────────────────────────────────
+// Each show can have its own Google spreadsheet for the cast, laid out like the
+// cue sheet's Excel export: a Set Changes tab, a Presets tab and a tab for each
+// person (title, column headings, black scene bars, a heavy rule between
+// changes, grey "no spike" cells), plus a plain Data tab that the cast page
+// reads. The cue sheet works out every tab and sends it here after a save;
+// this only draws them. The file is made the first time (in the Drive folder
+// "MMT Cast Sheets", shared so anyone with the link can view) and rewritten
+// after that, so its link never changes. Only tabs whose contents changed are
+// redrawn. Every cell is plain text, so nothing typed on the cue sheet can run
+// as a formula. Which show has which file is kept in the KVStore under
+// 'cast_index'. The script lock is held only to read and write that index,
+// never while a spreadsheet is being drawn, so cue sheet saves don't wait.
+var CAST = { GRID: '#cdcdd6', HEAD: '#e8e8f0', SCENE: '#26262e', INK: '#16161c', MUTED: '#9696a0', HEADFG: '#5a5a69', NONE: '#d4d4d8' };
 function _kvRead(key) {
   var rows = _kvSheet().getDataRange().getValues();
   for (var i = 1; i < rows.length; i++) if (rows[i][0] === key) { var v = _bigJoin(rows[i], 1); try { return JSON.parse(v); } catch (err) { return null; } }
   return null;
 }
 function _castIndex() { var v = _kvRead('cast_index'); return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; }
-function _castTab(ss, name, head, rows, pos) {
-  var sheet = ss.getSheetByName(name), fresh = !sheet;
-  if (fresh) sheet = ss.insertSheet(name, pos);
+function _castWithLock(fn) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try { return fn(); } finally { lock.releaseLock(); }
+}
+function _castSize(sheet, n, w) {
+  if (sheet.getMaxRows() < n) sheet.insertRowsAfter(sheet.getMaxRows(), n - sheet.getMaxRows());
+  if (sheet.getMaxColumns() < w) sheet.insertColumnsAfter(sheet.getMaxColumns(), w - sheet.getMaxColumns());
+}
+// The plain table the cast page reads.
+function _castData(ss, head, rows) {
+  var sheet = ss.getSheetByName('Data') || ss.insertSheet('Data', ss.getSheets().length);
   sheet.clearContents();
   var w = head.length, values = [head];
-  (rows || []).forEach(function (r) { var out = []; for (var i = 0; i < w; i++) out.push(String(r && r[i] != null ? r[i] : '').slice(0, 2000)); values.push(out); });
-  if (sheet.getMaxRows() < values.length) sheet.insertRowsAfter(sheet.getMaxRows(), values.length - sheet.getMaxRows());
-  if (sheet.getMaxColumns() < w) sheet.insertColumnsAfter(sheet.getMaxColumns(), w - sheet.getMaxColumns());
+  (rows || []).forEach(function (r) { var out = []; for (var i = 0; i < w; i++) out.push(String(r && r[i] != null ? r[i] : '').slice(0, 4000)); values.push(out); });
+  _castSize(sheet, values.length, w);
   var range = sheet.getRange(1, 1, values.length, w);
   range.setNumberFormat('@');
   range.setValues(values);
-  if (fresh) {
-    sheet.getRange(1, 1, 1, w).setFontWeight('bold').setBackground('#18181b').setFontColor('#ffffff');
-    sheet.setFrozenRows(1);
-    sheet.getRange(1, 1, sheet.getMaxRows(), w).setWrap(true).setVerticalAlignment('top');
-    for (var c = 1; c <= w; c++) sheet.setColumnWidth(c, /line|Notes|Piece|Who|With|Scene$/.test(head[c - 1]) ? 190 : 90);
+  sheet.setFrozenRows(1);
+}
+// One laid-out tab. t = { name, widths: [characters], bold: [column numbers],
+// freeze, rows: [{ k, v, rule, grey }] } where k is T (title: [heading, the
+// smaller words after it]), U (the "Updated" line), R (the thin rule under
+// the title), H (column headings), S (a scene bar) or M (a row of the table).
+function _castDraw(ss, t, pos) {
+  var sheet = ss.getSheetByName(t.name), fresh = !sheet;
+  if (fresh) sheet = ss.insertSheet(t.name, Math.min(pos, ss.getSheets().length));
+  var w = t.widths.length, rows = t.rows || [], n = Math.max(rows.length, 1);
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
+  sheet.clear();
+  _castSize(sheet, n, w);
+  var values = [], bgs = [], weights = [], colors = [], sizes = [], wraps = [];
+  var bars = [], rules = [], body0 = 0, title = null, bold = {};
+  (t.bold || []).forEach(function (c) { bold[c] = true; });
+  var OVER = SpreadsheetApp.WrapStrategy.OVERFLOW, WRAP = SpreadsheetApp.WrapStrategy.WRAP;
+  for (var r = 0; r < n; r++) {
+    var row = rows[r] || { k: 'M', v: [] }, k = row.k, v = row.v || [];
+    var val = [], bg = [], wt = [], col = [], sz = [], wr = [];
+    for (var c = 0; c < w; c++) {
+      var text = '', back = '#ffffff', weight = 'normal', ink = CAST.INK, size = 11, wrap = WRAP;
+      if (k === 'T') { text = c === 0 ? String(v[0] || '') + (v[1] ? '   ' + v[1] : '') : ''; weight = 'bold'; size = 18; wrap = OVER; if (c === 0) title = { row: r + 1, head: String(v[0] || '').length, all: text.length }; }
+      else if (k === 'U') { text = c === 0 ? String(v[0] || '') : ''; ink = CAST.MUTED; size = 10; wrap = OVER; }
+      else if (k === 'R') { size = 4; }
+      else if (k === 'H') { text = String(v[c] || ''); back = CAST.HEAD; weight = 'bold'; ink = CAST.HEADFG; size = 9; if (!body0) body0 = r + 1; }
+      else if (k === 'S') { text = c === 0 ? String(v[0] || '').toUpperCase() : (c === w - 1 ? String(v[1] || '') : ''); back = CAST.SCENE; weight = 'bold'; ink = '#ffffff'; size = 10; wrap = OVER; }
+      else { text = String(v[c] != null ? v[c] : ''); weight = bold[c] ? 'bold' : 'normal'; if (row.grey === c) { back = CAST.NONE; text = ''; } }
+      val.push(text.slice(0, 4000)); bg.push(back); wt.push(weight); col.push(ink); sz.push(size); wr.push(wrap);
+    }
+    values.push(val); bgs.push(bg); weights.push(wt); colors.push(col); sizes.push(sz); wraps.push(wr);
+    if (k === 'S') bars.push('A' + (r + 1) + ':' + String.fromCharCode(64 + w) + (r + 1));
+    if (k === 'M' && row.rule) rules.push('A' + (r + 1) + ':' + String.fromCharCode(64 + w) + (r + 1));
   }
+  var range = sheet.getRange(1, 1, n, w);
+  range.setNumberFormat('@');
+  range.setValues(values);
+  range.setBackgrounds(bgs).setFontWeights(weights).setFontColors(colors).setFontSizes(sizes).setWrapStrategies(wraps);
+  range.setFontFamily('Arial').setVerticalAlignment('top');
+  if (title && title.all > title.head) {
+    var styleA = SpreadsheetApp.newTextStyle().setBold(true).setFontSize(18).setForegroundColor(CAST.INK).build();
+    var styleB = SpreadsheetApp.newTextStyle().setBold(false).setFontSize(12).setForegroundColor(CAST.MUTED).build();
+    sheet.getRange(title.row, 1).setRichTextValue(SpreadsheetApp.newRichTextValue().setText(values[title.row - 1][0]).setTextStyle(0, title.head, styleA).setTextStyle(title.head, title.all, styleB).build());
+  }
+  if (body0 && n >= body0) {
+    sheet.getRange(body0, 1, n - body0 + 1, w).setBorder(true, true, true, true, true, true, CAST.GRID, SpreadsheetApp.BorderStyle.SOLID);
+    if (body0 > 1) sheet.getRange(body0 - 1, 1, 1, w).setBorder(null, null, true, null, null, null, CAST.SCENE, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  }
+  if (bars.length) sheet.getRangeList(bars).setBorder(true, true, true, true, false, false, CAST.SCENE, SpreadsheetApp.BorderStyle.SOLID);
+  if (rules.length) sheet.getRangeList(rules).setBorder(true, null, null, null, null, null, CAST.SCENE, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  sheet.setFrozenRows(Math.min(t.freeze || 0, n - 1 > 0 ? n - 1 : 0));
+  for (var i = 0; i < w; i++) sheet.setColumnWidth(i + 1, Math.round(t.widths[i] * 7.2 + 8));
+  if (sheet.getMaxColumns() > w) sheet.deleteColumns(w + 1, sheet.getMaxColumns() - w);
 }
 function saveCastSheet(data) {
   var sid = String((data && data.scriptId) || '');
   if (!sid) return response({ success: false, error: 'No script' });
-  if (!data.changes || !data.changes.length) return response({ success: false, error: 'Nothing to write' });
-  var lock = LockService.getScriptLock();
-  try { lock.waitLock(20000); } catch (err) { return response({ success: false, error: 'Busy, try again' }); }
+  if (!data.tabs || !data.tabs.length || !data.data || !data.data.rows || !data.data.rows.length) return response({ success: false, error: 'Nothing to write' });
+  var cache = CacheService.getScriptCache(), busyKey = 'cast_busy_' + sid, t0 = Date.now();
+  if (cache.get(busyKey)) return response({ success: false, busy: true, error: 'Still writing the last one' });
+  cache.put(busyKey, '1', 360);
   try {
-    var index = _castIndex(), ent = index[sid], ss = null, shared = true;
+    var ent = _castWithLock(function () { return _castIndex()[sid]; });
+    var ss = null, shared = true, made = false;
     var title = 'MMT Cast Sheet · ' + String(data.showName || sid).slice(0, 80);
     if (ent && ent.id) { try { if (!DriveApp.getFileById(ent.id).isTrashed()) ss = SpreadsheetApp.openById(ent.id); } catch (err) { ss = null; } }
     if (!ss) {
-      ss = SpreadsheetApp.create(title);
+      ss = SpreadsheetApp.create(title); made = true; ent = null;
       var file = DriveApp.getFileById(ss.getId());
       try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (err) { shared = false; }
       try {
@@ -630,22 +686,33 @@ function saveCastSheet(data) {
       if (ss.getName() !== title) ss.rename(title);
       shared = !(ent && ent.shared === false);
     }
-    CAST_TABS.forEach(function (t, i) { _castTab(ss, t[0], t[1], data[t[2]] || [], i); });
-    var first = ss.getSheetByName('Sheet1');
-    if (first && ss.getSheets().length > 1) ss.deleteSheet(first);
-    index[sid] = { id: ss.getId(), url: ss.getUrl(), name: String(data.showName || ''), sig: String(data.sig || ''), shared: shared, updated: new Date().toISOString() };
-    _saveKV('cast_index', index);
-    return response({ success: true, id: ss.getId(), url: ss.getUrl(), shared: shared, sig: index[sid].sig });
+    // the cast page's table first, so the page is never behind the tabs
+    _castData(ss, data.data.head, data.data.rows);
+    var was = (ent && ent.tabs) || {}, now = {}, wrote = [], partial = false;
+    data.tabs.forEach(function (t, i) {
+      var name = String(t.name);
+      if (!made && was[name] && was[name] === t.sig && ss.getSheetByName(name)) { now[name] = t.sig; return; }
+      if (Date.now() - t0 > 240000) { partial = true; return; }   // out of time: the rest go next save
+      _castDraw(ss, t, i);
+      now[name] = t.sig; wrote.push(name);
+    });
+    // tabs for people who are no longer in the plot, and anything left from before
+    var keep = { 'Data': true };
+    data.tabs.forEach(function (t) { keep[String(t.name)] = true; });
+    ss.getSheets().forEach(function (sh) { if (!keep[sh.getName()] && ss.getSheets().length > 1) ss.deleteSheet(sh); });
+    var entry = { id: ss.getId(), url: ss.getUrl(), name: String(data.showName || ''), sig: partial ? '' : String(data.sig || ''), shared: shared, tabs: now, updated: new Date().toISOString() };
+    _castWithLock(function () { var index = _castIndex(); index[sid] = entry; _saveKV('cast_index', index); });
+    return response({ success: true, id: entry.id, url: entry.url, shared: shared, sig: entry.sig, wrote: wrote, partial: partial });
   } catch (err) {
     return response({ success: false, error: err.message });
-  } finally { lock.releaseLock(); }
+  } finally { cache.remove(busyKey); }
 }
 // The shows that have a cast sheet, for the cast page's "which show" list.
 function getCastIndex() {
   var index = _castIndex();
   var shows = Object.keys(index).map(function (sid) { var e = index[sid]; return { show: sid, name: e.name, sheet: e.id, url: e.url, sig: e.sig, shared: e.shared !== false, updated: e.updated }; });
   shows.sort(function (a, b) { return String(b.updated).localeCompare(String(a.updated)); });
-  return response({ success: true, cast: true, shows: shows });
+  return response({ success: true, cast: 2, shows: shows });
 }
 
 // ── Values too big for one cell ─────────────────────────────────────────────

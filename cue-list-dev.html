@@ -8770,30 +8770,94 @@ async function pvPDF(){
 // finds the Sheet out of date. The rows are worked out here; the script only
 // writes them.
 let _cast = null, _castSid = '', _castBusy = false, _castT = null, _castErr = '';
-function castRows(){
-  const L = sceneLabels(), scenes = [], people = [];
-  let sc = null;
-  cuesInScriptOrder().forEach(c => {
-    if (isSceneCue(c)) { sc = { label: String(L[c.id] || c.number || ''), page: c.page ? String(c.page) : '', rows: [] }; scenes.push(sc); return; }
-    if (c.type !== SHIFT_TYPE_ID) return;
-    if (!sc) { sc = { label: '', page: '', rows: [] }; scenes.push(sc); }
-    (c.moves || []).filter(m => String(m.piece || '').trim() || String(m.action || '').trim()).forEach(m => {
-      const who = whoNames(whoDisplay(m.who)), num = '#' + changeShortNum(c.number), pg = c.page ? String(c.page) : '', line = String(m.trigger || c.cueLine || '');
-      const piece = String(m.piece || '').trim(), action = String(m.action || '').trim(), wing = wingText(m), notes = String(m.notes || '').trim();
-      sc.rows.push([sc.label, sc.page, num, pg, line, piece, action, wing, who.join(', '), notes, '']);
-      who.forEach(w => people.push([w, sc.label, num, pg, line, piece, action, wing, who.filter(x => x !== w).join(', '), notes]));
-    });
-  });
-  const changes = scenes.reduce((a, x) => a.concat(x.rows.length ? x.rows : [[x.label, x.page, '', '', '', '', '', '', '', '', '']]), []);
-  const order = people.map((r, i) => [r, i]).sort((a, b) => a[0][0].localeCompare(b[0][0]) || a[1] - b[1]).map(x => x[0]);
-  const str = JSON.stringify(changes); let h = 5381; for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
-  return { changes, scenes: scenes.map(x => [x.label, x.page]), people: order, sig: 'c' + (h >>> 0).toString(36) + '.' + changes.length, moves: scenes.reduce((n, x) => n + x.rows.length, 0) };
+// Everything the cast sheet needs, worked out here: the plain table the cast
+// page reads (data), and each tab of the Google Sheet laid out like the Excel
+// export (Set Changes, Presets, one per person): a title, the "Updated" line,
+// column headings, black scene bars, a heavy rule between changes, grey
+// "no spike" cells. Names are in the cue sheet's short form.
+function castHash(v){ const str = typeof v === 'string' ? v : JSON.stringify(v); let h = 5381; for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + '.' + str.length; }
+function castSpike(m){
+  const e = spkEff(m);
+  if (spkIsNone(e)) return { none: true, text: 'No spike', data: '{"n":1}' };
+  const list = spkOfMove(e, scriptId).filter(Boolean).map(x => [spkLabel(x), x.label ? spkTapeName(x) : '', x.c1 || '', x.c2 || '']);
+  const typed = String((e && e.spike) || '').trim();
+  return { none: false, text: spkMoveText(m, scriptId), data: list.length || typed ? JSON.stringify({ s: list, t: typed }) : '' };
 }
+function castRows(){
+  const L = sceneLabels(), show = scriptName || 'Set Changes';
+  const scenes = []; let sc = null;
+  cuesInScriptOrder().forEach(c => {
+    if (isSceneCue(c)) { sc = { label: String(L[c.id] || c.number || ''), page: c.page ? String(c.page) : '', changes: [] }; scenes.push(sc); return; }
+    if (c.type !== SHIFT_TYPE_ID) return;
+    if (!sc) { sc = { label: '', page: '', changes: [] }; scenes.push(sc); }
+    const moves = (c.moves || []).filter(m => String(m.piece || '').trim() || String(m.action || '').trim()).map(m => {
+      const sp = castSpike(m);
+      return { piece: String(m.piece || '').trim(), action: String(m.action || '').trim(), wing: wingText(m), who: whoNames(whoDisplay(m.who)), notes: String(m.notes || '').trim(), sp, line: String(m.trigger || c.cueLine || '') };
+    });
+    sc.changes.push({ num: '#' + changeShortNum(c.number), pg: c.page ? String(c.page) : '', line: String(c.cueLine || ''), moves });
+  });
+  // the cast page's table
+  const data = [];
+  scenes.forEach(x => {
+    const n0 = data.length;
+    x.changes.forEach(ch => ch.moves.forEach(m => data.push([x.label, x.page, ch.num, ch.pg, m.line || ch.line, m.piece, m.action, m.wing, m.who.join(', '), m.sp.none ? 'No spike' : m.sp.text, m.sp.data, m.notes, ''])));
+    if (data.length === n0) data.push([x.label, x.page, '', '', '', '', '', '', '', '', '', '', '']);
+  });
+  const moves = scenes.reduce((n, x) => n + x.changes.reduce((k, ch) => k + ch.moves.length, 0), 0);
+  // the Google Sheet's tabs
+  const pg = v => v ? 'pg. ' + v : '';
+  const tab = (name, widths, bold, head, top, body) => {
+    const sig = castHash([widths, head, top[0], body]);
+    return { name, sig, widths, bold, freeze: 4, rows: [{ k: 'T', v: top[0] }, { k: 'U', v: [top[1]] }, { k: 'R' }, { k: 'H', v: head }].concat(body) };
+  };
+  const stamp = 'Updated ' + new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const tabs = [], body = [];
+  scenes.forEach(x => {
+    if (x.label) body.push({ k: 'S', v: [x.label, pg(x.page)] });
+    x.changes.forEach((ch, bi) => (ch.moves.length ? ch.moves : [null]).forEach((m, mi) => {
+      const row = { k: 'M', v: m ? [ch.num, m.line || ch.line, pg(ch.pg), m.piece, m.action, m.wing, m.who.join(', '), m.sp.none ? '' : m.sp.text, m.notes] : [ch.num, ch.line, pg(ch.pg), '', '', '', '', '', ''] };
+      if (mi === 0 && bi > 0) row.rule = 1;
+      if (m && m.sp.none) row.grey = 7;
+      body.push(row);
+    }));
+  });
+  tabs.push(tab('Set Changes', [7, 22, 8, 23, 13, 11, 16, 21, 24], [0, 3], ['#', 'CUE', 'PG', 'PIECE', 'ACTION', 'WING', 'WHO', 'SPIKE', 'NOTES'], [[show, 'Set Changes'], stamp], body));
+  const pre = presetRowData();
+  if (pre.length) {
+    const rows = [{ k: 'S', v: ['Presets', ''] }].concat(pre.map(r => { const sp = castSpike(r._m || r); const row = { k: 'M', v: [r.piece, r.location, sp.none ? '' : sp.text, r.notes] }; if (sp.none) row.grey = 2; return row; }));
+    const t = tab('Presets', [30, 38, 32, 42], [0], ['PIECE', 'PRESET LOCATION', 'SPIKE', 'NOTES'], [[show, 'Set Changes'], stamp], rows);
+    // Presets has its bar above the headings, as the Excel export does
+    t.rows = [t.rows[0], t.rows[1], t.rows[2], rows[0], t.rows[3]].concat(rows.slice(1)); t.freeze = 5;
+    tabs.push(t);
+  }
+  const people = new Map();
+  scenes.forEach(x => x.changes.forEach(ch => ch.moves.forEach(m => m.who.forEach(w => {
+    const k = w.toLowerCase(); if (!people.has(k)) people.set(k, { name: w, items: [] });
+    people.get(k).items.push({ scene: x, ch, m, others: m.who.filter(o => o.toLowerCase() !== k) });
+  }))));
+  const used = new Set(['set changes', 'presets', 'data']);
+  const tabName = name => { const base = String(name).replace(/[\[\]:*?\/\\]/g, ' ').replace(/^'+|'+$/g, '').trim().slice(0, 31) || 'Cast'; let t = base, n = 2; while (used.has(t.toLowerCase())) { const suf = ' (' + n++ + ')'; t = base.slice(0, 31 - suf.length) + suf; } used.add(t.toLowerCase()); return t; };
+  [...people.values()].sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
+    const rows = []; let pScene = null, prev = null;
+    p.items.forEach(it => {
+      if (it.scene !== pScene) { pScene = it.scene; prev = null; if (pScene.label) rows.push({ k: 'S', v: [pScene.label, pg(pScene.page)] }); }
+      const row = { k: 'M', v: [it.ch.num, it.m.line || it.ch.line, pg(it.ch.pg), it.m.piece, it.m.action, it.m.wing, it.m.sp.none ? '' : it.m.sp.text, it.m.notes, it.others.join(', ')] };
+      if (prev && it.ch !== prev) row.rule = 1;
+      if (it.m.sp.none) row.grey = 6;
+      prev = it.ch; rows.push(row);
+    });
+    const nCh = new Set(p.items.map(it => it.ch)).size, nMv = p.items.length;
+    tabs.push(tab(tabName(p.name), [7, 25, 8, 24, 13, 11, 21, 24, 16], [0, 3], ['#', 'CUE', 'PG', 'PIECE', 'ACTION', 'WING', 'SPIKE', 'NOTES', 'WITH'],
+      [[p.name, nMv + ' move' + (nMv !== 1 ? 's' : '') + ' in ' + nCh + ' change' + (nCh !== 1 ? 's' : '')], show + ' · Set Changes · ' + stamp], rows));
+  });
+  return { data, tabs, moves, sig: 'c2.' + castHash([data, tabs.map(t => [t.name, t.sig])]) };
+}
+const CAST_HEAD = ['Scene', 'Scene page', 'Cue', 'Page', 'Cue line', 'Piece', 'Action', 'Wing', 'Who', 'Spike', 'Spike data', 'Notes', 'Updated'];
 function castLoad(){
   const sid = scriptId;
   jsonp(SCRIPT_URL + '?action=getCastIndex&_=' + Date.now(), d => {
     if (sid !== scriptId) return;
-    if (!d || !d.cast) { _cast = { off: true, old: true }; castPaint(); return; }   // the script hasn't been updated yet
+    if (!d || !(d.cast >= 2)) { _cast = { off: true, old: true }; castPaint(); return; }   // the script hasn't had this update yet
     const e = (d.shows || []).find(x => String(x.show) === String(sid));
     _cast = e ? e : { off: true }; castPaint();
     if (e) castDue(4000 + Math.random() * 8000);
@@ -8806,18 +8870,19 @@ function castSync(force){
   const r = castRows();
   if (!r.moves) { if (force) { _castErr = 'There are no set changes with moves yet.'; castPaint(); } return; }
   if (!force && r.sig === _cast.sig) return;
-  r.changes[0][10] = new Date().toISOString();
+  r.data[0][12] = new Date().toISOString();
   _castBusy = true; _castErr = ''; castPaint();
   const sid = scriptId;
-  fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveCastSheet', scriptId: sid, showName: scriptName || '', sig: r.sig, changes: r.changes, scenes: r.scenes, people: r.people }) })
+  fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveCastSheet', v: 2, scriptId: sid, showName: scriptName || '', sig: r.sig, tabs: r.tabs, data: { head: CAST_HEAD, rows: r.data } }) })
     .then(x => x.json()).then(res => {
       _castBusy = false; if (sid !== scriptId) return;
-      if (!res || !res.success) { _castErr = /unknown action/i.test((res && res.error) || '') ? 'The dashboard’s script needs its update before the cast link can be turned on.' : 'The cast sheet didn’t update' + (res && res.error ? ' (' + res.error + ')' : '') + '. It will try again on the next save.'; castPaint(); return; }
+      if (res && (res.busy || res.partial)) { if (res.success) _cast = Object.assign({}, _cast, { show: sid, sheet: res.id, url: res.url, sig: '', shared: res.shared !== false, updated: new Date().toISOString(), off: false, old: false }); castPaint(); clearTimeout(_castT); _castT = setTimeout(() => castSync(false), 20000); return; }
+      if (!res || !res.success) { _castErr = /unknown action|nothing to write/i.test((res && res.error) || '') ? 'The dashboard’s script needs its update before the cast link can be turned on.' : 'The cast sheet didn’t update' + (res && res.error ? ' (' + res.error + ')' : '') + '. It will try again on the next save.'; castPaint(); return; }
       _cast = { show: sid, sheet: res.id, url: res.url, sig: res.sig || r.sig, shared: res.shared !== false, updated: new Date().toISOString() };
       castPaint();
     }).catch(() => { _castBusy = false; _castErr = 'Couldn’t reach the Sheet. The cast sheet will update on the next save.'; castPaint(); });
 }
-function castPageURL(one){ const u = new URL('cast-dev.html', location.href); u.search = ''; u.hash = ''; if (one && _cast && _cast.sheet) { u.searchParams.set('show', scriptId); u.searchParams.set('s', _cast.sheet); } return u.toString(); }
+function castPageURL(one){ const u = new URL('cast-dev.html', location.href); u.search = ''; u.hash = ''; if (one && _cast && _cast.sheet) { u.searchParams.set('show', scriptId); u.searchParams.set('s', _cast.sheet); if (scriptName) u.searchParams.set('n', scriptName); } return u.toString(); }
 function castPaint(){
   const el = document.getElementById('cast-link-body'); if (!el || !document.getElementById('cast-link').classList.contains('open')) return;
   const row = (label, id, val) => `<label class="note" style="display:block;margin:10px 0 4px;font-weight:600">${label}</label><div style="display:flex;gap:6px"><input id="${id}" class="cl-link-in" readonly value="${esc(val)}" onclick="this.select()"><button class="top-btn" onclick="castCopy('${id}')">Copy</button></div>`;
@@ -8899,6 +8964,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.14 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.14 v2 dev</div>
 </body>
 </html>

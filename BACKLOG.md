@@ -254,7 +254,7 @@
 - Only your (TD) devices add them, and they check the Sheet first, so two devices don't add the same one twice.
 
 ## Waiting on dev (Nov 14)
-- Apps Script 11.14 v1 (cast sheets): Mac pasted + redeployed Nov 14. Still to confirm it answers (Export → Cast link on the dev cue sheet).
+- Apps Script 11.14 v2 (cast sheets laid out like the Excel export) needs pasting + redeploy (v1 went in Nov 14). Not in the cast Sheet yet: map pictures, tape colour squares in the Spike column.
 - After that: on the dev cue sheet, Export → Cast link → Turn on for a show. Then test the cast page (cast-dev.html) against the real Sheet: does a change arrive within a minute, and how it holds with many phones.
 - Cast link still to do: publish from the dashboard's script editor too (today only the cue sheet page sends), a way to turn a show's cast link off, live copies (cast.html, live cue sheet).
 - Also built on dev and waiting for a look: preset check (cue sheet + Run view), Budget tab, PDF contents page, Excel look with maps.
