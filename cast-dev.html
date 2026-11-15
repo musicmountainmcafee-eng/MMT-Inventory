@@ -53,7 +53,7 @@
 </head>
 <body>
 <div id="app"></div>
-<div id="build-tag">11.14 v7 dev</div>
+<div id="build-tag">11.15 v2 dev</div>
 <script>
 // ── MMT CAST SHEET ───────────────────────────────────────────────────────────
 // The link the cast opens: one show's set changes, read only, on a phone.
@@ -97,7 +97,7 @@ const SAMPLE = {
         { num: '17', page: 24, cue: 'End of the dance', moves: [
           { piece: 'Fezziwig table', action: 'Strike', wing: 'CS → SR 2', who: ['Kyle B', 'Molly R'] },
           { piece: 'Benches (2)', action: 'Strike', wing: 'CS → SL 1', who: ['Louis T', 'Dana'] }] }] },
-      { label: 'Intermission', page: 30, changes: [] },
+      { label: 'Intermission', page: 30, changes: [], tasks: [{ piece: 'Sweep confetti', where: 'DS edge', who: ['Dana', 'Kyle B'], notes: 'Push broom is SL' }, { piece: 'Reset Scrooge’s desk', where: 'SR 2', who: ['Molly R'], notes: '', sp: { n: 1 } }] },
       { label: 'Scene 4: The Cratchits', page: 31, changes: [
         { num: '21', page: 31, cue: 'Top of Act 2', moves: [
           { piece: 'Cratchit wagon', action: 'On', wing: 'SL 2 → CS', who: ['Tristan', 'Louis T', 'Molly R'], notes: 'Brakes on once it lands' }] }] }] },
@@ -134,8 +134,12 @@ function readTable(t) {
     const u = g(r, 'Updated'); if (u && !updated) updated = Date.parse(u) || 0;
     if (!show) show = g(r, 'Show');
     const label = g(r, 'Scene'), sp = g(r, 'Scene page');
-    if (!sc || sc.label !== label || sc.page !== sp) { sc = { label, page: sp, changes: [] }; scenes.push(sc); ch = null; }
+    if (!sc || sc.label !== label || sc.page !== sp) { sc = { label, page: sp, changes: [], tasks: [] }; scenes.push(sc); ch = null; }
     const piece = g(r, 'Piece'), action = g(r, 'Action'); if (!piece && !action) return;
+    if (g(r, 'Kind') === 'intermission') {
+      let tsp = null; try { tsp = JSON.parse(g(r, 'Spike data') || 'null'); } catch (e) {}
+      sc.tasks.push({ piece, where: g(r, 'Wing'), who: g(r, 'Who').split(',').map(x => x.trim()).filter(Boolean), notes: g(r, 'Notes'), spike: g(r, 'Spike'), sp: tsp }); return;
+    }
     const num = g(r, 'Cue').replace(/^#/, ''), page = g(r, 'Page'), cue = g(r, 'Cue line');
     if (!ch || ch.num !== num || ch.page !== page || ch.cue !== cue) { ch = { num, page, cue, moves: [] }; sc.changes.push(ch); }
     let spk = null; try { spk = JSON.parse(g(r, 'Spike data') || 'null'); } catch (e) {}
@@ -177,7 +181,7 @@ let shows = [], showId = LOCKED || ls('mmt_cast_show') || '', data = null, view 
 let theme = ls('mmt_cast_theme') || (matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 document.documentElement.dataset.theme = theme;
 
-const people = () => { const n = {}; (data ? data.scenes : []).forEach(s => s.changes.forEach(c => c.moves.forEach(m => (m.who || []).forEach(w => { n[w] = n[w] || new Set(); n[w].add(c.num + '|' + s.label); })))); return Object.keys(n).sort((a, b) => a.localeCompare(b)).map(name => ({ name, n: n[name].size })); };
+const people = () => { const n = {}; (data ? data.scenes : []).forEach(s => { s.changes.forEach(c => c.moves.forEach(m => (m.who || []).forEach(w => { n[w] = n[w] || new Set(); n[w].add(c.num + '|' + s.label); }))); (s.tasks || []).forEach((t, i) => (t.who || []).forEach(w => { n[w] = n[w] || new Set(); n[w].add('task' + i + '|' + s.label); })); }); return Object.keys(n).sort((a, b) => a.localeCompare(b)).map(name => ({ name, n: n[name].size })); };
 const mine = c => c.moves.filter(m => (m.who || []).indexOf(me) >= 0);
 const ago = t => { const s = Math.round((Date.now() - t) / 1000); return s < 50 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); };
 
@@ -260,13 +264,26 @@ function changeHTML(c, only) {
   return `<div class="chg"><div class="when">${c.cue ? `<b>When:</b> ${esc(c.cue)}` : '<b>Set change</b>'}<small>Change #${esc(c.num)}${c.page ? ' · script page ' + esc(c.page) : ''}${only && more > 0 ? ' · ' + more + ' other move' + (more === 1 ? '' : 's') + ' in this change (see Whole plot)' : ''}</small></div>
     <div class="moves">${list.map(m => moveHTML(m, only)).join('')}</div></div>`;
 }
+// The Intermission preset: jobs done during intermission, with the same boxes
+// as the pre-show Presets (piece, preset location, spike, notes) plus who.
+function taskHTML(t, only) {
+  const isMe = me && (t.who || []).indexOf(me) >= 0, tape = tapeHTML(t), who = whoHTML(t, only);
+  const row = (k, v, no) => `<span class="k">${k}</span><span class="v${no ? ' no' : ''}">${v}</span>`;
+  return `<div class="mv${isMe && !only ? ' me' : ''}"><span class="k">Piece</span><span class="v piece">${esc(t.piece)}</span>
+    ${row('Preset location', t.where ? esc(t.where) : 'Not set yet', !t.where)}${row('Who does it', who[0], who[1])}${row('Tape mark', tape[0], tape[1])}${row('Notes', t.notes ? esc(t.notes) : 'None', !t.notes)}</div>`;
+}
+const myTasks = s => (s.tasks || []).filter(t => (t.who || []).indexOf(me) >= 0);
+function tasksHTML(s, only) {
+  const list = only ? myTasks(s) : (s.tasks || []); if (!list.length) return '';
+  return `<div class="chg"><div class="when"><b>Intermission preset</b><small>Done during intermission · ${list.length} task${list.length === 1 ? '' : 's'}</small></div><div class="moves">${list.map(t => taskHTML(t, only)).join('')}</div></div>`;
+}
 function listHTML(only) {
   let h = '', n = 0;
   data.scenes.forEach((s, i) => {
-    const cs = only ? s.changes.filter(c => mine(c).length) : s.changes;
-    if (only && !cs.length) return;
-    n += cs.length;
-    h += `<div class="scene" id="sc-${i}">${esc(s.label || 'Before the first scene')}${s.page ? `<span>script page ${esc(s.page)}</span>` : ''}</div>` + (cs.length ? cs.map(c => changeHTML(c, only)).join('') : '<p class="empty" style="padding:2px 4px 6px;text-align:left">No set changes in this scene.</p>');
+    const cs = only ? s.changes.filter(c => mine(c).length) : s.changes, tk = tasksHTML(s, only);
+    if (only && !cs.length && !tk) return;
+    n += cs.length + (tk ? 1 : 0);
+    h += `<div class="scene" id="sc-${i}">${esc(s.label || 'Before the first scene')}${s.page ? `<span>script page ${esc(s.page)}</span>` : ''}</div>` + tk + (cs.length ? cs.map(c => changeHTML(c, only)).join('') : tk ? '' : '<p class="empty" style="padding:2px 4px 6px;text-align:left">No set changes in this scene.</p>');
   });
   return { n, html: h };
 }
@@ -283,7 +300,7 @@ function mineHTML() {
 function plotHTML() { return listHTML(false).html; }
 function scenesHTML() {
   return `<h2>Scenes</h2><p class="sub">${me ? 'The number shows how many changes you’re in. ' : ''}Tap a scene to see its set changes.</p><div class="chg" style="padding:0 10px">` +
-    data.scenes.map((s, i) => { const k = me ? s.changes.filter(c => mine(c).length).length : 0; return `<button class="sc-row" data-a="scene" data-v="${i}"><span class="dot${k ? '' : ' none'}">${k || ''}</span><b>${esc(s.label)}</b><span class="pg">p. ${esc(s.page)}</span></button>`; }).join('') + '</div>';
+    data.scenes.map((s, i) => { const k = me ? s.changes.filter(c => mine(c).length).length + myTasks(s).length : 0; return `<button class="sc-row" data-a="scene" data-v="${i}"><span class="dot${k ? '' : ' none'}">${k || ''}</span><b>${esc(s.label)}</b><span class="pg">p. ${esc(s.page)}</span></button>`; }).join('') + '</div>';
 }
 
 document.addEventListener('click', ev => {

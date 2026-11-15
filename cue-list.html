@@ -3847,7 +3847,7 @@ async function exportSetChangePlot(log, offline) {
 
     doc.setFontSize(FS);
     let pShade = false;
-    presetRows.forEach(r => {
+    const drawPresetRows = (list, title) => list.forEach(r => {
       // Spike cells hold the tape drawing, label and colours, then anything typed.
       const presetSpike = (rec, w) => {
         if (spkIsNone(spkEff(rec))) return [{ t: '', ind: 0, none: true }];
@@ -3871,7 +3871,7 @@ async function exportSetChangePlot(log, offline) {
       // column header or the rows arrive unlabelled.
       if (y + rowH > pageH - MARGIN_BOTTOM) {
         doc.addPage(); tagPage('Preset'); drawTitle();
-        drawSceneBar('Presets (cont.)', true);
+        drawSceneBar(title + ' (cont.)', true);
         drawPresetHead();
       }
       doc.setFontSize(FS); doc.setTextColor(30,30,30);
@@ -3897,6 +3897,17 @@ async function exportSetChangePlot(log, offline) {
       y += rowH;
       pShade = !pShade;
     });
+    drawPresetRows(presetRows, 'Presets');
+    // The Intermission preset: the same table, under its own bar.
+    const interRows = interKeys().map(k => presets[k]).filter(r => r && !r.hidden).map(r => ({ ...r, notes: prNotesText(r) }));
+    if (interRows.length) {
+      y += 16;
+      if (y > pageH - MARGIN_BOTTOM - 90) { doc.addPage(); tagPage('Preset'); drawTitle(); }
+      drawSceneBar('Intermission preset');
+      drawPresetHead();
+      doc.setFontSize(FS); pShade = false;
+      drawPresetRows(interRows, 'Intermission preset');
+    }
 
     // The presets are a standing reference, not part of the running order — so
     // they get the sheet to themselves and the plot opens on a clean page.
@@ -4327,6 +4338,12 @@ function setChangeSections() {
 // Every piece in the show and where it lives at top of show, unless it's been
 // turned off in the Presets dialog. A blank location is a gap someone should
 // fill, so it exports rather than being hidden.
+// The Intermission preset's tasks, as the same four boxes as Presets (who is
+// on a task goes after its notes), for the exports and the cast sheet.
+function interRowData() {
+  return interKeys().map(k => presets[k]).filter(r => r && !r.hidden)
+    .map(r => ({ _m: r, piece: String(r.piece || ''), location: String(r.location || ''), spike: spkMoveText(r, showId), notes: prNotesText(r) }));
+}
 function presetRowData() {
   return allPieces()
     .map(({ key, piece }) => ({ ...(presets[key] || {}), piece }))
@@ -4609,9 +4626,9 @@ async function exportSetChangeXLSX() {
   // reference, not part of the running order. Here they get their own tab — a
   // sheet has one set of column widths, and a three-column table doesn't want
   // the plot's eight.
-  const presetRows = presetRowData();
+  [['Presets', presetRowData()], ['Intermission preset', interRowData()]].forEach(([prName, presetRows]) => {
   if (presetRows.length) {
-    const ps = wb.addWorksheet('Presets', {
+    const ps = wb.addWorksheet(prName, {
       views: [{ state: 'frozen', ySplit: 5 }],
       pageSetup: {
         orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
@@ -4621,7 +4638,7 @@ async function exportSetChangeXLSX() {
     });
     ps.columns = [{ key:'piece', width:30 }, { key:'location', width:38 }, { key:'spike', width:32 }, { key:'notes', width:42 }];
     titleBlock(ps, 'D', showName, 'Set Changes');
-    sceneBar(ps, 4, 'Presets', 'D');
+    sceneBar(ps, 4, prName, 'D');
     headerRow(ps, 5, ['PIECE', 'PRESET LOCATION', 'SPIKE', 'NOTES']);
 
     presetRows.forEach((rec, idx) => {
@@ -4636,6 +4653,7 @@ async function exportSetChangeXLSX() {
       });
     });
   }
+  });
 
   // ── One tab per person ─────────────────────────────────────────────────────
   // Matches the crew pages at the end of the plot PDF: only the moves that
@@ -8397,11 +8415,12 @@ function castRows(){
     });
     sc.changes.push({ num: '#' + changeShortNum(c.number), pg: c.page ? String(c.page) : '', line: String(c.cueLine || ''), moves });
   });
-  // the cast page's table
-  const data = [];
+  // the cast page's table (intermission tasks sit under the Intermission scene, marked as such)
+  const data = [], inter = interKeys().map(k => presets[k]).filter(r => r && !r.hidden);
   scenes.forEach(x => {
     const n0 = data.length;
     x.changes.forEach(ch => ch.moves.forEach(m => data.push([x.label, x.page, ch.num, ch.pg, m.line || ch.line, m.piece, m.action, m.wing, m.who.join(', '), m.sp.none ? 'No spike' : m.sp.text, m.sp.data, m.notes, ''])));
+    if (/intermission/i.test(x.label)) inter.forEach(r => { const sp = castSpike(r); data.push([x.label, x.page, '', '', '', String(r.piece || '').trim(), '', String(r.location || '').trim(), whoNames(whoDisplay(r.who)).join(', '), sp.none ? 'No spike' : sp.text, sp.data, String(r.notes || '').trim(), '', '', 'intermission']); });
     if (data.length === n0) data.push([x.label, x.page, '', '', '', '', '', '', '', '', '', '', '']);
   });
   const moves = scenes.reduce((n, x) => n + x.changes.reduce((k, ch) => k + ch.moves.length, 0), 0);
@@ -8431,12 +8450,19 @@ function castRows(){
     t.rows = [t.rows[0], t.rows[1], t.rows[2], rows[0], t.rows[3]].concat(rows.slice(1)); t.freeze = 5;
     tabs.push(t);
   }
+  const intRows = interRowData();
+  if (intRows.length) {
+    const rows = [{ k: 'S', v: ['Intermission preset', ''] }].concat(intRows.map(r => { const sp = castSpike(r._m); const row = { k: 'M', v: [r.piece, r.location, sp.none ? '' : sp.text, r.notes] }; if (sp.none) row.grey = 2; return row; }));
+    const t = tab('Intermission preset', [30, 38, 32, 42], [0], ['PIECE', 'PRESET LOCATION', 'SPIKE', 'NOTES'], [[show, 'Set Changes'], stamp], rows);
+    t.rows = [t.rows[0], t.rows[1], t.rows[2], rows[0], t.rows[3]].concat(rows.slice(1)); t.freeze = 5;
+    tabs.push(t);
+  }
   const people = new Map();
   scenes.forEach(x => x.changes.forEach(ch => ch.moves.forEach(m => m.who.forEach(w => {
     const k = w.toLowerCase(); if (!people.has(k)) people.set(k, { name: w, items: [] });
     people.get(k).items.push({ scene: x, ch, m, others: m.who.filter(o => o.toLowerCase() !== k) });
   }))));
-  const used = new Set(['set changes', 'presets', 'data']);
+  const used = new Set(['set changes', 'presets', 'intermission preset', 'data']);
   const tabName = name => { const base = String(name).replace(/[\[\]:*?\/\\]/g, ' ').replace(/^'+|'+$/g, '').trim().slice(0, 31) || 'Cast'; let t = base, n = 2; while (used.has(t.toLowerCase())) { const suf = ' (' + n++ + ')'; t = base.slice(0, 31 - suf.length) + suf; } used.add(t.toLowerCase()); return t; };
   [...people.values()].sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
     const rows = []; let pScene = null, prev = null;
@@ -8453,7 +8479,7 @@ function castRows(){
   });
   return { data, tabs, moves, sig: 'c2.' + castHash([data, tabs.map(t => [t.name, t.sig])]) };
 }
-const CAST_HEAD = ['Scene', 'Scene page', 'Cue', 'Page', 'Cue line', 'Piece', 'Action', 'Wing', 'Who', 'Spike', 'Spike data', 'Notes', 'Updated', 'Show'];
+const CAST_HEAD = ['Scene', 'Scene page', 'Cue', 'Page', 'Cue line', 'Piece', 'Action', 'Wing', 'Who', 'Spike', 'Spike data', 'Notes', 'Updated', 'Show', 'Kind'];
 function castLoad(){
   const sid = scriptId;
   jsonp(SCRIPT_URL + '?action=getCastIndex&_=' + Date.now(), d => {
@@ -8566,6 +8592,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.15 v2</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.15 v3</div>
 </body>
 </html>
