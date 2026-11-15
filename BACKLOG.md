@@ -256,7 +256,7 @@
 ## Waiting on dev (Nov 14)
 - Apps Script 11.14 v2 (cast sheets laid out like the Excel export) needs pasting + redeploy (v1 went in Nov 14). Not in the cast Sheet yet: map pictures, tape colour squares in the Spike column.
 - After that: on the dev cue sheet, Export → Cast link → Turn on for a show. Then test the cast page (cast-dev.html) against the real Sheet: does a change arrive within a minute, and how it holds with many phones.
-- Cast link still to do: publish from the dashboard's script editor too (today only the cue sheet page sends), a way to turn a show's cast link off, live copies (cast.html, live cue sheet).
+- Cast link is live (Nov 15): cast.html + Cast link on the live cue sheet. Still to do: publish from the dashboard's script editor too (today only the cue sheet page sends), a way to turn a show's cast link off, the real-world speed test with many phones, 'who's available' (option B, marks per change, no carry-over, can still assign).
 - Also built on dev and waiting for a look: preset check (cue sheet + Run view), Budget tab, PDF contents page, Excel look with maps.
 - Parked: dashboard speed-up (instant last-known data, load each tab's data on demand; measured 20 requests at startup).
 - Next up: QR code + MMT logo on the Inventory labels.
