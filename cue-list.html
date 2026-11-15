@@ -2562,8 +2562,8 @@ function interSectionHTML(){
       <b>Intermission preset</b><span>${all.length} task${all.length === 1 ? '' : 's'}</span>
     </button></div>
     <div class="pr-sec-body" id="int-sec-body"${open ? '' : ' hidden'}>${rows.length ? `<table class="cs pr-tbl">
-      <colgroup><col style="width:22%"><col style="width:22%"><col style="width:18%"><col style="width:24%"><col style="width:14%"></colgroup>
-      <thead><tr><th>Task</th><th>Location</th><th>Spike</th><th>Notes</th><th>Who</th></tr></thead>
+      <colgroup><col style="width:24%"><col style="width:28%"><col style="width:24%"><col style="width:24%"></colgroup>
+      <thead><tr><th>Piece</th><th>Preset location</th><th>Spike</th><th>Notes</th></tr></thead>
       <tbody>${rows.map(r => presetRowHTML(r, band = !band)).join('')}</tbody></table>`
       : '<div class="cs-empty"><b>No intermission tasks yet.</b>Add one below.</div>'}${editMode ? `<form class="pr-add" onsubmit="event.preventDefault(); interAdd(this.elements.n.value); this.reset();">
       <input name="n" placeholder="Add an intermission task (e.g. sweep confetti, reset Scrooge's desk)" autocomplete="off" aria-label="New intermission task">
@@ -2651,6 +2651,12 @@ function renderPresetSheet(){
 }
 
 // One Before House row. In Edit mode the row opens the preset panel.
+// A preset's notes as shown. An intermission task that has people on it shows
+// them after its notes, in brackets, the way a move sent to Presets does.
+function prNotesText(r){
+  const n = String(r.notes || '').trim(), w = r.inter ? whoDisplay(r.who) : '';
+  return w && n.indexOf('(' + w + ')') < 0 ? [n, '(' + w + ')'].filter(Boolean).join(' · ') : n;
+}
 function presetRowHTML(r, band){
   const cls = ['pr-row'];
   if (!band) cls.push('band');
@@ -2673,8 +2679,7 @@ function presetRowHTML(r, band){
     <td><span class="mv-piece">${esc(r.piece)}</span>${r.hidden ? '<span class="pr-offtag">not on plot</span>' : ''}${prPhotosHTML(r.key, r.photos)}</td>
     <td class="cs-action" data-pf="location">${loc ? esc(loc) : '<span class="gap">not set</span>'}</td>
     <td class="cs-line" data-pf="spike">${hasSpike ? `<span class="mv-spike spk-line">${spkChipsHTML(r, scriptId)}</span>` : (editMode ? '<span class="pr-addspike">+ Spike</span>' : '')}</td>
-    <td class="cs-notes" data-pf="notes">${esc(r.notes || '')}</td>${r.inter ? `
-    <td class="cs-who">${esc(whoDisplay(r.who))}</td>` : ''}
+    <td class="cs-notes" data-pf="notes">${esc(prNotesText(r))}</td>
   </tr>`;
 }
 
@@ -8561,6 +8566,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.15 v1</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.15 v2</div>
 </body>
 </html>
