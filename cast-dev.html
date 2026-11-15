@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>MMT Cast Sheet</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #f8f7f4; --surface: #fff; --text: #1a1a1a; --muted: #6b6b6b; --border: rgba(0,0,0,.12); --bar: #18181b; --bar-ink: #fff; --me: #534AB7; --me-soft: #EEEDFE; --chip: #f1f0ec; }
+  [data-theme="dark"] { --bg: #0e0e12; --surface: #1a1a21; --text: #f1f1f3; --muted: #a1a1aa; --border: rgba(255,255,255,.14); --bar: #2a2a33; --bar-ink: #fff; --me: #a5a0f5; --me-soft: #2b2850; --chip: #26262e; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 'DM Sans', system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--bar); color: var(--bar-ink); padding: calc(10px + env(safe-area-inset-top)) 14px 0; }
+  .h-top { display: flex; align-items: center; gap: 10px; }
+  .h-name { flex: 1; min-width: 0; } .h-name b { display: block; font-size: 17px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .h-name small { font-size: 12px; opacity: .75; }
+  .h-btn { border: 1px solid rgba(255,255,255,.3); background: transparent; color: #fff; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; min-height: 36px; white-space: nowrap; }
+  nav { display: flex; gap: 4px; margin-top: 10px; }
+  nav button { flex: 1; border: 0; background: transparent; color: #fff; opacity: .65; padding: 10px 4px 9px; font-weight: 600; font-size: 14px; border-bottom: 3px solid transparent; }
+  nav button.on { opacity: 1; border-bottom-color: #fff; }
+  main { padding: 14px 14px calc(70px + env(safe-area-inset-bottom)); max-width: 760px; margin: 0 auto; }
+  .who-bar { display: flex; align-items: center; gap: 10px; background: var(--me-soft); border-radius: 12px; padding: 10px 12px; margin-bottom: 14px; }
+  .who-bar span { flex: 1; min-width: 0; } .who-bar b { color: var(--me); }
+  .btn { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 8px 14px; font-weight: 600; font-size: 14px; min-height: 40px; }
+  .scene { background: var(--bar); color: var(--bar-ink); border-radius: 8px; padding: 7px 12px; font-weight: 700; font-size: 13px; letter-spacing: .02em; margin: 18px 0 8px; display: flex; gap: 8px; scroll-margin-top: 120px; }
+  .scene:first-child { margin-top: 0; } .scene span { margin-left: auto; font-weight: 500; opacity: .8; }
+  .chg { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+  .chg-h { display: flex; gap: 8px; align-items: baseline; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  .chg-h .n { font-family: 'DM Mono', monospace; font-weight: 500; font-size: 13px; background: var(--chip); border-radius: 6px; padding: 1px 7px; flex: none; }
+  .chg-h .cl { flex: 1; min-width: 0; font-size: 13.5px; color: var(--muted); font-style: italic; } .chg-h .pg { flex: none; font-size: 12px; color: var(--muted); }
+  .mv { display: flex; gap: 10px; padding: 9px 12px; border-top: 1px solid var(--border); align-items: flex-start; } .mv:first-of-type { border-top: 0; }
+  .mv.me { background: var(--me-soft); box-shadow: inset 4px 0 0 var(--me); }
+  .mv-m { flex: 1; min-width: 0; } .mv-m b { font-weight: 700; } .mv-m .act { font-weight: 500; }
+  .mv-m small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 1px; }
+  .wing { flex: none; font-family: 'DM Mono', monospace; font-size: 12.5px; background: var(--chip); border-radius: 6px; padding: 2px 7px; white-space: nowrap; }
+  .who { color: var(--muted); font-size: 13px; } .who i { font-style: normal; font-weight: 700; color: var(--me); }
+  .empty { color: var(--muted); padding: 24px 4px; text-align: center; }
+  .pick { display: flex; flex-direction: column; gap: 8px; }
+  .pick button { display: flex; align-items: center; gap: 10px; text-align: left; border: 1px solid var(--border); background: var(--surface); border-radius: 12px; padding: 12px 14px; min-height: 52px; font-size: 16px; font-weight: 600; }
+  .pick button small { margin-left: auto; font-weight: 400; color: var(--muted); font-size: 13px; }
+  .pick button.on { border-color: var(--me); box-shadow: inset 0 0 0 1px var(--me); }
+  h2 { font-size: 18px; margin: 4px 0 4px; } .sub { color: var(--muted); margin: 0 0 14px; font-size: 14px; }
+  .sc-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--border); background: transparent; padding: 12px 4px; min-height: 48px; font-size: 15px; }
+  .sc-row:first-child { border-top: 0; } .sc-row b { flex: 1; min-width: 0; font-weight: 600; } .sc-row .pg { color: var(--muted); font-size: 13px; font-family: 'DM Mono', monospace; }
+  .dot { flex: none; min-width: 22px; height: 22px; border-radius: 999px; background: var(--me); color: #fff; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; }
+  .dot.none { background: transparent; }
+  .demo { background: #b45309; color: #fff; text-align: center; font-size: 12.5px; font-weight: 600; padding: 5px 10px; }
+  #build-tag { position: fixed; right: 8px; bottom: calc(6px + env(safe-area-inset-bottom)); font: 11px 'DM Mono', monospace; color: var(--muted); opacity: .7; pointer-events: none; z-index: 9; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="build-tag">11.14 v1 dev</div>
+<script>
+// ── MMT CAST SHEET ───────────────────────────────────────────────────────────
+// The link the cast opens: one show's set changes, read only, on a phone.
+// Three views: My moves (pick your name once), Whole plot, Scenes.
+//   cast-dev.html            → asks which show, and remembers it
+//   cast-dev.html?show=<id>  → that show only (the link sent to one cast)
+// The data will come from each show's own cast Google Sheet (written by the
+// cue sheet on every save), read straight from Google so 70 phones never touch
+// the dashboard's script. Until that Sheet exists this page runs on the sample
+// shows below, and says so. Nothing here writes anywhere.
+const Q = new URLSearchParams(location.search);
+const LOCKED = Q.get('show') || '';
+const REFRESH_MS = 30000;
+const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} return null; };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// ── sample data (stands in for the cast Sheets) ──
+const SAMPLE = {
+  shows: [{ id: 'sample-main', name: 'Sample Mainstage Show', stage: 'Mainstage' }, { id: 'sample-kids', name: "Sample Children's Show", stage: "Children's Theatre" }],
+  data: {
+    'sample-main': { name: 'Sample Mainstage Show', scenes: [
+      { label: 'Scene 1: The Counting House', page: 3, changes: [
+        { num: '5', page: 6, cue: '“Bah! Humbug!”', moves: [
+          { piece: "Scrooge's desk", action: 'Strike', wing: 'CS → SR 2', who: ['Kyle B', 'Molly R'], notes: 'Lift, don’t drag' },
+          { piece: 'Counting stool', action: 'Strike', wing: 'CS → SR 2', who: ['Dana'] },
+          { piece: 'Bed', action: 'On', wing: 'SL 3 → CS', who: ['Tristan', 'Ally K'], notes: 'Head upstage' }] }] },
+      { label: 'Scene 2: Scrooge’s Bedroom', page: 9, changes: [
+        { num: '9', page: 14, cue: 'Clock strikes one', moves: [
+          { piece: 'Bed', action: 'Turn', wing: 'CS', who: ['Tristan', 'Ally K'] },
+          { piece: 'Door unit', action: 'On', wing: 'SR 1 → SR', who: ['Kyle B'] }] }] },
+      { label: 'Scene 3: Fezziwig’s', page: 18, changes: [
+        { num: '14', page: 18, cue: 'Lights shift warm', moves: [
+          { piece: 'Bed', action: 'Strike', wing: 'CS → SL 3', who: ['Tristan', 'Ally K'] },
+          { piece: 'Fezziwig table', action: 'On', wing: 'SR 2 → CS', who: ['Kyle B', 'Molly R', 'Dana'] },
+          { piece: 'Benches (2)', action: 'On', wing: 'SL 1 → CS', who: ['Louis T', 'Ally K'] }] },
+        { num: '17', page: 24, cue: 'End of the dance', moves: [
+          { piece: 'Fezziwig table', action: 'Strike', wing: 'CS → SR 2', who: ['Kyle B', 'Molly R'] },
+          { piece: 'Benches (2)', action: 'Strike', wing: 'CS → SL 1', who: ['Louis T', 'Dana'] }] }] },
+      { label: 'Intermission', page: 30, changes: [] },
+      { label: 'Scene 4: The Cratchits', page: 31, changes: [
+        { num: '21', page: 31, cue: 'Top of Act 2', moves: [
+          { piece: 'Cratchit wagon', action: 'On', wing: 'SL 2 → CS', who: ['Tristan', 'Louis T', 'Molly R'], notes: 'Brakes on once it lands' }] }] }] },
+    'sample-kids': { name: "Sample Children's Show", scenes: [
+      { label: 'Scene 1: The Forest', page: 1, changes: [
+        { num: '2', page: 4, cue: '“Follow the path!”', moves: [
+          { piece: 'Tree (large)', action: 'On', wing: 'SR → CS', who: ['Sam', 'Priya'] },
+          { piece: 'Log', action: 'On', wing: 'SL → DSL', who: ['Jo'] }] }] },
+      { label: 'Scene 2: The Cottage', page: 8, changes: [
+        { num: '6', page: 8, cue: 'Blackout', moves: [
+          { piece: 'Tree (large)', action: 'Strike', wing: 'CS → SR', who: ['Sam', 'Priya'] },
+          { piece: 'Cottage flat', action: 'On', wing: 'SL → CS', who: ['Jo', 'Sam'] }] }] }] }
+  }
+};
+// Where the data comes from. Today: the samples. Later: the show's cast Sheet.
+const Source = {
+  demo: true,
+  shows() { return Promise.resolve(SAMPLE.shows); },
+  show(id) { const d = SAMPLE.data[id]; return d ? Promise.resolve(Object.assign({ updated: Date.now() }, d)) : Promise.reject(new Error('No such show')); }
+};
+
+// ── state ──
+let shows = [], showId = LOCKED || ls('mmt_cast_show') || '', data = null, view = ls('mmt_cast_view') || 'mine', me = '', picking = false, err = '', lastOk = 0;
+let theme = ls('mmt_cast_theme') || (matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+document.documentElement.dataset.theme = theme;
+
+const people = () => { const n = {}; (data ? data.scenes : []).forEach(s => s.changes.forEach(c => c.moves.forEach(m => (m.who || []).forEach(w => { n[w] = n[w] || new Set(); n[w].add(c.num + '|' + s.label); })))); return Object.keys(n).sort((a, b) => a.localeCompare(b)).map(name => ({ name, n: n[name].size })); };
+const mine = c => c.moves.filter(m => (m.who || []).indexOf(me) >= 0);
+const ago = t => { const s = Math.round((Date.now() - t) / 1000); return s < 50 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); };
+
+function load(first) {
+  if (!showId) return;
+  Source.show(showId).then(d => {
+    const changed = JSON.stringify(d.scenes) !== JSON.stringify(data && data.scenes);
+    data = d; err = ''; lastOk = Date.now(); ls('mmt_cast_data_' + showId, JSON.stringify(d));
+    if (me && !people().some(p => p.name === me)) { me = ''; }
+    if (first || changed) render(); else stamp();
+  }).catch(() => {
+    // no signal backstage: keep showing the last copy this phone has
+    if (!data) { try { data = JSON.parse(ls('mmt_cast_data_' + showId) || 'null'); } catch (e) {} }
+    err = data ? 'No signal. Showing the last copy on this phone.' : "Couldn't load this show. Check your signal and try again.";
+    render();
+  });
+}
+function openShow(id) { showId = id; if (!LOCKED) ls('mmt_cast_show', id); data = null; me = ls('mmt_cast_me_' + id) || ''; picking = false; render(); load(true); }
+function stamp() { const el = document.getElementById('upd'); if (el && data) el.textContent = (err ? 'Offline · ' : '') + 'Updated ' + ago(data.updated || lastOk); }
+
+// ── drawing ──
+function render() {
+  const app = document.getElementById('app'), demo = Source.demo ? '<div class="demo">Sample data. This is a preview of the cast page, not a real show.</div>' : '';
+  if (!showId || (!data && !err && !shows.length && !LOCKED)) { app.innerHTML = demo + chooserHTML(); return; }
+  if (!showId) { app.innerHTML = demo + chooserHTML(); return; }
+  if (!data) { app.innerHTML = demo + `<header><div class="h-top"><div class="h-name"><b>Cast Sheet</b></div></div><nav></nav></header><main><p class="empty">${esc(err || 'Loading…')}</p>${err ? '<p class="empty"><button class="btn" data-a="retry">Try again</button></p>' : ''}</main>`; return; }
+  const tabs = [['mine', 'My moves'], ['plot', 'Whole plot'], ['scenes', 'Scenes']];
+  app.innerHTML = demo + `<header><div class="h-top"><div class="h-name"><b>${esc(data.name)}</b><small id="upd"></small></div>
+      ${LOCKED ? '' : '<button class="h-btn" data-a="shows">Shows</button>'}<button class="h-btn" data-a="theme" aria-label="Switch light or dark">${theme === 'dark' ? 'Light' : 'Dark'}</button></div>
+    <nav role="tablist">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${view === k}" class="${view === k ? 'on' : ''}" data-a="view" data-v="${k}">${l}</button>`).join('')}</nav></header>
+    <main>${err ? `<p class="who-bar"><span>${esc(err)}</span></p>` : ''}${view === 'mine' ? mineHTML() : view === 'plot' ? plotHTML() : scenesHTML()}</main>`;
+  stamp();
+}
+function chooserHTML() {
+  return `<header><div class="h-top"><div class="h-name"><b>MMT Cast Sheet</b><small>Music Mountain Theatre</small></div></div><nav></nav></header>
+    <main><h2>Which show are you in?</h2><p class="sub">This phone will remember it. You can switch any time.</p>
+    <div class="pick">${shows.length ? shows.map(s => `<button data-a="show" data-v="${esc(s.id)}">${esc(s.name)}<small>${esc(s.stage || '')}</small></button>`).join('') : '<p class="empty">Loading shows…</p>'}</div></main>`;
+}
+function whoLine(m) { return (m.who || []).map(w => w === me ? `<i>${esc(w)}</i>` : esc(w)).join(', '); }
+function moveHTML(m, isMe) {
+  return `<div class="mv${isMe ? ' me' : ''}"><div class="mv-m"><b>${esc(m.piece)}</b>${m.action ? ` <span class="act">· ${esc(m.action)}</span>` : ''}
+    <small class="who">${whoLine(m) || 'No one assigned yet'}</small>${m.notes ? `<small>${esc(m.notes)}</small>` : ''}</div>${m.wing ? `<span class="wing">${esc(m.wing)}</span>` : ''}</div>`;
+}
+function changeHTML(c, only) {
+  const list = only ? mine(c) : c.moves;
+  return `<div class="chg"><div class="chg-h"><span class="n">#${esc(c.num)}</span><span class="cl">${esc(c.cue || '')}</span><span class="pg">p. ${esc(c.page)}</span></div>
+    ${list.map(m => moveHTML(m, !only && me && (m.who || []).indexOf(me) >= 0)).join('')}
+    ${only && c.moves.length > list.length ? `<div class="mv"><div class="mv-m"><small>${c.moves.length - list.length} other move${c.moves.length - list.length === 1 ? '' : 's'} in this change. See Whole plot.</small></div></div>` : ''}</div>`;
+}
+function pickHTML() {
+  const p = people();
+  return `<h2>Who are you?</h2><p class="sub">Pick your name to see only your moves. Not on the list? You have no set changes yet. Use Whole plot or Scenes.</p>
+    <div class="pick">${p.map(x => `<button class="${x.name === me ? 'on' : ''}" data-a="me" data-v="${esc(x.name)}">${esc(x.name)}<small>${x.n} change${x.n === 1 ? '' : 's'}</small></button>`).join('') || '<p class="empty">No one is assigned to a set change yet.</p>'}</div>`;
+}
+function mineHTML() {
+  if (!me || picking) return pickHTML();
+  let h = `<div class="who-bar"><span>Moves for <b>${esc(me)}</b></span><button class="btn" data-a="pick">Change</button></div>`, n = 0;
+  data.scenes.forEach(s => { const cs = s.changes.filter(c => mine(c).length); if (!cs.length) return; n += cs.length; h += `<div class="scene">${esc(s.label)}<span>p. ${esc(s.page)}</span></div>` + cs.map(c => changeHTML(c, true)).join(''); });
+  return n ? h : h + '<p class="empty">You have no set changes in this show right now.</p>';
+}
+function plotHTML() {
+  return data.scenes.map((s, i) => `<div class="scene" id="sc-${i}">${esc(s.label)}<span>p. ${esc(s.page)}</span></div>` + (s.changes.length ? s.changes.map(c => changeHTML(c, false)).join('') : '<p class="empty" style="padding:6px 4px;text-align:left">No set changes.</p>')).join('');
+}
+function scenesHTML() {
+  return `<h2>Scenes</h2><p class="sub">${me ? 'The number shows how many changes you’re in. ' : ''}Tap a scene to see its set changes.</p><div class="chg" style="padding:0 10px">` +
+    data.scenes.map((s, i) => { const k = me ? s.changes.filter(c => mine(c).length).length : 0; return `<button class="sc-row" data-a="scene" data-v="${i}"><span class="dot${k ? '' : ' none'}">${k || ''}</span><b>${esc(s.label)}</b><span class="pg">p. ${esc(s.page)}</span></button>`; }).join('') + '</div>';
+}
+
+document.addEventListener('click', ev => {
+  const b = ev.target.closest && ev.target.closest('[data-a]'); if (!b) return;
+  const a = b.dataset.a, v = b.dataset.v;
+  if (a === 'show') openShow(v);
+  else if (a === 'shows') { showId = ''; data = null; ls('mmt_cast_show', null); render(); }
+  else if (a === 'view') { view = v; picking = false; ls('mmt_cast_view', v); render(); window.scrollTo(0, 0); }
+  else if (a === 'me') { me = v; picking = false; ls('mmt_cast_me_' + showId, v); render(); window.scrollTo(0, 0); }
+  else if (a === 'pick') { picking = true; render(); }
+  else if (a === 'theme') { theme = theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = theme; ls('mmt_cast_theme', theme); render(); }
+  else if (a === 'scene') { view = 'plot'; ls('mmt_cast_view', 'plot'); render(); const el = document.getElementById('sc-' + v); if (el) el.scrollIntoView(); }
+  else if (a === 'retry') { err = ''; render(); load(true); }
+});
+setInterval(() => { if (!document.hidden && showId) load(false); else stamp(); }, REFRESH_MS);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && showId) load(false); });
+
+Source.shows().then(s => { shows = s; if (!showId) render(); }).catch(() => {});
+if (showId) { me = ls('mmt_cast_me_' + showId) || ''; render(); load(true); } else render();
+</script>
+</body>
+</html>
