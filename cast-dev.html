@@ -53,7 +53,7 @@
 </head>
 <body>
 <div id="app"></div>
-<div id="build-tag">11.14 v6 dev</div>
+<div id="build-tag">11.14 v7 dev</div>
 <script>
 // ── MMT CAST SHEET ───────────────────────────────────────────────────────────
 // The link the cast opens: one show's set changes, read only, on a phone.
@@ -219,9 +219,8 @@ function chooserHTML() {
 }
 // Every move as a labelled card, in plain words, so nobody has to know the
 // cue sheet's shorthand: the cue it happens on, the set piece, what to do with
-// it, where from and to (wing codes written out, the code kept beside them),
+// it (as typed on the cue sheet), where from and to (wing codes written out, the code kept beside them),
 // who moves it, its tape mark, and any notes.
-const ACTION_WORDS = { 'in': 'bring it in', 'out': 'take it out', 'on': 'bring it on stage', 'off': 'take it off stage', 'set': 'put it in place', 'strike': 'take it off stage', 'preset': 'set before the show', 'fly in': 'lower it in', 'fly out': 'raise it out', 'roll down': 'roll it down', 'turn': 'turn it around' };
 const PLACE_WORDS = { sl: 'stage left', sr: 'stage right', cs: 'center stage', c: 'center stage', ds: 'downstage', us: 'upstage', dsl: 'downstage left', dsr: 'downstage right', dsc: 'downstage center', usl: 'upstage left', usr: 'upstage right', usc: 'upstage center', hl: 'house left', hr: 'house right' };
 function placeWords(code) {
   const m = String(code || '').trim().match(/^([A-Za-z]{1,3})\s*(\d+)?$/), w = m && PLACE_WORDS[m[1].toLowerCase()];
@@ -234,7 +233,7 @@ function wingHTML(wing) {
   const t = words.join(' → ');
   return esc(t.charAt(0).toUpperCase() + t.slice(1)) + ` <small>(${esc(parts.join(' → '))})</small>`;
 }
-function actionHTML(a) { const w = ACTION_WORDS[String(a || '').trim().toLowerCase()]; return esc(a || '') + (w ? ` <small>(${w})</small>` : ''); }
+function actionHTML(a) { return esc(a || ''); }
 function swatch(c1, c2) {
   const a = esc(c1 || '#9ca3af'), b = esc(c2 || c1 || '#9ca3af');
   return `<svg width="30" height="15" viewBox="0 0 32 16" aria-hidden="true"><rect width="32" height="16" rx="3" fill="#262626"/><path d="M4 12V4h9" stroke="${a}" stroke-width="3.5" fill="none"/><path d="M19 4h9v8" stroke="${b}" stroke-width="3.5" fill="none"/></svg>`;
