@@ -1239,7 +1239,7 @@
       <button class="export-opt" onclick="runExport('plot')"><b>Set change plot</b><span>PDF for the deck: what’s changed since the last one sent, Presets, every change, then a page for each person</span></button>
       <button class="export-opt" onclick="runExport('xlsx')"><b>Set change plot (Excel)</b><span>The same plot as a spreadsheet, with a tab for each person</span></button>
       <button class="export-opt" onclick="openCastLink()"><b>Cast link</b><span>A page and a Google Sheet the whole cast can open: their own moves, the whole plot, the scenes. Kept up to date as you save.</span></button>
-      <button class="export-opt" onclick="runExport('spikes')"><b>Spike key</b><span>PDF to post backstage: each piece, its tape and spike notes</span></button>
+      <button class="export-opt" onclick="runExport('spikes')"><b>Spike key</b><span>PDF to post backstage: each tape colour and what it marks on this show</span></button>
     </div>
     <div class="modal-btns"><button class="top-btn" onclick="closeExport()">Cancel</button></div>
   </div>
@@ -3286,8 +3286,13 @@ function spikeKeyRows(){
   }).filter(Boolean);
 }
 async function exportSpikeKey() {
-  const rows = spikeKeyRows();
-  if (!rows.length) { toast('No pieces yet: add moves to a set change first'); return; }
+  // Just the key: each tape colour and the label it has on this show. A colour
+  // prints if it has a label, or is on a piece somewhere in the show; colours
+  // turned off for the show don't. Nothing per piece, no list of what's unspiked.
+  const used = new Set();
+  spikeKeyRows().forEach(r => r.spikes.forEach(s => { if (s.e && s.e.id) used.add(String(s.e.id)); }));
+  const rows = spkList(scriptId).filter(e => e && !e.hidden && (String(e.label || '').trim() || used.has(String(e.id))));
+  if (!rows.length) { toast('No spike colours with a label yet. Add them in the stage map’s Spikes tab.'); return; }
   let jsPDFCtor = null;
   try { jsPDFCtor = await loadJsPDF(); } catch (err) {}
   if (!jsPDFCtor) { toast('Could not load PDF library'); return; }
@@ -3295,20 +3300,16 @@ async function exportSpikeKey() {
   const showName = ssTitle(scriptId, document.getElementById('show-name').textContent || 'Untitled');
   const now = new Date();
   const stamp = now.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' }) + ' at ' + now.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
-  const withS = rows.filter(r => r.spikes.length || r.typed.length), without = rows.filter(r => !r.spikes.length && !r.typed.length);
 
-  // Laid out at full size first; if that runs past one page, a little smaller,
-  // down to 70%, so it can go up as a single sheet.
-  const build = (k, dry) => {
+  // One column, big, while it fits a page; two columns, then smaller (down to
+  // 60%), so it can go up as a single sheet.
+  const build = (k, cols, dry) => {
     const doc = new jsPDFCtor({ orientation: 'p', unit: 'pt', format: 'letter' });
     const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
-    const M = 40, GAP = 20, COLW = (W - M * 2 - GAP) / 2, BOTTOM = H - 36;
-    const SW = 34 * k, SH = 20 * k, TX = SW + 10;
-    const F = { name: 13 * k, head: 10.5 * k, small: 9 * k, use: 8 * k };
-    const L = { name: F.name * 1.23, head: F.head * 1.24, small: F.small * 1.22, use: F.use * 1.25 };
+    const M = 40, GAP = 24, COLW = (W - M * 2 - GAP * (cols - 1)) / cols, BOTTOM = H - 36, TOP = 96;
+    const SW = 64 * k, SH = 36 * k, TX = SW + 16 * k, F = { head: 20 * k, small: 12 * k }, ROW = SH + 22 * k;
     const lines = (txt, w, size, bold) => { doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(size); return doc.splitTextToSize(String(txt), w); };
-    let y0 = 0, pages = 1;
-    const title = first => {
+    const title = () => {
       doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(20, 20, 26);
       doc.text(showName, M, 50);
       const tw = doc.getTextWidth(showName);
@@ -3316,67 +3317,28 @@ async function exportSpikeKey() {
       doc.text('Spike Key', M + tw + 10, 50);
       doc.setFontSize(8); doc.setTextColor(150, 150, 160); doc.text('Updated ' + stamp, M, 64);
       doc.setDrawColor(38, 38, 46); doc.setLineWidth(1.1); doc.line(M, 72, W - M, 72);
-      y0 = 90;
-      // The gaps first, where they can't be missed.
-      if (first && without.length) {
-        const txt = lines('No spike yet: ' + without.map(r => r.piece).join(', '), W - M * 2, 9.5, true);
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(150, 60, 40);
-        txt.forEach((t, i) => doc.text(t, M, 88 + i * 12));
-        y0 = 88 + txt.length * 12 + 10;
+    };
+    title();
+    let col = 0, y = TOP, pages = 1;
+    rows.forEach(e => {
+      const label = String(e.label || '').trim(), tape = spkTapeName(e);
+      const head = lines(label || tape || 'Spike', COLW - TX, F.head, true), sub = label && tape ? lines(tape, COLW - TX, F.small, false) : [];
+      const h = Math.max(ROW, head.length * F.head * 1.18 + sub.length * F.small * 1.25 + 22 * k);
+      if (y + h > BOTTOM && y > TOP) {
+        if (col < cols - 1) { col++; y = TOP; }
+        else { doc.addPage(); pages++; title(); col = 0; y = TOP; }
       }
-    };
-    const block = r => {
-      const parts = [];
-      r.spikes.forEach(s => {
-        const e = s.e;
-        const head = lines(e.label || spkTapeName(e) || 'Spike', COLW - TX, F.head, true);
-        const tape = e.label ? lines(spkTapeName(e), COLW - TX, F.small, false) : [];
-        const note = e.note ? lines(e.note, COLW - TX, F.small, false) : [];
-        const uses = lines('Used: ' + s.uses.join(', '), COLW - TX, F.use, false);
-        parts.push({ kind: 'spike', e, head, tape, note, uses, h: Math.max(SH, head.length * L.head + (tape.length + note.length) * L.small + uses.length * L.use) + 5 * k });
-      });
-      r.typed.forEach(t => {
-        const txt = lines(t.t, COLW - TX, F.small + 1 * k, false), uses = lines('Used: ' + t.uses.join(', '), COLW - TX, F.use, false);
-        parts.push({ kind: 'typed', txt, uses, h: Math.max(SH, txt.length * L.head + uses.length * L.use) + 5 * k });
-      });
-      const name = lines(r.piece, COLW, F.name, true);
-      return { name, parts, h: name.length * L.name + 4 * k + parts.reduce((n, p) => n + p.h, 0) + 10 * k };
-    };
-    const draw = (b, x, y) => {
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(F.name); doc.setTextColor(20, 20, 26);
-      b.name.forEach((t, i) => doc.text(t, x, y + F.name * 0.95 + i * L.name));
-      let yy = y + b.name.length * L.name + 4 * k;
-      b.parts.forEach(p => {
-        let ty = yy + F.head * 0.95;
-        if (p.kind === 'spike') {
-          spkDrawPDF(doc, p.e, x, yy + 1, SW, SH);
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(F.head); doc.setTextColor(25, 25, 30);
-          p.head.forEach(t => { doc.text(t, x + TX, ty); ty += L.head; });
-          doc.setFont('helvetica', 'normal'); doc.setFontSize(F.small); doc.setTextColor(70, 70, 80);
-          p.tape.forEach(t => { doc.text(t, x + TX, ty - 2); ty += L.small; });
-          doc.setTextColor(40, 40, 48);
-          p.note.forEach(t => { doc.text(t, x + TX, ty - 2); ty += L.small; });
-        } else {
-          doc.setDrawColor(150, 150, 160); doc.setLineWidth(0.6); doc.setLineDashPattern([2, 2], 0); doc.rect(x, yy + 1, SW, SH); doc.setLineDashPattern([], 0);
-          doc.setFont('helvetica', 'normal'); doc.setFontSize(F.small + 1 * k); doc.setTextColor(30, 30, 36);
-          p.txt.forEach(t => { doc.text(t, x + TX, ty); ty += L.head; });
-        }
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(F.use); doc.setTextColor(130, 130, 142);
-        p.uses.forEach(t => { doc.text(t, x + TX, ty - 2); ty += L.use; });
-        yy += p.h;
-      });
-      doc.setDrawColor(220, 220, 228); doc.setLineWidth(0.5); doc.line(x, y + b.h - 5 * k, x + COLW, y + b.h - 5 * k);
-    };
-    title(true);
-    let col = 0, y = y0;
-    withS.forEach(r => {
-      const b = block(r);
-      if (y + b.h > BOTTOM && y > y0) {
-        if (col === 0) { col = 1; y = y0; }
-        else { doc.addPage(); pages++; title(false); col = 0; y = y0; }
+      if (!dry) {
+        const x = M + col * (COLW + GAP);
+        spkDrawPDF(doc, e, x, y, SW, SH);
+        let ty = y + F.head * 0.86;
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(F.head); doc.setTextColor(20, 20, 26);
+        head.forEach(t => { doc.text(t, x + TX, ty); ty += F.head * 1.18; });
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(F.small); doc.setTextColor(95, 95, 108);
+        sub.forEach(t => { doc.text(t, x + TX, ty - F.head * 0.18); ty += F.small * 1.25; });
+        doc.setDrawColor(220, 220, 228); doc.setLineWidth(0.5); doc.line(x, y + h - 9 * k, x + COLW, y + h - 9 * k);
       }
-      if (!dry) draw(b, M + col * (COLW + GAP), y);
-      y += b.h;
+      y += h;
     });
     if (!dry) {
       const n = doc.getNumberOfPages();
@@ -3384,9 +3346,9 @@ async function exportSpikeKey() {
     }
     return { doc, pages };
   };
-  let k = 1;
-  while (k > 0.7 && build(k, true).pages > 1) k -= 0.05;
-  const { doc } = build(Math.max(k, 0.7), false);
+  let k = 1, cols = 1;
+  if (build(1, 1, true).pages > 1) { cols = 2; while (k > 0.6 && build(k, 2, true).pages > 1) k -= 0.05; }
+  const { doc } = build(Math.max(k, 0.6), cols, false);
   doc.save(showName.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') + '_Spike_Key.pdf');
 }
 
@@ -8592,6 +8554,6 @@ function clVerReady(tag, once){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clVerCheck(); });
 setTimeout(clVerCheck, 4000);
 </script>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.15 v3</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.16 v1</div>
 </body>
 </html>
