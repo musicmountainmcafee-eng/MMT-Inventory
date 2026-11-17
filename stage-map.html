@@ -269,7 +269,7 @@ try {
     </div>
     <span class="save" id="save-state" aria-live="polite"></span>
     <div class="pr-faces" id="pr-faces" hidden aria-label="Who else is here"></div>
-    <div id="build-tag" title="Stage map version">Stage map 11.16 v1</div>
+    <div id="build-tag" title="Stage map version">Stage map 11.16 v2</div>
   </header>
   <div class="main">
     <div class="stage" id="stage">
@@ -549,7 +549,9 @@ function draw() {
 // up, DS = down). Arrows only show which way: they aren't planned routes.
 // Movement is where a change opens; the choice is remembered on this device.
 // Still being tried on dev: only pages opened from the dev dashboard / cue sheet (dev=1) get it.
-const MV_ON = Q.get('dev') === '1';
+// Movement is dev only as a view of this page; a picture for the running
+// views (pic=) always shows it.
+const MV_ON = Q.get('dev') === '1' || !!PIC;
 function viewNow() { if (stepIdx === 0 || !MV_ON) return 'after'; if (PIC) return 'mv'; const v = lsGet('mmt_stagemap_view', 'mv'); return v === 'before' || v === 'after' ? v : 'mv'; }
 function setView(v) {
   lsSet('mmt_stagemap_view', v);

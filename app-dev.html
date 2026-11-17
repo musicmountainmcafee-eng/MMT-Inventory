@@ -7759,7 +7759,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.16 v1 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.16 v2 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -22955,8 +22955,8 @@ function runBox(a) {
 // Rebuild the bar only when what it shows changed; positions every time.
 // ── STAGE MAP IN THE RUNNING VIEWS (dev) ─────────────────────────────────────
 // A set change in A · Cards or B · Step shows the stage map's own picture of
-// it under its moves (on dev that is Movement: an arrow from where each piece
-// is to where it goes). The picture is stage-map.html in a frame, told to be a
+// it under its moves (Movement: an arrow from where each piece is to where it
+// goes). The picture is stage-map.html in a frame, told to be a
 // picture only (pic=1); it takes the cues and the map from this page
 // (__smFeed), so a frame loads nothing itself. "Bigger" opens it large over
 // the script, where it can be zoomed and slid; "Smaller", Esc, tapping the
@@ -22965,7 +22965,7 @@ function runBox(a) {
 // there a Map button opens the big one. The map is read again when a page
 // with a set change comes up and what this page has is over 30 seconds old.
 const _rsm = { sid: '', sm: null, plan: null, at: 0, busy: false, rev: 0, open: '' };
-const RUN_MAP_LABEL = IS_DEV_PAGE ? 'Movement in this change' : 'Stage after this change';
+const RUN_MAP_LABEL = 'Movement in this change';
 window.__smFeed = sid => (String(sid) === String(showId) && _rsm.sid === showId && _rsm.sm)
   ? { cues, annotations, presets: (typeof presets !== 'undefined' && presets) || {}, sm: _rsm.sm, plan: _rsm.plan } : null;
 function runMapLoad(force) {
@@ -22993,7 +22993,7 @@ function runMapHas(c) {
 function runMapAR() { const p = (_rsm.sm && _rsm.sm.plan && _rsm.sm.plan.img) ? _rsm.sm.plan : _rsm.plan; return p && p.img && p.img.w > 0 && p.img.h > 0 ? p.img.w / p.img.h : 1.5; }
 // Every picture is the same address (what differs comes after #), so they all
 // come from this device's saved copy of the stage map page.
-function runMapSrc(id, pic) { return 'stage-map.html?embed=1&bar=0&pic=' + pic + (IS_DEV_PAGE ? '&dev=1' : '') + '&v=pic#script=' + encodeURIComponent(showId) + '&step=' + encodeURIComponent(id); }
+function runMapSrc(id, pic) { return 'stage-map.html?embed=1&bar=0&pic=' + pic + '&v=pic#script=' + encodeURIComponent(showId) + '&step=' + encodeURIComponent(id); }
 function runMapSig() { return [_rsm.sid, _rsm.rev, seIsNarrow() ? 1 : 0].join(':'); }
 function runMapBtnText(id) { const open = _rsm.open === id; return seIsNarrow() ? (open ? 'Hide map' : 'Map') : (open ? 'Smaller' : 'Bigger'); }
 function runMapHTML(c) {
@@ -23006,7 +23006,7 @@ function runMapHTML(c) {
 // In the step list a cue is a button, and a frame can't sit inside one: the
 // map goes right under it, joined on so the two read as one card.
 function runMapWrap(c, item, next) { const m = runMapHTML(c); return m ? `<div class="run-grp${next ? ' next' : ''}">${item}${m}</div>` : item; }
-function runMapTitle(c) { return (IS_DEV_PAGE ? 'Movement' : 'Stage map') + ' · ' + (seShortNum(c.number, runTypeOf(c).name) || c.number || 'Set change') + (c.cueLine ? ' · “' + String(c.cueLine).replace(/^["“”'\s]+|["“”'\s]+$/g, '') + '”' : ''); }
+function runMapTitle(c) { return 'Movement · ' + (seShortNum(c.number, runTypeOf(c).name) || c.number || 'Set change') + (c.cueLine ? ' · “' + String(c.cueLine).replace(/^["“”'\s]+|["“”'\s]+$/g, '') + '”' : ''); }
 function runMapBig() { const f = document.querySelector('#rmz iframe'); return f || null; }
 function runMapTell(step) {
   const msg = { mmt: 'stagemap-pic' }; if (step) msg.step = step;

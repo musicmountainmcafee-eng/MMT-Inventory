@@ -3403,6 +3403,29 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #run-bar .run-moves > :nth-child(3n+1), #run-bar .run-moves > :nth-child(3n+2) { padding-right: 12px; }
   #run-bar .run-moves > :nth-child(n+4) { border-top: 1px solid rgba(0,0,0,.14); }
   #scripts-editor.run-dark #run-bar .run-moves > :nth-child(n+4) { border-top-color: rgba(255,255,255,.18); }
+  #run-bar .run-map { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; cursor: default; }
+  #run-bar .run-map-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 600; color: #6b6b78; }
+  #run-bar .run-map-btn { border: 1px solid #c9c7d9; background: #fff; color: #534AB7; border-radius: 99px; padding: 0 14px; min-height: 32px; font: 600 12.5px 'DM Sans', system-ui, sans-serif; cursor: pointer; }
+  #run-bar .run-map-only { flex-direction: row; } #run-bar .run-map-only .run-map-btn { min-height: 40px; padding: 0 18px; font-size: 14px; }
+  #run-bar .run-map-pic { display: block; width: 100%; border: 1px solid #c9c7d9; border-radius: 8px; overflow: hidden; background: #e9e9ee; cursor: zoom-in; }
+  #run-bar .run-map-pic:focus-visible { outline: 3px solid #534AB7; outline-offset: 2px; }
+  #run-bar .run-map-pic iframe { display: block; width: 100%; height: 100%; border: 0; pointer-events: none; }
+  #run-bar .run-grp { display: flex; flex-direction: column; }
+  #run-bar .run-grp > .run-item { border-bottom: 0 !important; border-radius: 12px 12px 0 0; padding-bottom: 6px; }
+  #run-bar .run-grp > .run-map { margin: 0; border: 1px solid #e4e3ec; border-top: 0; border-radius: 0 0 12px 12px; background: #fff; padding: 2px 12px 12px; }
+  #run-bar .run-grp.next > .run-map { border: 2px solid #534AB7; border-top: 0; background: #f3f2fc; padding: 2px 14px 12px; }
+  #scripts-editor.run-dark #run-bar .run-map-h { color: #b9b8e8; }
+  #scripts-editor.run-dark #run-bar .run-map-btn { background: transparent; border-color: #5a5a6c; color: #d9d6ff; }
+  #scripts-editor.run-dark #run-bar .run-map-pic { border-color: #4c4c5a; }
+  #scripts-editor.run-dark #run-bar .run-grp > .run-map { background: #1e1e25; border-color: #4c4c5a; }
+  #scripts-editor.run-dark #run-bar .run-grp.next > .run-map { background: #26234a; border-color: #8f86f0; }
+  #rmz { position: fixed; z-index: 4000; background: #fff; color: #18181b; border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,.5); overflow: hidden; font-family: 'DM Sans', system-ui, sans-serif; }
+  #rmz .rmz-h { display: flex; align-items: center; gap: 8px; padding: 7px 8px 7px 14px; min-height: 50px; box-sizing: border-box; }
+  #rmz .rmz-h b { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #rmz .rmz-btn { flex: none; border: 1px solid #d4d4d8; background: #fff; color: #18181b; border-radius: 99px; padding: 0 14px; min-height: 36px; font: 600 13px 'DM Sans', system-ui, sans-serif; cursor: pointer; }
+  #rmz .rmz-btn.pri { background: #534AB7; border-color: #534AB7; color: #fff; }
+  #rmz .rmz-pic { background: #e9e9ee; } #rmz .rmz-pic iframe { display: block; width: 100%; height: 100%; border: 0; }
+  @media (max-width: 768px) { #rmz .rmz-btn:not(.pri) { display: none; } }
   #run-bar .run-more { display: flex; gap: 8px; padding: 0 14px; }
   #run-bar .run-more:empty { display: none; }
   #run-bar .run-more button { flex: 1; min-height: 36px; border: 1px dashed #c9c7d9; border-radius: 10px; background: #fff; color: #534AB7; font: 600 13px 'DM Sans', sans-serif; cursor: pointer; }
@@ -7652,7 +7675,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.13 v5</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.16 v1</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -21923,6 +21946,7 @@ function runWire() {
   if (bar) {
     bar.addEventListener('scroll', runSchedLayout, { passive: true });
     bar.addEventListener('click', runBarClick);
+    bar.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('run-map-pic')) { e.preventDefault(); runMapOpen(e.target.dataset.map); } });
   }
   try { if (window.ResizeObserver && wrap) new ResizeObserver(runSchedLayout).observe(wrap); } catch (e) {}
 }
@@ -21959,15 +21983,126 @@ function runBox(a) {
 }
 
 // Rebuild the bar only when what it shows changed; positions every time.
+// ── STAGE MAP IN THE RUNNING VIEWS (dev) ─────────────────────────────────────
+// A set change in A · Cards or B · Step shows the stage map's own picture of
+// it under its moves (Movement: an arrow from where each piece is to where it
+// goes). The picture is stage-map.html in a frame, told to be a
+// picture only (pic=1); it takes the cues and the map from this page
+// (__smFeed), so a frame loads nothing itself. "Bigger" opens it large over
+// the script, where it can be zoomed and slid; "Smaller", Esc, tapping the
+// small one again, or tapping the script puts it back. While it is big it
+// follows the cue that is up next. A phone has no room under the moves, so
+// there a Map button opens the big one. The map is read again when a page
+// with a set change comes up and what this page has is over 30 seconds old.
+const _rsm = { sid: '', sm: null, plan: null, at: 0, busy: false, rev: 0, open: '' };
+const RUN_MAP_LABEL = 'Movement in this change';
+window.__smFeed = sid => (String(sid) === String(showId) && _rsm.sid === showId && _rsm.sm)
+  ? { cues, annotations, presets: (typeof presets !== 'undefined' && presets) || {}, sm: _rsm.sm, plan: _rsm.plan } : null;
+function runMapLoad(force) {
+  if (!showId || _rsm.busy) return;
+  const same = _rsm.sid === showId;
+  if (!force && same && Date.now() - _rsm.at < 30000) return;
+  const sid = showId; _rsm.busy = true;
+  let left = same && _rsm.plan ? 1 : 2, sm = null, plan = null;
+  const done = () => {
+    if (--left) return;
+    _rsm.busy = false; if (sid !== showId) return;
+    const was = _rsm.sid === sid, nsm = sm || (was ? _rsm.sm : null) || {}, npl = plan || (was ? _rsm.plan : null);
+    const changed = !was || JSON.stringify([nsm, npl]) !== JSON.stringify([_rsm.sm, _rsm.plan]);
+    _rsm.sid = sid; _rsm.sm = nsm; _rsm.plan = npl; _rsm.at = Date.now();
+    if (changed) { _rsm.rev++; runSync(); runMapTell(); }
+  };
+  if (left === 2) jsonp(SCRIPT_URL + '?action=getKV&key=stageplan&_=' + Date.now(), d => { if (d && d.value && d.value.img) plan = d.value; done(); }, done);
+  jsonp(SCRIPT_URL + '?action=getKV&key=' + encodeURIComponent('stagemap_' + sid) + '&_=' + Date.now(), d => { if (d && d.value && typeof d.value === 'object') sm = d.value; done(); }, done);
+}
+function runMapHas(c) {
+  if (!c || c.type !== SHIFT_TYPE_ID || _rsm.sid !== showId || !_rsm.sm) return false;
+  const maps = _rsm.sm.maps || {};
+  return Object.keys(maps).some(k => maps[k] && Object.keys(maps[k]).length);
+}
+function runMapAR() { const p = (_rsm.sm && _rsm.sm.plan && _rsm.sm.plan.img) ? _rsm.sm.plan : _rsm.plan; return p && p.img && p.img.w > 0 && p.img.h > 0 ? p.img.w / p.img.h : 1.5; }
+// Every picture is the same address (what differs comes after #), so they all
+// come from this device's saved copy of the stage map page.
+function runMapSrc(id, pic) { return 'stage-map.html?embed=1&bar=0&pic=' + pic + '&v=pic#script=' + encodeURIComponent(showId) + '&step=' + encodeURIComponent(id); }
+function runMapSig() { return [_rsm.sid, _rsm.rev, seIsNarrow() ? 1 : 0].join(':'); }
+function runMapBtnText(id) { const open = _rsm.open === id; return seIsNarrow() ? (open ? 'Hide map' : 'Map') : (open ? 'Smaller' : 'Bigger'); }
+function runMapHTML(c) {
+  if (!runMapHas(c)) return '';
+  const id = escA(c.id), btn = `<button type="button" class="run-map-btn" data-act="map" data-map="${id}">${runMapBtnText(c.id)}</button>`;
+  if (seIsNarrow()) return `<div class="run-map run-map-only">${btn}</div>`;
+  return `<div class="run-map"><div class="run-map-h"><span>${RUN_MAP_LABEL}</span>${btn}</div>
+    <div class="run-map-pic" role="button" tabindex="0" data-act="map" data-map="${id}" aria-label="Show the stage map for this change bigger" style="aspect-ratio:${runMapAR().toFixed(4)}"><iframe title="Stage map for this change" tabindex="-1" src="${escA(runMapSrc(c.id, 1))}"></iframe></div></div>`;
+}
+// In the step list a cue is a button, and a frame can't sit inside one: the
+// map goes right under it, joined on so the two read as one card.
+function runMapWrap(c, item, next) { const m = runMapHTML(c); return m ? `<div class="run-grp${next ? ' next' : ''}">${item}${m}</div>` : item; }
+function runMapTitle(c) { return 'Movement · ' + (seShortNum(c.number, runTypeOf(c).name) || c.number || 'Set change') + (c.cueLine ? ' · “' + String(c.cueLine).replace(/^["“”'\s]+|["“”'\s]+$/g, '') + '”' : ''); }
+function runMapBig() { const f = document.querySelector('#rmz iframe'); return f || null; }
+function runMapTell(step) {
+  const msg = { mmt: 'stagemap-pic' }; if (step) msg.step = step;
+  document.querySelectorAll('#rmz iframe' + (step ? '' : ', #run-bar .run-map-pic iframe')).forEach(f => { try { f.contentWindow.postMessage(msg, location.origin); } catch (e) {} });
+}
+function runMapBtns() { document.querySelectorAll('#run-bar .run-map-btn').forEach(b => { b.textContent = runMapBtnText(b.dataset.map); }); }
+function runMapPlace() {
+  const ov = document.getElementById('rmz'), wrap = document.getElementById('canvas-wrap'); if (!ov || !wrap) return;
+  let r = wrap.getBoundingClientRect();
+  if (r.width < 120 || r.height < 120) r = { left: 0, top: 0, width: innerWidth, height: innerHeight };
+  const pad = seIsNarrow() ? 6 : 16, head = 50, ar = runMapAR();
+  let w = Math.min(r.width - pad * 2, 980), h = w / ar;
+  const maxH = Math.max(140, r.height - pad * 2 - head);
+  if (h > maxH) { h = maxH; w = Math.min(r.width - pad * 2, Math.max(260, h * ar)); }
+  ov.style.left = Math.round(r.left + pad) + 'px'; ov.style.top = Math.round(r.top + pad) + 'px'; ov.style.width = Math.round(w) + 'px';
+  ov.querySelector('.rmz-pic').style.height = Math.round(h) + 'px';
+}
+function runMapOpen(id) {
+  if (_rsm.open === id) { runMapClose(); return; }
+  const c = cues.find(x => x.id === id); if (!c || !runMapHas(c)) return;
+  let ov = document.getElementById('rmz');
+  if (!ov) {
+    ov = document.createElement('div'); ov.id = 'rmz'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', 'Stage map, bigger');
+    ov.innerHTML = `<div class="rmz-h"><b id="rmz-t"></b><button type="button" class="rmz-btn" data-rmz="full">Open stage map</button><button type="button" class="rmz-btn pri" data-rmz="close">Smaller</button></div>
+      <div class="rmz-pic"><iframe title="Stage map, bigger" src="${escA(runMapSrc(id, 2))}"></iframe></div>`;
+    ov.addEventListener('click', e => {
+      const b = e.target.closest('[data-rmz]'); if (!b) return;
+      if (b.dataset.rmz === 'full') { const at = _rsm.open; runMapClose(); openStageMap(at); } else runMapClose();
+    });
+    document.body.appendChild(ov);
+  } else runMapTell(id);
+  _rsm.open = id;
+  document.getElementById('rmz-t').textContent = runMapTitle(c);
+  runMapPlace(); runMapBtns();
+}
+function runMapClose() { const ov = document.getElementById('rmz'); if (ov) ov.remove(); _rsm.open = ''; runMapBtns(); }
+// After the cues are drawn again: read the map again if it's getting old, and
+// keep the big picture on the cue that is up next (or put it away).
+function runMapAfter(list) {
+  if (list.some(c => c.type === SHIFT_TYPE_ID)) runMapLoad();
+  if (!_rsm.open) return;
+  let want = _rsm.open;
+  if (runView === 'b') { const nx = runNextId(list), c = nx && cues.find(x => x.id === nx); want = c && runMapHas(c) ? nx : ''; }
+  else if (!list.some(c => c.id === want && runMapHas(c))) want = '';
+  if (!want) runMapClose(); else if (want !== _rsm.open) { _rsm.open = ''; runMapOpen(want); }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && _rsm.open) { e.stopPropagation(); runMapClose(); } }, true);
+document.addEventListener('pointerdown', e => { if (_rsm.open && e.target.closest && e.target.closest('#canvas-wrap') && !e.target.closest('#rmz')) runMapClose(); }, true);
+window.addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.mmt === 'stagemap-pic-close') runMapClose(); });
+addEventListener('resize', () => { if (_rsm.open) runMapPlace(); });
+setInterval(() => {
+  if (!_rsm.open) return;
+  const ed = document.getElementById('scripts-editor'), wrap = document.getElementById('canvas-wrap');
+  if (!seRunning() || _rsm.sid !== showId || !ed || !ed.classList.contains('open') || !wrap || wrap.getBoundingClientRect().width < 10 || document.getElementById('sm-ov')) runMapClose();
+}, 800);
+
 function runSync() {
   if (!seRunning()) return;
+  if (_rsm.sid !== showId) runMapLoad();
   if (_runDoneSid !== showId) { _runDone = new Set(); _runDoneOrder = []; _runDoneSid = showId; }
   const list = runCuesOn(currentPage);
   const sig = [runView, runDarkPref() ? 1 : 0, runListMode() ? 1 : 0, currentPage, totalPages,
     JSON.stringify(list.map(c => [c.id, c.type, c.number, c.action, c.cueLine, c.notes, c.moves])),
-    _runDoneOrder.join(','), JSON.stringify(cueTypes.map(t => [t.id, t.color, t.name])),
+    _runDoneOrder.join(','), runMapSig(), JSON.stringify(cueTypes.map(t => [t.id, t.color, t.name])),
     JSON.stringify(runCuesOn(currentPage + 1).map(c => [c.id, c.type, c.number, c.action]))].join('|');
-  if (sig !== _runSig) { _runSig = sig; runRender(list); }
+  if (sig !== _runSig) { _runSig = sig; runRender(list); runMapAfter(list); }
   runSchedLayout();
 }
 
@@ -22001,7 +22136,7 @@ function runCardHTML(c) {
   if (c.type === SCENE_TYPE_ID) return runSceneHTML(c).replace('class="run-scene"', 'class="run-card run-scene"');
   return `<div class="run-card${c.type === SHIFT_TYPE_ID ? ' run-shift' : ''}" data-cue="${escA(c.id)}">
     <div class="run-head">${runChip(c)}<span class="run-num">${runLabel(c)}</span><span class="run-act">${esc(c.action || '')}</span></div>
-    ${runSubHTML(c)}${runMovesHTML(c)}</div>`;
+    ${runSubHTML(c)}${runMovesHTML(c)}${runMapHTML(c)}</div>`;
 }
 function runNextPageHTML() {
   if (currentPage >= totalPages) return '<div class="run-nextpg">End of script</div>';
@@ -22039,9 +22174,9 @@ function runRender(list) {
     n++;
     const t = runTypeOf(c), done = runView === 'b' && _runDone.has(c.id);
     if (c.id === nextId || runView === 'a') {
-      return `<button type="button" class="run-item${c.id === nextId ? ' run-next' : ' run-open'}" data-cue="${escA(c.id)}">
+      return runMapWrap(c, `<button type="button" class="run-item${c.id === nextId ? ' run-next' : ' run-open'}" data-cue="${escA(c.id)}">
         <div class="run-head"><span class="run-n" style="background:${escA(t.color)}">${n}</span>${c.id === nextId ? '<span class="run-nextlbl">NEXT</span>' : ''}${runChip(c)}<span class="run-num">${runLabel(c)}</span></div>
-        <div class="run-bigact">${esc(c.action || '')}</div>${runSubHTML(c)}${runMovesHTML(c)}</button>`;
+        <div class="run-bigact">${esc(c.action || '')}</div>${runSubHTML(c)}${runMovesHTML(c)}</button>`, c.id === nextId);
     }
     return `<button type="button" class="run-row${done ? ' run-done' : ''}" data-cue="${escA(c.id)}">
       <span class="run-n" style="background:${done ? '#b9b8c6' : escA(t.color)}">${n}</span>
@@ -22082,6 +22217,7 @@ function runToggle(id) {
 }
 function runBarClick(e) {
   const act = e.target.closest('[data-act]');
+  if (act && act.dataset.act === 'map') { runMapOpen(act.dataset.map); return; }
   if (act) { if (act.dataset.act === 'dark') { runToggleDark(); return; } if (act.dataset.act === 'go') runGo(); else if (act.dataset.act === 'back') runBack(); else if (act.dataset.act === 'down') runScrollTo(1); else if (act.dataset.act === 'up') runScrollTo(-1); return; }
   const el = e.target.closest('[data-cue]');
   if (!el) return;
