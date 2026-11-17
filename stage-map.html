@@ -269,7 +269,7 @@ try {
     </div>
     <span class="save" id="save-state" aria-live="polite"></span>
     <div class="pr-faces" id="pr-faces" hidden aria-label="Who else is here"></div>
-    <div id="build-tag" title="Stage map version">Stage map 11.16 v2</div>
+    <div id="build-tag" title="Stage map version">Stage map 11.16 v3</div>
   </header>
   <div class="main">
     <div class="stage" id="stage">
@@ -365,6 +365,18 @@ if (PIC) {
     if (picTake(e.data.step) && moved) fit();
   });
   window.addEventListener('load', () => addEventListener('resize', () => fit()));
+}
+if (PIC === 2) {
+  // The big picture: one tap anywhere asks the page that frames it to put it
+  // away. A slide, a pinch and the zoom buttons are not a tap.
+  let tp = null, many = false;
+  addEventListener('pointerdown', e => { if (tp) { many = true; return; } many = false; tp = { id: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now(), zoom: !!(e.target.closest && e.target.closest('.zoom')) }; }, true);
+  const tapEnd = e => {
+    if (!tp || e.pointerId !== tp.id) return; const t = tp; tp = null;
+    if (e.type !== 'pointerup' || many || t.zoom || Math.hypot(e.clientX - t.x, e.clientY - t.y) > 8 || Date.now() - t.t > 700) return;
+    try { window.parent.postMessage({ mmt: 'stagemap-pic-close' }, location.origin); } catch (x) {}
+  };
+  addEventListener('pointerup', tapEnd, true); addEventListener('pointercancel', tapEnd, true);
 }
 // Under the script page's / cue sheet's own Script | Cue sheet | Stage map
 // switch: that bar stays put, so this page drops its own title and Back.

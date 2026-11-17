@@ -3444,13 +3444,15 @@ body.iv-ov-open .iv-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)
   #scripts-editor.run-dark #run-bar .run-map-pic { border-color: #4c4c5a; }
   #scripts-editor.run-dark #run-bar .run-grp > .run-map { background: #1e1e25; border-color: #4c4c5a; }
   #scripts-editor.run-dark #run-bar .run-grp.next > .run-map { background: #26234a; border-color: #8f86f0; }
-  #rmz { position: fixed; z-index: 4000; background: #fff; color: #18181b; border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,.5); overflow: hidden; font-family: 'DM Sans', system-ui, sans-serif; }
+  #rmz { position: fixed; inset: 0; z-index: 4000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.62); cursor: zoom-out; font-family: 'DM Sans', system-ui, sans-serif; }
+  #rmz .rmz-box { background: #fff; color: #18181b; border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,.5); overflow: hidden; max-width: 100%; }
   #rmz .rmz-h { display: flex; align-items: center; gap: 8px; padding: 7px 8px 7px 14px; min-height: 50px; box-sizing: border-box; }
   #rmz .rmz-h b { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #rmz .rmz-hint { flex: none; font-size: 12.5px; color: #71717a; }
   #rmz .rmz-btn { flex: none; border: 1px solid #d4d4d8; background: #fff; color: #18181b; border-radius: 99px; padding: 0 14px; min-height: 36px; font: 600 13px 'DM Sans', system-ui, sans-serif; cursor: pointer; }
   #rmz .rmz-btn.pri { background: #534AB7; border-color: #534AB7; color: #fff; }
   #rmz .rmz-pic { background: #e9e9ee; } #rmz .rmz-pic iframe { display: block; width: 100%; height: 100%; border: 0; }
-  @media (max-width: 768px) { #rmz .rmz-btn:not(.pri) { display: none; } }
+  @media (max-width: 768px) { #rmz .rmz-btn:not(.pri), #rmz .rmz-hint { display: none; } }
   #run-bar .run-more { display: flex; gap: 8px; padding: 0 14px; }
   #run-bar .run-more:empty { display: none; }
   #run-bar .run-more button { flex: 1; min-height: 36px; border: 1px dashed #c9c7d9; border-radius: 10px; background: #fff; color: #534AB7; font: 600 13px 'DM Sans', sans-serif; cursor: pointer; }
@@ -7759,7 +7761,7 @@ html:not([data-theme="dark"]) .hub-card, html:not([data-theme="dark"]) .home-sho
 
   </div>
 </div>
-<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.16 v2 dev</div>
+<div id="build-tag" style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#999;z-index:999;pointer-events:none;background:white;padding:2px 6px;border-radius:4px;">11.16 v3 dev</div>
 
 <script>
 // ── PERF: single copy of the MMT logo ───────────────────────────────────────
@@ -22958,10 +22960,10 @@ function runBox(a) {
 // it under its moves (Movement: an arrow from where each piece is to where it
 // goes). The picture is stage-map.html in a frame, told to be a
 // picture only (pic=1); it takes the cues and the map from this page
-// (__smFeed), so a frame loads nothing itself. "Bigger" opens it large over
-// the script, where it can be zoomed and slid; "Smaller", Esc, tapping the
-// small one again, or tapping the script puts it back. While it is big it
-// follows the cue that is up next. A phone has no room under the moves, so
+// (__smFeed), so a frame loads nothing itself. "Bigger" opens it over almost
+// the whole screen, where it can be zoomed and slid; one tap anywhere (on the
+// map too: only a slide, a pinch or the zoom buttons don't count), "Smaller"
+// or Esc puts it back. While it is big it follows the cue that is up next. A phone has no room under the moves, so
 // there a Map button opens the big one. The map is read again when a page
 // with a set change comes up and what this page has is over 30 seconds old.
 const _rsm = { sid: '', sm: null, plan: null, at: 0, busy: false, rev: 0, open: '' };
@@ -23014,14 +23016,12 @@ function runMapTell(step) {
 }
 function runMapBtns() { document.querySelectorAll('#run-bar .run-map-btn').forEach(b => { b.textContent = runMapBtnText(b.dataset.map); }); }
 function runMapPlace() {
-  const ov = document.getElementById('rmz'), wrap = document.getElementById('canvas-wrap'); if (!ov || !wrap) return;
-  let r = wrap.getBoundingClientRect();
-  if (r.width < 120 || r.height < 120) r = { left: 0, top: 0, width: innerWidth, height: innerHeight };
-  const pad = seIsNarrow() ? 6 : 16, head = 50, ar = runMapAR();
-  let w = Math.min(r.width - pad * 2, 980), h = w / ar;
-  const maxH = Math.max(140, r.height - pad * 2 - head);
-  if (h > maxH) { h = maxH; w = Math.min(r.width - pad * 2, Math.max(260, h * ar)); }
-  ov.style.left = Math.round(r.left + pad) + 'px'; ov.style.top = Math.round(r.top + pad) + 'px'; ov.style.width = Math.round(w) + 'px';
+  const ov = document.getElementById('rmz'); if (!ov) return;
+  const pad = seIsNarrow() ? 6 : Math.max(10, Math.round(Math.min(innerWidth, innerHeight) * .02)), head = 50, ar = runMapAR();
+  let w = innerWidth - pad * 2, h = w / ar;
+  const maxH = Math.max(140, innerHeight - pad * 2 - head);
+  if (h > maxH) { h = maxH; w = Math.max(260, h * ar); }
+  ov.querySelector('.rmz-box').style.width = Math.round(w) + 'px';
   ov.querySelector('.rmz-pic').style.height = Math.round(h) + 'px';
 }
 function runMapOpen(id) {
@@ -23030,11 +23030,12 @@ function runMapOpen(id) {
   let ov = document.getElementById('rmz');
   if (!ov) {
     ov = document.createElement('div'); ov.id = 'rmz'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', 'Stage map, bigger');
-    ov.innerHTML = `<div class="rmz-h"><b id="rmz-t"></b><button type="button" class="rmz-btn" data-rmz="full">Open stage map</button><button type="button" class="rmz-btn pri" data-rmz="close">Smaller</button></div>
-      <div class="rmz-pic"><iframe title="Stage map, bigger" src="${escA(runMapSrc(id, 2))}"></iframe></div>`;
+    ov.innerHTML = `<div class="rmz-box"><div class="rmz-h"><b id="rmz-t"></b><span class="rmz-hint">Tap anywhere to close</span><button type="button" class="rmz-btn" data-rmz="full">Open stage map</button><button type="button" class="rmz-btn pri" data-rmz="close">Smaller</button></div>
+      <div class="rmz-pic"><iframe title="Stage map, bigger" src="${escA(runMapSrc(id, 2))}"></iframe></div></div>`;
+    // Any tap puts it away; a tap on the map itself comes from the frame (stagemap-pic-close).
     ov.addEventListener('click', e => {
-      const b = e.target.closest('[data-rmz]'); if (!b) return;
-      if (b.dataset.rmz === 'full') { const at = _rsm.open; runMapClose(); openStageMap(at); } else runMapClose();
+      const b = e.target.closest('[data-rmz="full"]'), at = _rsm.open;
+      runMapClose(); if (b) openStageMap(at);
     });
     document.body.appendChild(ov);
   } else runMapTell(id);
@@ -23054,7 +23055,6 @@ function runMapAfter(list) {
   if (!want) runMapClose(); else if (want !== _rsm.open) { _rsm.open = ''; runMapOpen(want); }
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && _rsm.open) { e.stopPropagation(); runMapClose(); } }, true);
-document.addEventListener('pointerdown', e => { if (_rsm.open && e.target.closest && e.target.closest('#canvas-wrap') && !e.target.closest('#rmz')) runMapClose(); }, true);
 window.addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.mmt === 'stagemap-pic-close') runMapClose(); });
 addEventListener('resize', () => { if (_rsm.open) runMapPlace(); });
 setInterval(() => {
