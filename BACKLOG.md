@@ -258,5 +258,6 @@
 - After that: on the dev cue sheet, Export → Cast link → Turn on for a show. Then test the cast page (cast-dev.html) against the real Sheet: does a change arrive within a minute, and how it holds with many phones.
 - Cast link is live (Nov 15): cast.html + Cast link on the live cue sheet. Still to do: publish from the dashboard's script editor too (today only the cue sheet page sends), a way to turn a show's cast link off, the real-world speed test with many phones, 'who's available' (option B, marks per change, no carry-over, can still assign).
 - Also built on dev and waiting for a look: preset check (cue sheet + Run view), Budget tab, PDF contents page, Excel look with maps.
+- Stage map in the script's running views (dev, Nov 16): Movement picture under the moves of a set change in A · Cards and B · Step, Bigger/Smaller, a Map button on a phone. Waiting for a look. Going live needs Movement live too, or the live one shows the stage after the change instead.
 - Parked: dashboard speed-up (instant last-known data, load each tab's data on demand; measured 20 requests at startup).
 - Next up: QR code + MMT logo on the Inventory labels.
