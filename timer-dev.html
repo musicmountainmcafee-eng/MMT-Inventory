@@ -1162,7 +1162,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev39';
+var VERSION='3.4-dev40';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1903,6 +1903,7 @@ function handle(txt,live){
     if(m.message.slice(0,5)==='ping:'){if(fresh)replyPong(m.message.slice(5));return}
     if(m.message.slice(0,5)==='pong:'){if(fresh)notePong(m.message.slice(5));return}
     if(m.message.slice(0,7)==='reload:'){if(fresh)remoteReload(m.message.slice(7),m.time*1000);return}
+    if(m.message.slice(0,5)==='part:'){var whole=partIn(m.message.slice(5));if(whole==null)return;m=Object.assign({},m,{message:whole})}
   }
   // Settings too big for the relay: it carries only the new stamp, and each
   // screen fetches the settings themselves from the backend.
@@ -2046,11 +2047,46 @@ function sent(r){
   if(r.ok){if(relayLimited){relayLimited=false;sig=''}paintPill();return}
   syncState='down';paintPill();
 }
+// The relay takes messages up to 4096 bytes. A tech day (its schedule, log,
+// the undo copy of the last GO, the report) can take the state past that, and
+// the relay then refuses it: the screens never hear about the GO. So a state
+// that's too big goes out in numbered parts, and every screen puts the parts
+// back together before using it. Small states go as one message, as always.
+var PART_MAX=3300;
+function utf8Len(t){try{return new TextEncoder().encode(t).length}catch(e){return unescape(encodeURIComponent(t)).length}}
+function splitBytes(t,max){
+  var out=[],cur='',i=0;
+  while(i<t.length){
+    var e=Math.min(t.length,i+200),c=t.charCodeAt(e-1);if(c>=0xD800&&c<=0xDBFF&&e<t.length)e++;   // never split an emoji in two
+    var piece=t.slice(i,e);
+    if(cur&&utf8Len(cur+piece)>max){out.push(cur);cur=piece}else cur+=piece;
+    i=e;
+  }
+  if(cur)out.push(cur);return out;
+}
 function publish(){
   if(typeof fetch==='undefined')return;
-  fetch(topicUrl(),{method:'POST',body:JSON.stringify(S)})
-    .then(sent)
-    .catch(function(){syncState='down';paintPill()});
+  var body=JSON.stringify(S);
+  if(utf8Len(body)<=3800){
+    fetch(topicUrl(),{method:'POST',body:body}).then(sent).catch(function(){syncState='down';paintPill()});
+    return;
+  }
+  var parts=splitBytes(body,PART_MAX),id=DEVID+'.'+(S.n||0)+'.'+Date.now().toString(36);
+  parts.forEach(function(pt,i){
+    fetch(topicUrl(),{method:'POST',body:'part:'+id+'|'+i+'|'+parts.length+'|'+pt}).then(sent).catch(function(){syncState='down';paintPill()});
+  });
+}
+var PARTS={};
+function partIn(t){
+  var a=t.indexOf('|'),b=t.indexOf('|',a+1),c=t.indexOf('|',b+1);if(a<0||b<0||c<0)return null;
+  var id=t.slice(0,a),i=+t.slice(a+1,b),n=+t.slice(b+1,c),data=t.slice(c+1);
+  if(!(n>0&&i>=0&&i<n))return null;
+  var now=Date.now();for(var k in PARTS)if(now-PARTS[k].at>3*6e4)delete PARTS[k];   // forget half-sent states
+  var P=PARTS[id]||(PARTS[id]={n:n,got:{},have:0,at:now});
+  if(P.got[i]==null){P.got[i]=data;P.have++}
+  if(P.have<P.n)return null;
+  var whole='';for(var j=0;j<P.n;j++)whole+=P.got[j];
+  delete PARTS[id];return whole;
 }
 document.addEventListener('visibilitychange',function(){
   if(document.visibilityState==='visible'){if(!linkUp())connect();else catchUp();wake()}
