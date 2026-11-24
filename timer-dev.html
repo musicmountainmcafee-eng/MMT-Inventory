@@ -1162,7 +1162,7 @@ function skewSample(v){
     if(typeof paintClockNote==='function')paintClockNote();
   }
 }
-var VERSION='3.4-dev40';
+var VERSION='3.4-dev41';
 var SYNC_HOST='https://ntfy.envs.net/';
 // Settings' permanent home: the same Apps Script backend the MMT Dashboard
 // already uses, via its generic get/save-KV actions. The ntfy relay above is
@@ -1449,7 +1449,13 @@ function applyCommand(text,id,at){
 }
 function receive(s){
   if(!s||typeof s.n!=='number')return;
-  if(s.n<S.n||(s.n===S.n&&(s.t<=S.t)))return;
+  // Normally the change counter decides which state is newer. But a screen can
+  // be left holding a higher counter than the controllers (a controller's
+  // storage was cleared, a different phone took over), and then it would ignore
+  // every change from then on. So a state stamped clearly later than the one
+  // this screen holds wins too, whatever its counter.
+  var later=s.t&&S.t&&s.t>S.t+15000;
+  if(!later&&(s.n<S.n||(s.n===S.n&&(s.t<=S.t))))return;
   S=Object.assign({},BLANK,s);
   sset('mmt-timer-shared-dev',JSON.stringify(S));
   draw();
